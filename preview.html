@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offerdy — Real Deals. Actually Verified.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --green: #22C55E;
+      --green-dark: #16A34A;
+      --green-50: #F0FDF4;
+      --green-100: #DCFCE7;
+      --navy: #0F1929;
+      --navy-2: #162236;
+      --bg: #F6F8FB;
+      --white: #FFFFFF;
+      --border: #E4EAF2;
+      --text: #0F1929;
+      --muted: #6B7694;
+      --light: #A0AABF;
+      --sale: #F43F5E;
+      --font-d: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-b: 'Inter', system-ui, sans-serif;
+      --shadow-sm: 0 1px 3px rgba(15,25,41,.06),0 1px 2px rgba(15,25,41,.04);
+      --shadow: 0 4px 16px rgba(15,25,41,.08),0 1px 3px rgba(15,25,41,.05);
+      --shadow-lg: 0 12px 40px rgba(15,25,41,.12),0 4px 8px rgba(15,25,41,.06);
+      --r: 14px;
+      --r-sm: 8px;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:var(--font-b);background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+    a{text-decoration:none;color:inherit}
+    button{cursor:pointer;font-family:inherit;border:none}
+
+    /* ── HEADER ── */
+    .header{position:sticky;top:0;z-index:100;background:var(--white);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm)}
+    .header-inner{max-width:1280px;margin:0 auto;padding:0 24px;height:68px;display:flex;align-items:center;gap:20px}
+    .logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .logo-text{font-family:var(--font-d);font-size:22px;font-weight:800;letter-spacing:-.5px}
+    .logo-text .o{color:var(--navy)}.logo-text .dy{color:var(--green)}
+    .search-wrapper{position:relative;flex:1;max-width:480px}
+    .search-bar{position:relative}
+    .search-bar input{width:100%;height:42px;padding:0 44px 0 16px;border:1.5px solid var(--border);border-radius:99px;font-size:14px;font-family:var(--font-b);color:var(--text);background:var(--bg);outline:none;transition:border-color .2s,box-shadow .2s}
+    .search-bar input::placeholder{color:var(--light)}
+    .search-bar input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.12);background:var(--white)}
+    .search-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:32px;height:32px;background:var(--green);border-radius:99px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+    .search-btn:hover{background:var(--green-dark)}
+
+    /* ── SMART SEARCH DROPDOWN ── */
+    .sd{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);box-shadow:0 24px 64px rgba(15,25,41,.13),0 4px 12px rgba(15,25,41,.07);z-index:300;display:none;max-height:460px;overflow-y:auto;scrollbar-width:thin}
+    .sd.open{display:block}
+    .sd-pop{padding:14px 16px 10px}
+    .sd-pop-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--light);margin-bottom:10px}
+    .sd-chips{display:flex;flex-wrap:wrap;gap:6px}
+    .sd-chip{font-size:12px;font-weight:500;padding:5px 12px;border-radius:99px;background:var(--bg);border:1.5px solid var(--border);color:var(--muted);cursor:pointer;transition:border-color .15s,color .15s,background .15s;white-space:nowrap}
+    .sd-chip:hover{border-color:var(--green);color:var(--green-dark);background:var(--green-50)}
+    .sd-sec{border-top:1px solid var(--border);padding:6px 0}
+    .sd-sec:first-child{border-top:none}
+    .sd-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--light);padding:6px 16px 4px}
+    .sd-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background .12s}
+    .sd-item:hover,.sd-item.active{background:var(--bg)}
+    .sd-ico{width:32px;height:32px;border-radius:var(--r-sm);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+    .sd-item:hover .sd-ico{background:var(--green-50);border-color:var(--green-100)}
+    .sd-info{flex:1;min-width:0}
+    .sd-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sd-name mark{background:rgba(34,197,94,.2);color:var(--green-dark);border-radius:2px;font-weight:700;font-style:normal;padding:0 1px}
+    .sd-sub{font-size:11px;color:var(--muted);margin-top:1px}
+    .sd-badge{flex-shrink:0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.03em}
+    .b-store{background:rgba(99,102,241,.08);color:#6366F1}
+    .b-deal{background:rgba(244,63,94,.08);color:var(--sale)}
+    .b-cat{background:var(--green-100);color:var(--green-dark)}
+    .b-rev{background:rgba(251,191,36,.1);color:#B45309}
+    .sd-footer{border-top:1px solid var(--border);padding:10px 16px;text-align:center}
+    .sd-footer a{font-size:12px;font-weight:600;color:var(--green-dark)}
+    .sd-footer a:hover{text-decoration:underline}
+    .sd-empty{padding:28px 16px;text-align:center;color:var(--muted);font-size:13px}
+    /* Hero search wrapper */
+    .hero-search-wrapper{max-width:560px;margin:0 auto 40px;position:relative}
+    .hero-search-wrapper .hero-search{margin:0}
+    .hero-sd{text-align:left}
+    .nav{display:flex;align-items:center;gap:4px;margin-left:auto}
+    .nav a{font-size:14px;font-weight:500;color:var(--muted);padding:8px 13px;border-radius:var(--r-sm);transition:color .15s,background .15s}
+    .nav a:hover{color:var(--text);background:var(--bg)}
+    .nav a.active{color:var(--green-dark);background:var(--green-50)}
+    .btn-submit{margin-left:6px;height:38px;padding:0 18px;background:var(--green);color:white;font-size:13px;font-weight:700;border-radius:99px;display:flex;align-items:center;gap:6px;transition:background .2s,transform .15s}
+    .btn-submit:hover{background:var(--green-dark);transform:translateY(-1px)}
+
+    /* ── HERO ── */
+    .hero{background:var(--navy);background-image:radial-gradient(ellipse 60% 50% at 50% -20%,rgba(34,197,94,.22) 0%,transparent 60%),radial-gradient(ellipse 30% 40% at 80% 80%,rgba(34,197,94,.08) 0%,transparent 50%);padding:60px 24px 44px;text-align:center;position:relative;overflow:hidden}
+    .hero::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.035) 1px,transparent 1px);background-size:32px 32px;pointer-events:none}
+    .hero-eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--green);background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);padding:5px 14px;border-radius:99px;margin-bottom:24px}
+    .hero-eyebrow::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+    .hero h1{font-family:var(--font-d);font-size:clamp(36px,6vw,68px);font-weight:900;letter-spacing:-2.5px;line-height:1.0;color:var(--white);margin-bottom:16px;text-wrap:balance}
+    .hero h1 .accent{color:var(--green);display:block}
+    .hero-sub{font-size:17px;color:rgba(255,255,255,.55);max-width:52ch;margin:0 auto 36px;line-height:1.65}
+    .hero-search{max-width:560px;margin:0 auto 40px;display:flex;background:white;border-radius:14px;padding:6px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+    .hero-search input{flex:1;height:48px;padding:0 16px;border:none;outline:none;font-size:15px;font-family:var(--font-b);color:var(--text);background:transparent}
+    .hero-search input::placeholder{color:var(--light)}
+    .hero-search button{height:48px;padding:0 24px;background:var(--green);color:white;font-size:15px;font-weight:700;font-family:var(--font-d);border-radius:10px;transition:background .2s;white-space:nowrap}
+    .hero-search button:hover{background:var(--green-dark)}
+
+    /* ── LAYOUT ── */
+    .section{max-width:1280px;margin:0 auto;padding:52px 24px}
+    .section-header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:28px}
+    .section-title{font-family:var(--font-d);font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--text)}
+    .section-sub{font-size:13px;color:var(--muted);margin-top:3px}
+    .see-all{font-size:13px;font-weight:600;color:var(--green-dark);display:flex;align-items:center;gap:4px;transition:gap .15s;flex-shrink:0}
+    .see-all:hover{gap:8px}
+
+    /* ── STORES AUTO-SCROLL ── */
+    .stores-outer{position:relative;overflow:hidden;padding:4px 0 8px}
+    .stores-outer::before,.stores-outer::after{content:'';position:absolute;top:0;bottom:0;width:100px;z-index:2;pointer-events:none}
+    .stores-outer::before{left:0;background:linear-gradient(to right,var(--bg) 0%,transparent 100%)}
+    .stores-outer::after{right:0;background:linear-gradient(to left,var(--bg) 0%,transparent 100%)}
+    .stores-track{display:flex;gap:12px;width:max-content;will-change:transform;animation:slide-left 32s linear infinite}
+    .stores-outer:hover .stores-track{animation-play-state:paused}
+    @keyframes slide-left{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    .store-card{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 20px;background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);min-width:100px;cursor:pointer;transition:border-color .2s,box-shadow .2s,transform .2s}
+    .store-card:hover{border-color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.08),var(--shadow);transform:translateY(-2px)}
+    .sa{width:48px;height:48px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:15px;font-weight:800;color:white}
+    .store-name{font-size:12px;font-weight:600;color:var(--text);text-align:center;white-space:nowrap}
+    .store-count{font-size:11px;color:var(--muted)}
+    .sa-amz{background:linear-gradient(135deg,#FF9900,#FF6600)}
+    .sa-apl{background:linear-gradient(135deg,#555,#222)}
+    .sa-nke{background:linear-gradient(135deg,#111,#333)}
+    .sa-ssn{background:linear-gradient(135deg,#1428A0,#0a1e7a)}
+    .sa-adi{background:linear-gradient(135deg,#000,#333)}
+    .sa-bb{background:linear-gradient(135deg,#003087,#0062cc)}
+    .sa-wmt{background:linear-gradient(135deg,#0071CE,#004c8c)}
+    .sa-shp{background:linear-gradient(135deg,#F04F23,#d4340e)}
+    .sa-lzd{background:linear-gradient(135deg,#F57226,#d45a0f)}
+    .sa-aso{background:linear-gradient(135deg,#2D2D2D,#111)}
+    .sa-bkg{background:linear-gradient(135deg,#003580,#001f4b)}
+    .sa-ali{background:linear-gradient(135deg,#e43225,#c01d12)}
+
+    /* ── DEALS ── */
+    .deals-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+    .deal-card{background:var(--white);border-radius:var(--r);border:1.5px solid var(--border);overflow:hidden;transition:box-shadow .25s,transform .25s,border-color .25s;position:relative}
+    .deal-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-4px);border-color:transparent}
+    .disc-badge{position:absolute;top:12px;left:12px;background:var(--sale);color:white;border-radius:var(--r-sm);padding:4px 10px;z-index:2;line-height:1}
+    .disc-pct{font-family:var(--font-d);font-size:16px;font-weight:900;display:block;letter-spacing:-.5px}
+    .disc-off{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+    .ver-badge{position:absolute;top:12px;right:12px;background:var(--green-50);border:1px solid var(--green-100);color:var(--green-dark);font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;display:flex;align-items:center;gap:3px;z-index:2}
+    .deal-img{height:160px;display:flex;align-items:center;justify-content:center;font-size:60px;position:relative}
+    .di-tech{background:linear-gradient(135deg,#EEF2FF,#E0E7FF)}
+    .di-home{background:linear-gradient(135deg,#FFF7ED,#FEF3C7)}
+    .di-fashion{background:linear-gradient(135deg,#FDF2F8,#FCE7F3)}
+    .di-beauty{background:linear-gradient(135deg,#FFF1F2,#FFE4E6)}
+    .deal-body{padding:14px 16px 16px}
+    .deal-store{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+    .deal-title{font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--text);line-height:1.35;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .deal-price-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .price-sale{font-family:var(--font-d);font-size:20px;font-weight:800;color:var(--sale);letter-spacing:-.5px}
+    .price-orig{font-size:13px;color:var(--light);text-decoration:line-through}
+    .deal-cta{width:100%;height:40px;background:var(--green);color:white;font-size:13px;font-weight:700;font-family:var(--font-d);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;gap:6px;transition:background .2s;border:none;cursor:pointer}
+    .deal-cta:hover{background:var(--green-dark)}
+
+    /* ── CATEGORIES (redesigned) ── */
+    .cat-section{background:var(--white);padding:52px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+    .cat-inner{max-width:1280px;margin:0 auto;padding:0 24px}
+    .cat-section .section-title{color:var(--text)}
+    .cat-section .section-sub{color:var(--muted)}
+    .cat-section .see-all{color:var(--green-dark)}
+    .cat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+    .cat-card{position:relative;border-radius:var(--r);overflow:hidden;cursor:pointer;padding:22px 16px 42px;display:flex;flex-direction:column;align-items:flex-start;border:1.5px solid transparent;transition:transform .22s,box-shadow .22s,border-color .22s}
+    .cat-card:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(15,25,41,.1);border-color:rgba(0,0,0,.07)}
+    .cat-emoji{font-size:34px;line-height:1;margin-bottom:14px;display:block}
+    .cat-name{font-family:var(--font-d);font-size:13px;font-weight:800;color:var(--text);line-height:1.25;letter-spacing:-.1px}
+    .cat-count{font-size:11px;color:var(--muted);font-weight:500;margin-top:4px}
+    .cat-arr{position:absolute;bottom:14px;right:14px;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.65);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);transition:background .2s,color .2s,transform .2s;backdrop-filter:blur(6px)}
+    .cat-card:hover .cat-arr{background:var(--green);color:white;transform:translateX(2px)}
+    /* gradient bg per category */
+    .ci-tech{background:linear-gradient(145deg,#EEF2FF 0%,#C7D2FE 100%)}
+    .ci-fashion{background:linear-gradient(145deg,#FDF4FF 0%,#F0ABFC 100%)}
+    .ci-beauty{background:linear-gradient(145deg,#FFF1F2 0%,#FECDD3 100%)}
+    .ci-home{background:linear-gradient(145deg,#FFFBEB 0%,#FCD34D 100%)}
+    .ci-food{background:linear-gradient(145deg,#F0FDF4 0%,#86EFAC 100%)}
+    .ci-travel{background:linear-gradient(145deg,#F0F9FF 0%,#7DD3FC 100%)}
+    .ci-ai{background:linear-gradient(145deg,#FAF5FF 0%,#C4B5FD 100%)}
+    .ci-sports{background:linear-gradient(145deg,#FFF7ED 0%,#FCA5A5 100%)}
+    .ci-kids{background:linear-gradient(145deg,#ECFDF5 0%,#6EE7B7 100%)}
+    .ci-all{background:var(--bg);border:1.5px dashed var(--border)!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 16px}
+    .ci-all .cat-emoji{font-size:28px;margin-bottom:10px}
+    .ci-all .cat-name{font-size:13px;font-weight:700;color:var(--green-dark);text-align:center}
+    .ci-all .cat-count{color:var(--muted);text-align:center;font-size:11px}
+    .ci-all:hover{border-color:var(--green)!important;background:var(--green-50)!important;transform:translateY(-5px);box-shadow:0 16px 40px rgba(15,25,41,.08)}
+    .ci-all:hover .cat-name{color:var(--green-dark)}
+
+    /* ── REVIEWS — 4-col grid ── */
+    .reviews-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+    .review-card{background:var(--white);border-radius:var(--r);border:1.5px solid var(--border);overflow:hidden;transition:box-shadow .25s,transform .25s,border-color .25s}
+    .review-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px);border-color:transparent}
+    .review-img{height:200px;display:flex;align-items:center;justify-content:center;font-size:62px;position:relative}
+    .review-tag{position:absolute;bottom:10px;left:12px;background:var(--navy);color:white;font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase}
+    .review-body{padding:16px 18px 18px}
+    .review-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .stars{color:#FBBF24;font-size:12px;letter-spacing:1px}
+    .review-date{font-size:11px;color:var(--light)}
+    .review-title{font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--text);line-height:1.35;margin-bottom:7px;letter-spacing:-.1px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .review-excerpt{font-size:12px;color:var(--muted);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:14px}
+    .review-link{font-size:12px;font-weight:700;color:var(--green-dark);display:inline-flex;align-items:center;gap:4px;transition:gap .15s}
+    .review-link:hover{gap:8px}
+
+    /* ── FOOTER ── */
+    footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding:48px 24px 32px}
+    .footer-inner{max-width:1280px;margin:0 auto}
+    .footer-top{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:40px;padding-bottom:36px;border-bottom:1px solid rgba(255,255,255,.07);margin-bottom:24px}
+    .footer-brand p{font-size:13px;color:rgba(255,255,255,.38);line-height:1.65;margin-top:12px;max-width:28ch}
+    .footer-col h4{font-family:var(--font-d);font-size:11px;font-weight:700;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+    .footer-col ul{list-style:none}
+    .footer-col ul li{margin-bottom:9px}
+    .footer-col ul li a{font-size:13px;color:rgba(255,255,255,.5);transition:color .15s}
+    .footer-col ul li a:hover{color:var(--green)}
+    .footer-bottom{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+    .footer-copy{font-size:12px;color:rgba(255,255,255,.22)}
+    .footer-social{display:flex;gap:8px}
+    .soc{width:34px;height:34px;border-radius:var(--r-sm);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.45);font-size:13px;font-weight:700;transition:background .2s,color .2s,border-color .2s}
+    .soc:hover{background:var(--green);color:white;border-color:transparent}
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:1024px){
+      .deals-grid{grid-template-columns:repeat(3,1fr)}
+      .reviews-grid{grid-template-columns:repeat(2,1fr)}
+      .cat-grid{grid-template-columns:repeat(5,1fr)}
+      .footer-top{grid-template-columns:1fr 1fr;gap:28px}
+    }
+    @media(max-width:768px){
+      .nav{display:none}
+      .deals-grid{grid-template-columns:repeat(2,1fr)}
+      .reviews-grid{grid-template-columns:repeat(2,1fr)}
+      .cat-grid{grid-template-columns:repeat(3,1fr)}
+      .hero h1{letter-spacing:-1.5px}
+      .footer-top{grid-template-columns:1fr 1fr}
+    }
+    @media(max-width:520px){
+      .cat-grid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:480px){
+      .deals-grid{grid-template-columns:1fr}
+      .reviews-grid{grid-template-columns:1fr}
+      .hero-stats{gap:24px}
+    }
+    @media(prefers-reduced-motion:reduce){*:not(.stores-track),*:not(.stores-track)::before,*:not(.stores-track)::after{animation:none!important;transition-duration:.01ms!important}}
+
+    /* ── TRENDING CHIPS (hero) ── */
+    .hero-trending{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:28px;padding-top:24px;border-top:1px solid rgba(255,255,255,.08)}
+    .trending-label{font-size:11px;font-weight:700;color:rgba(255,255,255,.38);letter-spacing:.06em;text-transform:uppercase;flex-shrink:0;margin-right:4px}
+    .trending-chip{font-size:12px;font-weight:600;padding:6px 14px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.65);transition:background .2s,color .2s,border-color .2s;cursor:pointer;white-space:nowrap}
+    .trending-chip:hover{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.35);color:var(--green)}
+
+    /* ── EXPIRING SOON ── */
+    .expiring-band{background:var(--white);border-bottom:1px solid var(--border)}
+    .expiring-inner{max-width:1280px;margin:0 auto;padding:18px 24px}
+    .expiring-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .exp-title{font-family:var(--font-d);font-size:15px;font-weight:800;color:var(--text)}
+    .exp-urgency{font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA;letter-spacing:.03em}
+    .expiring-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+    .expiring-scroll::-webkit-scrollbar{display:none}
+    .exp-card{flex-shrink:0;display:flex;align-items:center;gap:11px;padding:11px 14px;background:var(--bg);border:1.5px solid #FED7AA;border-radius:var(--r);min-width:210px;cursor:pointer;transition:border-color .2s,box-shadow .2s}
+    .exp-card:hover{border-color:#FB923C;box-shadow:0 0 0 3px rgba(251,146,60,.1)}
+    .exp-icon{font-size:22px;flex-shrink:0;line-height:1}
+    .exp-info{flex:1;min-width:0}
+    .exp-name{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .exp-price{font-size:11px;color:var(--sale);font-weight:700;margin-top:2px}
+    .exp-timer{text-align:right;flex-shrink:0}
+    .exp-time{font-family:var(--font-d);font-size:15px;font-weight:900;color:#C2410C;letter-spacing:-.5px;line-height:1}
+    .exp-tlbl{font-size:9px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+
+    /* ── HOW IT WORKS ── */
+    .how-section{background:var(--navy);padding:60px 0;position:relative}
+    .how-section::before{content:'';position:absolute;inset:0;background-image:radial-gradient(rgba(34,197,94,.055) 1px,transparent 1px);background-size:24px 24px;pointer-events:none}
+    .how-inner{max-width:1280px;margin:0 auto;padding:0 24px;position:relative}
+    .how-header{text-align:center;margin-bottom:44px}
+    .how-eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);margin-bottom:12px}
+    .how-header h2{font-family:var(--font-d);font-size:clamp(22px,3.5vw,30px);font-weight:900;color:var(--white);letter-spacing:-.5px}
+    .how-header p{font-size:14px;color:rgba(255,255,255,.38);margin-top:10px;max-width:44ch;margin-left:auto;margin-right:auto;line-height:1.7}
+    .how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.07);border-radius:var(--r);overflow:hidden}
+    .how-step{background:var(--navy-2);padding:40px 32px;text-align:center;transition:background .25s}
+    .how-step:hover{background:#1d2e48}
+    .how-num{width:38px;height:38px;border-radius:50%;background:rgba(34,197,94,.1);border:1.5px solid rgba(34,197,94,.22);display:flex;align-items:center;justify-content:center;font-family:var(--font-d);font-size:14px;font-weight:800;color:var(--green);margin:0 auto 18px}
+    .how-step-icon{font-size:38px;margin-bottom:14px;line-height:1;display:block}
+    .how-step h3{font-family:var(--font-d);font-size:18px;font-weight:800;color:var(--white);margin-bottom:10px;letter-spacing:-.3px}
+    .how-step p{font-size:13px;color:rgba(255,255,255,.4);line-height:1.7;max-width:22ch;margin:0 auto}
+    .how-tag{display:inline-flex;align-items:center;gap:5px;margin-top:18px;font-size:11px;font-weight:700;color:var(--green);background:rgba(34,197,94,.1);padding:4px 12px;border-radius:99px;border:1px solid rgba(34,197,94,.18)}
+
+    /* ── REVIEWS SECTION (subtle bg) ── */
+    .reviews-section{background:var(--bg);padding:52px 0}
+    .reviews-section-inner{max-width:1280px;margin:0 auto;padding:0 24px}
+
+    /* ── MOBILE HAMBURGER ── */
+    .hamburger{display:none;flex-direction:column;justify-content:center;gap:5px;width:36px;height:36px;cursor:pointer;padding:6px 5px;border:1.5px solid var(--border);border-radius:var(--r-sm);background:transparent;margin-left:auto;flex-shrink:0}
+    .hamburger span{display:block;width:100%;height:2px;background:var(--muted);border-radius:2px;transition:transform .22s,opacity .18s}
+    .hamburger.open span:nth-child(1){transform:translateY(7px) rotate(45deg);background:var(--text)}
+    .hamburger.open span:nth-child(2){opacity:0}
+    .hamburger.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);background:var(--text)}
+    .mobile-nav{display:none;background:var(--white);border-bottom:1px solid var(--border);box-shadow:0 8px 24px rgba(15,25,41,.08);position:sticky;top:68px;z-index:99}
+    .mobile-nav.open{display:block}
+    .mobile-nav-inner{max-width:1280px;margin:0 auto;padding:8px 24px 14px;display:flex;flex-direction:column;gap:2px}
+    .mobile-nav a{display:block;padding:10px 12px;font-size:15px;font-weight:500;color:var(--text);border-radius:var(--r-sm);transition:background .15s,color .15s}
+    .mobile-nav a:hover,.mobile-nav a.active{background:var(--green-50);color:var(--green-dark)}
+
+    @media(max-width:1024px){.how-grid{grid-template-columns:1fr 1fr}}
+    @media(max-width:768px){
+      .hamburger{display:flex}
+      .how-grid{grid-template-columns:1fr}
+      .hero-trending{gap:6px}
+    }
+    @media(max-width:480px){.exp-card{min-width:185px}}
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <a href="/" class="logo">
+      <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
+        <rect width="36" height="36" rx="8" fill="#22C55E"/>
+        <path d="M8 12C8 10.343 9.343 9 11 9H19.5L28 17.5V27C28 28.657 26.657 30 25 30H11C9.343 30 8 28.657 8 27V12Z" fill="white" fill-opacity="0.18" stroke="white" stroke-width="1.5"/>
+        <circle cx="13.5" cy="14.5" r="2" fill="white"/>
+        <path d="M19.5 9V17.5H28" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M12 21.5H17M12 24.5H21" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span class="logo-text"><span class="o">Offer</span><span class="dy">dy</span></span>
+    </a>
+    <div class="search-wrapper" id="hw">
+      <div class="search-bar">
+        <input type="text" id="hi" placeholder="Search deals, stores, products..." autocomplete="off">
+        <button class="search-btn" aria-label="Search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+      </div>
+      <div class="sd" id="hd"></div>
+    </div>
+    <nav class="nav">
+      <a href="#" class="active">Deals</a>
+      <a href="#">Stores</a>
+      <a href="#">Reviews</a>
+      <a href="#">Blog</a>
+    </nav>
+    <button class="hamburger" id="ham" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+<nav class="mobile-nav" id="mob-nav">
+  <div class="mobile-nav-inner">
+    <a href="#" class="active">Deals</a>
+    <a href="#">Stores</a>
+    <a href="#">Reviews</a>
+    <a href="#">Blog</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <h1>
+    The best deals online.
+    <span class="accent">Actually verified.</span>
+  </h1>
+  <p class="hero-sub">We test every coupon code before it goes live. No expired codes, no checkout disappointments — ever.</p>
+  <div class="hero-search-wrapper" id="herw">
+    <div class="hero-search">
+      <input type="text" id="heri" placeholder="Search iPhone, Nike, Amazon Prime..." autocomplete="off">
+      <button>Find Deals →</button>
+    </div>
+    <div class="sd hero-sd" id="herd"></div>
+  </div>
+</section>
+
+<!-- STORES -->
+<div class="section" style="padding-bottom:0">
+  <div class="section-header">
+    <div><div class="section-title">Featured Stores</div><div class="section-sub">Active deals from the world's top brands</div></div>
+    <a href="#" class="see-all">All stores →</a>
+  </div>
+  <div class="stores-outer">
+    <div class="stores-track" aria-hidden="false">
+      <!-- set 1 -->
+      <div class="store-card"><div class="sa sa-amz">Am</div><div class="store-name">Amazon</div><div class="store-count">1,240 deals</div></div>
+      <div class="store-card"><div class="sa sa-apl">Ap</div><div class="store-name">Apple</div><div class="store-count">86 deals</div></div>
+      <div class="store-card"><div class="sa sa-nke">Nk</div><div class="store-name">Nike</div><div class="store-count">342 deals</div></div>
+      <div class="store-card"><div class="sa sa-ssn">Ss</div><div class="store-name">Samsung</div><div class="store-count">215 deals</div></div>
+      <div class="store-card"><div class="sa sa-adi">Ad</div><div class="store-name">Adidas</div><div class="store-count">278 deals</div></div>
+      <div class="store-card"><div class="sa sa-bb">BB</div><div class="store-name">Best Buy</div><div class="store-count">567 deals</div></div>
+      <div class="store-card"><div class="sa sa-shp">Sp</div><div class="store-name">Shopee</div><div class="store-count">4,320 deals</div></div>
+      <div class="store-card"><div class="sa sa-lzd">Lz</div><div class="store-name">Lazada</div><div class="store-count">2,180 deals</div></div>
+      <div class="store-card"><div class="sa sa-wmt">Wm</div><div class="store-name">Walmart</div><div class="store-count">892 deals</div></div>
+      <div class="store-card"><div class="sa sa-aso">AS</div><div class="store-name">ASOS</div><div class="store-count">190 deals</div></div>
+      <div class="store-card"><div class="sa sa-bkg">Bk</div><div class="store-name">Booking</div><div class="store-count">430 deals</div></div>
+      <div class="store-card"><div class="sa sa-ali">Ae</div><div class="store-name">AliExpress</div><div class="store-count">9,800 deals</div></div>
+      <!-- set 2 — duplicate for seamless loop -->
+      <div class="store-card" aria-hidden="true"><div class="sa sa-amz">Am</div><div class="store-name">Amazon</div><div class="store-count">1,240 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-apl">Ap</div><div class="store-name">Apple</div><div class="store-count">86 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-nke">Nk</div><div class="store-name">Nike</div><div class="store-count">342 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-ssn">Ss</div><div class="store-name">Samsung</div><div class="store-count">215 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-adi">Ad</div><div class="store-name">Adidas</div><div class="store-count">278 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-bb">BB</div><div class="store-name">Best Buy</div><div class="store-count">567 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-shp">Sp</div><div class="store-name">Shopee</div><div class="store-count">4,320 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-lzd">Lz</div><div class="store-name">Lazada</div><div class="store-count">2,180 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-wmt">Wm</div><div class="store-name">Walmart</div><div class="store-count">892 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-aso">AS</div><div class="store-name">ASOS</div><div class="store-count">190 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-bkg">Bk</div><div class="store-name">Booking</div><div class="store-count">430 deals</div></div>
+      <div class="store-card" aria-hidden="true"><div class="sa sa-ali">Ae</div><div class="store-name">AliExpress</div><div class="store-count">9,800 deals</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- EXPIRING SOON -->
+<div class="expiring-band">
+  <div class="expiring-inner">
+    <div class="expiring-hdr">
+      <div class="exp-title">⏰ Expiring Soon</div>
+      <div class="exp-urgency">Limited time left</div>
+    </div>
+    <div class="expiring-scroll" id="exp-scroll">
+      <div class="exp-card"><div class="exp-icon">🎧</div><div class="exp-info"><div class="exp-name">AirPods Pro 2nd Gen</div><div class="exp-price">$189 · was $249</div></div><div class="exp-timer"><div class="exp-time" data-end="2h34m">2:34:00</div><div class="exp-tlbl">left</div></div></div>
+      <div class="exp-card"><div class="exp-icon">📺</div><div class="exp-info"><div class="exp-name">LG OLED 55" 4K TV</div><div class="exp-price">$999 · was $1,299</div></div><div class="exp-timer"><div class="exp-time">4:12:00</div><div class="exp-tlbl">left</div></div></div>
+      <div class="exp-card"><div class="exp-icon">👟</div><div class="exp-info"><div class="exp-name">Nike Air Max 90 Sale</div><div class="exp-price">$84 · was $120</div></div><div class="exp-timer"><div class="exp-time">0:58:00</div><div class="exp-tlbl">left</div></div></div>
+      <div class="exp-card"><div class="exp-icon">💻</div><div class="exp-info"><div class="exp-name">MacBook Air M3 13"</div><div class="exp-price">$949 · was $1,099</div></div><div class="exp-timer"><div class="exp-time">5:45:00</div><div class="exp-tlbl">left</div></div></div>
+      <div class="exp-card"><div class="exp-icon">🍲</div><div class="exp-info"><div class="exp-name">Instant Pot Duo 8qt</div><div class="exp-price">$65 · was $99</div></div><div class="exp-timer"><div class="exp-time">1:20:00</div><div class="exp-tlbl">left</div></div></div>
+      <div class="exp-card"><div class="exp-icon">📦</div><div class="exp-info"><div class="exp-name">Amazon Prime 1-Year</div><div class="exp-price">$99 · was $139</div></div><div class="exp-timer"><div class="exp-time">3:07:00</div><div class="exp-tlbl">left</div></div></div>
+      <div class="exp-card"><div class="exp-icon">⌚</div><div class="exp-info"><div class="exp-name">Apple Watch Series 10</div><div class="exp-price">$337 · was $399</div></div><div class="exp-timer"><div class="exp-time">6:00:00</div><div class="exp-tlbl">left</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- DEALS -->
+<div class="section">
+  <div class="section-header">
+    <div><div class="section-title">⚡ Today's Best Deals</div><div class="section-sub">Updated 8:30 AM — 100% verified</div></div>
+    <a href="#" class="see-all">View all →</a>
+  </div>
+  <div class="deals-grid">
+
+    <div class="deal-card">
+      <div class="disc-badge"><span class="disc-pct">24%</span><span class="disc-off">OFF</span></div>
+      <div class="ver-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="#16A34A"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Verified</div>
+      <div class="deal-img di-tech">🎧</div>
+      <div class="deal-body">
+        <div class="deal-store">Apple · Best Buy</div>
+        <div class="deal-title">AirPods Pro 2nd Gen with USB-C Charging Case</div>
+        <div class="deal-price-row"><span class="price-sale">$189</span><span class="price-orig">$249</span></div>
+        <button class="deal-cta">Get Deal →</button>
+      </div>
+    </div>
+
+    <div class="deal-card">
+      <div class="disc-badge"><span class="disc-pct">23%</span><span class="disc-off">OFF</span></div>
+      <div class="ver-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="#16A34A"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Verified</div>
+      <div class="deal-img di-tech">📺</div>
+      <div class="deal-body">
+        <div class="deal-store">LG · Amazon</div>
+        <div class="deal-title">LG 55" OLED C3 4K Smart TV — 2025 Model</div>
+        <div class="deal-price-row"><span class="price-sale">$999</span><span class="price-orig">$1,299</span></div>
+        <button class="deal-cta">Get Deal →</button>
+      </div>
+    </div>
+
+    <div class="deal-card">
+      <div class="disc-badge"><span class="disc-pct">20%</span><span class="disc-off">OFF</span></div>
+      <div class="ver-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="#16A34A"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Verified</div>
+      <div class="deal-img di-home">🧹</div>
+      <div class="deal-body">
+        <div class="deal-store">Dyson · dyson.com</div>
+        <div class="deal-title">Dyson V15 Detect Absolute Cordless Vacuum</div>
+        <div class="deal-price-row"><span class="price-sale">$599</span><span class="price-orig">$749</span></div>
+        <button class="deal-cta">Get Deal →</button>
+      </div>
+    </div>
+
+    <div class="deal-card">
+      <div class="disc-badge"><span class="disc-pct">30%</span><span class="disc-off">OFF</span></div>
+      <div class="ver-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="#16A34A"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Verified</div>
+      <div class="deal-img di-fashion">👟</div>
+      <div class="deal-body">
+        <div class="deal-store">Nike · nike.com</div>
+        <div class="deal-title">Nike Air Max 90 — Full Collection Sale</div>
+        <div class="deal-price-row"><span class="price-sale">$84</span><span class="price-orig">$120</span></div>
+        <button class="deal-cta">Get Deal →</button>
+      </div>
+    </div>
+
+    <div class="deal-card">
+      <div class="disc-badge"><span class="disc-pct">18%</span><span class="disc-off">OFF</span></div>
+      <div class="ver-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="#16A34A"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Verified</div>
+      <div class="deal-img di-tech">📷</div>
+      <div class="deal-body">
+        <div class="deal-store">Sony · B&H Photo</div>
+        <div class="deal-title">Sony ZV-E10 Mirrorless Camera + 16-50mm Lens Kit</div>
+        <div class="deal-price-row"><span class="price-sale">$548</span><span class="price-orig">$668</span></div>
+        <button class="deal-cta">Get Deal →</button>
+      </div>
+    </div>
+
+    <div class="deal-card">
+      <div class="disc-badge"><span class="disc-pct">35%</span><span class="disc-off">OFF</span></div>
+      <div class="ver-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="#16A34A"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Verified</div>
+      <div class="deal-img di-home">🍲</div>
+      <div class="deal-body">
+        <div class="deal-store">Instant Pot · Amazon</div>
+        <div class="deal-title">Instant Pot Duo 7-in-1 Electric Pressure Cooker 8qt</div>
+        <div class="deal-price-row"><span class="price-sale">$65</span><span class="price-orig">$99</span></div>
+        <button class="deal-cta">Get Deal →</button>
+      </div>
+    </div>
+
+    <div class="deal-card">
+      <div class="disc-badge"><span class="disc-pct">22%</span><span class="disc-off">OFF</span></div>
+      <div class="ver-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="#16A34A"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Verified</div>
+      <div class="deal-img di-tech">📖</div>
+      <div class="deal-body">
+        <div class="deal-store">Amazon · Kindle</div>
+        <div class="deal-title">Kindle Paperwhite 16GB Signature Edition (2025)</div>
+        <div class="deal-price-row"><span class="price-sale">$139</span><span class="price-orig">$179</span></div>
+        <button class="deal-cta">Get Deal →</button>
+      </div>
+    </div>
+
+    <div class="deal-card">
+      <div class="disc-badge"><span class="disc-pct">25%</span><span class="disc-off">OFF</span></div>
+      <div class="ver-badge"><svg width="9" height="9" viewBox="0 0 24 24" fill="#16A34A"><path d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Verified</div>
+      <div class="deal-img di-beauty">💄</div>
+      <div class="deal-body">
+        <div class="deal-store">YSL · Sephora</div>
+        <div class="deal-title">YSL Libre Eau de Parfum 90ml + Gift Set</div>
+        <div class="deal-price-row"><span class="price-sale">$112</span><span class="price-orig">$149</span></div>
+        <button class="deal-cta">Get Deal →</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- CATEGORIES -->
+<section class="cat-section">
+  <div class="cat-inner">
+    <div class="section-header" style="margin-bottom:28px">
+      <div><div class="section-title">Browse by Category</div><div class="section-sub">Find deals in the categories you shop most</div></div>
+      <a href="#" class="see-all">All categories →</a>
+    </div>
+    <div class="cat-grid">
+      <div class="cat-card ci-tech"><span class="cat-emoji">💻</span><div class="cat-name">Tech &amp; Gadgets</div><div class="cat-count">4,820 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-fashion"><span class="cat-emoji">👗</span><div class="cat-name">Fashion</div><div class="cat-count">2,340 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-beauty"><span class="cat-emoji">💄</span><div class="cat-name">Beauty</div><div class="cat-count">1,680 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-home"><span class="cat-emoji">🏠</span><div class="cat-name">Home &amp; Garden</div><div class="cat-count">980 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-food"><span class="cat-emoji">🥗</span><div class="cat-name">Food &amp; Health</div><div class="cat-count">560 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-travel"><span class="cat-emoji">✈️</span><div class="cat-name">Travel</div><div class="cat-count">430 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-ai"><span class="cat-emoji">🤖</span><div class="cat-name">AI Tools</div><div class="cat-count">210 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-sports"><span class="cat-emoji">🏋️</span><div class="cat-name">Sports</div><div class="cat-count">720 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-kids"><span class="cat-emoji">👶</span><div class="cat-name">Kids &amp; Baby</div><div class="cat-count">390 deals</div><div class="cat-arr">→</div></div>
+      <div class="cat-card ci-all"><span class="cat-emoji">🗂️</span><div class="cat-name">All Categories</div><div class="cat-count">View 24 more →</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- REVIEWS — 2 rows × 4 cols -->
+<section class="reviews-section">
+ <div class="reviews-section-inner">
+  <div class="section-header">
+    <div><div class="section-title">Reviews &amp; Comparisons</div><div class="section-sub">In-depth analysis, real-world tested</div></div>
+    <a href="#" class="see-all">All articles →</a>
+  </div>
+  <div class="reviews-grid">
+
+    <!-- Row 1 -->
+    <div class="review-card">
+      <div class="review-img" style="background:linear-gradient(135deg,#EEF2FF,#C7D2FE)">
+        📱<span class="review-tag">Review</span>
+      </div>
+      <div class="review-body">
+        <div class="review-meta"><div class="stars">★★★★★</div><div class="review-date">Jun 15, 2026</div></div>
+        <div class="review-title">iPhone 16 Pro Max Review — Worth the Upgrade?</div>
+        <div class="review-excerpt">30 days of testing. The AI camera blew us away, but battery life still trails the best Android flagships.</div>
+        <a href="#" class="review-link">Read full review →</a>
+      </div>
+    </div>
+
+    <div class="review-card">
+      <div class="review-img" style="background:linear-gradient(135deg,#F0FDF4,#BBF7D0)">
+        💻<span class="review-tag">Comparison</span>
+      </div>
+      <div class="review-body">
+        <div class="review-meta"><div class="stars">★★★★<span style="color:#D1D5DB">★</span></div><div class="review-date">Jun 10, 2026</div></div>
+        <div class="review-title">Best Laptops Under $500 in 2026: Tested &amp; Ranked</div>
+        <div class="review-excerpt">From MacBook Air M3 to Dell XPS 13 — we benchmarked performance, battery, and real-world use.</div>
+        <a href="#" class="review-link">Read full review →</a>
+      </div>
+    </div>
+
+    <div class="review-card">
+      <div class="review-img" style="background:linear-gradient(135deg,#FFF7ED,#FED7AA)">
+        ⚖️<span class="review-tag">Comparison</span>
+      </div>
+      <div class="review-body">
+        <div class="review-meta"><div class="stars">★★★★★</div><div class="review-date">Jun 5, 2026</div></div>
+        <div class="review-title">Samsung Galaxy S25 vs iPhone 16: Which Should You Buy?</div>
+        <div class="review-excerpt">Camera, performance, battery, software — a full 2026 flagship showdown to help you spend smart.</div>
+        <a href="#" class="review-link">Read full review →</a>
+      </div>
+    </div>
+
+    <div class="review-card">
+      <div class="review-img" style="background:linear-gradient(135deg,#FDF2F8,#FCE7F3)">
+        🎧<span class="review-tag">Comparison</span>
+      </div>
+      <div class="review-body">
+        <div class="review-meta"><div class="stars">★★★★★</div><div class="review-date">Jun 1, 2026</div></div>
+        <div class="review-title">Best Wireless Earbuds 2026: AirPods vs Sony vs Bose</div>
+        <div class="review-excerpt">We tested ANC, call quality, and comfort over 60 hours to find the best pair for every budget.</div>
+        <a href="#" class="review-link">Read full review →</a>
+      </div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="review-card">
+      <div class="review-img" style="background:linear-gradient(135deg,#ECFDF5,#A7F3D0)">
+        🖥️<span class="review-tag">Review</span>
+      </div>
+      <div class="review-body">
+        <div class="review-meta"><div class="stars">★★★★★</div><div class="review-date">May 28, 2026</div></div>
+        <div class="review-title">MacBook Air M3 Review: The Perfect Everyday Laptop?</div>
+        <div class="review-excerpt">Fanless, fast, and all-day battery — Apple's M3 chip makes the Air the default recommendation for most people.</div>
+        <a href="#" class="review-link">Read full review →</a>
+      </div>
+    </div>
+
+    <div class="review-card">
+      <div class="review-img" style="background:linear-gradient(135deg,#EFF6FF,#BFDBFE)">
+        🤖<span class="review-tag">Comparison</span>
+      </div>
+      <div class="review-body">
+        <div class="review-meta"><div class="stars">★★★★<span style="color:#D1D5DB">★</span></div><div class="review-date">May 22, 2026</div></div>
+        <div class="review-title">Best AI Tools for Productivity 2026: Ranked &amp; Priced</div>
+        <div class="review-excerpt">ChatGPT, Claude, Gemini, Copilot — which AI assistant actually saves you the most time at work?</div>
+        <a href="#" class="review-link">Read full review →</a>
+      </div>
+    </div>
+
+    <div class="review-card">
+      <div class="review-img" style="background:linear-gradient(135deg,#FFF1F2,#FFE4E6)">
+        🧹<span class="review-tag">Comparison</span>
+      </div>
+      <div class="review-body">
+        <div class="review-meta"><div class="stars">★★★★★</div><div class="review-date">May 18, 2026</div></div>
+        <div class="review-title">Best Robot Vacuums 2026: iRobot vs Roborock vs Ecovacs</div>
+        <div class="review-excerpt">We ran 40 cleaning sessions across carpet, hardwood, and pet hair to pick the smartest robot vac.</div>
+        <a href="#" class="review-link">Read full review →</a>
+      </div>
+    </div>
+
+    <div class="review-card">
+      <div class="review-img" style="background:linear-gradient(135deg,#FFFBEB,#FDE68A)">
+        👟<span class="review-tag">Comparison</span>
+      </div>
+      <div class="review-body">
+        <div class="review-meta"><div class="stars">★★★★<span style="color:#D1D5DB">★</span></div><div class="review-date">May 14, 2026</div></div>
+        <div class="review-title">Nike vs Adidas Running Shoes: Which Brand Wins in 2026?</div>
+        <div class="review-excerpt">300+ miles across both brands' flagship runners. Here's which one holds up for daily training and race day.</div>
+        <a href="#" class="review-link">Read full review →</a>
+      </div>
+    </div>
+
+  </div>
+ </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="/" class="logo">
+          <svg width="30" height="30" viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="#22C55E"/><path d="M8 12C8 10.343 9.343 9 11 9H19.5L28 17.5V27C28 28.657 26.657 30 25 30H11C9.343 30 8 28.657 8 27V12Z" fill="white" fill-opacity="0.18" stroke="white" stroke-width="1.5"/><circle cx="13.5" cy="14.5" r="2" fill="white"/><path d="M19.5 9V17.5H28" stroke="white" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 21.5H17M12 24.5H21" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <span class="logo-text"><span style="color:white">Offer</span><span class="dy">dy</span></span>
+        </a>
+        <p>Every deal is verified before it goes live. We test so you never hit a dead code at checkout.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Discover</h4>
+        <ul>
+          <li><a href="#">Today's Deals</a></li>
+          <li><a href="#">All Stores</a></li>
+          <li><a href="#">Categories</a></li>
+          <li><a href="#">Flash Sales</a></li>
+          <li><a href="#">Coupon Codes</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Content</h4>
+        <ul>
+          <li><a href="#">Product Reviews</a></li>
+          <li><a href="#">Comparisons</a></li>
+          <li><a href="#">Top Picks</a></li>
+          <li><a href="#">Shopping Blog</a></li>
+          <li><a href="#">Buying Guides</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul>
+          <li><a href="#">About Us</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="#">Submit a Deal</a></li>
+          <li><a href="#">Partner with Us</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="#">Terms of Use</a></li>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Cookie Policy</a></li>
+          <li><a href="#">Affiliate Disclosure</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2026 Offerdy. Real deals, no spam.</div>
+      <div class="footer-social">
+        <a href="#" class="soc">f</a>
+        <a href="#" class="soc">𝕏</a>
+        <a href="#" class="soc">in</a>
+        <a href="#" class="soc">▶</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var stores=[
+    {name:'Amazon',sub:'1,240 deals',icon:'🛒'},
+    {name:'Apple',sub:'86 deals',icon:'🍎'},
+    {name:'Nike',sub:'342 deals',icon:'👟'},
+    {name:'Samsung',sub:'215 deals',icon:'📱'},
+    {name:'Adidas',sub:'278 deals',icon:'👕'},
+    {name:'Best Buy',sub:'567 deals',icon:'🔌'},
+    {name:'Shopee',sub:'4,320 deals',icon:'🛍️'},
+    {name:'Lazada',sub:'2,180 deals',icon:'📦'},
+    {name:'Walmart',sub:'892 deals',icon:'🏪'},
+    {name:'ASOS',sub:'190 deals',icon:'👗'},
+    {name:'Booking.com',sub:'430 deals',icon:'🏨'},
+    {name:'AliExpress',sub:'9,800 deals',icon:'🌏'},
+    {name:'Dyson',sub:'48 deals',icon:'🌀'},
+    {name:'Sephora',sub:'230 deals',icon:'💄'},
+    {name:'Sony',sub:'120 deals',icon:'🎮'},
+    {name:'Target',sub:'680 deals',icon:'🎯'},
+    {name:'eBay',sub:'3,400 deals',icon:'🏷️'},
+  ];
+  var cats=[
+    {name:'Tech & Gadgets',sub:'4,820 deals',icon:'💻'},
+    {name:'Fashion',sub:'2,340 deals',icon:'👗'},
+    {name:'Beauty',sub:'1,680 deals',icon:'💄'},
+    {name:'Home & Garden',sub:'980 deals',icon:'🏠'},
+    {name:'Food & Health',sub:'560 deals',icon:'🥗'},
+    {name:'Travel',sub:'430 deals',icon:'✈️'},
+    {name:'AI Tools',sub:'210 deals',icon:'🤖'},
+    {name:'Sports',sub:'720 deals',icon:'🏋️'},
+    {name:'Kids & Baby',sub:'390 deals',icon:'👶'},
+  ];
+  var deals=[
+    {name:'AirPods Pro 2nd Gen',sub:'24% off · $189',icon:'🎧'},
+    {name:'LG OLED 55" TV',sub:'23% off · $999',icon:'📺'},
+    {name:'Dyson V15 Vacuum',sub:'20% off · $599',icon:'🧹'},
+    {name:'Nike Air Max 90',sub:'30% off · $84',icon:'👟'},
+    {name:'Nike Air Force 1',sub:'25% off · $74',icon:'👟'},
+    {name:'Sony ZV-E10 Camera',sub:'18% off · $548',icon:'📷'},
+    {name:'Sony WH-1000XM5',sub:'22% off · $279',icon:'🎧'},
+    {name:'Instant Pot Duo 8qt',sub:'35% off · $65',icon:'🍲'},
+    {name:'Kindle Paperwhite',sub:'22% off · $139',icon:'📖'},
+    {name:'Kindle Unlimited',sub:'40% off · $5.99/mo',icon:'📚'},
+    {name:'YSL Libre Perfume 90ml',sub:'25% off · $112',icon:'💄'},
+    {name:'MacBook Air M3 13"',sub:'14% off · $949',icon:'💻'},
+    {name:'MacBook Pro M4',sub:'10% off · $1,799',icon:'💻'},
+    {name:'iPhone 16 Pro Max',sub:'10% off · $899',icon:'📱'},
+    {name:'iPhone 16 Plus',sub:'12% off · $799',icon:'📱'},
+    {name:'iPad Pro 11"',sub:'15% off · $849',icon:'🖥️'},
+    {name:'Samsung Galaxy S25',sub:'19% off · $649',icon:'📱'},
+    {name:'Samsung QLED TV 65"',sub:'30% off · $899',icon:'📺'},
+    {name:'Bose QuietComfort 45',sub:'28% off · $249',icon:'🎧'},
+    {name:'Dyson Airwrap Complete',sub:'20% off · $479',icon:'💇'},
+    {name:'Amazon Echo Show 8',sub:'45% off · $74',icon:'🔊'},
+    {name:'Amazon Prime 1-Year',sub:'20% off · $99',icon:'📦'},
+    {name:'Adidas Ultraboost 24',sub:'32% off · $108',icon:'👟'},
+    {name:'Apple Watch Series 10',sub:'16% off · $337',icon:'⌚'},
+  ];
+  var reviews=[
+    {name:'iPhone 16 Pro Max Review 2026',sub:'Review · Tech',icon:'📱'},
+    {name:'Best Laptops Under $500 in 2026',sub:'Comparison · Tech',icon:'💻'},
+    {name:'Samsung vs iPhone: Which to Buy?',sub:'Comparison · Tech',icon:'⚖️'},
+    {name:'Best Wireless Earbuds 2026',sub:'Comparison · Tech',icon:'🎧'},
+    {name:'MacBook Air M3 Review',sub:'Review · Tech',icon:'🖥️'},
+    {name:'Best AI Tools for Productivity 2026',sub:'Comparison · AI Tools',icon:'🤖'},
+    {name:'Best Robot Vacuums 2026',sub:'Comparison · Home',icon:'🧹'},
+    {name:'Nike vs Adidas Running Shoes',sub:'Comparison · Sports',icon:'👟'},
+    {name:'Dyson Airwrap vs Shark FlexStyle',sub:'Comparison · Beauty',icon:'💇'},
+    {name:'Sony WH-1000XM5 vs Bose QC45',sub:'Comparison · Tech',icon:'🎧'},
+  ];
+  var popular=['AirPods Pro','Nike deals','MacBook Air','Samsung Galaxy','Amazon promo code','Dyson vacuum','iPhone 16','Apple Watch'];
+
+  function esc(s){return s.replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];})}
+  function hi(text,q){
+    if(!q) return esc(text);
+    var re=new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');
+    return esc(text).replace(re,'<mark>$1</mark>');
+  }
+  function match(arr,q){return arr.filter(function(d){return d.name.toLowerCase().indexOf(q.toLowerCase())>-1});}
+
+  function secHtml(label,items,badge,bc,q){
+    if(!items.length) return '';
+    return '<div class="sd-sec"><div class="sd-lbl">'+label+'</div>'+
+      items.slice(0,4).map(function(it){
+        return '<div class="sd-item">'+
+          '<div class="sd-ico">'+it.icon+'</div>'+
+          '<div class="sd-info">'+
+            '<div class="sd-name">'+hi(it.name,q)+'</div>'+
+            '<div class="sd-sub">'+esc(it.sub)+'</div>'+
+          '</div>'+
+          '<span class="sd-badge '+bc+'">'+badge+'</span>'+
+        '</div>';
+      }).join('')+'</div>';
+  }
+
+  function render(drop,q){
+    if(!q.trim()){
+      drop.innerHTML='<div class="sd-pop"><div class="sd-pop-lbl">🔥 Popular right now</div>'+
+        '<div class="sd-chips">'+popular.map(function(p){return'<span class="sd-chip">'+esc(p)+'</span>';}).join('')+'</div></div>';
+      drop.querySelectorAll('.sd-chip').forEach(function(c){
+        c.addEventListener('mousedown',function(e){
+          e.preventDefault();
+          var inp=getInput(drop);
+          if(inp){inp.value=c.textContent;render(drop,c.textContent);}
+        });
+      });
+      return;
+    }
+    var s=match(stores,q),ca=match(cats,q),d=match(deals,q),r=match(reviews,q);
+    if(!s.length&&!ca.length&&!d.length&&!r.length){
+      drop.innerHTML='<div class="sd-empty">No results for "<strong>'+esc(q)+'</strong>" — try a brand or product name.</div>';
+      return;
+    }
+    drop.innerHTML=
+      secHtml('Stores',s,'Store','b-store',q)+
+      secHtml('Categories',ca,'Category','b-cat',q)+
+      secHtml('Deals',d,'Deal','b-deal',q)+
+      secHtml('Reviews & Comparisons',r,'Review','b-rev',q)+
+      '<div class="sd-footer"><a href="#">See all results for "'+esc(q)+'" →</a></div>';
+    drop.querySelectorAll('.sd-item').forEach(function(el){
+      el.addEventListener('mousedown',function(e){
+        e.preventDefault();
+        var inp=getInput(drop);
+        if(inp){inp.value=el.querySelector('.sd-name').textContent;drop.classList.remove('open');}
+      });
+    });
+  }
+
+  function getInput(drop){
+    var wr=drop.closest('.search-wrapper,.hero-search-wrapper');
+    return wr?wr.querySelector('input'):null;
+  }
+
+  function init(inputEl,dropEl){
+    if(!inputEl||!dropEl) return;
+    var timer;
+    inputEl.addEventListener('focus',function(){render(dropEl,inputEl.value);dropEl.classList.add('open');});
+    inputEl.addEventListener('input',function(){
+      clearTimeout(timer);
+      var v=inputEl.value;
+      timer=setTimeout(function(){render(dropEl,v);dropEl.classList.add('open');},130);
+    });
+    inputEl.addEventListener('keydown',function(e){
+      if(e.key==='Escape'){dropEl.classList.remove('open');inputEl.blur();}
+    });
+    document.addEventListener('mousedown',function(e){
+      var wr=inputEl.closest('.search-wrapper,.hero-search-wrapper');
+      if(wr&&!wr.contains(e.target)) dropEl.classList.remove('open');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    init(document.getElementById('hi'),document.getElementById('hd'));
+    init(document.getElementById('heri'),document.getElementById('herd'));
+
+    // Force ticker animation regardless of prefers-reduced-motion
+    var track=document.querySelector('.stores-track');
+    if(track){
+      track.style.cssText+='animation:slide-left 32s linear infinite!important;';
+    }
+
+    // Hamburger menu toggle
+    var ham=document.getElementById('ham');
+    var mobNav=document.getElementById('mob-nav');
+    if(ham&&mobNav){
+      ham.addEventListener('click',function(){
+        var open=mobNav.classList.toggle('open');
+        ham.classList.toggle('open',open);
+        ham.setAttribute('aria-expanded',open?'true':'false');
+      });
+    }
+
+    // Countdown timers for expiring deals
+    var timers=document.querySelectorAll('.exp-time');
+    timers.forEach(function(el){
+      var parts=el.textContent.split(':').map(Number);
+      var secs=parts[0]*3600+parts[1]*60+parts[2];
+      var tick=setInterval(function(){
+        if(secs<=0){clearInterval(tick);el.textContent='EXPIRED';return;}
+        secs--;
+        var h=Math.floor(secs/3600),m=Math.floor((secs%3600)/60),s=secs%60;
+        el.textContent=(h>0?h+':':'')+(m<10&&h>0?'0':'')+m+':'+(s<10?'0':'')+s;
+      },1000);
+    });
+  });
+})();
+</script>
+</body>
+</html>
