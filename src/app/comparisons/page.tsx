@@ -45,7 +45,7 @@ export default async function ComparisonsPage() {
             <div className="blog-grid">
               {posts.map((post: {
                 id: string; slug: string; title: string; excerpt?: string
-                author?: string; date?: string; coverEmoji?: string; coverBg?: string; readTime?: number
+                author?: string; date?: string; coverEmoji?: string; coverBg?: string; readTime?: number; imageUrl?: string
               }) => (
                 <Link key={post.id} href={`/blog/${post.slug}`} className="blog-card">
                   <div className="blog-card-img" style={{ background: post.coverBg ?? 'linear-gradient(135deg,#EEF2FF,#C7D2FE)', overflow: 'hidden', padding: 0 }}>
