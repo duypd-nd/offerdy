@@ -15,49 +15,80 @@ function slugify(str: string) {
 type ImportRow = Record<string, string | number | boolean | null | undefined>
 type SanityDoc = { _type: string } & Record<string, unknown>
 
-async function importStores(rows: ImportRow[]) {
+// Combined: each row creates/reuses a store then creates an offer
+async function importStoresAndOffers(rows: ImportRow[]) {
   const results: { imported: number; errors: { row: number; message: string }[] } = {
     imported: 0,
     errors: [],
   }
 
+  // Pre-load existing stores into cache
+  const existingStores = await writeClient.fetch<{ _id: string; name: string }[]>(
+    `*[_type == "store"]{_id, name}`
+  )
+  const storeCache = new Map(existingStores.map((s) => [s.name.toLowerCase(), s._id]))
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
     const name = String(row.name ?? '').trim()
+    const affiliateLink = String(row.affiliateLink ?? '').trim()
+    const offerText = String(row.offerText ?? '').trim()
+
     if (!name) {
-      results.errors.push({ row: i + 2, message: 'Thieu ten store (cot name)' })
+      results.errors.push({ row: i + 2, message: 'Thieu cot "name" (ten store)' })
+      continue
+    }
+    if (!affiliateLink) {
+      results.errors.push({ row: i + 2, message: `Dong ${i + 2} "${name}": thieu affiliateLink` })
       continue
     }
 
     try {
-      const slug = slugify(name)
-      const existing = await writeClient.fetch(
-        `*[_type == "store" && slug.current == $slug][0]._id`,
-        { slug }
-      )
-      if (existing) {
-        results.errors.push({ row: i + 2, message: `Store "${name}" (slug: ${slug}) da ton tai` })
-        continue
+      // Find or create store
+      let storeId = storeCache.get(name.toLowerCase())
+
+      if (!storeId) {
+        const slug = slugify(name)
+        const storeDoc: SanityDoc = {
+          _type: 'store',
+          name,
+          slug: { _type: 'slug', current: slug },
+          published: true,
+          affiliateLink,
+        }
+        if (row.category) storeDoc.category = String(row.category)
+        if (row.abbr) storeDoc.abbr = String(row.abbr).substring(0, 3)
+        if (row.maxOffer) storeDoc.maxOffer = Number(row.maxOffer)
+        if (row.website) storeDoc.website = String(row.website)
+        if (row.shortDescription) storeDoc.shortDescription = String(row.shortDescription)
+
+        const created = await writeClient.create(storeDoc)
+        storeId = created._id
+        storeCache.set(name.toLowerCase(), storeId)
       }
 
-      const doc: SanityDoc = {
-        _type: 'store',
-        name,
-        slug: { _type: 'slug', current: slug },
-        published: true,
-      }
-      if (row.category) doc.category = String(row.category)
-      if (row.abbr) doc.abbr = String(row.abbr).substring(0, 3)
-      if (row.maxOffer) doc.maxOffer = Number(row.maxOffer)
-      if (row.website) doc.website = String(row.website)
-      if (row.affiliateLink) doc.affiliateLink = String(row.affiliateLink)
-      if (row.shortDescription) doc.shortDescription = String(row.shortDescription)
-      if (row.description) doc.description = String(row.description)
-      if (row.metaTitle) doc.metaTitle = String(row.metaTitle)
-      if (row.metaKeywords) doc.metaKeywords = String(row.metaKeywords)
-      if (row.metaDescription) doc.metaDescription = String(row.metaDescription)
+      // Create offer (skip if no offerText)
+      if (offerText) {
+        const title = String(row.title ?? '').trim() || `Uu dai tai ${name}`
+        const offerDoc: SanityDoc = {
+          _type: 'offer',
+          title,
+          offerText,
+          link: affiliateLink,
+          store: { _type: 'reference', _ref: storeId },
+          active: row.active !== false && row.active !== 'false' && row.active !== 0,
+          verified: row.verified !== false && row.verified !== 'false' && row.verified !== 0,
+          order: row.order ? Number(row.order) : 0,
+          votesActive: 0,
+          votesExpired: 0,
+        }
+        if (row.couponCode) offerDoc.couponCode = String(row.couponCode)
+        if (row.description) offerDoc.description = String(row.description)
+        if (row.expiresAt) offerDoc.expiresAt = new Date(String(row.expiresAt)).toISOString()
 
-      await writeClient.create(doc)
+        await writeClient.create(offerDoc)
+      }
+
       results.imported++
     } catch (err) {
       results.errors.push({ row: i + 2, message: String(err) })
@@ -65,72 +96,8 @@ async function importStores(rows: ImportRow[]) {
   }
 
   revalidatePath('/admin/stores')
-  revalidatePath('/', 'page')
-  return results
-}
-
-async function importOffers(rows: ImportRow[]) {
-  const results: { imported: number; errors: { row: number; message: string }[] } = {
-    imported: 0,
-    errors: [],
-  }
-
-  const stores = await writeClient.fetch<{ _id: string; name: string }[]>(
-    `*[_type == "store"]{_id, name}`
-  )
-  const storeMap = new Map(stores.map((s) => [s.name.toLowerCase(), s._id]))
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i]
-    const title = String(row.title ?? '').trim()
-    const offerText = String(row.offerText ?? '').trim()
-    const storeName = String(row.storeName ?? '').trim()
-    const link = String(row.link ?? '').trim()
-
-    if (!title) {
-      results.errors.push({ row: i + 2, message: 'Thieu title' })
-      continue
-    }
-    if (!offerText) {
-      results.errors.push({ row: i + 2, message: `Dong ${i + 2}: thieu offerText` })
-      continue
-    }
-    if (!link) {
-      results.errors.push({ row: i + 2, message: `Dong ${i + 2}: thieu link` })
-      continue
-    }
-
-    const storeId = storeMap.get(storeName.toLowerCase())
-    if (!storeId) {
-      results.errors.push({ row: i + 2, message: `Khong tim thay store: "${storeName}"` })
-      continue
-    }
-
-    try {
-      const doc: SanityDoc = {
-        _type: 'offer',
-        title,
-        offerText,
-        link,
-        store: { _type: 'reference', _ref: storeId },
-        active: row.active !== false && row.active !== 'false' && row.active !== 0,
-        verified: row.verified !== false && row.verified !== 'false' && row.verified !== 0,
-        order: row.order ? Number(row.order) : 0,
-        votesActive: 0,
-        votesExpired: 0,
-      }
-      if (row.couponCode) doc.couponCode = String(row.couponCode)
-      if (row.description) doc.description = String(row.description)
-      if (row.expiresAt) doc.expiresAt = new Date(String(row.expiresAt)).toISOString()
-
-      await writeClient.create(doc)
-      results.imported++
-    } catch (err) {
-      results.errors.push({ row: i + 2, message: String(err) })
-    }
-  }
-
   revalidatePath('/admin/offers')
+  revalidatePath('/', 'page')
   revalidatePath('/stores/[slug]', 'page')
   return results
 }
@@ -258,8 +225,7 @@ export async function POST(request: Request) {
     }
 
     let result
-    if (type === 'stores') result = await importStores(rows)
-    else if (type === 'offers') result = await importOffers(rows)
+    if (type === 'stores') result = await importStoresAndOffers(rows)
     else if (type === 'posts') result = await importPosts(rows)
     else if (type === 'reviews') result = await importReviews(rows)
     else return Response.json({ error: `Type khong hop le: ${type}` }, { status: 400 })
