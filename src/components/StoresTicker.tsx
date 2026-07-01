@@ -8,10 +8,13 @@ export default function StoresTicker({ stores }: { stores: Store[] }) {
   const trackRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (trackRef.current) {
-      trackRef.current.style.cssText += 'animation:slide-left 32s linear infinite!important;'
-    }
-  }, [])
+    const track = trackRef.current
+    if (!track) return
+    const singleSetWidth = track.scrollWidth / 2
+    const pixelsPerSecond = 40
+    const duration = singleSetWidth / pixelsPerSecond
+    track.style.animation = `slide-left ${duration}s linear infinite`
+  }, [stores])
 
   const doubled = [...stores, ...stores]
 
@@ -35,7 +38,7 @@ export default function StoresTicker({ stores }: { stores: Store[] }) {
             >
               <div className={`store-ticker-img ${store.colorClass ?? ''}`}>
                 {store.imageUrl
-                  ? <img src={store.imageUrl} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ? <img src={store.imageUrl} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : <span style={{ fontFamily: 'var(--font-d),system-ui,sans-serif', fontSize: 16, fontWeight: 800, color: 'white' }}>{store.abbr}</span>
                 }
               </div>
