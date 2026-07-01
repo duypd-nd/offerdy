@@ -15,7 +15,23 @@ function slugify(str: string) {
 type ImportRow = Record<string, string | number | boolean | null | undefined>
 type SanityDoc = { _type: string } & Record<string, unknown>
 
-// Combined: each row creates/reuses a store then creates an offer
+async function uploadImageFromUrl(url: string) {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const blob = await res.blob()
+    const filename = url.split('/').pop()?.split('?')[0] || 'logo.png'
+    const asset = await writeClient.assets.upload('image', blob, {
+      filename,
+      contentType: blob.type || 'image/png',
+    })
+    return { _type: 'image', asset: { _type: 'reference', _ref: asset._id } }
+  } catch {
+    return null
+  }
+}
+
+// Combined: each row = 1 offer; rows with same store_name share the same store
 async function importStoresAndOffers(rows: ImportRow[]) {
   const results: { imported: number; errors: { row: number; message: string }[] } = {
     imported: 0,
@@ -30,61 +46,73 @@ async function importStoresAndOffers(rows: ImportRow[]) {
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
-    const name = String(row.name ?? '').trim()
-    const affiliateLink = String(row.affiliateLink ?? '').trim()
+    const storeName = String(row.store_name ?? '').trim()
+    const link = String(row.link ?? '').trim()
     const offerText = String(row.offerText ?? '').trim()
+    const offerTitle = String(row.offer_title ?? '').trim()
 
-    if (!name) {
-      results.errors.push({ row: i + 2, message: 'Thieu cot "name" (ten store)' })
+    if (!storeName) {
+      results.errors.push({ row: i + 2, message: 'Thieu cot "store_name"' })
       continue
     }
-    if (!affiliateLink) {
-      results.errors.push({ row: i + 2, message: `Dong ${i + 2} "${name}": thieu affiliateLink` })
+    if (!link) {
+      results.errors.push({ row: i + 2, message: `Dong ${i + 2} "${storeName}": thieu "link"` })
       continue
     }
 
     try {
       // Find or create store
-      let storeId = storeCache.get(name.toLowerCase())
+      let storeId = storeCache.get(storeName.toLowerCase())
 
       if (!storeId) {
-        const slug = slugify(name)
+        const slug = slugify(storeName)
         const storeDoc: SanityDoc = {
           _type: 'store',
-          name,
+          name: storeName,
           slug: { _type: 'slug', current: slug },
           published: true,
-          affiliateLink,
+          affiliateLink: link,
         }
-        if (row.category) storeDoc.category = String(row.category)
         if (row.abbr) storeDoc.abbr = String(row.abbr).substring(0, 3)
-        if (row.maxOffer) storeDoc.maxOffer = Number(row.maxOffer)
         if (row.website) storeDoc.website = String(row.website)
-        if (row.shortDescription) storeDoc.shortDescription = String(row.shortDescription)
+        if (row.category) storeDoc.category = String(row.category)
+        if (row.maxOffer) storeDoc.maxOffer = Number(row.maxOffer)
+        if (row.store_description) storeDoc.shortDescription = String(row.store_description)
+        if (row.store_about) storeDoc.description = String(row.store_about)
+
+        // Upload logo image if URL provided
+        if (row.store_imageUrl) {
+          const image = await uploadImageFromUrl(String(row.store_imageUrl))
+          if (image) storeDoc.image = image
+        }
 
         const created = await writeClient.create(storeDoc)
         storeId = created._id
-        storeCache.set(name.toLowerCase(), storeId)
+        storeCache.set(storeName.toLowerCase(), storeId)
       }
 
       // Create offer (skip if no offerText)
       if (offerText) {
-        const title = String(row.title ?? '').trim() || `Uu dai tai ${name}`
         const offerDoc: SanityDoc = {
           _type: 'offer',
-          title,
+          title: offerTitle || `Uu dai tai ${storeName}`,
           offerText,
-          link: affiliateLink,
+          link,
           store: { _type: 'reference', _ref: storeId },
-          active: row.active !== false && row.active !== 'false' && row.active !== 0,
-          verified: row.verified !== false && row.verified !== 'false' && row.verified !== 0,
+          active: String(row.active).toLowerCase() !== 'false' && row.active !== 0,
+          verified: String(row.verified).toLowerCase() !== 'false' && row.verified !== 0,
           order: row.order ? Number(row.order) : 0,
           votesActive: 0,
           votesExpired: 0,
         }
         if (row.couponCode) offerDoc.couponCode = String(row.couponCode)
-        if (row.description) offerDoc.description = String(row.description)
-        if (row.expiresAt) offerDoc.expiresAt = new Date(String(row.expiresAt)).toISOString()
+        if (row.expiresAt) {
+          try {
+            offerDoc.expiresAt = new Date(String(row.expiresAt)).toISOString()
+          } catch {
+            // skip invalid date
+          }
+        }
 
         await writeClient.create(offerDoc)
       }

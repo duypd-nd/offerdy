@@ -7,119 +7,112 @@ type SheetType = 'Stores' | 'Posts' | 'Reviews'
 type Row = Record<string, string | number | boolean | null>
 type ImportResult = { imported: number; errors: { row: number; message: string }[] }
 
-const SHEET_INFO: Record<SheetType, { icon: string; label: string; desc: string }> = {
-  Stores: { icon: '🏪', label: 'Stores & Offers', desc: 'Mỗi dòng = 1 offer. Cùng tên store → tự gộp chung.' },
-  Posts: { icon: '📝', label: 'Posts', desc: 'Bài viết blog.' },
-  Reviews: { icon: '⭐', label: 'Reviews', desc: 'Đánh giá store/sản phẩm.' },
-}
+const STORES_COLS = [
+  { key: 'store_name', required: true,  note: 'Tên store' },
+  { key: 'abbr',       required: true,  note: 'Viết tắt, tối đa 3 ký tự, VD: AMZ' },
+  { key: 'website',    required: false, note: 'Website chính thức, VD: amazon.com' },
+  { key: 'link',       required: true,  note: 'Link affiliate — dùng cho cả store lẫn offer' },
+  { key: 'category',   required: false, note: 'electronics|fashion|beauty|home|sports|food|travel|books|gaming|general' },
+  { key: 'maxOffer',   required: false, note: 'Giảm tối đa (%), VD: 70' },
+  { key: 'store_imageUrl',    required: false, note: 'URL ảnh logo store, VD: https://logo.clearbit.com/amazon.com' },
+  { key: 'store_description', required: false, note: 'Mô tả ngắn / tagline' },
+  { key: 'store_about',       required: false, note: 'Mô tả dài, hỗ trợ HTML' },
+  { key: 'offer_title',       required: true,  note: 'Tiêu đề offer' },
+  { key: 'offerText',         required: true,  note: 'Mô tả ngắn của offer' },
+  { key: 'couponCode',        required: false, note: 'Mã giảm giá (nếu có)' },
+  { key: 'expiresAt',         required: false, note: 'Ngày hết hạn, VD: 2026-12-31' },
+  { key: 'verified',          required: false, note: 'TRUE/FALSE (mặc định TRUE)' },
+  { key: 'active',            required: false, note: 'TRUE/FALSE (mặc định TRUE)' },
+  { key: 'order',             required: false, note: 'Thứ tự hiển thị (số)' },
+]
 
-// Columns for each sheet type
-const SHEET_COLS: Record<SheetType, { key: string; label: string; required?: boolean; note?: string }[]> = {
-  Stores: [
-    { key: 'name', label: 'name', required: true, note: 'Tên store' },
-    { key: 'affiliateLink', label: 'affiliateLink', required: true, note: 'Link affiliate — dùng cho cả store lẫn offer' },
-    { key: 'offerText', label: 'offerText', note: 'Mô tả ngắn của offer (bỏ trống = chỉ tạo store)' },
-    { key: 'couponCode', label: 'couponCode', note: 'Mã giảm giá (nếu có)' },
-    { key: 'title', label: 'title', note: 'Tiêu đề offer (tự động nếu bỏ trống)' },
-    { key: 'category', label: 'category', note: 'electronics|fashion|beauty|home|sports|food|travel|books|gaming|general' },
-    { key: 'abbr', label: 'abbr', note: 'Viết tắt, tối đa 3 ký tự' },
-    { key: 'maxOffer', label: 'maxOffer', note: 'Giảm tối đa (%), VD: 70' },
-    { key: 'website', label: 'website', note: 'Website chính thức' },
-    { key: 'shortDescription', label: 'shortDescription', note: 'Tagline ngắn' },
-    { key: 'expiresAt', label: 'expiresAt', note: 'Ngày hết hạn offer, VD: 2026-12-31' },
-    { key: 'order', label: 'order', note: 'Ưu tiên hiển thị (số lớn = lên trên)' },
-    { key: 'active', label: 'active', note: 'true/false (mặc định true)' },
-    { key: 'verified', label: 'verified', note: 'true/false (mặc định true)' },
-  ],
-  Posts: [
-    { key: 'title', label: 'title', required: true },
-    { key: 'excerpt', label: 'excerpt' },
-    { key: 'category', label: 'category', note: 'Tips & Guides|Comparison|Store Guide|Deals Roundup|News' },
-    { key: 'author', label: 'author' },
-    { key: 'publishedAt', label: 'publishedAt', note: 'VD: 2026-07-01' },
-    { key: 'coverEmoji', label: 'coverEmoji' },
-    { key: 'coverBg', label: 'coverBg', note: 'CSS gradient' },
-    { key: 'readTime', label: 'readTime', note: 'Phút đọc' },
-    { key: 'content', label: 'content', note: 'HTML' },
-    { key: 'externalImageUrl', label: 'externalImageUrl' },
-  ],
-  Reviews: [
-    { key: 'title', label: 'title', required: true },
-    { key: 'excerpt', label: 'excerpt', required: true },
-    { key: 'stars', label: 'stars', required: true, note: '1–5' },
-    { key: 'tag', label: 'tag', note: 'Review hoặc Comparison' },
-    { key: 'emoji', label: 'emoji' },
-    { key: 'publishedAt', label: 'publishedAt', note: 'VD: 2026-07-01' },
-    { key: 'imgBg', label: 'imgBg', note: 'CSS gradient' },
-    { key: 'content', label: 'content', note: 'HTML' },
-    { key: 'externalImageUrl', label: 'externalImageUrl' },
-  ],
+const POSTS_COLS = [
+  { key: 'title',            required: true },
+  { key: 'excerpt',          required: false },
+  { key: 'category',         required: false, note: 'Tips & Guides|Comparison|Store Guide|Deals Roundup|News' },
+  { key: 'author',           required: false },
+  { key: 'publishedAt',      required: false, note: 'VD: 2026-07-01' },
+  { key: 'coverEmoji',       required: false },
+  { key: 'coverBg',          required: false, note: 'CSS gradient' },
+  { key: 'readTime',         required: false, note: 'Phút đọc' },
+  { key: 'content',          required: false, note: 'HTML' },
+  { key: 'externalImageUrl', required: false },
+]
+
+const REVIEWS_COLS = [
+  { key: 'title',            required: true },
+  { key: 'excerpt',          required: true },
+  { key: 'stars',            required: true, note: '1–5' },
+  { key: 'tag',              required: false, note: 'Review hoặc Comparison' },
+  { key: 'emoji',            required: false },
+  { key: 'publishedAt',      required: false, note: 'VD: 2026-07-01' },
+  { key: 'imgBg',            required: false, note: 'CSS gradient' },
+  { key: 'content',          required: false, note: 'HTML' },
+  { key: 'externalImageUrl', required: false },
+]
+
+type ColDef = { key: string; required: boolean; note?: string }
+const COLS_MAP: Record<SheetType, ColDef[]> = {
+  Stores: STORES_COLS,
+  Posts: POSTS_COLS,
+  Reviews: REVIEWS_COLS,
 }
 
 const PREVIEW_COLS: Record<SheetType, string[]> = {
-  Stores: ['name', 'affiliateLink', 'offerText', 'couponCode', 'category'],
+  Stores: ['store_name', 'link', 'offer_title', 'offerText', 'couponCode'],
   Posts: ['title', 'category', 'author', 'publishedAt', 'excerpt'],
   Reviews: ['title', 'stars', 'tag', 'publishedAt', 'excerpt'],
 }
 
+const SHEET_ICON: Record<SheetType, string> = {
+  Stores: '🏪',
+  Posts: '📝',
+  Reviews: '⭐',
+}
+
+const SHEET_LABEL: Record<SheetType, string> = {
+  Stores: 'Stores & Offers',
+  Posts: 'Posts',
+  Reviews: 'Reviews',
+}
+
+function makeStoresExample() {
+  return [
+    {
+      store_name: 'Amazon', abbr: 'AMZ', website: 'amazon.com',
+      link: 'https://amzn.to/xxx', category: 'electronics', maxOffer: 70,
+      store_imageUrl: 'https://logo.clearbit.com/amazon.com',
+      store_description: 'Shop millions of products',
+      store_about: '<p>Amazon la nen tang thuong mai dien tu hang dau the gioi.</p>',
+      offer_title: '20% Off Electronics', offerText: '20% Off Electronics',
+      couponCode: 'TECH20', expiresAt: '2026-12-31', verified: 'TRUE', active: 'TRUE', order: 1,
+    },
+    {
+      store_name: 'Amazon', abbr: 'AMZ', website: 'amazon.com',
+      link: 'https://amzn.to/xxx', category: 'electronics', maxOffer: 70,
+      store_imageUrl: 'https://logo.clearbit.com/amazon.com',
+      store_description: 'Shop millions of products',
+      store_about: '<p>Amazon la nen tang thuong mai dien tu hang dau the gioi.</p>',
+      offer_title: 'Free Shipping on Orders $35+', offerText: 'Free Shipping $35+',
+      couponCode: '', expiresAt: '', verified: 'TRUE', active: 'TRUE', order: 2,
+    },
+    {
+      store_name: 'Nike', abbr: 'NIKE', website: 'nike.com',
+      link: 'https://nike.com/aff', category: 'sports', maxOffer: 50,
+      store_imageUrl: 'https://logo.clearbit.com/nike.com',
+      store_description: 'The world\'s leading sports brand',
+      store_about: '<p>Nike la thuong hieu the thao hang dau the gioi.</p>',
+      offer_title: 'Extra 25% Off Sale Items', offerText: '25% Off Sale',
+      couponCode: 'EXTRA25', expiresAt: '2026-08-31', verified: 'TRUE', active: 'TRUE', order: 1,
+    },
+  ]
+}
+
 function generateTemplate(type: SheetType) {
-  const cols = SHEET_COLS[type]
-  const headers = cols.map((c) => c.key)
-  let exampleRows: Row[] = []
-
-  if (type === 'Stores') {
-    exampleRows = [
-      {
-        name: 'Amazon', affiliateLink: 'https://amzn.to/xxx',
-        offerText: 'Giam 20% toan bo don hang', couponCode: 'SAVE20',
-        title: 'Giam 20% khi nhap ma SAVE20',
-        category: 'general', abbr: 'AMZ', maxOffer: 70,
-        website: 'https://amazon.com', shortDescription: 'Mua sam online',
-        expiresAt: '2026-12-31', order: 0, active: 'true', verified: 'true',
-      },
-      {
-        name: 'Amazon', affiliateLink: 'https://amzn.to/xxx',
-        offerText: 'Mien phi ship don tu 300k', couponCode: '',
-        title: 'Free ship don tu 300k',
-        category: '', abbr: '', maxOffer: '',
-        website: '', shortDescription: '',
-        expiresAt: '', order: 0, active: 'true', verified: 'true',
-      },
-      {
-        name: 'Shopee', affiliateLink: 'https://s.shopee.vn/xxx',
-        offerText: 'Giam 50k don dau', couponCode: 'NEWUSER',
-        title: 'Giam 50k cho khach hang moi',
-        category: 'general', abbr: 'SPE', maxOffer: 50,
-        website: 'https://shopee.vn', shortDescription: 'San TMDT hang dau Dong Nam A',
-        expiresAt: '2026-09-30', order: 0, active: 'true', verified: 'true',
-      },
-    ]
-  } else if (type === 'Posts') {
-    exampleRows = [{
-      title: 'Top 10 deal tot nhat thang 7',
-      excerpt: 'Tong hop nhung deal hot nhat thang nay',
-      category: 'Deals Roundup', author: 'Offerdy Team',
-      publishedAt: '2026-07-01', coverEmoji: '🔥',
-      coverBg: 'linear-gradient(135deg,#667eea,#764ba2)',
-      readTime: 5, content: '', externalImageUrl: '',
-    }]
-  } else if (type === 'Reviews') {
-    exampleRows = [{
-      title: 'Danh gia Amazon 2026',
-      excerpt: 'Amazon la san TMDT lon nhat the gioi',
-      stars: 4, tag: 'Review', emoji: '⭐',
-      publishedAt: '2026-07-01',
-      imgBg: 'linear-gradient(135deg,#f093fb,#f5576c)',
-      content: '', externalImageUrl: '',
-    }]
-  }
-
-  const ws = XLSX.utils.json_to_sheet(exampleRows, { header: headers })
-
-  // Auto column width
-  const colWidths = headers.map((h) => ({ wch: Math.max(h.length, 18) }))
-  ws['!cols'] = colWidths
-
+  const headers = COLS_MAP[type].map((c) => c.key)
+  const rows = type === 'Stores' ? makeStoresExample() : []
+  const ws = XLSX.utils.json_to_sheet(rows, { header: headers })
+  ws['!cols'] = headers.map((h) => ({ wch: Math.max(h.length + 2, 16) }))
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, type)
   XLSX.writeFile(wb, `template_${type.toLowerCase()}.xlsx`)
@@ -129,10 +122,10 @@ function generateFullTemplate() {
   const wb = XLSX.utils.book_new()
   const types: SheetType[] = ['Stores', 'Posts', 'Reviews']
   for (const type of types) {
-    const cols = SHEET_COLS[type]
-    const headers = cols.map((c) => c.key)
-    const ws = XLSX.utils.json_to_sheet([], { header: headers })
-    ws['!cols'] = headers.map((h) => ({ wch: Math.max(h.length, 18) }))
+    const headers = COLS_MAP[type].map((c) => c.key)
+    const rows = type === 'Stores' ? makeStoresExample() : []
+    const ws = XLSX.utils.json_to_sheet(rows, { header: headers })
+    ws['!cols'] = headers.map((h) => ({ wch: Math.max(h.length + 2, 16) }))
     XLSX.utils.book_append_sheet(wb, ws, type)
   }
   XLSX.writeFile(wb, 'offerdy_import_template.xlsx')
@@ -218,66 +211,66 @@ export default function ImportClient() {
         </div>
       </div>
 
-      {/* Upload + Template + Column guide */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 20, marginBottom: 20 }}>
 
-        {/* Left: Upload */}
+        {/* Left: Upload + Column guide */}
         <div style={{ background: '#fff', border: '1.5px solid #e4eaf2', borderRadius: 12, padding: 24 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: '#0f1929', marginBottom: 12 }}>1. Upload file Excel</div>
           <div
             onClick={() => fileRef.current?.click()}
             style={{
-              border: '2px dashed #cbd5e1', borderRadius: 10, padding: '28px 20px',
-              textAlign: 'center', cursor: 'pointer', background: '#f8fafc', transition: 'border-color .2s',
+              border: '2px dashed #cbd5e1', borderRadius: 10, padding: '24px 20px',
+              textAlign: 'center', cursor: 'pointer', background: '#f8fafc',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#22c55e')}
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#cbd5e1')}
           >
-            <div style={{ fontSize: 36, marginBottom: 8 }}>📂</div>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
             <div style={{ fontSize: 14, color: '#475569' }}>
               {fileName
                 ? <span style={{ color: '#22c55e', fontWeight: 600 }}>✓ {fileName}</span>
                 : 'Click để chọn file .xlsx'}
             </div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 6 }}>
-              Sheet hợp lệ: <b>Stores</b>, <b>Posts</b>, <b>Reviews</b>
-            </div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Sheet: <b>Stores</b>, <b>Posts</b>, <b>Reviews</b></div>
           </div>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ display: 'none' }} />
 
-          {/* Column guide */}
+          {/* Column guide — Stores */}
           <div style={{ marginTop: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f1929', marginBottom: 10 }}>📌 Cấu trúc cột</div>
-            {validSheets.map((t) => {
-              const required = SHEET_COLS[t].filter((c) => c.required)
-              const optional = SHEET_COLS[t].filter((c) => !c.required)
-              return (
-                <div key={t} style={{ marginBottom: 12, background: '#f8fafc', borderRadius: 8, padding: '10px 14px', fontSize: 12 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                    {SHEET_INFO[t].icon} Sheet <b>{t}</b>
-                    <span style={{ fontWeight: 400, color: '#64748b', marginLeft: 8 }}>{SHEET_INFO[t].desc}</span>
-                  </div>
-                  <div style={{ marginBottom: 4 }}>
-                    <span style={{ color: '#dc2626', fontWeight: 600 }}>Bắt buộc: </span>
-                    {required.map((c) => (
-                      <span key={c.key} style={{ background: '#fee2e2', color: '#dc2626', borderRadius: 4, padding: '1px 6px', marginRight: 4, fontFamily: 'monospace' }}>{c.key}</span>
-                    ))}
-                  </div>
-                  <div style={{ color: '#64748b' }}>
-                    <span style={{ fontWeight: 600 }}>Tùy chọn: </span>
-                    {optional.map((c) => (
-                      <span key={c.key} title={c.note} style={{ background: '#f1f5f9', borderRadius: 4, padding: '1px 6px', marginRight: 4, fontFamily: 'monospace', cursor: 'help' }}>{c.key}</span>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f1929', marginBottom: 8 }}>📌 Sheet Stores — cấu trúc cột</div>
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#92400e', marginBottom: 10 }}>
+              Nhiều dòng cùng <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>store_name</code> → tự gộp 1 store, mỗi dòng tạo 1 offer riêng
+            </div>
+            <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: '#f1f5f9' }}>
+                    <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>Cột</th>
+                    <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#475569', borderBottom: '1px solid #e2e8f0', width: 50 }}>BắtBuộc</th>
+                    <th style={{ padding: '7px 10px', textAlign: 'left', fontWeight: 700, color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Ghi chú</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {STORES_COLS.map((col, i) => (
+                    <tr key={col.key} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                      <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: col.required ? 700 : 400, color: col.required ? '#0f1929' : '#475569', whiteSpace: 'nowrap' }}>
+                        {col.key}
+                      </td>
+                      <td style={{ padding: '6px 10px', textAlign: 'center' }}>
+                        {col.required && <span style={{ color: '#dc2626', fontWeight: 700 }}>*</span>}
+                      </td>
+                      <td style={{ padding: '6px 10px', color: '#64748b', fontSize: 11 }}>{col.note ?? ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        {/* Right: Download template */}
+        {/* Right: Template */}
         <div style={{ background: '#fff', border: '1.5px solid #e4eaf2', borderRadius: 12, padding: 24 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#0f1929', marginBottom: 12 }}>2. Tải template</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#0f1929', marginBottom: 12 }}>2. Tải template mẫu</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button
               onClick={generateFullTemplate}
@@ -291,14 +284,14 @@ export default function ImportClient() {
                 onClick={() => generateTemplate(t)}
                 style={{ background: '#f1f5f9', color: '#0f1929', border: '1px solid #e2e8f0', borderRadius: 8, padding: '9px 14px', fontSize: 13, cursor: 'pointer', textAlign: 'left' }}
               >
-                {SHEET_INFO[t].icon} Template {SHEET_INFO[t].label}
+                {SHEET_ICON[t]} Template {SHEET_LABEL[t]}
               </button>
             ))}
           </div>
 
-          {/* Note */}
-          <div style={{ marginTop: 16, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#92400e' }}>
-            <b>Sheet Stores:</b> Nhiều dòng cùng <code>name</code> → tự gộp vào 1 store, mỗi dòng tạo 1 offer riêng.
+          <div style={{ marginTop: 16, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#166534' }}>
+            <b>store_imageUrl:</b> Dùng Clearbit logo:<br />
+            <code style={{ fontSize: 11, wordBreak: 'break-all' }}>https://logo.clearbit.com/amazon.com</code>
           </div>
         </div>
       </div>
@@ -309,7 +302,7 @@ export default function ImportClient() {
           {/* Tabs */}
           <div style={{ display: 'flex', borderBottom: '1.5px solid #e4eaf2', background: '#f8fafc' }}>
             {validSheets
-              .filter((t) => sheets[t] && (sheets[t]?.length ?? 0) > 0)
+              .filter((t) => (sheets[t]?.length ?? 0) > 0)
               .map((t) => {
                 const result = results[t]
                 return (
@@ -324,7 +317,7 @@ export default function ImportClient() {
                       display: 'flex', alignItems: 'center', gap: 6,
                     }}
                   >
-                    {SHEET_INFO[t].icon} {SHEET_INFO[t].label}
+                    {SHEET_ICON[t]} {SHEET_LABEL[t]}
                     <span style={{
                       background: result ? (result.errors.length === 0 ? '#dcfce7' : '#fee2e2') : '#e2e8f0',
                       color: result ? (result.errors.length === 0 ? '#16a34a' : '#dc2626') : '#64748b',
@@ -354,9 +347,9 @@ export default function ImportClient() {
                     )}
                   </div>
                   {currentResult.errors.length > 0 && (
-                    <div style={{ maxHeight: 140, overflowY: 'auto' }}>
-                      {currentResult.errors.map((e, i) => (
-                        <div key={i} style={{ color: '#dc2626', fontSize: 12, lineHeight: 1.8 }}>
+                    <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+                      {currentResult.errors.map((e, idx) => (
+                        <div key={idx} style={{ color: '#dc2626', fontSize: 12, lineHeight: 1.8 }}>
                           Dòng {e.row}: {e.message}
                         </div>
                       ))}
@@ -375,12 +368,13 @@ export default function ImportClient() {
                   disabled={loading || importedTabs.has(activeTab)}
                   style={{
                     background: importedTabs.has(activeTab) ? '#86efac' : loading ? '#94a3b8' : '#22c55e',
-                    color: '#fff', border: 'none', borderRadius: 8, padding: '9px 22px',
-                    fontSize: 13, fontWeight: 700, cursor: loading || importedTabs.has(activeTab) ? 'not-allowed' : 'pointer',
+                    color: '#fff', border: 'none', borderRadius: 8, padding: '9px 24px',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: loading || importedTabs.has(activeTab) ? 'not-allowed' : 'pointer',
                     display: 'flex', alignItems: 'center', gap: 8,
                   }}
                 >
-                  {loading ? '⏳ Đang import...' : importedTabs.has(activeTab) ? '✓ Đã import' : `⬆️ Import ${SHEET_INFO[activeTab].label}`}
+                  {loading ? '⏳ Đang import...' : importedTabs.has(activeTab) ? '✓ Đã import' : `⬆️ Import ${SHEET_LABEL[activeTab]}`}
                 </button>
               </div>
 
@@ -389,7 +383,7 @@ export default function ImportClient() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: '#f1f5f9' }}>
-                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', borderBottom: '1px solid #e2e8f0', width: 40 }}>#</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', borderBottom: '1px solid #e2e8f0', width: 36 }}>#</th>
                       {previewCols.map((col) => (
                         <th key={col} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: '#475569', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
                           {col}
@@ -434,7 +428,7 @@ export default function ImportClient() {
 
       {fileName && Object.keys(sheets).length === 0 && (
         <div style={{ background: '#fff7ed', border: '1.5px solid #fed7aa', borderRadius: 12, padding: 20, textAlign: 'center', color: '#c2410c', fontSize: 13 }}>
-          ⚠️ File không có sheet nào tên là <b>Stores</b>, <b>Posts</b>, hoặc <b>Reviews</b>. Vui lòng dùng template đúng định dạng.
+          ⚠️ File không có sheet nào tên là <b>Stores</b>, <b>Posts</b>, hoặc <b>Reviews</b>.
         </div>
       )}
     </div>
