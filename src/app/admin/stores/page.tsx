@@ -3,7 +3,7 @@ import StoreAdmin from './StoreAdmin'
 
 export const dynamic = 'force-dynamic'
 
-const ADMIN_STORES_QUERY = `*[_type == "store"] | order(name asc) {
+const ADMIN_STORES_QUERY = `*[_type == "store"] | order(_createdAt desc) {
   _id, name, "slug": slug.current, published, category,
   website, affiliateLink, maxOffer, abbr, shortDescription, description,
   "imageUrl": image.asset->url, _createdAt
