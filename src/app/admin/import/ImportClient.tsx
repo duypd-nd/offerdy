@@ -139,6 +139,7 @@ export default function ImportClient() {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<Partial<Record<SheetType, ImportResult>>>({})
   const [importedTabs, setImportedTabs] = useState<Set<SheetType>>(new Set())
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
 
   const validSheets: SheetType[] = ['Stores', 'Posts', 'Reviews']
 
@@ -175,26 +176,50 @@ export default function ImportClient() {
     reader.readAsArrayBuffer(file)
   }
 
+  const BATCH_SIZE = 50
+
   async function handleImport(type: SheetType) {
     const rows = sheets[type]
     if (!rows || rows.length === 0) return
     setLoading(true)
+    const totalBatches = Math.ceil(rows.length / BATCH_SIZE)
+    const combined: ImportResult = { imported: 0, errors: [] }
+    setProgress({ done: 0, total: totalBatches })
+
     try {
-      const res = await fetch('/api/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: type.toLowerCase(), rows }),
-      })
-      const result: ImportResult = await res.json()
-      setResults((prev) => ({ ...prev, [type]: result }))
+      for (let b = 0; b < totalBatches; b++) {
+        const offset = b * BATCH_SIZE
+        const batchRows = rows.slice(offset, offset + BATCH_SIZE)
+        try {
+          const res = await fetch('/api/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: type.toLowerCase(), rows: batchRows }),
+          })
+          const text = await res.text()
+          let batchResult: ImportResult
+          try {
+            batchResult = JSON.parse(text)
+          } catch {
+            throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`)
+          }
+          if (!res.ok) {
+            throw new Error((batchResult as unknown as { error?: string }).error || `HTTP ${res.status}`)
+          }
+          combined.imported += batchResult.imported
+          combined.errors.push(
+            ...batchResult.errors.map((e) => ({ ...e, row: offset + e.row }))
+          )
+        } catch (err) {
+          combined.errors.push({ row: offset + 2, message: String(err) })
+        }
+        setProgress({ done: b + 1, total: totalBatches })
+        setResults((prev) => ({ ...prev, [type]: { ...combined, errors: [...combined.errors] } }))
+      }
       setImportedTabs((prev) => new Set([...prev, type]))
-    } catch (err) {
-      setResults((prev) => ({
-        ...prev,
-        [type]: { imported: 0, errors: [{ row: 0, message: String(err) }] },
-      }))
     } finally {
       setLoading(false)
+      setProgress(null)
     }
   }
 
@@ -374,7 +399,11 @@ export default function ImportClient() {
                     display: 'flex', alignItems: 'center', gap: 8,
                   }}
                 >
-                  {loading ? '⏳ Đang import...' : importedTabs.has(activeTab) ? '✓ Đã import' : `⬆️ Import ${SHEET_LABEL[activeTab]}`}
+                  {loading
+                    ? `⏳ Đang import... ${progress ? `(${progress.done}/${progress.total})` : ''}`
+                    : importedTabs.has(activeTab)
+                      ? '✓ Đã import'
+                      : `⬆️ Import ${SHEET_LABEL[activeTab]}`}
                 </button>
               </div>
 
