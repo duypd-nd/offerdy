@@ -226,7 +226,19 @@ async function importStoresAndOffers(rows: ImportRow[]) {
   return results
 }
 
-async function importPosts(rows: ImportRow[]) {
+type Schedule = { postsPerDay: number; startDate: string; startIndex: number }
+
+function scheduledPublishedAt(rowIndex: number, schedule?: Schedule): string | null {
+  if (!schedule || schedule.postsPerDay < 1) return null
+  const globalIndex = schedule.startIndex + rowIndex
+  const dayOffset = Math.floor(globalIndex / schedule.postsPerDay)
+  const date = new Date(schedule.startDate)
+  date.setUTCDate(date.getUTCDate() + dayOffset)
+  date.setUTCHours(9, 0, 0, 0)
+  return date.toISOString()
+}
+
+async function importPosts(rows: ImportRow[], schedule?: Schedule) {
   const results: { imported: number; errors: { row: number; message: string }[] } = {
     imported: 0,
     errors: [],
@@ -259,7 +271,9 @@ async function importPosts(rows: ImportRow[]) {
       if (row.excerpt) doc.excerpt = String(row.excerpt)
       if (row.category) doc.category = String(row.category)
       if (row.author) doc.author = String(row.author)
-      if (row.publishedAt) doc.publishedAt = String(row.publishedAt)
+      const scheduled = scheduledPublishedAt(i, schedule)
+      if (scheduled) doc.publishedAt = scheduled
+      else if (row.publishedAt) doc.publishedAt = String(row.publishedAt)
       if (row.coverEmoji) doc.coverEmoji = String(row.coverEmoji)
       if (row.coverBg) doc.coverBg = String(row.coverBg)
       if (row.readTime) doc.readTime = Number(row.readTime)
@@ -277,7 +291,7 @@ async function importPosts(rows: ImportRow[]) {
   return results
 }
 
-async function importReviews(rows: ImportRow[]) {
+async function importReviews(rows: ImportRow[], schedule?: Schedule) {
   const results: { imported: number; errors: { row: number; message: string }[] } = {
     imported: 0,
     errors: [],
@@ -323,7 +337,9 @@ async function importReviews(rows: ImportRow[]) {
         stars,
       }
       if (row.emoji) doc.emoji = String(row.emoji)
-      if (row.publishedAt) doc.publishedAt = String(row.publishedAt)
+      const scheduled = scheduledPublishedAt(i, schedule)
+      if (scheduled) doc.publishedAt = scheduled
+      else if (row.publishedAt) doc.publishedAt = String(row.publishedAt)
       if (row.imgBg) doc.imgBg = String(row.imgBg)
       if (row.content) doc.content = String(row.content)
       if (row.externalImageUrl) doc.externalImageUrl = String(row.externalImageUrl)
@@ -342,7 +358,7 @@ async function importReviews(rows: ImportRow[]) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { type, rows } = body as { type: string; rows: ImportRow[] }
+    const { type, rows, schedule } = body as { type: string; rows: ImportRow[]; schedule?: Schedule }
 
     if (!type || !Array.isArray(rows) || rows.length === 0) {
       return Response.json({ error: 'Thieu type hoac rows' }, { status: 400 })
@@ -350,8 +366,8 @@ export async function POST(request: Request) {
 
     let result
     if (type === 'stores') result = await importStoresAndOffers(rows)
-    else if (type === 'posts') result = await importPosts(rows)
-    else if (type === 'reviews') result = await importReviews(rows)
+    else if (type === 'posts') result = await importPosts(rows, schedule)
+    else if (type === 'reviews') result = await importReviews(rows, schedule)
     else return Response.json({ error: `Type khong hop le: ${type}` }, { status: 400 })
 
     return Response.json(result)

@@ -13,8 +13,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     ;[stores, posts, reviews, pages, categories] = await Promise.all([
       writeClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
-      writeClient.fetch(`*[_type == "post" && defined(publishedAt)]{ "slug": slug.current, _updatedAt }`),
-      writeClient.fetch(`*[_type == "review"]{ "slug": slug.current, _updatedAt }`),
+      writeClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now()]{ "slug": slug.current, _updatedAt }`),
+      writeClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "page" && published != false]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "category"]{ "slug": slug.current, _updatedAt }`),
     ])

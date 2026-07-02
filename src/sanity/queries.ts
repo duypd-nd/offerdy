@@ -196,7 +196,10 @@ export async function getStoresByCategory(slug: string) {
 }
 
 // ── Reviews ────────────────────────────────────────────────────
-const REVIEWS_QUERY = `*[_type == "review"] | order(publishedAt desc) {
+// PUBLISHED_FILTER: an bai co publishedAt trong tuong lai (lich dang bai) cho toi dung ngay
+const PUBLISHED_FILTER = '(!defined(publishedAt) || publishedAt <= now())'
+
+const REVIEWS_QUERY = `*[_type == "review" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, title, excerpt, emoji, tag, stars,
   "date": publishedAt, imgBg,
   "slug": slug.current, "imageUrl": coalesce(image.asset->url, externalImageUrl)
@@ -210,18 +213,18 @@ export async function getReviews() {
   } catch { return staticReviews }
 }
 
-const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug][0] {
+const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, emoji, tag, stars,
   "date": publishedAt, imgBg, body, content, "imageUrl": coalesce(image.asset->url, externalImageUrl)
 }`
 
 // ── Blog Posts ─────────────────────────────────────────────────
-const POSTS_QUERY = `*[_type == "post"] | order(publishedAt desc) {
+const POSTS_QUERY = `*[_type == "post" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime
 }`
 
-const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug][0] {
+const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime, body
 }`
@@ -256,8 +259,8 @@ export async function getReviewBySlug(slug: string) {
 const SEARCH_QUERY = `{
   "deals": *[_type == "deal"][0...50] { "name": title, "priceSale": priceSale, "discount": discount, "icon": emoji, "slug": slug.current },
   "stores": *[_type == "store"][0...50] { "name": name, "abbr": abbr, "dealCount": dealCount, "slug": slug.current },
-  "reviews": *[_type == "review"][0...50] { "name": title, "tag": tag, "icon": emoji, "slug": slug.current },
-  "posts": *[_type == "post"][0...50] { "name": title, "category": category, "icon": coverEmoji, "slug": slug.current }
+  "reviews": *[_type == "review" && ${PUBLISHED_FILTER}][0...50] { "name": title, "tag": tag, "icon": emoji, "slug": slug.current },
+  "posts": *[_type == "post" && ${PUBLISHED_FILTER}][0...50] { "name": title, "category": category, "icon": coverEmoji, "slug": slug.current }
 }`
 
 export async function getSearchableContent(): Promise<SearchableContent> {
@@ -474,7 +477,7 @@ export async function getCouponOffers(): Promise<Offer[]> {
 }
 
 // ── Comparison Posts ───────────────────────────────────────────
-const COMPARISON_POSTS_QUERY = `*[_type == "post" && category == "Comparison"] | order(publishedAt desc) {
+const COMPARISON_POSTS_QUERY = `*[_type == "post" && category == "Comparison" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
   "imageUrl": image.asset->url
@@ -489,7 +492,7 @@ export async function getComparisonPosts() {
 }
 
 // ── Tips & Guides Posts ────────────────────────────────────────
-const TIPS_GUIDES_QUERY = `*[_type == "post" && category == "Tips & Guides"] | order(publishedAt desc) {
+const TIPS_GUIDES_QUERY = `*[_type == "post" && category == "Tips & Guides" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
   "imageUrl": image.asset->url

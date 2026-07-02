@@ -144,6 +144,9 @@ export default function ImportClient() {
   const [results, setResults] = useState<Partial<Record<SheetType, ImportResult>>>({})
   const [importedTabs, setImportedTabs] = useState<Set<SheetType>>(new Set())
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
+  const [scheduleMode, setScheduleMode] = useState<'now' | 'spread'>('now')
+  const [postsPerDay, setPostsPerDay] = useState(3)
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   const validSheets: SheetType[] = ['Stores', 'Posts', 'Reviews']
 
@@ -195,10 +198,13 @@ export default function ImportClient() {
         const offset = b * BATCH_SIZE
         const batchRows = rows.slice(offset, offset + BATCH_SIZE)
         try {
+          const schedule = (type === 'Posts' || type === 'Reviews') && scheduleMode === 'spread'
+            ? { postsPerDay, startDate, startIndex: offset }
+            : undefined
           const res = await fetch('/api/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: type.toLowerCase(), rows: batchRows }),
+            body: JSON.stringify({ type: type.toLowerCase(), rows: batchRows, schedule }),
           })
           const text = await res.text()
           let batchResult: ImportResult
@@ -401,6 +407,48 @@ export default function ImportClient() {
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+              )}
+
+              {/* Schedule bar — chỉ hiện cho Posts/Reviews */}
+              {(activeTab === 'Posts' || activeTab === 'Reviews') && !importedTabs.has(activeTab) && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+                  background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 8,
+                  padding: '10px 14px', marginBottom: 14, fontSize: 13,
+                }}>
+                  <span style={{ fontWeight: 600, color: '#374151' }}>Lịch đăng bài:</span>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                    <input type="radio" checked={scheduleMode === 'now'} onChange={() => setScheduleMode('now')} />
+                    Đăng ngay tất cả
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                    <input type="radio" checked={scheduleMode === 'spread'} onChange={() => setScheduleMode('spread')} />
+                    Chia đều theo ngày
+                  </label>
+                  {scheduleMode === 'spread' && (
+                    <>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        Số bài/ngày:
+                        <input
+                          type="number" min={1} max={50} value={postsPerDay}
+                          onChange={e => setPostsPerDay(Math.max(1, Number(e.target.value) || 1))}
+                          style={{ width: 56, padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 6 }}
+                        />
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        Bắt đầu từ:
+                        <input
+                          type="date" value={startDate}
+                          onChange={e => setStartDate(e.target.value)}
+                          style={{ padding: '4px 8px', border: '1px solid #d1d5db', borderRadius: 6 }}
+                        />
+                      </label>
+                      <span style={{ color: '#94a3b8', fontSize: 12 }}>
+                        → sẽ đăng dần trong {Math.ceil(currentRows.length / postsPerDay)} ngày (9h sáng mỗi ngày)
+                      </span>
+                    </>
                   )}
                 </div>
               )}

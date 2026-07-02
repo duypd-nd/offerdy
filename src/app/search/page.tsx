@@ -91,13 +91,13 @@ async function searchContent(q: string): Promise<SearchResult[]> {
         }`, { p }
       ),
       writeClient.fetch<SearchResult[]>(
-        `*[_type == "post" && (title match $p || excerpt match $p) && defined(publishedAt)][0...10]{
+        `*[_type == "post" && (title match $p || excerpt match $p) && defined(publishedAt) && publishedAt <= now()][0...10]{
           "_id": _id, "type": "post", "title": title, "slug": slug.current,
           "sub": coalesce(category, "Article")
         }`, { p }
       ),
       writeClient.fetch<SearchResult[]>(
-        `*[_type == "review" && (title match $p || excerpt match $p)][0...10]{
+        `*[_type == "review" && (title match $p || excerpt match $p) && (!defined(publishedAt) || publishedAt <= now())][0...10]{
           "_id": _id, "type": "review", "title": title, "slug": slug.current,
           "sub": coalesce(tag, "Review")
         }`, { p }
