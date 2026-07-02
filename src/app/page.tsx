@@ -62,7 +62,7 @@ export default async function Home() {
       <HeaderWrapper />
       <main>
         <Hero searchableContent={searchableContent} />
-        <StoresTicker stores={stores} />
+        <StoresTicker stores={stores.slice(0, 20)} />
         {(config.showExpiringBand !== false) && expiringDeals.length > 0 && <ExpiringBand deals={expiringDeals} />}
         <DealsGrid deals={deals} columns={config.dealsGridColumns} showVerified={config.showVerifiedBadge !== false} />
         <CategoryGrid categories={categories} />
