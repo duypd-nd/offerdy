@@ -18,7 +18,7 @@ const STORES_COLS = [
   { key: 'link',       required: true,  note: 'Link affiliate — dùng cho cả store lẫn offer' },
   { key: 'category',   required: false, note: 'electronics|fashion|beauty|home|sports|food|travel|books|gaming|general' },
   { key: 'maxOffer',   required: false, note: 'Giảm tối đa (%), VD: 70' },
-  { key: 'store_imageUrl',    required: false, note: 'URL ảnh logo store, VD: https://logo.clearbit.com/amazon.com' },
+  { key: 'store_imageUrl',    required: false, note: 'URL ảnh logo store (link trực tiếp tới file ảnh, VD: https://example.com/logo.png) — lưu ý dịch vụ logo.clearbit.com đã ngừng hoạt động' },
   { key: 'store_description', required: false, note: 'Mô tả ngắn / tagline' },
   { key: 'store_about',       required: false, note: 'Mô tả dài, hỗ trợ HTML' },
   { key: 'offer_title',       required: true,  note: 'Tiêu đề offer' },
