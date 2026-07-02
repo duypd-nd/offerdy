@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { Deal } from '@/data/deals'
 import AffiliateLink from '@/components/AffiliateLink'
-import { dealDiscountLabel } from '@/lib/dealDiscountLabel'
+import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 
 const PAGE_SIZE = 20
 
@@ -39,11 +39,13 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
         </div>
 
         <div className="deals-grid">
-          {paginated.map(deal => (
+          {paginated.map(deal => {
+            const badge = dealDiscountBadge(deal)
+            return (
             <div key={deal.id} className="deal-card">
               <div className="disc-badge">
-                <span className="disc-pct">{dealDiscountLabel(deal)}</span>
-                <span className="disc-off">OFF</span>
+                <span className="disc-pct">{badge.main}</span>
+                {badge.sub && <span className="disc-off">{badge.sub}</span>}
               </div>
               <div className="ver-badge"><CheckIcon />Verified</div>
               <AffiliateLink href={deal.dealUrl ?? '#'} storeName={deal.store} className={`deal-img ${deal.imgClass ?? 'di-tech'}`}>
@@ -62,7 +64,8 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
                 <AffiliateLink href={deal.dealUrl ?? '#'} storeName={deal.store} className="deal-cta">Get Deal →</AffiliateLink>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         {deals.length === 0 && (

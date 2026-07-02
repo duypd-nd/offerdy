@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { Deal } from '@/data/deals'
 import AffiliateLink from '@/components/AffiliateLink'
-import { dealDiscountLabel } from '@/lib/dealDiscountLabel'
+import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 
 type Filter = 'all' | 'verified' | 'expiring'
 
@@ -16,11 +16,12 @@ function CheckIcon() {
 }
 
 function DealCard({ deal }: { deal: Deal }) {
+  const badge = dealDiscountBadge(deal)
   return (
     <div className="deal-card">
       <div className="disc-badge">
-        <span className="disc-pct">{dealDiscountLabel(deal)}</span>
-        <span className="disc-off">OFF</span>
+        <span className="disc-pct">{badge.main}</span>
+        {badge.sub && <span className="disc-off">{badge.sub}</span>}
       </div>
       {deal.verified !== false && (
         <div className="ver-badge">
