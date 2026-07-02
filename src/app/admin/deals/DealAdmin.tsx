@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState, useTransition } from 'react'
-import { updateDeal, deleteDeal, createDeal, uploadDealImage, bulkUpdateOrder } from './actions'
+import { updateDeal, deleteDeal, createDeal, uploadDealImage, uploadDealImageFromUrl, bulkUpdateOrder } from './actions'
 
 const calcDiscount = (orig: string, sale: string) => {
   const o = parseFloat(orig.replace(/[^0-9.]/g, ''))
@@ -233,11 +233,14 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(initial?.imageUrl ?? '')
+  const [imageUrlInput, setImageUrlInput] = useState('')
+  const [imageError, setImageError] = useState('')
   const [isPending, startTransition] = useTransition()
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    setImageError('')
     startTransition(async () => {
       let image: unknown = undefined
       if (imageFile) {
@@ -246,6 +249,13 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
           fd.append('file', imageFile)
           image = await uploadDealImage(fd)
         } catch {}
+      } else if (imageUrlInput) {
+        try {
+          image = await uploadDealImageFromUrl(imageUrlInput)
+        } catch (err) {
+          setImageError(err instanceof Error ? err.message : 'Không tải được ảnh từ URL')
+          return
+        }
       }
       const data = {
         title: form.title,
@@ -301,13 +311,13 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
             <input id="deal-img-input" type="file" accept="image/*" style={{ display: 'none' }}
               onChange={e => {
                 const file = e.target.files?.[0]
-                if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)) }
+                if (file) { setImageFile(file); setImageUrlInput(''); setImagePreview(URL.createObjectURL(file)) }
               }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
               {imagePreview && (
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                  <img src={imagePreview} alt="preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb', display: 'block' }} />
-                  <button type="button" onClick={() => { setImageFile(null); setImagePreview('') }}
+                  <img src={imagePreview} alt="preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb', display: 'block' }} onError={() => setImagePreview('')} />
+                  <button type="button" onClick={() => { setImageFile(null); setImageUrlInput(''); setImagePreview('') }}
                     style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 </div>
               )}
@@ -315,6 +325,22 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
                 {imagePreview ? '🔄 Đổi ảnh' : '📷 Chọn ảnh từ máy tính'}
               </button>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <span style={{ fontSize: 12, color: '#9ca3af', flexShrink: 0 }}>hoặc dán link ảnh:</span>
+              <input
+                className="oa-input"
+                style={{ flex: 1 }}
+                value={imageUrlInput}
+                onChange={e => {
+                  setImageUrlInput(e.target.value)
+                  setImageFile(null)
+                  setImagePreview(e.target.value)
+                  setImageError('')
+                }}
+                placeholder="https://example.com/anh.jpg"
+              />
+            </div>
+            {imageError && <span className="oa-field-error">{imageError}</span>}
           </div>
 
           <div className="oa-modal-row">

@@ -50,3 +50,16 @@ export async function uploadDealImage(formData: FormData) {
   })
   return { _type: 'image', asset: { _type: 'reference', _ref: asset._id } }
 }
+
+export async function uploadDealImageFromUrl(url: string) {
+  if (!url) return null
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Không tải được ảnh từ URL: ${res.status}`)
+  const blob = await res.blob()
+  const filename = url.split('/').pop()?.split('?')[0] || 'deal.jpg'
+  const asset = await writeClient.assets.upload('image', blob, {
+    filename,
+    contentType: blob.type || 'image/jpeg',
+  })
+  return { _type: 'image', asset: { _type: 'reference', _ref: asset._id } }
+}
