@@ -115,14 +115,8 @@ export async function getExpiringDeals() {
 }
 
 // ── Stores ─────────────────────────────────────────────────────
-const STORES_QUERY = `*[_type == "store" && published != false] | order(name asc) {
-  "id": _id, name, abbr, colorClass, "count": dealCount,
-  "slug": slug.current, website, category, maxOffer,
-  "imageUrl": image.asset->url
-}`
-
-// Featured Stores ticker o trang chu - store moi nhat len truoc (khac /stores dung A-Z)
-const FEATURED_STORES_QUERY = `*[_type == "store" && published != false] | order(_createdAt desc) {
+// Store moi nhat len truoc (dung chung cho /stores va Featured Stores ticker trang chu)
+const STORES_QUERY = `*[_type == "store" && published != false] | order(_createdAt desc) {
   "id": _id, name, abbr, colorClass, "count": dealCount,
   "slug": slug.current, website, category, maxOffer,
   "imageUrl": image.asset->url
@@ -141,14 +135,6 @@ export async function getStores() {
   if (!isConfigured()) return staticStores
   try {
     const data = await writeClient.fetch(STORES_QUERY)
-    return data.length ? data : staticStores
-  } catch { return staticStores }
-}
-
-export async function getFeaturedStores() {
-  if (!isConfigured()) return staticStores
-  try {
-    const data = await writeClient.fetch(FEATURED_STORES_QUERY)
     return data.length ? data : staticStores
   } catch { return staticStores }
 }

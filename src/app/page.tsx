@@ -7,7 +7,7 @@ import DealsGrid from '@/components/DealsGrid'
 import CategoryGrid from '@/components/CategoryGrid'
 import ReviewsGrid from '@/components/ReviewsGrid'
 import Footer from '@/components/Footer'
-import { getDeals, getFeaturedStores, getCategories, getReviews, getExpiringDeals, getSearchableContent, getConfigContent } from '@/sanity/queries'
+import { getDeals, getStores, getCategories, getReviews, getExpiringDeals, getSearchableContent, getConfigContent } from '@/sanity/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +42,7 @@ const homepageJsonLd = {
 export default async function Home() {
   const [config, stores, categories, reviews, expiringDeals, searchableContent] = await Promise.all([
     getConfigContent(),
-    getFeaturedStores(),
+    getStores(),
     getCategories(),
     getReviews(),
     getExpiringDeals(),
