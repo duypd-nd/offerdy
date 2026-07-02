@@ -1,5 +1,51 @@
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
+import dns from 'dns/promises'
+import { isIP } from 'net'
+
+function isPrivateOrReservedIp(ip: string): boolean {
+  const version = isIP(ip)
+  if (version === 4) {
+    const [a, b] = ip.split('.').map(Number)
+    if (a === 10 || a === 127 || a === 0) return true
+    if (a === 169 && b === 254) return true // link-local, gom ca cloud metadata 169.254.169.254
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
+    if (a >= 224) return true // multicast/reserved
+    return false
+  }
+  if (version === 6) {
+    const lower = ip.toLowerCase()
+    if (lower === '::1' || lower === '::') return true
+    if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true // fe80::/10
+    if (lower.startsWith('fc') || lower.startsWith('fd')) return true // fc00::/7
+    if (lower.startsWith('::ffff:')) {
+      const v4 = lower.slice(7)
+      if (isIP(v4) === 4) return isPrivateOrReservedIp(v4)
+    }
+    return false
+  }
+  return true // hostname khong resolve duoc thanh IP hop le -> coi la khong an toan
+}
+
+async function isSafeImageUrl(rawUrl: string): Promise<boolean> {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+  if (parsed.hostname.toLowerCase() === 'localhost') return false
+
+  try {
+    const records = await dns.lookup(parsed.hostname, { all: true })
+    return records.length > 0 && records.every((r) => !isPrivateOrReservedIp(r.address))
+  } catch {
+    return false
+  }
+}
 
 function slugify(str: string) {
   return str
@@ -15,10 +61,26 @@ function slugify(str: string) {
 type ImportRow = Record<string, string | number | boolean | null | undefined>
 type SanityDoc = { _type: string } & Record<string, unknown>
 
+async function fetchImageSafely(url: string, maxRedirects = 5): Promise<Response | null> {
+  let currentUrl = url
+  for (let i = 0; i <= maxRedirects; i++) {
+    if (!(await isSafeImageUrl(currentUrl))) return null
+    const res = await fetch(currentUrl, { redirect: 'manual' })
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get('location')
+      if (!location) return null
+      currentUrl = new URL(location, currentUrl).toString()
+      continue
+    }
+    return res
+  }
+  return null
+}
+
 async function uploadImageFromUrl(url: string) {
   try {
-    const res = await fetch(url)
-    if (!res.ok) return null
+    const res = await fetchImageSafely(url)
+    if (!res || !res.ok) return null
     const blob = await res.blob()
     const filename = url.split('/').pop()?.split('?')[0] || 'logo.png'
     const asset = await writeClient.assets.upload('image', blob, {
