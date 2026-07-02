@@ -1,5 +1,6 @@
 import { writeClient } from '@/sanity/writeClient'
 import Link from 'next/link'
+import { getRecentSentryIssues } from '@/lib/sentryApi'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +39,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks] = await Promise.all([
+  const [offers, stores, recentClicks, sentryIssues] = await Promise.all([
     writeClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -54,6 +55,7 @@ export default async function ReportsPage() {
       }`,
       { thirtyDaysAgo }
     ),
+    getRecentSentryIssues(10),
   ])
 
   const todayCount = recentClicks.filter(c => c._createdAt >= startOfToday).length
@@ -103,6 +105,41 @@ export default async function ReportsPage() {
           Lượt click vào link affiliate (Get Code / Get Deal / Visit Website)
         </p>
       </div>
+
+      {/* ── Lỗi production (Sentry) ── */}
+      {sentryIssues.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{
+              padding: '12px 16px', borderBottom: '1px solid #fee2e2', background: '#fef2f2',
+              fontSize: 13, fontWeight: 700, color: '#dc2626', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span>🚨 Lỗi production chưa xử lý ({sentryIssues.length})</span>
+              <a href={`https://${process.env.SENTRY_ORG}.sentry.io/issues/`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#dc2626', textDecoration: 'underline' }}>
+                Xem tất cả trên Sentry →
+              </a>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {sentryIssues.map((issue, i) => (
+                  <tr key={issue.id} style={{ borderTop: i > 0 ? '1px solid #f1f5f9' : undefined }}>
+                    <td style={{ padding: '10px 16px', fontSize: 13, color: '#1e293b', fontWeight: 500, maxWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <a href={issue.permalink} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', textDecoration: 'none' }}>{issue.title}</a>
+                      {issue.culprit && <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {issue.culprit}</span>}
+                    </td>
+                    <td style={{ padding: '10px 16px', fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                      Lần cuối: {new Date(issue.lastSeen).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 800, color: '#dc2626', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {issue.count} lần
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── Thống kê theo thời gian ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
