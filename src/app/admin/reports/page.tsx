@@ -92,6 +92,19 @@ export default async function ReportsPage() {
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, 20)
 
+  // ── 30 ngày qua: top store theo click log ──
+  const storeById = new Map(stores.map(s => [s.id, s]))
+  const thirtyDayStoreCounts = new Map<string, number>()
+  for (const c of recentClicks) {
+    if (!c.storeId) continue
+    thirtyDayStoreCounts.set(c.storeId, (thirtyDayStoreCounts.get(c.storeId) ?? 0) + 1)
+  }
+  const topStores30d = [...thirtyDayStoreCounts.entries()]
+    .map(([storeId, clicks]) => ({ store: storeById.get(storeId), clicks }))
+    .filter((r): r is { store: StoreClickRow; clicks: number } => !!r.store)
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, 20)
+
   // ── Offer có click nhưng cần chú ý ──
   const needsAttention = offers
     .filter(o => o.verified === false || (o.expiresAt && daysUntil(o.expiresAt) <= 7))
@@ -208,16 +221,27 @@ export default async function ReportsPage() {
         />
       </div>
 
-      <ReportTable
-        title="Top Offer được click nhiều nhất (7 ngày qua)"
-        emptyText="Chưa có lượt click nào trong 7 ngày qua"
-        rows={topOffers7d.map(({ offer, clicks }) => ({
-          label: offer.title,
-          sub: offer.storeName,
-          href: offer.storeSlug ? `/stores/${offer.storeSlug}` : undefined,
-          clicks,
-        }))}
-      />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <ReportTable
+          title="Top Store được click nhiều nhất (30 ngày qua)"
+          emptyText="Chưa có lượt click nào trong 30 ngày qua"
+          rows={topStores30d.map(({ store, clicks }) => ({
+            label: store.name,
+            href: store.slug ? `/stores/${store.slug}` : undefined,
+            clicks,
+          }))}
+        />
+        <ReportTable
+          title="Top Offer được click nhiều nhất (7 ngày qua)"
+          emptyText="Chưa có lượt click nào trong 7 ngày qua"
+          rows={topOffers7d.map(({ offer, clicks }) => ({
+            label: offer.title,
+            sub: offer.storeName,
+            href: offer.storeSlug ? `/stores/${offer.storeSlug}` : undefined,
+            clicks,
+          }))}
+        />
+      </div>
     </div>
   )
 }
