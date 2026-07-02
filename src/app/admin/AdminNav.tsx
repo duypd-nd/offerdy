@@ -26,6 +26,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/coupon-codes', label: 'Coupon Codes',  icon: '🏷️' },
       { href: '/admin/deals',        label: 'Deals',         icon: '💰' },
       { href: '/admin/categories',   label: 'Categories',    icon: '🗂️' },
+      { href: '/admin/reports',      label: 'Báo cáo Click',  icon: '📊' },
     ],
   },
   {

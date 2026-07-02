@@ -89,6 +89,14 @@ export const offerType = defineType({
       description: 'Số người báo offer này đã hết hạn hoặc không hoạt động',
       readOnly: false,
     }),
+    defineField({
+      name: 'clicks',
+      title: 'Lượt click (Get Code / Get Deal)',
+      type: 'number',
+      initialValue: 0,
+      description: 'Số lần khách bấm nút Get Code/Get Deal (tự động cập nhật từ website)',
+      readOnly: true,
+    }),
   ],
   orderings: [
     {

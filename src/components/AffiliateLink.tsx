@@ -1,6 +1,7 @@
 'use client'
 
 import type { AnchorHTMLAttributes, MouseEvent } from 'react'
+import { trackOfferClick, trackStoreClick } from '@/actions/trackClick'
 
 declare global {
   interface Window {
@@ -12,9 +13,10 @@ type AffiliateLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
   href: string
   storeName?: string
   offerId?: string
+  storeId?: string
 }
 
-export default function AffiliateLink({ href, storeName, offerId, onClick, ...rest }: AffiliateLinkProps) {
+export default function AffiliateLink({ href, storeName, offerId, storeId, onClick, ...rest }: AffiliateLinkProps) {
   function handleClick(e: MouseEvent<HTMLAnchorElement>) {
     window.dataLayer = window.dataLayer || []
     window.dataLayer.push({
@@ -23,6 +25,8 @@ export default function AffiliateLink({ href, storeName, offerId, onClick, ...re
       store_name: storeName,
       offer_id: offerId,
     })
+    if (offerId) trackOfferClick(offerId).catch(() => {})
+    else if (storeId) trackStoreClick(storeId).catch(() => {})
     onClick?.(e)
   }
 

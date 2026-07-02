@@ -186,6 +186,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
                 <AffiliateLink
                   href={store.affiliateLink ?? `https://${store.website}`}
                   storeName={store.name}
+                  storeId={store.id}
                   className="sol-sb-web-link"
                 >
                   🌐 {store.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
@@ -254,7 +255,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
                       <div className="store-event-title">{ev.title}</div>
                       {ev.description && <div className="store-event-desc">{ev.description}</div>}
                       {ev.link && (
-                        <AffiliateLink href={ev.link} storeName={store.name} className="store-event-link">
+                        <AffiliateLink href={ev.link} storeName={store.name} storeId={store.id} className="store-event-link">
                           Xem chi tiết <ExternalIcon size={11} />
                         </AffiliateLink>
                       )}

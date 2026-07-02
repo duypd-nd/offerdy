@@ -95,6 +95,15 @@ export const storeType = defineType({
       group: 'basic',
       description: 'Link tiếp thị — khi có sẽ tự dùng làm href; hiển thị vẫn là domain gốc',
     }),
+    defineField({
+      name: 'clicks',
+      title: 'Lượt click (link website/event của store)',
+      type: 'number',
+      initialValue: 0,
+      group: 'basic',
+      description: 'Số lần khách bấm link website/event của store (không tính click Get Code/Get Deal của offer — xem ở offer) — tự động cập nhật từ website',
+      readOnly: true,
+    }),
 
     // ── Nội dung ───────────────────────────────────────────────
     defineField({
