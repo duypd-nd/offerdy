@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Deal } from '@/data/deals'
 import AffiliateLink from '@/components/AffiliateLink'
+import { dealDiscountLabel } from '@/lib/dealDiscountLabel'
 
 type Filter = 'all' | 'verified' | 'expiring'
 
@@ -18,7 +19,7 @@ function DealCard({ deal }: { deal: Deal }) {
   return (
     <div className="deal-card">
       <div className="disc-badge">
-        <span className="disc-pct">{deal.discount}%</span>
+        <span className="disc-pct">{dealDiscountLabel(deal)}</span>
         <span className="disc-off">OFF</span>
       </div>
       {deal.verified !== false && (

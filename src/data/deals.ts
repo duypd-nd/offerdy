@@ -10,6 +10,7 @@ export type Deal = {
   priceSale: string
   priceOrig: string
   discount: number
+  discountByAmount?: boolean
   verified?: boolean
   dealUrl?: string
   isExpiring?: boolean

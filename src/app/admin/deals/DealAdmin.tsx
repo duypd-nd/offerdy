@@ -10,10 +10,18 @@ const calcDiscount = (orig: string, sale: string) => {
   return Math.round((1 - s / o) * 100)
 }
 
+const calcAmountSaved = (orig: string, sale: string) => {
+  const o = parseFloat(orig.replace(/[^0-9.]/g, ''))
+  const s = parseFloat(sale.replace(/[^0-9.]/g, ''))
+  if (!o || !s || s >= o) return '$0'
+  const currency = orig.match(/^[^0-9]+/)?.[0] ?? '$'
+  return `${currency}${Math.round(o - s)}`
+}
+
 type AdminDeal = {
   _id: string; title: string; slug: string
   imageUrl?: string; priceSale: string; priceOrig: string
-  discount: number; verified: boolean; isExpiring: boolean
+  discount: number; discountByAmount?: boolean; verified: boolean; isExpiring: boolean
   expiresAt?: string; dealUrl?: string; _createdAt: string; _updatedAt?: string; order?: number
 }
 
@@ -226,6 +234,7 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
     priceSale: initial?.priceSale ?? '',
     priceOrig: initial?.priceOrig ?? '',
     discount: initial?.discount ?? 0,
+    discountByAmount: initial?.discountByAmount ?? false,
     verified: initial?.verified ?? true,
     isExpiring: initial?.isExpiring ?? false,
     expiresAt: initial?.expiresAt ? initial.expiresAt.slice(0, 16) : '',
@@ -262,6 +271,7 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
         priceSale: form.priceSale,
         priceOrig: form.priceOrig,
         discount: form.discount,
+        discountByAmount: form.discountByAmount,
         verified: form.verified,
         isExpiring: form.isExpiring,
         expiresAt: form.expiresAt || undefined,
@@ -302,8 +312,17 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
             <label className="oa-label">Giá sale *
               <input className="oa-input" value={form.priceSale} onChange={e => { set('priceSale', e.target.value); set('discount', calcDiscount(form.priceOrig, e.target.value)) }} placeholder="$189" required />
             </label>
-            <label className="oa-label">Giảm% (tự tính)
-              <input className="oa-input" type="number" value={form.discount} readOnly style={{ background: '#f3f4f6', cursor: 'default', fontWeight: 700, color: '#dc2626' }} />
+            <label className="oa-label">{form.discountByAmount ? 'Giảm $ (tự tính)' : 'Giảm% (tự tính)'}
+              <input
+                className="oa-input"
+                value={form.discountByAmount ? calcAmountSaved(form.priceOrig, form.priceSale) : form.discount}
+                readOnly
+                style={{ background: '#f3f4f6', cursor: 'default', fontWeight: 700, color: '#dc2626' }}
+              />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, color: '#6b7280', marginTop: 6, cursor: 'pointer' }}>
+                <input type="checkbox" checked={form.discountByAmount} onChange={e => set('discountByAmount', e.target.checked)} />
+                Hiện theo số tiền (VD: $100 OFF)
+              </label>
             </label>
           </div>
 

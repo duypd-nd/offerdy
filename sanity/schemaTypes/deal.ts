@@ -16,6 +16,12 @@ export const dealType = defineType({
     defineField({ name: 'priceSale', title: 'Sale Price (e.g. $189)', type: 'string', validation: r => r.required() }),
     defineField({ name: 'priceOrig', title: 'Original Price (e.g. $249)', type: 'string', validation: r => r.required() }),
     defineField({ name: 'discount', title: 'Discount %', type: 'number', validation: r => r.required().min(1).max(99) }),
+    defineField({
+      name: 'discountByAmount',
+      title: 'Hiển thị giảm theo số tiền (VD: $100 OFF thay vì %)',
+      type: 'boolean',
+      initialValue: false,
+    }),
     defineField({ name: 'verified', title: 'Verified', type: 'boolean', initialValue: true }),
     defineField({ name: 'isExpiring', title: 'Expiring Soon?', type: 'boolean', initialValue: false }),
     defineField({ name: 'expiresAt', title: 'Expires At', type: 'datetime' }),

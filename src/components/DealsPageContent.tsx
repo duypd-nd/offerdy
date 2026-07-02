@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Deal } from '@/data/deals'
 import AffiliateLink from '@/components/AffiliateLink'
+import { dealDiscountLabel } from '@/lib/dealDiscountLabel'
 
 const PAGE_SIZE = 20
 
@@ -41,7 +42,7 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
           {paginated.map(deal => (
             <div key={deal.id} className="deal-card">
               <div className="disc-badge">
-                <span className="disc-pct">{deal.discount}%</span>
+                <span className="disc-pct">{dealDiscountLabel(deal)}</span>
                 <span className="disc-off">OFF</span>
               </div>
               <div className="ver-badge"><CheckIcon />Verified</div>

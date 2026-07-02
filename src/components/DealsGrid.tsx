@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { Deal } from '@/data/deals'
 import AffiliateLink from '@/components/AffiliateLink'
+import { dealDiscountLabel } from '@/lib/dealDiscountLabel'
 
 function CheckIcon() {
   return (
@@ -25,7 +26,7 @@ export default function DealsGrid({ deals, columns, showVerified = true }: { dea
         {deals.map(deal => (
           <div key={deal.id} className="deal-card">
             <div className="disc-badge">
-              <span className="disc-pct">{deal.discount}%</span>
+              <span className="disc-pct">{dealDiscountLabel(deal)}</span>
               <span className="disc-off">OFF</span>
             </div>
             {showVerified && (
