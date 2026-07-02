@@ -10,10 +10,10 @@ export function middleware(request: NextRequest) {
     const username = decoded.slice(0, colon)
     const password = decoded.slice(colon + 1)
 
-    const validUser = process.env.ADMIN_USERNAME ?? 'admin'
-    const validPass = process.env.ADMIN_PASSWORD ?? 'offerdy2026'
+    const validUser = process.env.ADMIN_USERNAME
+    const validPass = process.env.ADMIN_PASSWORD
 
-    if (username === validUser && password === validPass) {
+    if (validUser && validPass && username === validUser && password === validPass) {
       return NextResponse.next()
     }
   }
