@@ -33,7 +33,7 @@ export default async function ReportsPage() {
     ),
   ])
 
-  const topOffers = [...offers].sort((a, b) => b.clicks - a.clicks).slice(0, 20)
+  const topOffers = [...offers].sort((a, b) => b.clicks - a.clicks).slice(0, 100)
 
   const storeTotals = new Map<string, { name: string; slug?: string; clicks: number }>()
   for (const s of stores) {
@@ -47,7 +47,7 @@ export default async function ReportsPage() {
   const topStores = [...storeTotals.values()]
     .filter(s => s.clicks > 0)
     .sort((a, b) => b.clicks - a.clicks)
-    .slice(0, 20)
+    .slice(0, 100)
 
   const totalClicks = offers.reduce((sum, o) => sum + o.clicks, 0) + stores.reduce((sum, s) => sum + s.directClicks, 0)
 
