@@ -8,6 +8,8 @@ type OfferClickRow = {
   title: string
   clicks: number
   couponCode?: string
+  verified?: boolean
+  expiresAt?: string
   storeId?: string
   storeName?: string
   storeSlug?: string
@@ -20,18 +22,44 @@ type StoreClickRow = {
   directClicks: number
 }
 
+type ClickLogRow = {
+  _createdAt: string
+  offerId?: string
+  storeId?: string
+}
+
+function daysUntil(iso: string): number {
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
+}
+
 export default async function ReportsPage() {
-  const [offers, stores] = await Promise.all([
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
+
+  const [offers, stores, recentClicks] = await Promise.all([
     writeClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
-        _id, title, clicks, couponCode,
+        _id, title, clicks, couponCode, verified, expiresAt,
         "storeId": store._ref, "storeName": store->name, "storeSlug": store->slug.current
       }`
     ),
     writeClient.fetch<StoreClickRow[]>(
       `*[_type == "store"] { "id": _id, name, "slug": slug.current, "directClicks": coalesce(clicks, 0) }`
     ),
+    writeClient.fetch<ClickLogRow[]>(
+      `*[_type == "click" && _createdAt >= $thirtyDaysAgo] {
+        _createdAt, "offerId": offer._ref, "storeId": coalesce(store._ref, offer->store._ref)
+      }`,
+      { thirtyDaysAgo }
+    ),
   ])
+
+  const todayCount = recentClicks.filter(c => c._createdAt >= startOfToday).length
+  const sevenDayCount = recentClicks.filter(c => c._createdAt >= sevenDaysAgo).length
+  const thirtyDayCount = recentClicks.length
+  const allTimeCount = offers.reduce((sum, o) => sum + o.clicks, 0) + stores.reduce((sum, s) => sum + s.directClicks, 0)
 
   const topOffers = [...offers].sort((a, b) => b.clicks - a.clicks).slice(0, 100)
 
@@ -49,20 +77,81 @@ export default async function ReportsPage() {
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, 100)
 
-  const totalClicks = offers.reduce((sum, o) => sum + o.clicks, 0) + stores.reduce((sum, s) => sum + s.directClicks, 0)
+  // ── 7 ngày qua: top offer theo click log ──
+  const offerById = new Map(offers.map(o => [o._id, o]))
+  const sevenDayOfferCounts = new Map<string, number>()
+  for (const c of recentClicks) {
+    if (c._createdAt < sevenDaysAgo || !c.offerId) continue
+    sevenDayOfferCounts.set(c.offerId, (sevenDayOfferCounts.get(c.offerId) ?? 0) + 1)
+  }
+  const topOffers7d = [...sevenDayOfferCounts.entries()]
+    .map(([offerId, clicks]) => ({ offer: offerById.get(offerId), clicks }))
+    .filter((r): r is { offer: OfferClickRow; clicks: number } => !!r.offer)
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, 20)
+
+  // ── Offer có click nhưng cần chú ý ──
+  const needsAttention = offers
+    .filter(o => o.verified === false || (o.expiresAt && daysUntil(o.expiresAt) <= 7))
+    .sort((a, b) => b.clicks - a.clicks)
 
   return (
     <div style={{ padding: '32px 28px', maxWidth: 1100 }}>
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>Báo cáo Click</h1>
         <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>
-          Lượt click vào link affiliate (Get Code / Get Deal / Visit Website) — tổng cộng <b>{totalClicks}</b> lượt
+          Lượt click vào link affiliate (Get Code / Get Deal / Visit Website)
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      {/* ── Thống kê theo thời gian ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+        <StatCard label="Hôm nay" value={todayCount} />
+        <StatCard label="7 ngày qua" value={sevenDayCount} />
+        <StatCard label="30 ngày qua" value={thirtyDayCount} />
+        <StatCard label="Tất cả thời gian" value={allTimeCount} highlight />
+      </div>
+
+      {/* ── Cần chú ý ── */}
+      {needsAttention.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ background: '#fff', border: '1px solid #fde68a', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #fef3c7', background: '#fffbeb', fontSize: 13, fontWeight: 700, color: '#92400e' }}>
+              ⚠️ Offer có click nhưng cần chú ý ({needsAttention.length})
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {needsAttention.map((o, i) => (
+                  <tr key={o._id} style={{ borderTop: i > 0 ? '1px solid #f1f5f9' : undefined }}>
+                    <td style={{ padding: '10px 16px', fontSize: 13, color: '#1e293b', fontWeight: 500, maxWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {o.storeSlug ? (
+                        <Link href={`/stores/${o.storeSlug}`} target="_blank" style={{ color: '#1e293b', textDecoration: 'none' }}>{o.title}</Link>
+                      ) : o.title}
+                      <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {o.storeName}</span>
+                    </td>
+                    <td style={{ padding: '10px 16px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                      {o.verified === false && <span style={{ color: '#dc2626', fontWeight: 600 }}>Chưa verified</span>}
+                      {o.verified === false && o.expiresAt && daysUntil(o.expiresAt) <= 7 && ' · '}
+                      {o.expiresAt && daysUntil(o.expiresAt) <= 7 && (
+                        <span style={{ color: '#d97706', fontWeight: 600 }}>
+                          {daysUntil(o.expiresAt) < 0 ? 'Đã hết hạn' : `Hết hạn sau ${daysUntil(o.expiresAt)} ngày`}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 800, color: '#16a34a', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {o.clicks} click
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
         <ReportTable
-          title="Top Store được click nhiều nhất"
+          title="Top Store được click nhiều nhất (tất cả thời gian)"
           emptyText="Chưa có lượt click nào"
           rows={topStores.map(s => ({
             label: s.name,
@@ -71,7 +160,7 @@ export default async function ReportsPage() {
           }))}
         />
         <ReportTable
-          title="Top Offer được click nhiều nhất"
+          title="Top Offer được click nhiều nhất (tất cả thời gian)"
           emptyText="Chưa có lượt click nào"
           rows={topOffers.map(o => ({
             label: o.title,
@@ -81,6 +170,30 @@ export default async function ReportsPage() {
           }))}
         />
       </div>
+
+      <ReportTable
+        title="Top Offer được click nhiều nhất (7 ngày qua)"
+        emptyText="Chưa có lượt click nào trong 7 ngày qua"
+        rows={topOffers7d.map(({ offer, clicks }) => ({
+          label: offer.title,
+          sub: offer.storeName,
+          href: offer.storeSlug ? `/stores/${offer.storeSlug}` : undefined,
+          clicks,
+        }))}
+      />
+    </div>
+  )
+}
+
+function StatCard({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+  return (
+    <div style={{
+      background: highlight ? '#f0fdf4' : '#fff',
+      border: `1px solid ${highlight ? '#86efac' : '#e5e7eb'}`,
+      borderRadius: 12, padding: '14px 16px',
+    }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: highlight ? '#16a34a' : '#0f172a', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{label}</div>
     </div>
   )
 }
