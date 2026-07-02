@@ -29,21 +29,29 @@ function isPrivateOrReservedIp(ip: string): boolean {
   return true // hostname khong resolve duoc thanh IP hop le -> coi la khong an toan
 }
 
-async function isSafeImageUrl(rawUrl: string): Promise<boolean> {
+async function checkImageUrlSafety(rawUrl: string): Promise<string | null> {
   let parsed: URL
   try {
     parsed = new URL(rawUrl)
   } catch {
-    return false
+    return `URL khong hop le: "${rawUrl}"`
   }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
-  if (parsed.hostname.toLowerCase() === 'localhost') return false
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return `Protocol khong duoc phep: "${parsed.protocol}"`
+  }
+  if (parsed.hostname.toLowerCase() === 'localhost') {
+    return 'Khong duoc phep tro toi localhost'
+  }
 
   try {
     const records = await dns.lookup(parsed.hostname, { all: true })
-    return records.length > 0 && records.every((r) => !isPrivateOrReservedIp(r.address))
+    if (records.length === 0) return `Khong resolve duoc DNS cho "${parsed.hostname}"`
+    if (records.some((r) => isPrivateOrReservedIp(r.address))) {
+      return `Dia chi IP noi bo/khong an toan cho "${parsed.hostname}"`
+    }
+    return null
   } catch {
-    return false
+    return `Khong resolve duoc DNS cho "${parsed.hostname}"`
   }
 }
 
@@ -61,43 +69,62 @@ function slugify(str: string) {
 type ImportRow = Record<string, string | number | boolean | null | undefined>
 type SanityDoc = { _type: string } & Record<string, unknown>
 
-async function fetchImageSafely(url: string, maxRedirects = 5): Promise<Response | null> {
+type FetchImageResult = { res: Response } | { error: string }
+
+async function fetchImageSafely(url: string, maxRedirects = 5): Promise<FetchImageResult> {
   let currentUrl = url
   for (let i = 0; i <= maxRedirects; i++) {
-    if (!(await isSafeImageUrl(currentUrl))) return null
-    const res = await fetch(currentUrl, { redirect: 'manual' })
+    const unsafeReason = await checkImageUrlSafety(currentUrl)
+    if (unsafeReason) return { error: unsafeReason }
+    let res: Response
+    try {
+      res = await fetch(currentUrl, { redirect: 'manual' })
+    } catch (err) {
+      return { error: `Khong ket noi duoc toi "${currentUrl}": ${String(err)}` }
+    }
     if (res.status >= 300 && res.status < 400) {
       const location = res.headers.get('location')
-      if (!location) return null
+      if (!location) return { error: `Redirect tu "${currentUrl}" thieu header Location` }
       currentUrl = new URL(location, currentUrl).toString()
       continue
     }
-    return res
+    return { res }
   }
-  return null
+  return { error: `Qua nhieu redirect (>${maxRedirects}) bat dau tu "${url}"` }
 }
 
-async function uploadImageFromUrl(url: string) {
+type UploadImageResult = { image: SanityDoc } | { error: string }
+
+async function uploadImageFromUrl(url: string): Promise<UploadImageResult> {
+  const fetched = await fetchImageSafely(url)
+  if ('error' in fetched) return fetched
+  const { res } = fetched
+  if (!res.ok) return { error: `HTTP ${res.status} khi tai "${url}"` }
   try {
-    const res = await fetchImageSafely(url)
-    if (!res || !res.ok) return null
     const blob = await res.blob()
     const filename = url.split('/').pop()?.split('?')[0] || 'logo.png'
     const asset = await writeClient.assets.upload('image', blob, {
       filename,
       contentType: blob.type || 'image/png',
     })
-    return { _type: 'image', asset: { _type: 'reference', _ref: asset._id } }
-  } catch {
-    return null
+    return {
+      image: { _type: 'image', asset: { _type: 'reference', _ref: asset._id } },
+    }
+  } catch (err) {
+    return { error: `Loi khi upload len Sanity: ${String(err)}` }
   }
 }
 
 // Combined: each row = 1 offer; rows with same store_name share the same store
 async function importStoresAndOffers(rows: ImportRow[]) {
-  const results: { imported: number; errors: { row: number; message: string }[] } = {
+  const results: {
+    imported: number
+    errors: { row: number; message: string }[]
+    warnings: { row: number; message: string }[]
+  } = {
     imported: 0,
     errors: [],
+    warnings: [],
   }
 
   // Pre-load existing stores into cache
@@ -144,8 +171,15 @@ async function importStoresAndOffers(rows: ImportRow[]) {
 
         // Upload logo image if URL provided
         if (row.store_imageUrl) {
-          const image = await uploadImageFromUrl(String(row.store_imageUrl))
-          if (image) storeDoc.image = image
+          const uploaded = await uploadImageFromUrl(String(row.store_imageUrl))
+          if ('image' in uploaded) {
+            storeDoc.image = uploaded.image
+          } else {
+            results.warnings.push({
+              row: i + 2,
+              message: `"${storeName}": khong tai duoc anh logo - ${uploaded.error}`,
+            })
+          }
         }
 
         const created = await writeClient.create(storeDoc)

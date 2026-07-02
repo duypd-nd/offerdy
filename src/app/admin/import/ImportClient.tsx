@@ -5,7 +5,11 @@ import * as XLSX from 'xlsx'
 
 type SheetType = 'Stores' | 'Posts' | 'Reviews'
 type Row = Record<string, string | number | boolean | null>
-type ImportResult = { imported: number; errors: { row: number; message: string }[] }
+type ImportResult = {
+  imported: number
+  errors: { row: number; message: string }[]
+  warnings?: { row: number; message: string }[]
+}
 
 const STORES_COLS = [
   { key: 'store_name', required: true,  note: 'Tên store' },
@@ -183,7 +187,7 @@ export default function ImportClient() {
     if (!rows || rows.length === 0) return
     setLoading(true)
     const totalBatches = Math.ceil(rows.length / BATCH_SIZE)
-    const combined: ImportResult = { imported: 0, errors: [] }
+    const combined: ImportResult = { imported: 0, errors: [], warnings: [] }
     setProgress({ done: 0, total: totalBatches })
 
     try {
@@ -210,11 +214,17 @@ export default function ImportClient() {
           combined.errors.push(
             ...batchResult.errors.map((e) => ({ ...e, row: offset + e.row }))
           )
+          combined.warnings!.push(
+            ...(batchResult.warnings ?? []).map((w) => ({ ...w, row: offset + w.row }))
+          )
         } catch (err) {
           combined.errors.push({ row: offset + 2, message: String(err) })
         }
         setProgress({ done: b + 1, total: totalBatches })
-        setResults((prev) => ({ ...prev, [type]: { ...combined, errors: [...combined.errors] } }))
+        setResults((prev) => ({
+          ...prev,
+          [type]: { ...combined, errors: [...combined.errors], warnings: [...combined.warnings!] },
+        }))
       }
       setImportedTabs((prev) => new Set([...prev, type]))
     } finally {
@@ -365,10 +375,13 @@ export default function ImportClient() {
                   border: `1.5px solid ${currentResult.imported > 0 ? '#86efac' : '#fecaca'}`,
                   borderRadius: 8, padding: '12px 16px', marginBottom: 16, fontSize: 13,
                 }}>
-                  <div style={{ fontWeight: 700, marginBottom: currentResult.errors.length > 0 ? 8 : 0 }}>
+                  <div style={{ fontWeight: 700, marginBottom: (currentResult.errors.length > 0 || (currentResult.warnings?.length ?? 0) > 0) ? 8 : 0 }}>
                     ✅ Đã import: <span style={{ color: '#16a34a' }}>{currentResult.imported} dòng</span>
                     {currentResult.errors.length > 0 && (
                       <span style={{ color: '#dc2626', marginLeft: 12 }}>❌ Lỗi: {currentResult.errors.length} dòng</span>
+                    )}
+                    {(currentResult.warnings?.length ?? 0) > 0 && (
+                      <span style={{ color: '#b45309', marginLeft: 12 }}>⚠️ Cảnh báo: {currentResult.warnings!.length} dòng</span>
                     )}
                   </div>
                   {currentResult.errors.length > 0 && (
@@ -376,6 +389,15 @@ export default function ImportClient() {
                       {currentResult.errors.map((e, idx) => (
                         <div key={idx} style={{ color: '#dc2626', fontSize: 12, lineHeight: 1.8 }}>
                           Dòng {e.row}: {e.message}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {(currentResult.warnings?.length ?? 0) > 0 && (
+                    <div style={{ maxHeight: 160, overflowY: 'auto', marginTop: currentResult.errors.length > 0 ? 8 : 0 }}>
+                      {currentResult.warnings!.map((w, idx) => (
+                        <div key={idx} style={{ color: '#b45309', fontSize: 12, lineHeight: 1.8 }}>
+                          Dòng {w.row}: {w.message}
                         </div>
                       ))}
                     </div>
