@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Deal } from '@/data/deals'
+import AffiliateLink from '@/components/AffiliateLink'
 
 const PAGE_SIZE = 20
 
@@ -44,12 +45,12 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
                 <span className="disc-off">OFF</span>
               </div>
               <div className="ver-badge"><CheckIcon />Verified</div>
-              <a href={deal.dealUrl ?? '#'} target="_blank" rel="noopener noreferrer" className={`deal-img ${deal.imgClass ?? 'di-tech'}`}>
+              <AffiliateLink href={deal.dealUrl ?? '#'} storeName={deal.store} className={`deal-img ${deal.imgClass ?? 'di-tech'}`}>
                 {deal.imageUrl
                   ? <img src={deal.imageUrl} alt={deal.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   : (deal.emoji ?? '🏷️')
                 }
-              </a>
+              </AffiliateLink>
               <div className="deal-body">
                 <div className="deal-store">{deal.store}</div>
                 <div className="deal-title">{deal.title}</div>
@@ -57,7 +58,7 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
                   <span className="price-sale">{deal.priceSale}</span>
                   <span className="price-orig">{deal.priceOrig}</span>
                 </div>
-                <a href={deal.dealUrl ?? '#'} target="_blank" rel="noopener noreferrer" className="deal-cta">Get Deal →</a>
+                <AffiliateLink href={deal.dealUrl ?? '#'} storeName={deal.store} className="deal-cta">Get Deal →</AffiliateLink>
               </div>
             </div>
           ))}

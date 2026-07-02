@@ -6,6 +6,7 @@ import Footer from '@/components/Footer'
 import StoreOfferList from '@/components/StoreOfferList'
 import { getStoreBySlug, getOffersByStore, getConfigContent, type HowToStep, type FaqItem } from '@/sanity/queries'
 import FaqAccordion from '@/components/FaqAccordion'
+import AffiliateLink from '@/components/AffiliateLink'
 
 export const dynamic = 'force-dynamic'
 
@@ -182,14 +183,13 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
               )}
               <div className="sol-sb-name">{store.name}</div>
               {store.website && (
-                <a
+                <AffiliateLink
                   href={store.affiliateLink ?? `https://${store.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  storeName={store.name}
                   className="sol-sb-web-link"
                 >
                   🌐 {store.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-                </a>
+                </AffiliateLink>
               )}
               {catLabel && <div className="sol-sb-cat">{catLabel}</div>}
               <div className="sol-sb-verified"><ShieldIcon /> Verified Store</div>
@@ -254,9 +254,9 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
                       <div className="store-event-title">{ev.title}</div>
                       {ev.description && <div className="store-event-desc">{ev.description}</div>}
                       {ev.link && (
-                        <a href={ev.link} target="_blank" rel="noopener noreferrer" className="store-event-link">
+                        <AffiliateLink href={ev.link} storeName={store.name} className="store-event-link">
                           Xem chi tiết <ExternalIcon size={11} />
-                        </a>
+                        </AffiliateLink>
                       )}
                     </div>
                   ))}

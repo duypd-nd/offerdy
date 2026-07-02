@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { Offer } from '@/sanity/queries'
 import { voteOffer } from '@/actions/voteOffer'
+import AffiliateLink from '@/components/AffiliateLink'
 
 type Filter = 'all' | 'verified' | 'codes' | 'deals'
 
@@ -67,11 +68,12 @@ function VoteButtons({ offerId, initialActive, initialExpired }: {
   )
 }
 
-function OfferRow({ offer, defaultDescriptions, index, destinationUrl }: {
+function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName }: {
   offer: Offer
   defaultDescriptions: string[]
   index: number
   destinationUrl: string
+  storeName?: string
 }) {
   const defaultDescription = defaultDescriptions.length > 0
     ? defaultDescriptions[index % defaultDescriptions.length]
@@ -132,21 +134,21 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl }: {
               </button>
             </div>
           ) : (
-            <a
+            <AffiliateLink
               href={destinationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              storeName={storeName}
+              offerId={offer.id}
               className="sol-get-code"
               onClick={() => setRevealed(true)}
             >
               <span className="sol-gc-btn">Get Code</span>
               <span className="sol-gc-peek">{(offer.couponCode as string).slice(0, 4)}***</span>
-            </a>
+            </AffiliateLink>
           )
         ) : (
-          <a href={destinationUrl} target="_blank" rel="noopener noreferrer" className="sol-get-deal">
+          <AffiliateLink href={destinationUrl} storeName={storeName} offerId={offer.id} className="sol-get-deal">
             Get Deal →
-          </a>
+          </AffiliateLink>
         )}
       </div>
     </div>
@@ -215,6 +217,7 @@ export default function StoreOfferList({
               defaultDescriptions={defaultDescriptions}
               index={i}
               destinationUrl={destinationUrl}
+              storeName={storeName}
             />
           ))
         )}

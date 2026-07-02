@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Offer } from '@/sanity/queries'
+import AffiliateLink from '@/components/AffiliateLink'
 
 // Styles injected directly — avoids globals.css hot-reload issues
 const CSS = `
@@ -123,14 +124,14 @@ function CouponCard({ offer }: { offer: Offer }) {
 
       {/* Footer */}
       <div className="cc-card-foot">
-        <a href={offer.link} target="_blank" rel="noopener noreferrer" className="cc-get-btn">
+        <AffiliateLink href={offer.link} storeName={offer.store?.name} offerId={offer.id} className="cc-get-btn">
           Get Deal
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
             <polyline points="15 3 21 3 21 9"/>
             <line x1="10" y1="14" x2="21" y2="3"/>
           </svg>
-        </a>
+        </AffiliateLink>
         {days !== null && days >= 0 && (
           <span className={`cc-expiry${hot ? ' cc-expiry--hot' : ''}`}>
             {hot

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Offer } from '@/sanity/queries'
+import AffiliateLink from '@/components/AffiliateLink'
 
 function CopyIcon() {
   return (
@@ -84,9 +85,9 @@ export default function OfferCard({ offer }: { offer: Offer }) {
       )}
 
       <div className="offer-foot">
-        <a href={offer.link} target="_blank" rel="noopener noreferrer" className="offer-get-btn">
+        <AffiliateLink href={offer.link} storeName={offer.store?.name} offerId={offer.id} className="offer-get-btn">
           Get Offer <ExternalIcon />
-        </a>
+        </AffiliateLink>
         {days !== null && (
           <span className={`offer-expiry${expiringSoon ? ' offer-expiry-soon' : ''}`}>
             {expiringSoon

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Deal } from '@/data/deals'
+import AffiliateLink from '@/components/AffiliateLink'
 
 function CheckIcon() {
   return (
@@ -33,9 +34,9 @@ export default function DealsGrid({ deals, columns, showVerified = true }: { dea
               </div>
             )}
             {deal.dealUrl
-              ? <a href={deal.dealUrl} target="_blank" rel="noopener noreferrer" className={`deal-img ${deal.imgClass ?? 'di-tech'}`}>
+              ? <AffiliateLink href={deal.dealUrl} storeName={deal.store} className={`deal-img ${deal.imgClass ?? 'di-tech'}`}>
                   {deal.imageUrl ? <img src={deal.imageUrl} alt={deal.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : (deal.emoji ?? '🏷️')}
-                </a>
+                </AffiliateLink>
               : <div className={`deal-img ${deal.imgClass ?? 'di-tech'}`}>
                   {deal.imageUrl ? <img src={deal.imageUrl} alt={deal.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : (deal.emoji ?? '🏷️')}
                 </div>
@@ -48,7 +49,7 @@ export default function DealsGrid({ deals, columns, showVerified = true }: { dea
                 <span className="price-orig">{deal.priceOrig}</span>
               </div>
               {deal.dealUrl
-                ? <a href={deal.dealUrl} target="_blank" rel="noopener noreferrer" className="deal-cta">Get Deal →</a>
+                ? <AffiliateLink href={deal.dealUrl} storeName={deal.store} className="deal-cta">Get Deal →</AffiliateLink>
                 : <span className="deal-cta deal-cta-disabled">Chưa có link</span>
               }
             </div>

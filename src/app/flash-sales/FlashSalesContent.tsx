@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Offer } from '@/sanity/queries'
+import AffiliateLink from '@/components/AffiliateLink'
 
 function useCountdown(expiresAt: string) {
   const [secs, setSecs] = useState<number | null>(null)
@@ -149,9 +150,9 @@ function FlashCard({ offer }: { offer: Offer }) {
       )}
 
       <div className="offer-foot">
-        <a href={offer.link} target="_blank" rel="noopener noreferrer" className="offer-get-btn">
+        <AffiliateLink href={offer.link} storeName={offer.store?.name} offerId={offer.id} className="offer-get-btn">
           Get Deal <ExternalIcon />
-        </a>
+        </AffiliateLink>
         {offer.expiresAt && (
           <span className="offer-expiry">
             Expires {new Date(offer.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}

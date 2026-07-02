@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Deal } from '@/data/deals'
+import AffiliateLink from '@/components/AffiliateLink'
 
 type Filter = 'all' | 'verified' | 'expiring'
 
@@ -34,9 +35,9 @@ function DealCard({ deal }: { deal: Deal }) {
           <span className="price-orig">{deal.priceOrig}</span>
         </div>
         {deal.dealUrl ? (
-          <a href={deal.dealUrl} target="_blank" rel="noopener noreferrer" className="deal-cta">
+          <AffiliateLink href={deal.dealUrl} storeName={deal.store} className="deal-cta">
             Get Deal →
-          </a>
+          </AffiliateLink>
         ) : (
           <button className="deal-cta">Get Deal →</button>
         )}
