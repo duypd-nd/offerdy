@@ -221,7 +221,7 @@ export default function Header({
               </>
             )}
           </Link>
-          <SearchBar placeholder="Search deals, stores, products..." variant="header" content={content} />
+          <SearchBar placeholder="" variant="header" content={content} />
           <nav className="nav">
             {navLinks.map(link => (
               <Link key={link.url} href={link.url} className={isActive(link.url) ? 'active' : ''}>

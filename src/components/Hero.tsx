@@ -12,7 +12,7 @@ export default function Hero({ searchableContent }: { searchableContent?: Search
         We test every coupon code before it goes live. No expired codes, no checkout disappointments — ever.
       </p>
       <SearchBar
-        placeholder="Search iPhone, Nike, Amazon Prime..."
+        placeholder=""
         variant="hero"
         content={searchableContent}
       />
