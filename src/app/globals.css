@@ -191,13 +191,13 @@ a.announce-bar:hover{background:var(--green-dark)}
 .cat-section{background:var(--white);padding:52px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .cat-inner{max-width:1280px;margin:0 auto;padding:0 24px}
 .cat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
-.cat-card{position:relative;border-radius:var(--r);overflow:hidden;cursor:pointer;padding:22px 18px 18px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;min-height:165px;border:1.5px solid transparent;transition:transform .22s,box-shadow .22s,border-color .22s;text-decoration:none}
+.cat-card{position:relative;border-radius:var(--r);overflow:hidden;cursor:pointer;padding:16px 16px 14px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;min-height:110px;border:1.5px solid transparent;transition:transform .22s,box-shadow .22s,border-color .22s;text-decoration:none}
 .cat-card:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(15,25,41,.1);border-color:rgba(0,0,0,.07)}
-.cat-emoji{font-size:50px;line-height:1;display:block;flex-shrink:0}
+.cat-emoji{font-size:34px;line-height:1;display:block;flex-shrink:0}
 .cat-info{padding-right:38px}
 .cat-name{font-family:var(--font-d),system-ui,sans-serif;font-size:15px;font-weight:800;color:var(--text);line-height:1.25;letter-spacing:-.2px}
 .cat-count{font-size:12px;color:var(--muted);font-weight:500;margin-top:4px}
-.cat-arr{position:absolute;bottom:16px;right:16px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted);transition:background .2s,color .2s,transform .2s;backdrop-filter:blur(8px)}
+.cat-arr{position:absolute;bottom:12px;right:12px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);transition:background .2s,color .2s,transform .2s;backdrop-filter:blur(8px)}
 .cat-card:hover .cat-arr{background:var(--green);color:white;transform:translateX(2px)}
 .ci-tech{background:linear-gradient(145deg,#EEF2FF 0%,#C7D2FE 100%)}
 .ci-fashion{background:linear-gradient(145deg,#FDF4FF 0%,#F0ABFC 100%)}
@@ -208,10 +208,10 @@ a.announce-bar:hover{background:var(--green-dark)}
 .ci-ai{background:linear-gradient(145deg,#FAF5FF 0%,#C4B5FD 100%)}
 .ci-sports{background:linear-gradient(145deg,#FFF7ED 0%,#FCA5A5 100%)}
 .ci-kids{background:linear-gradient(145deg,#ECFDF5 0%,#6EE7B7 100%)}
-.ci-all{background:var(--bg);border:1.5px dashed var(--border)!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px 16px;min-height:165px}
+.ci-all{background:var(--bg);border:1.5px dashed var(--border)!important;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px;min-height:110px}
 .ci-all .cat-name{font-size:15px;font-weight:700;color:var(--green-dark);text-align:center}
 .ci-all .cat-count{color:var(--muted);text-align:center;font-size:12px}
-.ci-all .cat-emoji{font-size:36px;margin-bottom:12px}
+.ci-all .cat-emoji{font-size:26px;margin-bottom:8px}
 .ci-all:hover{border-color:var(--green)!important;background:var(--green-50)!important;transform:translateY(-5px);box-shadow:0 16px 40px rgba(15,25,41,.08)}
 
 /* ── STATIC PAGES ── */
