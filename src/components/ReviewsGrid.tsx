@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import type { Review } from '@/data/reviews'
 
-export default function ReviewsGrid({ reviews }: { reviews: Review[] }) {
+export default function ReviewsGrid({ reviews, columns }: { reviews: Review[]; columns?: number }) {
+  const gridStyle = { gridTemplateColumns: `repeat(${columns ?? 4}, 1fr)` }
   return (
     <section className="reviews-section">
       <div className="reviews-section-inner">
@@ -12,7 +13,7 @@ export default function ReviewsGrid({ reviews }: { reviews: Review[] }) {
           </div>
           <Link href="/reviews" className="see-all">All articles →</Link>
         </div>
-        <div className="reviews-grid">
+        <div className="reviews-grid" style={gridStyle}>
           {reviews.map(review => (
             <div key={review.id} className="review-card">
               <Link href={`/reviews/${review.slug}`} className="review-img" style={{ background: review.imageUrl ? undefined : review.imgBg }}>

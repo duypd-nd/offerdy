@@ -14,6 +14,8 @@ export default function ContentConfigForm({ initial }: { initial: Record<string,
   const [showVerifiedBadge, setShowVerifiedBadge] = useState(initial.showVerifiedBadge !== false)
   const [showCategoryGrid, setShowCategoryGrid] = useState(initial.showCategoryGrid !== false)
   const [dealsGridColumns, setDealsGridColumns] = useState(Number(initial.dealsGridColumns ?? 4))
+  const [reviewsGridColumns, setReviewsGridColumns] = useState(Number(initial.reviewsGridColumns ?? 4))
+  const [blogGridColumns, setBlogGridColumns] = useState(Number(initial.blogGridColumns ?? 3))
   const [announcementBar, setAnnouncementBar] = useState(String(initial.announcementBar ?? ''))
   const [announcementBarUrl, setAnnouncementBarUrl] = useState(String(initial.announcementBarUrl ?? ''))
   const [defaultOfferDescription, setDefaultOfferDescription] = useState(String(initial.defaultOfferDescription ?? ''))
@@ -28,7 +30,7 @@ export default function ContentConfigForm({ initial }: { initial: Record<string,
     startTransition(async () => {
       await saveConfigDoc('configContent', {
         dealsPerPage, reviewsPerPage, postsPerPage, showExpiringBand, showVerifiedBadge, showCategoryGrid,
-        dealsGridColumns, announcementBar: announcementBar || null,
+        dealsGridColumns, reviewsGridColumns, blogGridColumns, announcementBar: announcementBar || null,
         announcementBarUrl: announcementBarUrl || null,
         defaultOfferDescription: defaultOfferDescription || null,
         howToSteps: howToSteps.map(s => ({ _type: 'step', _key: crypto.randomUUID(), ...s })),
@@ -77,6 +79,21 @@ export default function ContentConfigForm({ initial }: { initial: Record<string,
               <option value={4}>4 cột</option>
               <option value={5}>5 cột</option>
               <option value={6}>6 cột</option>
+            </select>
+          </label>
+          <label className="cfg-label">Cột lưới reviews (trang chủ)
+            <select className="cfg-input cfg-select" value={reviewsGridColumns} onChange={e => setReviewsGridColumns(Number(e.target.value))}>
+              <option value={2}>2 cột</option>
+              <option value={3}>3 cột</option>
+              <option value={4}>4 cột</option>
+              <option value={5}>5 cột</option>
+            </select>
+          </label>
+          <label className="cfg-label">Cột lưới blog (trang /blog)
+            <select className="cfg-input cfg-select" value={blogGridColumns} onChange={e => setBlogGridColumns(Number(e.target.value))}>
+              <option value={2}>2 cột</option>
+              <option value={3}>3 cột</option>
+              <option value={4}>4 cột</option>
             </select>
           </label>
         </div>

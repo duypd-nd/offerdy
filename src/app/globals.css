@@ -786,7 +786,7 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 /* ── RESPONSIVE ── */
 @media(max-width:1024px){
   .deals-grid{grid-template-columns:repeat(4,1fr)!important}
-  .reviews-grid{grid-template-columns:repeat(2,1fr)}
+  .reviews-grid{grid-template-columns:repeat(2,1fr)!important}
   .stores-page-grid{grid-template-columns:repeat(4,1fr)}
   .footer-top{grid-template-columns:1fr 1fr;gap:28px}
 }
@@ -794,21 +794,21 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
   .nav{display:none}
   .hamburger{display:flex}
   .deals-grid{grid-template-columns:repeat(3,1fr)!important}
-  .reviews-grid{grid-template-columns:repeat(2,1fr)}
+  .reviews-grid{grid-template-columns:repeat(2,1fr)!important}
   .stores-page-grid{grid-template-columns:repeat(3,1fr)}
   .cat-grid{grid-template-columns:repeat(3,1fr)}
   .hero h1{letter-spacing:-1.5px}
   .footer-top{grid-template-columns:1fr 1fr}
   .blog-featured{grid-template-columns:1fr}
   .blog-featured-img{min-height:200px}
-  .blog-grid{grid-template-columns:repeat(2,1fr)}
+  .blog-grid{grid-template-columns:repeat(2,1fr)!important}
 }
 @media(max-width:520px){
   .cat-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:480px){
   .deals-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important}
-  .reviews-grid{grid-template-columns:1fr}
+  .reviews-grid{grid-template-columns:1fr!important}
   .exp-card{width:185px}
   .deal-body{padding:10px 10px 12px}
   .deal-title{font-size:12px;margin-bottom:8px}

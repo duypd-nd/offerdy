@@ -330,7 +330,8 @@ const CONFIG_CONTENT_QUERY = `*[_type == "configContent"][0] {
   defaultOfferDescription,
   howToSteps[]{ title, description },
   defaultFaqs[]{ question, answer },
-  dealsPerPage, dealsGridColumns, showExpiringBand, showVerifiedBadge, showCategoryGrid,
+  dealsPerPage, dealsGridColumns, reviewsGridColumns, blogGridColumns,
+  showExpiringBand, showVerifiedBadge, showCategoryGrid,
   announcementBar, announcementBarUrl,
   articleDisclaimer, articleReviewedBy
 }`
@@ -341,6 +342,8 @@ export type ContentConfig = {
   defaultFaqs?: FaqItem[]
   dealsPerPage?: number
   dealsGridColumns?: number
+  reviewsGridColumns?: number
+  blogGridColumns?: number
   showExpiringBand?: boolean
   showVerifiedBadge?: boolean
   showCategoryGrid?: boolean

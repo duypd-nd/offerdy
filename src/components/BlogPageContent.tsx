@@ -55,7 +55,7 @@ function Pagination({ page, totalPages, goTo }: { page: number; totalPages: numb
   )
 }
 
-export default function BlogPageContent({ posts }: { posts: Post[] }) {
+export default function BlogPageContent({ posts, columns }: { posts: Post[]; columns?: number }) {
   const [active, setActive] = useState('all')
   const [page, setPage] = useState(1)
 
@@ -124,7 +124,7 @@ export default function BlogPageContent({ posts }: { posts: Post[] }) {
                 {rest.length} article{rest.length !== 1 ? 's' : ''}{totalPages > 1 && ` · Page ${page}/${totalPages}`}
               </div>
             </div>
-            <div className="blog-grid">
+            <div className="blog-grid" style={{ gridTemplateColumns: `repeat(${columns ?? 3}, 1fr)` }}>
               {paginatedRest.map(post => (
                 <Link key={post.id} href={`/blog/${post.slug}`} className="blog-card">
                   <div className="blog-card-img" style={{ background: post.coverBg, overflow: 'hidden', padding: post.imageUrl ? 0 : undefined }}>
