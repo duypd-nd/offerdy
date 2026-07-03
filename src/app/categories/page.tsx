@@ -1,9 +1,23 @@
 ﻿import Link from 'next/link'
+import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { getCategories } from '@/sanity/queries'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Shop by Category — Offerdy',
+  description: 'Browse verified deals and coupon codes by category — tech, fashion, home, beauty and more.',
+  alternates: { canonical: 'https://offerdy.com/categories' },
+  openGraph: {
+    title: 'Shop by Category — Offerdy',
+    description: 'Browse verified deals and coupon codes by category.',
+    url: 'https://offerdy.com/categories',
+    type: 'website',
+  },
+  twitter: { card: 'summary', title: 'Shop by Category — Offerdy' },
+}
 
 export default async function CategoriesPage() {
   const categories = await getCategories()

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { getSiteSettings } from '@/sanity/queries'
 import type { FooterColumn, SocialLink } from '@/data/siteSettings'
 
@@ -33,12 +34,12 @@ export default async function Footer() {
           <div className="footer-brand">
             <Link href="/" className="logo">
               {settings.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   src={settings.logoUrl}
                   alt={settings.siteName}
+                  width={140}
                   height={34}
-                  style={{ maxWidth: 140, objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+                  style={{ width: 'auto', maxWidth: 140, height: 34, objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
                 />
               ) : (
                 <>

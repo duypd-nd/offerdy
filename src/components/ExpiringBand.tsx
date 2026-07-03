@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import type { ExpiringDeal } from '@/data/deals'
 
 function CountdownTimer({ expiresAt }: { expiresAt: string }) {
@@ -38,7 +39,7 @@ export default function ExpiringBand({ deals }: { deals: ExpiringDeal[] }) {
             <div key={deal.id} className="exp-card">
               <div className="exp-icon">
                 {deal.imageUrl
-                  ? <img src={deal.imageUrl} alt={deal.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <Image src={deal.imageUrl} alt={deal.name} fill sizes="72px" style={{ objectFit: 'cover' }} />
                   : deal.emoji}
               </div>
               <div className="exp-body">

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Post } from '@/data/posts'
 
 const PAGE_SIZE = 9
@@ -99,7 +100,7 @@ export default function BlogPageContent({ posts, columns }: { posts: Post[]; col
           <Link href={`/blog/${featured.slug}`} className="blog-featured">
             <div className="blog-featured-img" style={{ background: featured.coverBg, overflow: 'hidden', padding: featured.imageUrl ? 0 : undefined }}>
               {featured.imageUrl
-                ? <img src={featured.imageUrl} alt={featured.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ? <Image src={featured.imageUrl} alt={featured.title} fill sizes="(max-width: 768px) 100vw, 600px" style={{ objectFit: 'cover' }} priority />
                 : featured.coverEmoji}
             </div>
             <div className="blog-featured-body">
@@ -129,7 +130,7 @@ export default function BlogPageContent({ posts, columns }: { posts: Post[]; col
                 <Link key={post.id} href={`/blog/${post.slug}`} className="blog-card">
                   <div className="blog-card-img" style={{ background: post.coverBg, overflow: 'hidden', padding: post.imageUrl ? 0 : undefined }}>
                     {post.imageUrl
-                      ? <img src={post.imageUrl} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ? <Image src={post.imageUrl} alt={post.title} fill sizes="(max-width: 768px) 33vw, 360px" style={{ objectFit: 'cover' }} />
                       : post.coverEmoji}
                   </div>
                   <div className="blog-card-body">

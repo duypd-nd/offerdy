@@ -1,5 +1,6 @@
 ﻿import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
@@ -7,13 +8,21 @@ import { getCategoryBySlug, getStoresByCategory } from '@/sanity/queries'
 
 export const dynamic = 'force-dynamic'
 
+const BASE = 'https://offerdy.com'
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const cat = await getCategoryBySlug(slug)
   if (!cat) return {}
+  const title = `${cat.emoji} ${cat.name} Deals & Coupons — Offerdy`
+  const description = cat.description ?? `Browse the best ${cat.name} deals and verified coupon codes.`
+  const url = `${BASE}/categories/${slug}`
   return {
-    title: `${cat.emoji} ${cat.name} Deals & Coupons — Offerdy`,
-    description: cat.description ?? `Browse the best ${cat.name} deals and verified coupon codes.`,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, siteName: 'Offerdy', type: 'website' },
+    twitter: { card: 'summary', title, description },
   }
 }
 
@@ -68,7 +77,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
                 <Link key={store.id} href={`/stores/${store.slug}`} className="store-page-card store-card">
                   <div className={`store-page-sa ${store.colorClass ?? 'sa-default'}`}>
                     {store.imageUrl
-                      ? <img src={store.imageUrl} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      ? <Image src={store.imageUrl} alt={store.name} fill sizes="(max-width: 768px) 33vw, 160px" style={{ objectFit: 'contain' }} />
                       : store.abbr}
                   </div>
                   <div className="store-page-info">
@@ -81,7 +90,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
           ) : (
             <div className="store-empty">
               <div className="store-empty-icon">{cat.emoji}</div>
-              <div className="store-empty-title">Chưa có store nào trong danh mục này</div>
+              <div className="store-empty-title">No stores in this category yet</div>
               <div className="store-empty-sub">Check back soon — we add new stores regularly.</div>
               <Link href="/stores" className="article-cta" style={{ display: 'inline-block', marginTop: 16 }}>Browse all stores →</Link>
             </div>

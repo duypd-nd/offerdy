@@ -20,25 +20,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ])
   } catch {}
 
+  const now = new Date()
   const statics: MetadataRoute.Sitemap = [
-    { url: BASE,                            changeFrequency: 'daily',   priority: 1.0 },
-    { url: `${BASE}/stores`,                changeFrequency: 'daily',   priority: 0.9 },
-    { url: `${BASE}/deals`,                 changeFrequency: 'daily',   priority: 0.9 },
-    { url: `${BASE}/flash-sales`,           changeFrequency: 'hourly',  priority: 0.9 },
-    { url: `${BASE}/coupon-codes`,          changeFrequency: 'daily',   priority: 0.9 },
-    { url: `${BASE}/reviews`,               changeFrequency: 'weekly',  priority: 0.8 },
-    { url: `${BASE}/blog`,                  changeFrequency: 'weekly',  priority: 0.7 },
-    { url: `${BASE}/comparisons`,           changeFrequency: 'weekly',  priority: 0.7 },
-    { url: `${BASE}/tips-guides`,           changeFrequency: 'weekly',  priority: 0.7 },
-    { url: `${BASE}/categories`,            changeFrequency: 'weekly',  priority: 0.6 },
-    { url: `${BASE}/about`,                 changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${BASE}/contact`,               changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${BASE}/submit-deal`,           changeFrequency: 'monthly', priority: 0.4 },
-    { url: `${BASE}/partner`,               changeFrequency: 'monthly', priority: 0.4 },
-    { url: `${BASE}/terms`,                 changeFrequency: 'yearly',  priority: 0.3 },
-    { url: `${BASE}/privacy`,               changeFrequency: 'yearly',  priority: 0.3 },
-    { url: `${BASE}/cookies`,               changeFrequency: 'yearly',  priority: 0.3 },
-    { url: `${BASE}/affiliate-disclosure`,  changeFrequency: 'yearly',  priority: 0.3 },
+    { url: BASE,                            lastModified: now, changeFrequency: 'daily',   priority: 1.0 },
+    { url: `${BASE}/stores`,                lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
+    { url: `${BASE}/deals`,                 lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
+    { url: `${BASE}/flash-sales`,           lastModified: now, changeFrequency: 'hourly',  priority: 0.9 },
+    { url: `${BASE}/coupon-codes`,          lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
+    { url: `${BASE}/reviews`,               lastModified: now, changeFrequency: 'weekly',  priority: 0.8 },
+    { url: `${BASE}/blog`,                  lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },
+    { url: `${BASE}/comparisons`,           lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },
+    { url: `${BASE}/tips-guides`,           lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },
+    { url: `${BASE}/categories`,            lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
+    { url: `${BASE}/about`,                 lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE}/contact`,               lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE}/submit-deal`,           lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${BASE}/partner`,               lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${BASE}/terms`,                 lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${BASE}/privacy`,               lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${BASE}/cookies`,               lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${BASE}/affiliate-disclosure`,  lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
   ]
 
   return [

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Store } from '@/data/stores'
 
 export default function StoresTicker({ stores }: { stores: Store[] }) {
@@ -38,7 +39,7 @@ export default function StoresTicker({ stores }: { stores: Store[] }) {
             >
               <div className={`store-ticker-img ${store.colorClass ?? ''}`}>
                 {store.imageUrl
-                  ? <img src={store.imageUrl} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <Image src={store.imageUrl} alt={store.name} fill sizes="72px" style={{ objectFit: 'cover' }} />
                   : <span style={{ fontFamily: 'var(--font-d),system-ui,sans-serif', fontSize: 16, fontWeight: 800, color: 'white' }}>{store.abbr}</span>
                 }
               </div>

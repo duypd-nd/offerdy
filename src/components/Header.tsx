@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { categories } from '@/data/categories'
 import type { NavLink } from '@/data/siteSettings'
@@ -218,8 +219,7 @@ export default function Header({
         <div className="header-inner">
           <Link href="/" className="logo">
             {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt="Logo" height={36} style={{ maxWidth: 140, objectFit: 'contain', borderRadius: 0 }} />
+              <Image src={logoUrl} alt="Logo" width={140} height={36} style={{ width: 'auto', maxWidth: 140, height: 36, objectFit: 'contain', borderRadius: 0 }} priority />
             ) : (
               <>
                 <svg width="34" height="34" viewBox="0 0 36 36" fill="none">

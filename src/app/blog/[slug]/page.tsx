@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
@@ -134,9 +135,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               <span>⏱ {post.readTime} min read</span>
             </div>
 
-            <div className="article-hero-img" style={{ background: post.imageUrl ? undefined : post.coverBg, overflow: post.imageUrl ? 'hidden' : undefined }}>
+            <div className="article-hero-img" style={post.imageUrl
+              ? { position: 'relative', aspectRatio: '21/9', overflow: 'hidden' }
+              : { background: post.coverBg }
+            }>
               {post.imageUrl
-                ? <img src={post.imageUrl} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ? <Image src={post.imageUrl} alt={post.title} fill sizes="(max-width: 900px) 100vw, 760px" style={{ objectFit: 'cover' }} priority />
                 : post.coverEmoji}
             </div>
 
@@ -172,7 +176,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             {authorName && authorConfig.bio && (
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginTop: 24, padding: '18px 20px', border: '1px solid var(--border)', borderRadius: 12 }}>
                 {authorConfig.avatarUrl && (
-                  <img src={authorConfig.avatarUrl} alt={authorName} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  <Image src={authorConfig.avatarUrl} alt={authorName} width={48} height={48} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                 )}
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
@@ -200,7 +204,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   <Link key={p.slug} href={`/blog/${p.slug}`} className="asb-card">
                     <div className="asb-thumb" style={{ background: p.imageUrl ? undefined : (p.coverBg ?? 'var(--bg)'), fontSize: 28 }}>
                       {p.imageUrl
-                        ? <img src={p.imageUrl} alt={p.title} />
+                        ? <Image src={p.imageUrl} alt={p.title} fill sizes="128px" style={{ objectFit: 'cover' }} />
                         : (p.coverEmoji ?? '📝')}
                     </div>
                     <div className="asb-info">

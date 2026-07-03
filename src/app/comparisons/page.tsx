@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { getComparisonPosts } from '@/sanity/queries'
@@ -50,7 +51,7 @@ export default async function ComparisonsPage() {
                 <Link key={post.id} href={`/blog/${post.slug}`} className="blog-card">
                   <div className="blog-card-img" style={{ background: post.coverBg ?? 'linear-gradient(135deg,#EEF2FF,#C7D2FE)', overflow: 'hidden', padding: 0 }}>
                     {post.imageUrl
-                      ? <img src={post.imageUrl} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      ? <Image src={post.imageUrl} alt={post.title} fill sizes="(max-width: 768px) 33vw, 360px" style={{ objectFit: 'cover' }} />
                       : (post.coverEmoji ?? '⚖️')}
                   </div>
                   <div className="blog-card-body">

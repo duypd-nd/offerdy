@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Review } from '@/data/reviews'
 
 export default function ReviewsGrid({ reviews, columns }: { reviews: Review[]; columns?: number }) {
@@ -18,7 +19,7 @@ export default function ReviewsGrid({ reviews, columns }: { reviews: Review[]; c
             <div key={review.id} className="review-card">
               <Link href={`/reviews/${review.slug}`} className="review-img" style={{ background: review.imageUrl ? undefined : review.imgBg }}>
                 {review.imageUrl
-                  ? <img src={review.imageUrl} alt={review.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  ? <Image src={review.imageUrl} alt={review.title} fill sizes="(max-width: 768px) 50vw, 300px" style={{ objectFit: 'cover' }} />
                   : review.emoji
                 }
                 <span className="review-tag">{review.tag}</span>

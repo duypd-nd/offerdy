@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Store } from '@/data/stores'
 
 const PAGE_SIZE = 24
@@ -103,7 +104,7 @@ export default function StoresPageContent({ stores }: { stores: StoreWithCount[]
             <Link key={store.name + i} href={`/stores/${store.slug ?? store.name.toLowerCase().replace(/\s+/g, '-')}`} className="store-page-card">
               <div className={`store-page-sa ${store.colorClass ?? 'sa-default'}`}>
                 {store.imageUrl
-                  ? <img src={store.imageUrl} alt={store.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ? <Image src={store.imageUrl} alt={store.name} fill sizes="(max-width: 768px) 33vw, 160px" style={{ objectFit: 'contain' }} />
                   : store.abbr
                 }
               </div>

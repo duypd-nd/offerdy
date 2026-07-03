@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Deal } from '@/data/deals'
 import AffiliateLink from '@/components/AffiliateLink'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
@@ -43,7 +44,7 @@ export default function DealsPageContent({ deals, page, totalPages, totalCount }
               <div className="ver-badge"><CheckIcon />Verified</div>
               <AffiliateLink href={deal.dealUrl ?? '#'} storeName={deal.store} className={`deal-img ${deal.imgClass ?? 'di-tech'}`}>
                 {deal.imageUrl
-                  ? <img src={deal.imageUrl} alt={deal.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  ? <Image src={deal.imageUrl} alt={deal.title} fill sizes="(max-width: 768px) 45vw, 220px" style={{ objectFit: 'cover' }} />
                   : (deal.emoji ?? '🏷️')
                 }
               </AffiliateLink>

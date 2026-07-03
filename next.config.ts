@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'cdn.sanity.io' },
+      // Admin co the dan link anh ngoai (externalImageUrl / dealUrl) tu bat ky domain nao
+      { protocol: 'https', hostname: '**' },
     ],
   },
   experimental: {

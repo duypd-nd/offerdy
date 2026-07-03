@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
@@ -139,6 +140,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
 
             <div className="article-hero-img" style={{ background: review.imageUrl ? undefined : review.imgBg }}>
               {review.imageUrl
+                // eslint-disable-next-line @next/next/no-img-element -- giu ty le anh goc, khong crop (khac blog hero dung fill+cover)
                 ? <img src={review.imageUrl} alt={review.title} style={{ width: '100%', height: 'auto', display: 'block' }} />
                 : review.emoji
               }
@@ -174,7 +176,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
             {authorName && authorConfig.bio && (
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginTop: 24, padding: '18px 20px', border: '1px solid var(--border)', borderRadius: 12 }}>
                 {authorConfig.avatarUrl && (
-                  <img src={authorConfig.avatarUrl} alt={authorName} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  <Image src={authorConfig.avatarUrl} alt={authorName} width={48} height={48} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
                 )}
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
@@ -202,7 +204,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                   <Link key={r.slug} href={`/reviews/${r.slug}`} className="asb-card">
                     <div className="asb-thumb" style={{ background: r.imageUrl ? undefined : (r.imgBg ?? 'var(--bg)') }}>
                       {r.imageUrl
-                        ? <img src={r.imageUrl} alt={r.title} />
+                        ? <Image src={r.imageUrl} alt={r.title} fill sizes="128px" style={{ objectFit: 'cover' }} />
                         : (r.emoji ?? '⭐')
                       }
                     </div>
