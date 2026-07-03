@@ -21,8 +21,8 @@ const STORES_COLS = [
   { key: 'store_imageUrl',    required: false, note: 'URL ảnh logo store (link trực tiếp tới file ảnh, VD: https://example.com/logo.png) — lưu ý dịch vụ logo.clearbit.com đã ngừng hoạt động' },
   { key: 'store_description', required: false, note: 'Mô tả ngắn / tagline' },
   { key: 'store_about',       required: false, note: 'Mô tả dài, hỗ trợ HTML' },
-  { key: 'offer_title',       required: true,  note: 'Tiêu đề offer' },
-  { key: 'offerText',         required: true,  note: 'Mô tả ngắn của offer' },
+  { key: 'offer_title',       required: true,  note: 'Câu mô tả ĐẦY ĐỦ của offer, VD: "Giảm 30% toàn bộ sản phẩm"' },
+  { key: 'Offer',             required: true,  note: 'Nhãn NGẮN dạng badge (khác offer_title), VD: "30% Off", "Free Shipping"' },
   { key: 'couponCode',        required: false, note: 'Mã giảm giá (nếu có)' },
   { key: 'expiresAt',         required: false, note: 'Ngày hết hạn, VD: 2026-12-31' },
   { key: 'verified',          required: false, note: 'TRUE/FALSE (mặc định TRUE)' },
@@ -63,7 +63,7 @@ const COLS_MAP: Record<SheetType, ColDef[]> = {
 }
 
 const PREVIEW_COLS: Record<SheetType, string[]> = {
-  Stores: ['store_name', 'link', 'offer_title', 'offerText', 'couponCode'],
+  Stores: ['store_name', 'link', 'offer_title', 'Offer', 'couponCode'],
   Posts: ['title', 'category', 'author', 'publishedAt', 'excerpt'],
   Reviews: ['title', 'stars', 'tag', 'publishedAt', 'excerpt'],
 }
@@ -88,7 +88,7 @@ function makeStoresExample() {
       store_imageUrl: 'https://logo.clearbit.com/amazon.com',
       store_description: 'Shop millions of products',
       store_about: '<p>Amazon la nen tang thuong mai dien tu hang dau the gioi.</p>',
-      offer_title: '20% Off Electronics', offerText: '20% Off Electronics',
+      offer_title: 'Save 20% on All Electronics Store-wide', Offer: '20% Off',
       couponCode: 'TECH20', expiresAt: '2026-12-31', verified: 'TRUE', active: 'TRUE', order: 1,
     },
     {
@@ -97,7 +97,7 @@ function makeStoresExample() {
       store_imageUrl: 'https://logo.clearbit.com/amazon.com',
       store_description: 'Shop millions of products',
       store_about: '<p>Amazon la nen tang thuong mai dien tu hang dau the gioi.</p>',
-      offer_title: 'Free Shipping on Orders $35+', offerText: 'Free Shipping $35+',
+      offer_title: 'Free Shipping on Orders $35+', Offer: 'Free Shipping',
       couponCode: '', expiresAt: '', verified: 'TRUE', active: 'TRUE', order: 2,
     },
     {
@@ -106,7 +106,7 @@ function makeStoresExample() {
       store_imageUrl: 'https://logo.clearbit.com/nike.com',
       store_description: 'The world\'s leading sports brand',
       store_about: '<p>Nike la thuong hieu the thao hang dau the gioi.</p>',
-      offer_title: 'Extra 25% Off Sale Items', offerText: '25% Off Sale',
+      offer_title: 'Extra 25% Off All Sale Items', Offer: '25% Off',
       couponCode: 'EXTRA25', expiresAt: '2026-08-31', verified: 'TRUE', active: 'TRUE', order: 1,
     },
   ]

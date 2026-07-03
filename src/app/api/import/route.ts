@@ -137,7 +137,7 @@ async function importStoresAndOffers(rows: ImportRow[]) {
     const row = rows[i]
     const storeName = String(row.store_name ?? '').trim()
     const link = String(row.link ?? '').trim()
-    const offerText = String(row.offerText ?? '').trim()
+    const offerText = String(row.Offer ?? row.offerText ?? '').trim()
     const offerTitle = String(row.offer_title ?? '').trim()
 
     if (!storeName) {
