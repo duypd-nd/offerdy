@@ -38,7 +38,8 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       url: 'https://offerdy.com',
-      images: seo.defaultOgImageUrl ? [{ url: seo.defaultOgImageUrl }] : undefined,
+      // og:image khong khai bao o day - duoc Next.js tu dong lay tu file-convention
+      // route opengraph-image.tsx (route nay tu doc configSeo.defaultOgImageUrl)
     },
     twitter: {
       card: twitterCard,

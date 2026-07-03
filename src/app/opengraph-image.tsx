@@ -1,10 +1,29 @@
 import { ImageResponse } from 'next/og'
+import { getConfigSeo } from '@/sanity/queries'
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 export const alt = 'Offerdy — Real Deals. Actually Verified.'
 
-export default function OgImage() {
+export default async function OgImage() {
+  const seo = await getConfigSeo()
+
+  if (seo.defaultOgImageUrl) {
+    return new ImageResponse(
+      (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={seo.defaultOgImageUrl}
+          width={size.width}
+          height={size.height}
+          style={{ objectFit: 'cover' }}
+          alt=""
+        />
+      ),
+      { ...size }
+    )
+  }
+
   return new ImageResponse(
     (
       <div
