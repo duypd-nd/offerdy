@@ -67,7 +67,7 @@ const dealsQuery = (limit: number) => `*[_type == "deal"] | order(_createdAt des
 
 const ALL_DEALS_QUERY = `*[_type == "deal"] | order(_createdAt desc) {
   "id": _id, title, store, emoji, imgClass, "imageUrl": image.asset->url,
-  priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, dealUrl, "slug": slug.current
+  priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl, "slug": slug.current
 }`
 
 const EXPIRING_QUERY = `*[_type == "deal" && isExpiring == true && expiresAt > now()] | order(expiresAt asc)[0...7] {

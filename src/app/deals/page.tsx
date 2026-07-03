@@ -3,6 +3,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import DealsPageContent from '@/components/DealsPageContent'
 import { getAllDeals } from '@/sanity/queries'
+import { dealsItemListJsonLd } from '@/lib/dealSchema'
 
 export const revalidate = 60
 
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
 
 export default async function DealsPage() {
   const deals = await getAllDeals()
+  const jsonLd = dealsItemListJsonLd(deals)
 
   return (
     <>
       <HeaderWrapper />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main>
         <div className="page-hero">
           <div className="page-hero-eyebrow">Deals</div>

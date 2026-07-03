@@ -3,6 +3,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import CouponCodesContent from './CouponCodesContent'
 import { getCouponOffers } from '@/sanity/queries'
+import { couponsItemListJsonLd } from '@/lib/dealSchema'
 
 export const revalidate = 60
 
@@ -20,10 +21,12 @@ export const metadata: Metadata = {
 
 export default async function CouponCodesPage() {
   const offers = await getCouponOffers()
+  const jsonLd = couponsItemListJsonLd(offers)
 
   return (
     <>
       <HeaderWrapper />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <main>
         <div className="page-hero">
           <div className="page-hero-eyebrow">Coupon Codes</div>
