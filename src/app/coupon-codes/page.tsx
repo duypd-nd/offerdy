@@ -7,20 +7,36 @@ import { couponsItemListJsonLd } from '@/lib/dealSchema'
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  title: 'Coupon Codes — Verified Promo Codes | Offerdy',
-  description: 'Find verified coupon codes and promo codes for hundreds of stores. Every code tested before going live.',
-  alternates: { canonical: 'https://offerdy.com/coupon-codes' },
-  openGraph: {
-    title: 'Coupon Codes — Verified Promo Codes | Offerdy',
-    description: 'Browse all verified coupon codes grouped by store.',
-    url: 'https://offerdy.com/coupon-codes',
-    type: 'website',
-  },
+const PAGE_SIZE = 20
+const BASE_TITLE = 'Coupon Codes — Verified Promo Codes | Offerdy'
+const BASE_DESCRIPTION = 'Find verified coupon codes and promo codes for hundreds of stores. Every code tested before going live.'
+
+type PageProps = { searchParams: Promise<{ page?: string }> }
+
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const { page: pageParam } = await searchParams
+  const page = Math.max(1, Number(pageParam) || 1)
+  const canonical = page > 1 ? `https://offerdy.com/coupon-codes?page=${page}` : 'https://offerdy.com/coupon-codes'
+  const title = page > 1 ? `Coupon Codes — Page ${page} | Offerdy` : BASE_TITLE
+
+  return {
+    title,
+    description: BASE_DESCRIPTION,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description: 'Browse all verified coupon codes grouped by store.',
+      url: canonical,
+      type: 'website',
+    },
+  }
 }
 
-export default async function CouponCodesPage() {
+export default async function CouponCodesPage({ searchParams }: PageProps) {
+  const { page: pageParam } = await searchParams
   const offers = await getCouponOffers()
+  const totalPages = Math.max(1, Math.ceil(offers.length / PAGE_SIZE))
+  const page = Math.min(Math.max(1, Number(pageParam) || 1), totalPages)
   const jsonLd = couponsItemListJsonLd(offers)
 
   return (
@@ -33,7 +49,7 @@ export default async function CouponCodesPage() {
           <h1 className="page-hero-title">🏷️ Verified Promo Codes</h1>
           <p className="page-hero-sub">Every code tested and verified before it goes live. Updated daily.</p>
         </div>
-        <CouponCodesContent offers={offers} />
+        <CouponCodesContent offers={offers} page={page} totalPages={totalPages} />
       </main>
       <Footer />
     </>

@@ -1,11 +1,7 @@
-'use client'
-
-import { useState } from 'react'
+import Link from 'next/link'
 import type { Deal } from '@/data/deals'
 import AffiliateLink from '@/components/AffiliateLink'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
-
-const PAGE_SIZE = 20
 
 function CheckIcon() {
   return (
@@ -15,16 +11,13 @@ function CheckIcon() {
   )
 }
 
-export default function DealsPageContent({ deals }: { deals: Deal[] }) {
-  const [page, setPage] = useState(1)
-  const totalPages = Math.ceil(deals.length / PAGE_SIZE)
-  const paginated = deals.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+function pageHref(p: number) {
+  return p <= 1 ? '/deals' : `/deals?page=${p}`
+}
 
-  const goTo = (p: number) => {
-    setPage(p)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
+export default function DealsPageContent({ deals, page, totalPages, totalCount }: {
+  deals: Deal[]; page: number; totalPages: number; totalCount: number
+}) {
   return (
     <>
       <div className="section" style={{ paddingTop: 24 }}>
@@ -32,14 +25,14 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
           <div>
             <div className="section-title">All Deals</div>
             <div className="section-sub">
-              {deals.length} deals found · 100% verified
-              {totalPages > 1 && ` · Trang ${page}/${totalPages}`}
+              {totalCount} deals found · 100% verified
+              {totalPages > 1 && ` · Page ${page}/${totalPages}`}
             </div>
           </div>
         </div>
 
         <div className="deals-grid">
-          {paginated.map(deal => {
+          {deals.map(deal => {
             const badge = dealDiscountBadge(deal)
             return (
             <div key={deal.id} className="deal-card">
@@ -68,7 +61,7 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
           })}
         </div>
 
-        {deals.length === 0 && (
+        {totalCount === 0 && (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted)' }}>
             Chưa có deal nào.
           </div>
@@ -76,8 +69,8 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
 
         {totalPages > 1 && (
           <div className="deals-pagination">
-            <button className="dpag-btn dpag-arrow" onClick={() => goTo(1)} disabled={page === 1}>«</button>
-            <button className="dpag-btn dpag-arrow" onClick={() => goTo(page - 1)} disabled={page === 1}>‹</button>
+            <Link className={`dpag-btn dpag-arrow${page === 1 ? ' dpag-disabled' : ''}`} href={pageHref(1)} aria-disabled={page === 1}>«</Link>
+            <Link className={`dpag-btn dpag-arrow${page === 1 ? ' dpag-disabled' : ''}`} href={pageHref(Math.max(1, page - 1))} aria-disabled={page === 1}>‹</Link>
             {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
               .reduce<(number | '...')[]>((acc, p, idx, arr) => {
@@ -88,11 +81,11 @@ export default function DealsPageContent({ deals }: { deals: Deal[] }) {
               .map((p, i) =>
                 p === '...'
                   ? <span key={`ellipsis-${i}`} className="dpag-ellipsis">…</span>
-                  : <button key={p} className={`dpag-btn${page === p ? ' dpag-active' : ''}`} onClick={() => goTo(p as number)}>{p}</button>
+                  : <Link key={p} className={`dpag-btn${page === p ? ' dpag-active' : ''}`} href={pageHref(p as number)}>{p}</Link>
               )
             }
-            <button className="dpag-btn dpag-arrow" onClick={() => goTo(page + 1)} disabled={page === totalPages}>›</button>
-            <button className="dpag-btn dpag-arrow" onClick={() => goTo(totalPages)} disabled={page === totalPages}>»</button>
+            <Link className={`dpag-btn dpag-arrow${page === totalPages ? ' dpag-disabled' : ''}`} href={pageHref(Math.min(totalPages, page + 1))} aria-disabled={page === totalPages}>›</Link>
+            <Link className={`dpag-btn dpag-arrow${page === totalPages ? ' dpag-disabled' : ''}`} href={pageHref(totalPages)} aria-disabled={page === totalPages}>»</Link>
           </div>
         )}
       </div>

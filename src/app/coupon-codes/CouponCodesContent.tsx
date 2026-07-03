@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import type { Offer } from '@/sanity/queries'
 import AffiliateLink from '@/components/AffiliateLink'
 
@@ -37,10 +38,10 @@ a.cc-store-nm:hover{color:#16A34A}
 
 .cc-pager{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
 .cc-pg-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap;justify-content:center}
-.cc-pg-btn{min-width:38px;height:38px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #E4EAF2;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#0F1929;cursor:pointer;transition:all .15s;font-family:inherit;gap:5px}
-.cc-pg-btn:hover:not(:disabled){border-color:#22C55E;color:#16A34A;background:#F0FDF4}
+.cc-pg-btn{min-width:38px;height:38px;padding:0 8px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid #E4EAF2;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#0F1929;cursor:pointer;transition:all .15s;font-family:inherit;gap:5px;text-decoration:none}
+.cc-pg-btn:hover:not(:disabled):not([aria-disabled="true"]){border-color:#22C55E;color:#16A34A;background:#F0FDF4}
 .cc-pg-btn--on{border-color:#22C55E!important;background:#22C55E!important;color:#fff!important;pointer-events:none}
-.cc-pg-btn:disabled{opacity:.3;cursor:not-allowed}
+.cc-pg-btn:disabled,.cc-pg-btn[aria-disabled="true"]{opacity:.3;cursor:not-allowed;pointer-events:none}
 .cc-pg-arrow{padding:0 14px;min-width:auto}
 .cc-pg-dots{padding:0 2px;color:#A0AABF;font-size:15px;font-weight:700;user-select:none;line-height:38px}
 `
@@ -145,52 +146,49 @@ function CouponCard({ offer }: { offer: Offer }) {
 }
 
 // ── Pagination ───────────────────────────────────────────────────
+// Khi khong loc: dieu huong bang <Link> that (URL /coupon-codes?page=N) de crawler
+// doc duoc tung trang. Khi dang loc bang o tim kiem: ket qua loc khong phai URL
+// rieng nen chuyen sang button + state cuc bo (onChange).
 
-function Pagination({ page, total, onChange }: {
-  page: number; total: number; onChange: (p: number) => void
+function Pagination({ page, total, hrefFor, onChange }: {
+  page: number; total: number; hrefFor?: (p: number) => string; onChange?: (p: number) => void
 }) {
   if (total <= 1) return null
   const pages = getPageNums(page, total)
-  return (
-    <nav className="cc-pager" aria-label="Pagination">
-      <button
-        className="cc-pg-btn cc-pg-arrow"
-        onClick={() => onChange(page - 1)}
-        disabled={page === 1}
-        aria-label="Previous page"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <polyline points="15 18 9 12 15 6"/>
-        </svg>
+
+  const Prev = hrefFor
+    ? <Link className="cc-pg-btn cc-pg-arrow" href={hrefFor(Math.max(1, page - 1))} aria-disabled={page === 1} aria-label="Previous page">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Prev
+      </Link>
+    : <button className="cc-pg-btn cc-pg-arrow" onClick={() => onChange!(page - 1)} disabled={page === 1} aria-label="Previous page">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         Prev
       </button>
 
+  const Next = hrefFor
+    ? <Link className="cc-pg-btn cc-pg-arrow" href={hrefFor(Math.min(total, page + 1))} aria-disabled={page === total} aria-label="Next page">
+        Next
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </Link>
+    : <button className="cc-pg-btn cc-pg-arrow" onClick={() => onChange!(page + 1)} disabled={page === total} aria-label="Next page">
+        Next
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+
+  return (
+    <nav className="cc-pager" aria-label="Pagination">
+      {Prev}
       <div className="cc-pg-nums">
         {pages.map((p, i) =>
           p === '…'
             ? <span key={`d${i}`} className="cc-pg-dots">…</span>
-            : <button
-                key={p}
-                className={`cc-pg-btn${page === p ? ' cc-pg-btn--on' : ''}`}
-                onClick={() => onChange(p)}
-                aria-current={page === p ? 'page' : undefined}
-              >
-                {p}
-              </button>
+            : hrefFor
+              ? <Link key={p} className={`cc-pg-btn${page === p ? ' cc-pg-btn--on' : ''}`} href={hrefFor(p)} aria-current={page === p ? 'page' : undefined}>{p}</Link>
+              : <button key={p} className={`cc-pg-btn${page === p ? ' cc-pg-btn--on' : ''}`} onClick={() => onChange!(p)} aria-current={page === p ? 'page' : undefined}>{p}</button>
         )}
       </div>
-
-      <button
-        className="cc-pg-btn cc-pg-arrow"
-        onClick={() => onChange(page + 1)}
-        disabled={page === total}
-        aria-label="Next page"
-      >
-        Next
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </button>
+      {Next}
     </nav>
   )
 }
@@ -199,11 +197,18 @@ function Pagination({ page, total, onChange }: {
 
 const PAGE_SIZE = 20
 
-export default function CouponCodesContent({ offers }: { offers: Offer[] }) {
-  const [search, setSearch] = useState('')
-  const [page,   setPage  ] = useState(1)
+function pageHref(p: number) {
+  return p <= 1 ? '/coupon-codes' : `/coupon-codes?page=${p}`
+}
 
-  const filtered = search
+export default function CouponCodesContent({ offers, page: initialPage, totalPages: initialTotalPages }: {
+  offers: Offer[]; page: number; totalPages: number
+}) {
+  const [search, setSearch] = useState('')
+  const [filterPage, setFilterPage] = useState(1)
+  const isFiltering = search.length > 0
+
+  const filtered = isFiltering
     ? offers.filter(o =>
         o.store?.name?.toLowerCase().includes(search.toLowerCase()) ||
         o.couponCode?.toLowerCase().includes(search.toLowerCase()) ||
@@ -211,12 +216,13 @@ export default function CouponCodesContent({ offers }: { offers: Offer[] }) {
       )
     : offers
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = isFiltering ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)) : initialTotalPages
+  const page = isFiltering ? filterPage : initialPage
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const handleSearch = (v: string) => { setSearch(v); setPage(1) }
-  const handlePage   = (p: number) => {
-    setPage(p)
+  const handleSearch = (v: string) => { setSearch(v); setFilterPage(1) }
+  const handleFilterPage = (p: number) => {
+    setFilterPage(p)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -264,7 +270,10 @@ export default function CouponCodesContent({ offers }: { offers: Offer[] }) {
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ marginTop: 48 }}>
-          <Pagination page={page} total={totalPages} onChange={handlePage} />
+          {isFiltering
+            ? <Pagination page={page} total={totalPages} onChange={handleFilterPage} />
+            : <Pagination page={page} total={totalPages} hrefFor={pageHref} />
+          }
           <p style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: '#6B7694' }}>
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} codes
           </p>
