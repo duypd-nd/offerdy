@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import './globals.css'
+import { getConfigSeo, getSiteSettings } from '@/sanity/queries'
 
 const jakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -15,68 +16,84 @@ const inter = Inter({
   display: 'swap',
 })
 
-export const metadata: Metadata = {
-  metadataBase: new URL('https://offerdy.com'),
-  title: {
-    default: 'Offerdy — Real Deals. Actually Verified.',
-    template: '%s — Offerdy',
-  },
-  description: 'Every coupon code tested before it goes live. No expired codes, no checkout disappointments — ever.',
-  keywords: ['coupon codes', 'promo codes', 'deals', 'discount codes', 'verified coupons'],
-  openGraph: {
-    type: 'website',
-    siteName: 'Offerdy',
-    title: 'Offerdy — Real Deals. Actually Verified.',
-    description: 'Every coupon code tested before it goes live. No expired codes, no checkout disappointments — ever.',
-    url: 'https://offerdy.com',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Offerdy — Real Deals. Actually Verified.',
-    description: 'Every coupon code tested before it goes live. No expired codes, no checkout disappointments — ever.',
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true, 'max-snippet': -1, 'max-image-preview': 'large' },
-  },
+const DEFAULT_TITLE = 'Offerdy — Real Deals. Actually Verified.'
+const DEFAULT_DESCRIPTION = 'Every coupon code tested before it goes live. No expired codes, no checkout disappointments — ever.'
+const DEFAULT_KEYWORDS = ['coupon codes', 'promo codes', 'deals', 'discount codes', 'verified coupons']
+
+export async function generateMetadata(): Promise<Metadata> {
+  const seo = await getConfigSeo()
+  const title = seo.defaultTitle || DEFAULT_TITLE
+  const description = seo.defaultDescription || DEFAULT_DESCRIPTION
+  const titleTemplate = seo.titleTemplate?.includes('%s') ? seo.titleTemplate : '%s — Offerdy'
+  const twitterCard = seo.twitterCard === 'summary' ? 'summary' : 'summary_large_image'
+
+  return {
+    metadataBase: new URL('https://offerdy.com'),
+    title: { default: title, template: titleTemplate },
+    description,
+    keywords: seo.keywords?.length ? seo.keywords : DEFAULT_KEYWORDS,
+    openGraph: {
+      type: 'website',
+      siteName: 'Offerdy',
+      title,
+      description,
+      url: 'https://offerdy.com',
+      images: seo.defaultOgImageUrl ? [{ url: seo.defaultOgImageUrl }] : undefined,
+    },
+    twitter: {
+      card: twitterCard,
+      title,
+      description,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, 'max-snippet': -1, 'max-image-preview': 'large' },
+    },
+    verification: seo.googleSiteVerification ? { google: seo.googleSiteVerification } : undefined,
+  }
 }
 
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': 'Organization',
-      '@id': 'https://offerdy.com/#organization',
-      name: 'Offerdy',
-      url: 'https://offerdy.com',
-      logo: {
-        '@type': 'ImageObject',
-        url: 'https://offerdy.com/icon',
-        width: 32,
-        height: 32,
-      },
-      sameAs: [],
-    },
-    {
-      '@type': 'WebSite',
-      '@id': 'https://offerdy.com/#website',
-      url: 'https://offerdy.com',
-      name: 'Offerdy',
-      publisher: { '@id': 'https://offerdy.com/#organization' },
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: {
-          '@type': 'EntryPoint',
-          urlTemplate: 'https://offerdy.com/search?q={search_term_string}',
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const settings = await getSiteSettings()
+  const sameAs = (settings.socialMedia ?? [])
+    .map(s => s.url)
+    .filter(url => url && url !== '#' && url.startsWith('http'))
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        '@id': 'https://offerdy.com/#organization',
+        name: 'Offerdy',
+        url: 'https://offerdy.com',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://offerdy.com/icon',
+          width: 32,
+          height: 32,
         },
-        'query-input': 'required name=search_term_string',
+        sameAs,
       },
-    },
-  ],
-}
+      {
+        '@type': 'WebSite',
+        '@id': 'https://offerdy.com/#website',
+        url: 'https://offerdy.com',
+        name: 'Offerdy',
+        publisher: { '@id': 'https://offerdy.com/#organization' },
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: 'https://offerdy.com/search?q={search_term_string}',
+          },
+          'query-input': 'required name=search_term_string',
+        },
+      },
+    ],
+  }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${jakartaSans.variable} ${inter.variable}`}>
       <head>

@@ -207,7 +207,7 @@ export async function getReviews() {
 
 const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, emoji, tag, stars, author,
-  "date": publishedAt, imgBg, body, content, "imageUrl": coalesce(image.asset->url, externalImageUrl)
+  "date": publishedAt, "updatedAt": _updatedAt, imgBg, body, content, "imageUrl": coalesce(image.asset->url, externalImageUrl)
 }`
 
 // ── Blog Posts ─────────────────────────────────────────────────
@@ -219,7 +219,7 @@ const POSTS_QUERY = `*[_type == "post" && ${PUBLISHED_FILTER}] | order(published
 
 const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, category,
-  author, "date": publishedAt, coverEmoji, coverBg, readTime, body, content,
+  author, "date": publishedAt, "updatedAt": _updatedAt, coverEmoji, coverBg, readTime, body, content,
   "imageUrl": coalesce(image.asset->url, externalImageUrl)
 }`
 
@@ -359,6 +359,54 @@ export async function getConfigContent(): Promise<ContentConfig> {
   if (!isConfigured()) return {}
   try {
     const data = await writeClient.fetch(CONFIG_CONTENT_QUERY)
+    return data ?? {}
+  } catch { return {} }
+}
+
+// ── Config: SEO ──────────────────────────────────────────────
+const CONFIG_SEO_QUERY = `*[_type == "configSEO"][0] {
+  titleTemplate, defaultTitle, defaultDescription,
+  "defaultOgImageUrl": defaultOgImage.asset->url,
+  keywords, googleSiteVerification, canonicalUrl, twitterCard
+}`
+
+export type SeoConfig = {
+  titleTemplate?: string
+  defaultTitle?: string
+  defaultDescription?: string
+  defaultOgImageUrl?: string
+  keywords?: string[]
+  googleSiteVerification?: string
+  canonicalUrl?: string
+  twitterCard?: string
+}
+
+export async function getConfigSeo(): Promise<SeoConfig> {
+  if (!isConfigured()) return {}
+  try {
+    const data = await writeClient.fetch(CONFIG_SEO_QUERY)
+    return data ?? {}
+  } catch { return {} }
+}
+
+// ── Config: Author (fallback identity for posts/reviews) ────────
+const CONFIG_AUTHOR_QUERY = `*[_type == "configAuthor"][0] {
+  defaultName, role, "avatarUrl": avatar.asset->url, bio, email, twitterHandle
+}`
+
+export type AuthorConfig = {
+  defaultName?: string
+  role?: string
+  avatarUrl?: string
+  bio?: string
+  email?: string
+  twitterHandle?: string
+}
+
+export async function getConfigAuthor(): Promise<AuthorConfig> {
+  if (!isConfigured()) return {}
+  try {
+    const data = await writeClient.fetch(CONFIG_AUTHOR_QUERY)
     return data ?? {}
   } catch { return {} }
 }

@@ -17,28 +17,6 @@ export const metadata: Metadata = {
   alternates: { canonical: BASE },
 }
 
-const homepageJsonLd = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': 'WebSite',
-      name: 'Offerdy',
-      url: BASE,
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: { '@type': 'EntryPoint', urlTemplate: `${BASE}/search?q={search_term_string}` },
-        'query-input': 'required name=search_term_string',
-      },
-    },
-    {
-      '@type': 'Organization',
-      name: 'Offerdy',
-      url: BASE,
-      description: 'Verified coupon codes and deals tested before going live. No expired codes, no checkout disappointments.',
-    },
-  ],
-}
-
 export default async function Home() {
   const [config, stores, categories, reviews, expiringDeals] = await Promise.all([
     getConfigContent(),
@@ -52,7 +30,6 @@ export default async function Home() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(homepageJsonLd) }} />
       {config.announcementBar && (
         config.announcementBarUrl
           ? <a href={config.announcementBarUrl} className="announce-bar" target="_blank" rel="noopener noreferrer">{config.announcementBar}</a>

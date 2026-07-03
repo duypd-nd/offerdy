@@ -3,7 +3,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getReviewBySlug, getReviews, getConfigContent } from '@/sanity/queries'
+import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor } from '@/sanity/queries'
 import { reviews as staticReviews } from '@/data/reviews'
 
 export const dynamic = 'force-dynamic'
@@ -28,6 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       siteName: 'Offerdy',
       type: 'article',
       publishedTime: review.date ?? undefined,
+      modifiedTime: review.updatedAt ?? undefined,
       images: review.imageUrl ? [{ url: review.imageUrl, alt: title }] : [],
     },
     twitter: { card: 'summary_large_image', title, description },
@@ -41,13 +42,19 @@ function fmtDate(d: string) {
 
 export default async function ReviewDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const [review, allReviews, globalConfig] = await Promise.all([
+  const [review, allReviews, globalConfig, authorConfig] = await Promise.all([
     getReviewBySlug(slug),
     getReviews(),
     getConfigContent(),
+    getConfigAuthor(),
   ])
 
   if (!review) notFound()
+
+  const authorName = review.author || authorConfig.defaultName
+  const authorUrl = authorConfig.twitterHandle
+    ? `https://x.com/${authorConfig.twitterHandle.replace(/^@/, '')}`
+    : undefined
 
   let sidebarReviews = allReviews
     .filter((r: { slug: string }) => r.slug !== slug)
@@ -68,13 +75,16 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
         name: review.title,
         reviewBody: review.excerpt ?? undefined,
         reviewRating: { '@type': 'Rating', ratingValue: review.stars, bestRating: 5, worstRating: 1 },
-        author: { '@type': 'Organization', name: 'Offerdy', url: BASE },
+        author: authorName
+          ? { '@type': 'Person', name: authorName, url: authorUrl }
+          : { '@type': 'Organization', name: 'Offerdy', url: BASE },
         itemReviewed: {
           '@type': 'Product',
           name: review.title,
           image: review.imageUrl ?? undefined,
         },
         datePublished: review.date ?? undefined,
+        dateModified: review.updatedAt ?? review.date ?? undefined,
         url: `${BASE}/reviews/${slug}`,
         publisher: { '@type': 'Organization', name: 'Offerdy', url: BASE },
       },
@@ -121,7 +131,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
             <h1 className="article-title">{review.title}</h1>
 
             <div className="article-meta">
-              {review.author && <span>✍️ {review.author}</span>}
+              {authorName && <span>✍️ {authorName}</span>}
               <span>📅 {review.date}</span>
               <span>⏱ 5 min read</span>
               <span>✅ Verified purchase</span>
@@ -155,9 +165,23 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                 )}
                 {globalConfig.articleReviewedBy && (
                   <p className="article-disclaimer-meta">
-                    {review.date && `Last updated: ${fmtDate(review.date)} · `}{globalConfig.articleReviewedBy}
+                    {(review.updatedAt || review.date) && `Last updated: ${fmtDate(review.updatedAt ?? review.date)} · `}{globalConfig.articleReviewedBy}
                   </p>
                 )}
+              </div>
+            )}
+
+            {authorName && authorConfig.bio && (
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginTop: 24, padding: '18px 20px', border: '1px solid var(--border)', borderRadius: 12 }}>
+                {authorConfig.avatarUrl && (
+                  <img src={authorConfig.avatarUrl} alt={authorName} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                    {authorName}{authorConfig.role && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {authorConfig.role}</span>}
+                  </div>
+                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{authorConfig.bio}</p>
+                </div>
               </div>
             )}
           </article>

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getPostBySlug, getPosts, getConfigContent } from '@/sanity/queries'
+import { getPostBySlug, getPosts, getConfigContent, getConfigAuthor } from '@/sanity/queries'
 import { posts as staticPosts } from '@/data/posts'
 
 export const dynamic = 'force-dynamic'
@@ -40,6 +40,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       siteName: 'Offerdy',
       type: 'article',
       publishedTime: post.date ?? undefined,
+      modifiedTime: post.updatedAt ?? undefined,
       authors: post.author ? [post.author] : undefined,
     },
     twitter: {
@@ -52,13 +53,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const [post, allPosts, globalConfig] = await Promise.all([
+  const [post, allPosts, globalConfig, authorConfig] = await Promise.all([
     getPostBySlug(slug),
     getPosts(),
     getConfigContent(),
+    getConfigAuthor(),
   ])
 
   if (!post) notFound()
+
+  const authorName = post.author || authorConfig.defaultName
+  const authorUrl = authorConfig.twitterHandle
+    ? `https://x.com/${authorConfig.twitterHandle.replace(/^@/, '')}`
+    : undefined
 
   let sidebarPosts = allPosts
     .filter((p: { slug: string }) => p.slug !== slug)
@@ -77,8 +84,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         '@type': 'Article',
         headline: post.title,
         description: post.excerpt ?? undefined,
-        author: post.author ? { '@type': 'Person', name: post.author } : undefined,
+        author: authorName ? { '@type': 'Person', name: authorName, url: authorUrl } : undefined,
         datePublished: post.date ?? undefined,
+        dateModified: post.updatedAt ?? post.date ?? undefined,
         publisher: { '@type': 'Organization', name: 'Offerdy', url: BASE },
         url: `${BASE}/blog/${slug}`,
       },
@@ -121,7 +129,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <h1 className="article-title">{post.title}</h1>
 
             <div className="article-meta">
-              <span>✍️ {post.author}</span>
+              {authorName && <span>✍️ {authorName}</span>}
               <span>📅 {post.date}</span>
               <span>⏱ {post.readTime} min read</span>
             </div>
@@ -155,9 +163,23 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 )}
                 {globalConfig.articleReviewedBy && (
                   <p className="article-disclaimer-meta">
-                    {post.date && `Last updated: ${fmtDate(post.date)} · `}{globalConfig.articleReviewedBy}
+                    {(post.updatedAt || post.date) && `Last updated: ${fmtDate(post.updatedAt ?? post.date)} · `}{globalConfig.articleReviewedBy}
                   </p>
                 )}
+              </div>
+            )}
+
+            {authorName && authorConfig.bio && (
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginTop: 24, padding: '18px 20px', border: '1px solid var(--border)', borderRadius: 12 }}>
+                {authorConfig.avatarUrl && (
+                  <img src={authorConfig.avatarUrl} alt={authorName} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                )}
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                    {authorName}{authorConfig.role && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {authorConfig.role}</span>}
+                  </div>
+                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{authorConfig.bio}</p>
+                </div>
               </div>
             )}
           </article>
