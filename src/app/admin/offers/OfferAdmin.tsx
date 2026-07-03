@@ -18,7 +18,11 @@ function localDateKey(iso: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function StoreSearchInput({ stores, value, onChange }: { stores: AdminStore[]; value: string; onChange: (id: string) => void }) {
+function StoreSearchInput({ stores, value, onChange, allLabel }: {
+  stores: AdminStore[]; value: string; onChange: (id: string) => void
+  /** When set, adds a "clear filter" option at the top and switches to filter-bar styling. */
+  allLabel?: string
+}) {
   const selected = stores.find(s => s._id === value)
   const [query, setQuery] = useState(selected?.name ?? '')
   const [open, setOpen] = useState(false)
@@ -35,15 +39,25 @@ function StoreSearchInput({ stores, value, onChange }: { stores: AdminStore[]; v
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <input
-        className="oa-input"
+        className={allLabel ? 'oa-search' : 'oa-input'}
         value={query}
-        placeholder="Tìm store..."
+        placeholder={allLabel ?? 'Tìm store...'}
         onChange={e => { setQuery(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
         autoComplete="off"
       />
-      {open && filtered.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #e4eaf2', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.1)', zIndex: 100, maxHeight: 220, overflowY: 'auto' }}>
+      {open && (filtered.length > 0 || allLabel) && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #e4eaf2', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.1)', zIndex: 100, maxHeight: 240, overflowY: 'auto' }}>
+          {allLabel && (
+            <div
+              onMouseDown={() => { onChange('all'); setQuery(''); setOpen(false) }}
+              style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: value === 'all' ? 700 : 400, background: value === 'all' ? '#f0fdf4' : 'transparent', color: value === 'all' ? '#16a34a' : '#0f1929', borderBottom: '1px solid #f1f5f9' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f6f8fb')}
+              onMouseLeave={e => (e.currentTarget.style.background = value === 'all' ? '#f0fdf4' : 'transparent')}
+            >
+              {allLabel}
+            </div>
+          )}
           {filtered.map(s => (
             <div
               key={s._id}
@@ -146,10 +160,7 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
       <div className="oa-toolbar">
         <div className="oa-filters">
           <input className="oa-search" placeholder="Tìm kiếm..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          <select className="oa-select" value={storeFilter} onChange={e => { setStoreFilter(e.target.value); setPage(1) }}>
-            <option value="all">Tất cả store</option>
-            {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-          </select>
+          <StoreSearchInput stores={stores} value={storeFilter} onChange={id => { setStoreFilter(id); setPage(1) }} allLabel="Tất cả store" />
           <select className="oa-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Đang hiện</option>
