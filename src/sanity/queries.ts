@@ -1,20 +1,11 @@
-import { client, isConfigured } from './client'
+import { isConfigured } from './client'
 import { writeClient } from './writeClient'
-import { deals as staticDeals, expiringDeals as staticExpiring, searchableDeals } from '@/data/deals'
-import { stores as staticStores, searchableStores } from '@/data/stores'
-import { categories as staticCategories, searchableCategories } from '@/data/categories'
-import { reviews as staticReviews, searchableReviews } from '@/data/reviews'
+import { deals as staticDeals, expiringDeals as staticExpiring } from '@/data/deals'
+import { stores as staticStores } from '@/data/stores'
+import { categories as staticCategories } from '@/data/categories'
+import { reviews as staticReviews } from '@/data/reviews'
 import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
-
-export type SearchItem = { name: string; sub: string; icon: string; url?: string }
-export type SearchableContent = {
-  deals: SearchItem[]
-  stores: SearchItem[]
-  categories: SearchItem[]
-  reviews: SearchItem[]
-  posts: SearchItem[]
-}
 
 // ── Site Settings (from configGeneral + configSocial) ──────────
 const CONFIG_QUERY = `{
@@ -256,62 +247,7 @@ export async function getReviewBySlug(slug: string) {
   } catch { return fallback }
 }
 
-// ── Search ─────────────────────────────────────────────────────
-const SEARCH_QUERY = `{
-  "deals": *[_type == "deal"][0...50] { "name": title, "priceSale": priceSale, "discount": discount, "icon": emoji, "slug": slug.current },
-  "stores": *[_type == "store"][0...50] { "name": name, "abbr": abbr, "dealCount": dealCount, "slug": slug.current },
-  "reviews": *[_type == "review" && ${PUBLISHED_FILTER}][0...50] { "name": title, "tag": tag, "icon": emoji, "slug": slug.current },
-  "posts": *[_type == "post" && ${PUBLISHED_FILTER}][0...50] { "name": title, "category": category, "icon": coverEmoji, "slug": slug.current }
-}`
-
-export async function getSearchableContent(): Promise<SearchableContent> {
-  const defaultContent: SearchableContent = {
-    deals: searchableDeals,
-    stores: searchableStores,
-    categories: searchableCategories,
-    reviews: searchableReviews,
-    posts: [],
-  }
-  if (!isConfigured()) return defaultContent
-  try {
-    const data = await writeClient.fetch(SEARCH_QUERY)
-    return {
-      deals: data.deals?.length
-        ? data.deals.map((d: { name: string; priceSale?: string; discount?: number; icon?: string; slug?: string }) => ({
-            name: d.name,
-            sub: [d.priceSale, d.discount ? `${d.discount}% off` : null].filter(Boolean).join(' · ') || 'Deal',
-            icon: d.icon ?? '⚡',
-            url: d.slug ? `/deals#${d.slug}` : '/deals',
-          }))
-        : searchableDeals,
-      stores: data.stores?.length
-        ? data.stores.map((s: { name: string; abbr?: string; dealCount?: number; slug?: string }) => ({
-            name: s.name,
-            sub: s.dealCount ? `${s.dealCount} deals` : 'Store',
-            icon: s.abbr ?? s.name.slice(0, 3).toUpperCase(),
-            url: s.slug ? `/stores/${s.slug}` : '/stores',
-          }))
-        : searchableStores,
-      categories: searchableCategories,
-      reviews: data.reviews?.length
-        ? data.reviews.map((r: { name: string; tag?: string; icon?: string; slug?: string }) => ({
-            name: r.name,
-            sub: r.tag ?? 'Review',
-            icon: r.icon ?? '⭐',
-            url: r.slug ? `/reviews/${r.slug}` : '/reviews',
-          }))
-        : searchableReviews,
-      posts: data.posts?.length
-        ? data.posts.map((p: { name: string; category?: string; icon?: string; slug?: string }) => ({
-            name: p.name,
-            sub: p.category ?? 'Article',
-            icon: p.icon ?? '📝',
-            url: p.slug ? `/blog/${p.slug}` : '/blog',
-          }))
-        : [],
-    }
-  } catch { return defaultContent }
-}
+// ── Search suggestions moved to /api/search-suggest (live, fuzzy-matched) ──
 
 // ── Offers ─────────────────────────────────────────────────────
 export type Offer = {

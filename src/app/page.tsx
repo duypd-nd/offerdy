@@ -7,7 +7,7 @@ import DealsGrid from '@/components/DealsGrid'
 import CategoryGrid from '@/components/CategoryGrid'
 import ReviewsGrid from '@/components/ReviewsGrid'
 import Footer from '@/components/Footer'
-import { getDeals, getStores, getCategories, getReviews, getExpiringDeals, getSearchableContent, getConfigContent } from '@/sanity/queries'
+import { getDeals, getStores, getCategories, getReviews, getExpiringDeals, getConfigContent } from '@/sanity/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,13 +40,12 @@ const homepageJsonLd = {
 }
 
 export default async function Home() {
-  const [config, stores, categories, reviews, expiringDeals, searchableContent] = await Promise.all([
+  const [config, stores, categories, reviews, expiringDeals] = await Promise.all([
     getConfigContent(),
     getStores(),
     getCategories(),
     getReviews(),
     getExpiringDeals(),
-    getSearchableContent(),
   ])
 
   const deals = await getDeals(config.dealsPerPage ?? 10)
@@ -61,7 +60,7 @@ export default async function Home() {
       )}
       <HeaderWrapper />
       <main>
-        <Hero searchableContent={searchableContent} />
+        <Hero />
         <StoresTicker stores={stores.slice(0, 20)} />
         {(config.showExpiringBand !== false) && expiringDeals.length > 0 && <ExpiringBand deals={expiringDeals} />}
         <DealsGrid deals={deals} columns={config.dealsGridColumns} showVerified={config.showVerifiedBadge !== false} />

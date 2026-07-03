@@ -3,25 +3,16 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { searchableStores } from '@/data/stores'
-import { searchableDeals } from '@/data/deals'
-import { searchableCategories } from '@/data/categories'
-import { searchableReviews } from '@/data/reviews'
+import { categories } from '@/data/categories'
 import type { NavLink } from '@/data/siteSettings'
 import { defaultSiteSettings } from '@/data/siteSettings'
-import type { SearchableContent } from '@/sanity/queries'
+import type { SuggestItem } from '@/app/api/search-suggest/route'
+import { fuzzyMatch } from '@/lib/fuzzy'
 
-type SearchItem = { name: string; sub: string; icon: string; url?: string }
+type SearchItem = SuggestItem
 
-const defaultSearchContent: SearchableContent = {
-  deals: searchableDeals,
-  stores: searchableStores,
-  categories: searchableCategories,
-  reviews: searchableReviews,
-  posts: [],
-}
-
-const popular = ['AirPods Pro', 'Nike deals', 'MacBook Air', 'Samsung Galaxy', 'Amazon promo code', 'Dyson vacuum', 'iPhone 16', 'Apple Watch']
+type LiveResults = { stores: SearchItem[]; deals: SearchItem[]; reviews: SearchItem[]; posts: SearchItem[] }
+const emptyResults: LiveResults = { stores: [], deals: [], reviews: [], posts: [] }
 
 function Highlight({ text, query }: { text: string; query: string }) {
   if (!query.trim()) return <>{text}</>
@@ -49,10 +40,13 @@ function ResultSection({ label, items, badge, badgeClass, query, onClose }: {
   return (
     <div className="sd-sec">
       <div className="sd-lbl">{label}</div>
-      {items.slice(0, 4).map((item, i) => (
-        item.url
+      {items.slice(0, 5).map((item, i) => {
+        const icon = item.imageUrl
+          ? <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 'inherit' }} />
+          : item.icon
+        return item.url
           ? <Link key={i} href={item.url} className="sd-item sd-item-link" onClick={onClose}>
-              <div className="sd-ico">{item.icon}</div>
+              <div className="sd-ico">{icon}</div>
               <div className="sd-info">
                 <div className="sd-name"><Highlight text={item.name} query={query} /></div>
                 <div className="sd-sub">{item.sub}</div>
@@ -60,34 +54,38 @@ function ResultSection({ label, items, badge, badgeClass, query, onClose }: {
               <span className={`sd-badge ${badgeClass}`}>{badge}</span>
             </Link>
           : <div key={i} className="sd-item">
-              <div className="sd-ico">{item.icon}</div>
+              <div className="sd-ico">{icon}</div>
               <div className="sd-info">
                 <div className="sd-name"><Highlight text={item.name} query={query} /></div>
                 <div className="sd-sub">{item.sub}</div>
               </div>
               <span className={`sd-badge ${badgeClass}`}>{badge}</span>
             </div>
-      ))}
+      })}
     </div>
   )
 }
 
-function Dropdown({ query, onChipClick, onClose, content }: {
+const searchableCategories: SearchItem[] = categories.map(c => ({
+  name: c.name, sub: c.count, icon: c.emoji, url: `/categories/${c.slug ?? c.id}`,
+}))
+
+function Dropdown({ query, onClose, live, loading }: {
   query: string
-  onChipClick: (v: string) => void
   onClose: () => void
-  content: SearchableContent
+  live: LiveResults
+  loading: boolean
 }) {
   const q = query.trim()
   if (!q) return null
-  const lq = q.toLowerCase()
-  const match = (arr: SearchItem[]) => arr.filter(d => d.name.toLowerCase().includes(lq))
-  const ms = match(content.stores)
-  const mc = match(content.categories)
-  const md = match(content.deals)
-  const mr = match(content.reviews)
-  const mp = match(content.posts)
-  if (!ms.length && !mc.length && !md.length && !mr.length && !mp.length) {
+  const mc = searchableCategories.filter(c => fuzzyMatch(c.name, q))
+  const { stores: ms, deals: md, reviews: mr, posts: mp } = live
+  const nothing = !ms.length && !mc.length && !md.length && !mr.length && !mp.length
+
+  if (loading && nothing) {
+    return <div className="sd-empty">Đang tìm…</div>
+  }
+  if (nothing) {
     return <div className="sd-empty">No results for &ldquo;<strong>{q}</strong>&rdquo; — try a brand or product name.</div>
   }
   return (
@@ -105,14 +103,14 @@ function Dropdown({ query, onChipClick, onClose, content }: {
 export function SearchBar({
   placeholder,
   variant = 'header',
-  content = defaultSearchContent,
 }: {
   placeholder: string
   variant?: 'header' | 'hero'
-  content?: SearchableContent
 }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [live, setLive] = useState<LiveResults>(emptyResults)
+  const [lastFetchedQuery, setLastFetchedQuery] = useState('')
   const wrapperRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -123,6 +121,23 @@ export function SearchBar({
     document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
   }, [])
+
+  useEffect(() => {
+    const q = query.trim()
+    if (q.length < 2) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      fetch(`/api/search-suggest?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+        .then(res => res.json())
+        .then((data: LiveResults) => { setLive(data); setLastFetchedQuery(q) })
+        .catch(() => {})
+    }, 220)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [query])
+
+  const trimmedQuery = query.trim()
+  const effectiveLive = trimmedQuery.length < 2 ? emptyResults : live
+  const effectiveLoading = trimmedQuery.length >= 2 && trimmedQuery !== lastFetchedQuery
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') { setOpen(false); inputRef.current?.blur() }
@@ -149,7 +164,7 @@ export function SearchBar({
         </div>
         {open && (
           <div className="sd hero-sd" style={{ display: 'block' }}>
-            <Dropdown query={query} onChipClick={v => setQuery(v)} onClose={() => setOpen(false)} content={content} />
+            <Dropdown query={query} onClose={() => setOpen(false)} live={effectiveLive} loading={effectiveLoading} />
           </div>
         )}
       </div>
@@ -177,7 +192,7 @@ export function SearchBar({
       </div>
       {open && (
         <div className="sd" style={{ display: 'block' }}>
-          <Dropdown query={query} onChipClick={v => setQuery(v)} onClose={() => setOpen(false)} content={content} />
+          <Dropdown query={query} onClose={() => setOpen(false)} live={effectiveLive} loading={effectiveLoading} />
         </div>
       )}
     </div>
@@ -187,15 +202,12 @@ export function SearchBar({
 export default function Header({
   navLinks = defaultSiteSettings.navigation,
   logoUrl,
-  searchableContent,
 }: {
   navLinks?: NavLink[]
   logoUrl?: string
-  searchableContent?: SearchableContent
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const pathname = usePathname()
-  const content = searchableContent ?? defaultSearchContent
 
   const isActive = (url: string) =>
     url === '/' ? pathname === '/' : pathname.startsWith(url)
@@ -221,7 +233,7 @@ export default function Header({
               </>
             )}
           </Link>
-          <SearchBar placeholder="" variant="header" content={content} />
+          <SearchBar placeholder="" variant="header" />
           <nav className="nav">
             {navLinks.map(link => (
               <Link key={link.url} href={link.url} className={isActive(link.url) ? 'active' : ''}>

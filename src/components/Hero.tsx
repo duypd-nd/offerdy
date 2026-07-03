@@ -1,7 +1,6 @@
 import { SearchBar } from './Header'
-import type { SearchableContent } from '@/sanity/queries'
 
-export default function Hero({ searchableContent }: { searchableContent?: SearchableContent }) {
+export default function Hero() {
   return (
     <section className="hero">
       <h1>
@@ -14,7 +13,6 @@ export default function Hero({ searchableContent }: { searchableContent?: Search
       <SearchBar
         placeholder=""
         variant="hero"
-        content={searchableContent}
       />
     </section>
   )
