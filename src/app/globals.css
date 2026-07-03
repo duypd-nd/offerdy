@@ -31,7 +31,7 @@ button{cursor:pointer;font-family:inherit;border:none}
 .header{position:sticky;top:0;z-index:100;background:var(--white);border-bottom:1px solid var(--border);box-shadow:var(--shadow-sm)}
 .header-inner{max-width:1280px;margin:0 auto;padding:0 24px;height:68px;display:flex;align-items:center;gap:20px}
 .logo{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.logo-text{font-family:var(--font-d),system-ui,sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px}
+.logo-text{font-family:var(--font-d),system-ui,sans-serif;font-size:26px;font-weight:800;letter-spacing:-.5px}
 .logo-text .o{color:var(--navy)}.logo-text .dy{color:var(--green)}
 .search-wrapper{position:relative;flex:1;max-width:480px}
 .search-bar{position:relative}

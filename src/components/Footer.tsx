@@ -37,13 +37,13 @@ export default async function Footer() {
                 <Image
                   src={settings.logoUrl}
                   alt={settings.siteName}
-                  width={140}
-                  height={34}
-                  style={{ width: 'auto', maxWidth: 140, height: 34, objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+                  width={170}
+                  height={42}
+                  style={{ width: 'auto', maxWidth: 170, height: 42, objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
                 />
               ) : (
                 <>
-                  <svg width="30" height="30" viewBox="0 0 36 36" fill="none">
+                  <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
                     <rect width="36" height="36" rx="8" fill="#22C55E" />
                     <path d="M8 12C8 10.343 9.343 9 11 9H19.5L28 17.5V27C28 28.657 26.657 30 25 30H11C9.343 30 8 28.657 8 27V12Z" fill="white" fillOpacity="0.18" stroke="white" strokeWidth="1.5" />
                     <circle cx="13.5" cy="14.5" r="2" fill="white" />

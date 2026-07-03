@@ -219,10 +219,10 @@ export default function Header({
         <div className="header-inner">
           <Link href="/" className="logo">
             {logoUrl ? (
-              <Image src={logoUrl} alt="Logo" width={140} height={36} style={{ width: 'auto', maxWidth: 140, height: 36, objectFit: 'contain', borderRadius: 0 }} priority />
+              <Image src={logoUrl} alt="Logo" width={180} height={48} style={{ width: 'auto', maxWidth: 180, height: 48, objectFit: 'contain', borderRadius: 0 }} priority />
             ) : (
               <>
-                <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
+                <svg width="42" height="42" viewBox="0 0 36 36" fill="none">
                   <rect width="36" height="36" rx="8" fill="#22C55E" />
                   <path d="M8 12C8 10.343 9.343 9 11 9H19.5L28 17.5V27C28 28.657 26.657 30 25 30H11C9.343 30 8 28.657 8 27V12Z" fill="white" fillOpacity="0.18" stroke="white" strokeWidth="1.5" />
                   <circle cx="13.5" cy="14.5" r="2" fill="white" />
