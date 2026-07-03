@@ -31,28 +31,28 @@ const STORES_COLS = [
 ]
 
 const POSTS_COLS = [
-  { key: 'title',            required: true },
-  { key: 'excerpt',          required: false },
+  { key: 'title',            required: true,  note: 'Tiêu đề bài viết' },
+  { key: 'excerpt',          required: false, note: 'Tóm tắt ngắn, hiện ở danh sách' },
   { key: 'category',         required: false, note: 'Tips & Guides|Comparison|Store Guide|Deals Roundup|News' },
-  { key: 'author',           required: false },
-  { key: 'publishedAt',      required: false, note: 'VD: 2026-07-01' },
-  { key: 'coverEmoji',       required: false },
-  { key: 'coverBg',          required: false, note: 'CSS gradient' },
-  { key: 'readTime',         required: false, note: 'Phút đọc' },
-  { key: 'content',          required: false, note: 'HTML' },
-  { key: 'externalImageUrl', required: false },
+  { key: 'author',           required: false, note: 'Tên tác giả' },
+  { key: 'publishedAt',      required: false, note: 'VD: 2026-07-01 — để trống hoặc dùng khung lên lịch bên dưới' },
+  { key: 'coverEmoji',       required: false, note: 'Emoji hiện thay ảnh nếu không có externalImageUrl' },
+  { key: 'coverBg',          required: false, note: 'CSS gradient nền, VD: linear-gradient(135deg,#f00,#00f)' },
+  { key: 'readTime',         required: false, note: 'Số phút đọc, VD: 5' },
+  { key: 'content',          required: false, note: 'Nội dung bài viết, hỗ trợ HTML' },
+  { key: 'externalImageUrl', required: false, note: 'URL ảnh cover — ưu tiên hơn coverEmoji nếu có' },
 ]
 
 const REVIEWS_COLS = [
-  { key: 'title',            required: true },
-  { key: 'excerpt',          required: true },
-  { key: 'stars',            required: true, note: '1–5' },
+  { key: 'title',            required: true,  note: 'Tiêu đề review' },
+  { key: 'excerpt',          required: true,  note: 'Tóm tắt ngắn, hiện ở danh sách' },
+  { key: 'stars',            required: true,  note: 'Số sao, từ 1–5' },
   { key: 'tag',              required: false, note: 'Review hoặc Comparison' },
-  { key: 'emoji',            required: false },
-  { key: 'publishedAt',      required: false, note: 'VD: 2026-07-01' },
-  { key: 'imgBg',            required: false, note: 'CSS gradient' },
-  { key: 'content',          required: false, note: 'HTML' },
-  { key: 'externalImageUrl', required: false },
+  { key: 'emoji',            required: false, note: 'Emoji hiện thay ảnh nếu không có externalImageUrl' },
+  { key: 'publishedAt',      required: false, note: 'VD: 2026-07-01 — để trống hoặc dùng khung lên lịch bên dưới' },
+  { key: 'imgBg',            required: false, note: 'CSS gradient nền, VD: linear-gradient(135deg,#f00,#00f)' },
+  { key: 'content',          required: false, note: 'Nội dung review, hỗ trợ HTML' },
+  { key: 'externalImageUrl', required: false, note: 'URL ảnh cover — ưu tiên hơn emoji nếu có' },
 ]
 
 type ColDef = { key: string; required: boolean; note?: string }
@@ -147,6 +147,7 @@ export default function ImportClient() {
   const [scheduleMode, setScheduleMode] = useState<'now' | 'spread'>('now')
   const [postsPerDay, setPostsPerDay] = useState(3)
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [guideTab, setGuideTab] = useState<SheetType>('Stores')
 
   const validSheets: SheetType[] = ['Stores', 'Posts', 'Reviews']
 
@@ -276,12 +277,35 @@ export default function ImportClient() {
           </div>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ display: 'none' }} />
 
-          {/* Column guide — Stores */}
+          {/* Column guide — tabbed by sheet type */}
           <div style={{ marginTop: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f1929', marginBottom: 8 }}>📌 Sheet Stores — cấu trúc cột</div>
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#92400e', marginBottom: 10 }}>
-              Nhiều dòng cùng <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>store_name</code> → tự gộp 1 store, mỗi dòng tạo 1 offer riêng
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              {validSheets.map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setGuideTab(t)}
+                  style={{
+                    padding: '6px 12px', fontSize: 12, fontWeight: 600, borderRadius: 7, cursor: 'pointer',
+                    border: guideTab === t ? '1px solid #0f1929' : '1px solid #e2e8f0',
+                    background: guideTab === t ? '#0f1929' : '#fff',
+                    color: guideTab === t ? '#fff' : '#475569',
+                  }}
+                >
+                  {SHEET_ICON[t]} {t}
+                </button>
+              ))}
             </div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#0f1929', marginBottom: 8 }}>📌 Sheet {guideTab} — cấu trúc cột</div>
+            {guideTab === 'Stores' && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#92400e', marginBottom: 10 }}>
+                Nhiều dòng cùng <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>store_name</code> → tự gộp 1 store, mỗi dòng tạo 1 offer riêng
+              </div>
+            )}
+            {(guideTab === 'Posts' || guideTab === 'Reviews') && (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#1e40af', marginBottom: 10 }}>
+                Mỗi dòng tạo 1 {guideTab === 'Posts' ? 'bài viết' : 'review'} riêng — không gộp dòng như sheet Stores
+              </div>
+            )}
             <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid #e2e8f0' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
@@ -292,7 +316,7 @@ export default function ImportClient() {
                   </tr>
                 </thead>
                 <tbody>
-                  {STORES_COLS.map((col, i) => (
+                  {COLS_MAP[guideTab].map((col, i) => (
                     <tr key={col.key} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
                       <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontWeight: col.required ? 700 : 400, color: col.required ? '#0f1929' : '#475569', whiteSpace: 'nowrap' }}>
                         {col.key}
