@@ -11,6 +11,13 @@ type AdminOffer = {
 }
 type AdminStore = { _id: string; name: string }
 
+// Local (browser) date key, matching what toLocaleDateString('vi-VN') displays —
+// slicing the raw UTC ISO string is off by a day whenever local time crosses midnight.
+function localDateKey(iso: string) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function StoreSearchInput({ stores, value, onChange }: { stores: AdminStore[]; value: string; onChange: (id: string) => void }) {
   const selected = stores.find(s => s._id === value)
   const [query, setQuery] = useState(selected?.name ?? '')
@@ -75,7 +82,7 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
     const matchSearch = o.title.toLowerCase().includes(search.toLowerCase())
     const matchStore = storeFilter === 'all' || o.store._id === storeFilter
     const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? o.active : !o.active)
-    const createdDate = o._createdAt.slice(0, 10)
+    const createdDate = localDateKey(o._createdAt)
     const matchDateFrom = !dateFrom || createdDate >= dateFrom
     const matchDateTo = !dateTo || createdDate <= dateTo
     return matchSearch && matchStore && matchStatus && matchDateFrom && matchDateTo

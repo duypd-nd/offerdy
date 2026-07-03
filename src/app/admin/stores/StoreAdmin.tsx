@@ -24,6 +24,13 @@ type AdminStore = {
   description?: string; imageUrl?: string; _createdAt: string
 }
 
+// Local (browser) date key, matching what toLocaleDateString('vi-VN') displays —
+// slicing the raw UTC ISO string is off by a day whenever local time crosses midnight.
+function localDateKey(iso: string) {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function StoreAdmin({ initialStores, categories: propCategories }: { initialStores: AdminStore[]; categories?: AdminCategory[] }) {
   const CATEGORIES = propCategories?.length ? propCategories : FALLBACK_CATEGORIES
   const [stores, setStores] = useState(initialStores)
@@ -47,7 +54,7 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
       (s.slug ?? '').toLowerCase().includes(search.toLowerCase())
     const matchCat = categoryFilter === 'all' || s.category === categoryFilter
     const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? s.published !== false : s.published === false)
-    const createdDate = s._createdAt.slice(0, 10)
+    const createdDate = localDateKey(s._createdAt)
     const matchDateFrom = !dateFrom || createdDate >= dateFrom
     const matchDateTo = !dateTo || createdDate <= dateTo
     return matchSearch && matchCat && matchStatus && matchDateFrom && matchDateTo
