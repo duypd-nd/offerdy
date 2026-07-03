@@ -55,10 +55,18 @@ export default function ContentConfigForm({ initial }: { initial: Record<string,
 
   return (
     <div className="cfg-wrap">
-      <div className="cfg-header">
-        <a href="/admin/config" className="cfg-back">← Cấu hình</a>
-        <h1 className="cfg-title">Cấu hình nội dung</h1>
-        <p className="cfg-subtitle">Quản lý nội dung hiển thị mặc định trên toàn site</p>
+      <div className="cfg-header cfg-header-row">
+        <div>
+          <a href="/admin/config" className="cfg-back">← Cấu hình</a>
+          <h1 className="cfg-title">Cấu hình nội dung</h1>
+          <p className="cfg-subtitle">Quản lý nội dung hiển thị mặc định trên toàn site</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {saved && <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600 }}>✓ Đã lưu!</span>}
+          <button className="cfg-save-btn" onClick={handleSave} disabled={isPending}>
+            {isPending ? 'Đang lưu...' : '💾 Lưu cấu hình'}
+          </button>
+        </div>
       </div>
 
       <div className="cfg-section">

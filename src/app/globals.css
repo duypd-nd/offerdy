@@ -878,6 +878,7 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 /* ── CONFIG FORMS ── */
 .cfg-wrap{max-width:760px;padding:28px}
 .cfg-header{margin-bottom:24px}
+.cfg-header-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .cfg-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#6b7280;text-decoration:none;margin-bottom:10px;transition:color .15s}
 .cfg-back:hover{color:#111}
 .cfg-title{font-size:20px;font-weight:800;color:#111;margin:0}
