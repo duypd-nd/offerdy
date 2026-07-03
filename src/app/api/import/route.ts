@@ -228,6 +228,17 @@ async function importStoresAndOffers(rows: ImportRow[]) {
 
 type Schedule = { postsPerDay: number; startDate: string; startIndex: number }
 
+// Excel luu ngay o dinh dang "date" thanh so serial (vd 46206), khac voi cell dang text
+// ("2026-07-03") duoc doc dung luon. Neu khong quy doi, publishedAt se la chuoi so vo nghia
+// va bi PUBLISHED_FILTER coi nhu ngay trong tuong lai (an bai vinh vien).
+function normalizePublishedAt(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const ms = Date.UTC(1899, 11, 30) + value * 86400000
+    return new Date(ms).toISOString().slice(0, 10)
+  }
+  return String(value)
+}
+
 function scheduledPublishedAt(rowIndex: number, schedule?: Schedule): string | null {
   if (!schedule || schedule.postsPerDay < 1) return null
   const globalIndex = schedule.startIndex + rowIndex
@@ -273,7 +284,7 @@ async function importPosts(rows: ImportRow[], schedule?: Schedule) {
       if (row.author) doc.author = String(row.author)
       const scheduled = scheduledPublishedAt(i, schedule)
       if (scheduled) doc.publishedAt = scheduled
-      else if (row.publishedAt) doc.publishedAt = String(row.publishedAt)
+      else if (row.publishedAt) doc.publishedAt = normalizePublishedAt(row.publishedAt)
       if (row.coverEmoji) doc.coverEmoji = String(row.coverEmoji)
       if (row.coverBg) doc.coverBg = String(row.coverBg)
       if (row.readTime) doc.readTime = Number(row.readTime)
@@ -337,9 +348,10 @@ async function importReviews(rows: ImportRow[], schedule?: Schedule) {
         stars,
       }
       if (row.emoji) doc.emoji = String(row.emoji)
+      if (row.author) doc.author = String(row.author)
       const scheduled = scheduledPublishedAt(i, schedule)
       if (scheduled) doc.publishedAt = scheduled
-      else if (row.publishedAt) doc.publishedAt = String(row.publishedAt)
+      else if (row.publishedAt) doc.publishedAt = normalizePublishedAt(row.publishedAt)
       if (row.imgBg) doc.imgBg = String(row.imgBg)
       if (row.content) doc.content = String(row.content)
       if (row.externalImageUrl) doc.externalImageUrl = String(row.externalImageUrl)

@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'cdn.sanity.io' },
     ],
   },
+  experimental: {
+    serverActions: {
+      // Mac dinh 1MB qua nho cho anh upload tu may (Post/Deal image) -> nang len 10MB
+      bodySizeLimit: '10mb',
+    },
+  },
   async headers() {
     return [
       {

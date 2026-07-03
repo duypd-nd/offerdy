@@ -126,16 +126,22 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               <span>⏱ {post.readTime} min read</span>
             </div>
 
-            <div className="article-hero-img" style={{ background: post.coverBg }}>
-              {post.coverEmoji}
+            <div className="article-hero-img" style={{ background: post.imageUrl ? undefined : post.coverBg, overflow: post.imageUrl ? 'hidden' : undefined }}>
+              {post.imageUrl
+                ? <img src={post.imageUrl} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                : post.coverEmoji}
             </div>
 
             <div className="article-body">
-              <p style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)', marginBottom: 28, lineHeight: 1.7 }}>
-                {post.excerpt}
-              </p>
+              {post.excerpt && (
+                <p style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)', marginBottom: 28, lineHeight: 1.7 }}>
+                  {post.excerpt}
+                </p>
+              )}
 
-              {'body' in post && Array.isArray((post as { body?: unknown[] }).body) ? (
+              {'content' in post && typeof (post as { content?: string }).content === 'string' && (post as { content: string }).content.length > 100 ? (
+                <div dangerouslySetInnerHTML={{ __html: (post as { content: string }).content }} />
+              ) : 'body' in post && Array.isArray((post as { body?: unknown[] }).body) && (post as { body: unknown[] }).body.length > 0 ? (
                 <PortableBody body={(post as { body: unknown[] }).body} />
               ) : (
                 <PlaceholderBody category={post.category} />
@@ -167,10 +173,13 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   category?: string
                   coverEmoji?: string
                   coverBg?: string
+                  imageUrl?: string
                 }) => (
                   <Link key={p.slug} href={`/blog/${p.slug}`} className="asb-card">
-                    <div className="asb-thumb" style={{ background: p.coverBg ?? 'var(--bg)', fontSize: 28 }}>
-                      {p.coverEmoji ?? '📝'}
+                    <div className="asb-thumb" style={{ background: p.imageUrl ? undefined : (p.coverBg ?? 'var(--bg)'), fontSize: 28 }}>
+                      {p.imageUrl
+                        ? <img src={p.imageUrl} alt={p.title} />
+                        : (p.coverEmoji ?? '📝')}
                     </div>
                     <div className="asb-info">
                       <div className="asb-name">{p.title}</div>

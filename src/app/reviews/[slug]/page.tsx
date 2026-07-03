@@ -121,6 +121,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
             <h1 className="article-title">{review.title}</h1>
 
             <div className="article-meta">
+              {review.author && <span>✍️ {review.author}</span>}
               <span>📅 {review.date}</span>
               <span>⏱ 5 min read</span>
               <span>✅ Verified purchase</span>

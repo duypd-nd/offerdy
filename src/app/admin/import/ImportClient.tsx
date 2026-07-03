@@ -48,6 +48,7 @@ const REVIEWS_COLS = [
   { key: 'excerpt',          required: true,  note: 'Tóm tắt ngắn, hiện ở danh sách' },
   { key: 'stars',            required: true,  note: 'Số sao, từ 1–5' },
   { key: 'tag',              required: false, note: 'Review hoặc Comparison' },
+  { key: 'author',           required: false, note: 'Tên tác giả' },
   { key: 'emoji',            required: false, note: 'Emoji hiện thay ảnh nếu không có externalImageUrl' },
   { key: 'publishedAt',      required: false, note: 'VD: 2026-07-01 — để trống hoặc dùng khung lên lịch bên dưới' },
   { key: 'imgBg',            required: false, note: 'CSS gradient nền, VD: linear-gradient(135deg,#f00,#00f)' },
@@ -65,7 +66,7 @@ const COLS_MAP: Record<SheetType, ColDef[]> = {
 const PREVIEW_COLS: Record<SheetType, string[]> = {
   Stores: ['store_name', 'link', 'offer_title', 'Offer', 'couponCode'],
   Posts: ['title', 'category', 'author', 'publishedAt', 'excerpt'],
-  Reviews: ['title', 'stars', 'tag', 'publishedAt', 'excerpt'],
+  Reviews: ['title', 'stars', 'tag', 'author', 'publishedAt', 'excerpt'],
 }
 
 const SHEET_ICON: Record<SheetType, string> = {

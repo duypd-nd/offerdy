@@ -257,7 +257,10 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
           const fd = new FormData()
           fd.append('file', imageFile)
           image = await uploadDealImage(fd)
-        } catch {}
+        } catch (err) {
+          setImageError(err instanceof Error ? err.message : 'Không tải được ảnh, vui lòng thử ảnh khác hoặc file nhỏ hơn')
+          return
+        }
       } else if (imageUrlInput) {
         try {
           image = await uploadDealImageFromUrl(imageUrlInput)

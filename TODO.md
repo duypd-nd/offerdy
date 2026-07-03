@@ -22,9 +22,9 @@
 ## Pending 🔲
 
 ### Deploy
-- [ ] Deploy to Vercel
-- [ ] Set env vars on Vercel: `NEXT_PUBLIC_SANITY_PROJECT_ID`, `SANITY_API_TOKEN`, `NEXT_PUBLIC_SITE_URL`
-- [ ] Add production domain to Sanity CORS origins
+- [x] Deploy to Vercel
+- [x] Set env vars on Vercel: `NEXT_PUBLIC_SANITY_PROJECT_ID`, `SANITY_API_TOKEN`, `NEXT_PUBLIC_SITE_URL`
+- [x] Add production domain to Sanity CORS origins
 
 ### SEO / Visibility
 - [ ] Submit sitemap to Google Search Console after deploy

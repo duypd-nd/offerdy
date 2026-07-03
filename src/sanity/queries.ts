@@ -192,7 +192,7 @@ export async function getStoresByCategory(slug: string) {
 const PUBLISHED_FILTER = '(!defined(publishedAt) || publishedAt <= now())'
 
 const REVIEWS_QUERY = `*[_type == "review" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
-  "id": _id, title, excerpt, emoji, tag, stars,
+  "id": _id, title, excerpt, emoji, tag, stars, author,
   "date": publishedAt, imgBg,
   "slug": slug.current, "imageUrl": coalesce(image.asset->url, externalImageUrl)
 }`
@@ -206,19 +206,21 @@ export async function getReviews() {
 }
 
 const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
-  "id": _id, "slug": slug.current, title, excerpt, emoji, tag, stars,
+  "id": _id, "slug": slug.current, title, excerpt, emoji, tag, stars, author,
   "date": publishedAt, imgBg, body, content, "imageUrl": coalesce(image.asset->url, externalImageUrl)
 }`
 
 // ── Blog Posts ─────────────────────────────────────────────────
 const POSTS_QUERY = `*[_type == "post" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
-  author, "date": publishedAt, coverEmoji, coverBg, readTime
+  author, "date": publishedAt, coverEmoji, coverBg, readTime,
+  "imageUrl": coalesce(image.asset->url, externalImageUrl)
 }`
 
 const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, category,
-  author, "date": publishedAt, coverEmoji, coverBg, readTime, body
+  author, "date": publishedAt, coverEmoji, coverBg, readTime, body, content,
+  "imageUrl": coalesce(image.asset->url, externalImageUrl)
 }`
 
 export async function getPosts() {

@@ -738,7 +738,7 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .asb-card{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);text-decoration:none;transition:background .12s}
 .asb-card:last-child{border-bottom:none;padding-bottom:14px}
 .asb-card:hover{background:var(--bg)}
-.asb-thumb{width:76px;height:64px;border-radius:8px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px}
+.asb-thumb{width:128px;height:64px;border-radius:8px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px}
 .asb-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .asb-info{flex:1;min-width:0}
 .asb-name{font-size:12px;font-weight:700;color:var(--text);line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
@@ -775,7 +775,7 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .blog-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .blog-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;transition:box-shadow .25s,transform .25s,border-color .25s;display:flex;flex-direction:column}
 .blog-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px);border-color:transparent}
-.blog-card-img{height:160px;display:flex;align-items:center;justify-content:center;font-size:56px}
+.blog-card-img{aspect-ratio:2/1;height:auto;display:flex;align-items:center;justify-content:center;font-size:56px}
 .blog-card-body{padding:18px 20px 20px;flex:1;display:flex;flex-direction:column}
 .blog-card-title{font-family:var(--font-d),system-ui,sans-serif;font-size:15px;font-weight:800;letter-spacing:-.3px;color:var(--text);line-height:1.3;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .blog-card-excerpt{font-size:12px;color:var(--muted);line-height:1.65;flex:1;display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:14px}

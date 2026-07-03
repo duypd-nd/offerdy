@@ -11,7 +11,17 @@ function revalidateReviews() {
 }
 
 export async function updateReview(id: string, patch: Record<string, unknown>) {
-  await writeClient.patch(id).set(patch).commit()
+  const setFields: Record<string, unknown> = {}
+  const unsetFields: string[] = []
+  for (const [key, value] of Object.entries(patch)) {
+    // null = client muon xoa field nay (undefined khong "song sot" qua Server Action)
+    if (value === undefined || value === null) unsetFields.push(key)
+    else setFields[key] = value
+  }
+  let tx = writeClient.patch(id)
+  if (Object.keys(setFields).length) tx = tx.set(setFields)
+  if (unsetFields.length) tx = tx.unset(unsetFields)
+  await tx.commit()
   revalidateReviews()
 }
 
@@ -22,11 +32,14 @@ export async function deleteReview(id: string) {
 
 export async function createReview(data: {
   title: string; slug: string; tag: string; publishedAt: string
-  excerpt?: string; content?: string; image?: unknown; externalImageUrl?: string
+  excerpt?: string | null; content?: string | null; author?: string | null; image?: unknown; externalImageUrl?: string | null
 }) {
+  const fields = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== null)
+  )
   const doc = await writeClient.create({
     _type: 'review',
-    ...data,
+    ...fields,
     slug: { _type: 'slug', current: data.slug },
   })
   revalidateReviews()

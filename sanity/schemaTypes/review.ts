@@ -15,6 +15,7 @@ export const reviewType = defineType({
       validation: r => r.required(),
     }),
     defineField({ name: 'stars', title: 'Stars (1-5)', type: 'number', validation: r => r.required().min(1).max(5) }),
+    defineField({ name: 'author', title: 'Tác giả', type: 'string' }),
     defineField({ name: 'publishedAt', title: 'Published At', type: 'date', validation: r => r.required() }),
     defineField({ name: 'imgBg', title: 'Card Background Gradient', type: 'string', description: 'CSS gradient, e.g. linear-gradient(135deg,#EEF2FF,#C7D2FE)' }),
     defineField({ name: 'content', title: 'Nội dung HTML', type: 'text' }),

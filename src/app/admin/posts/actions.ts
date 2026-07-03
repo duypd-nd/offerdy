@@ -11,7 +11,17 @@ function revalidatePosts() {
 }
 
 export async function updatePost(id: string, patch: Record<string, unknown>) {
-  await writeClient.patch(id).set(patch).commit()
+  const setFields: Record<string, unknown> = {}
+  const unsetFields: string[] = []
+  for (const [key, value] of Object.entries(patch)) {
+    // null = client muon xoa field nay (undefined khong "song sot" qua Server Action nen khong dung duoc)
+    if (value === undefined || value === null) unsetFields.push(key)
+    else setFields[key] = value
+  }
+  let tx = writeClient.patch(id)
+  if (Object.keys(setFields).length) tx = tx.set(setFields)
+  if (unsetFields.length) tx = tx.unset(unsetFields)
+  await tx.commit()
   revalidatePosts()
 }
 
@@ -21,12 +31,16 @@ export async function deletePost(id: string) {
 }
 
 export async function createPost(data: {
-  title: string; slug: string; category?: string; author?: string
-  publishedAt?: string; excerpt?: string; content?: string; image?: unknown
+  title: string; slug: string; category?: string | null; author?: string | null
+  publishedAt?: string | null; excerpt?: string | null; content?: string | null; image?: unknown
+  externalImageUrl?: string | null
 }) {
+  const fields = Object.fromEntries(
+    Object.entries(data).filter(([, v]) => v !== null)
+  )
   const doc = await writeClient.create({
     _type: 'post',
-    ...data,
+    ...fields,
     slug: { _type: 'slug', current: data.slug },
   })
   revalidatePosts()

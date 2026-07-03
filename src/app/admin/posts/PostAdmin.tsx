@@ -187,9 +187,11 @@ function PostModal({ mode, initial, onClose, onSaved, onDeleted }: {
     title: initial?.title ?? '', slug: initial?.slug ?? '', category: initial?.category ?? '',
     author: initial?.author ?? '', publishedAt: initial?.publishedAt ?? '',
     excerpt: initial?.excerpt ?? '', content: initial?.content ?? '',
+    externalImageUrl: '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(initial?.imageUrl ?? '')
+  const [imageError, setImageError] = useState('')
   const [isPending, startTransition] = useTransition()
   const [slugError, setSlugError] = useState('')
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
@@ -210,6 +212,7 @@ function PostModal({ mode, initial, onClose, onSaved, onDeleted }: {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (slugError) return
+    setImageError('')
     startTransition(async () => {
       const skipCheck = mode === 'edit' && form.slug === initial?.slug
       if (!skipCheck) {
@@ -222,23 +225,38 @@ function PostModal({ mode, initial, onClose, onSaved, onDeleted }: {
           const fd = new FormData()
           fd.append('file', imageFile)
           image = await uploadPostImage(fd)
-        } catch {}
+        } catch (err) {
+          setImageError(err instanceof Error ? err.message : 'Không tải được ảnh, vui lòng thử ảnh khác hoặc file nhỏ hơn')
+          return
+        }
       }
+      // Dung null (khong phai undefined) de bao "xoa field nay" - gia tri undefined
+      // bi Next.js loai bo truoc khi toi server action, khong bao gio den duoc updatePost.
       const data = {
         title: form.title, slug: form.slug,
-        category: form.category || undefined,
-        author: form.author || undefined,
-        publishedAt: form.publishedAt || undefined,
-        excerpt: form.excerpt || undefined,
-        content: form.content || undefined,
+        category: form.category || null,
+        author: form.author || null,
+        publishedAt: form.publishedAt || null,
+        excerpt: form.excerpt || null,
+        content: form.content || null,
         ...(image ? { image } : {}),
+        externalImageUrl: (!image && form.externalImageUrl) ? form.externalImageUrl : null,
+      }
+      // AdminPost (state hien thi) dung undefined cho field trong, khong phai null (chi null la de gui len server)
+      const localData = {
+        title: data.title, slug: data.slug,
+        category: data.category ?? undefined,
+        author: data.author ?? undefined,
+        publishedAt: data.publishedAt ?? undefined,
+        excerpt: data.excerpt ?? undefined,
+        content: data.content ?? undefined,
       }
       if (mode === 'add') {
         const doc = await createPost(data)
-        onSaved({ _id: doc._id, _createdAt: new Date().toISOString(), ...data, imageUrl: imagePreview || undefined })
+        onSaved({ _id: doc._id, _createdAt: new Date().toISOString(), ...localData, imageUrl: imagePreview || undefined })
       } else if (initial) {
         await updatePost(initial._id, { ...data, slug: { _type: 'slug', current: form.slug } })
-        onSaved({ ...initial, ...data, imageUrl: imagePreview || undefined })
+        onSaved({ ...initial, ...localData, imageUrl: imagePreview || undefined })
       }
     })
   }
@@ -278,19 +296,35 @@ function PostModal({ mode, initial, onClose, onSaved, onDeleted }: {
             <input id="post-img-input" type="file" accept="image/*" style={{ display: 'none' }}
               onChange={e => {
                 const file = e.target.files?.[0]
-                if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)) }
+                if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); set('externalImageUrl', '') }
               }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
               {imagePreview && (
                 <div style={{ position: 'relative', flexShrink: 0 }}>
                   <img src={imagePreview} alt="preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #e5e7eb', display: 'block' }} />
-                  <button type="button" onClick={() => { setImageFile(null); setImagePreview('') }}
+                  <button type="button" onClick={() => { setImageFile(null); setImagePreview(''); set('externalImageUrl', '') }}
                     style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 </div>
               )}
               <button type="button" className="oa-img-btn" onClick={() => document.getElementById('post-img-input')?.click()}>
                 {imagePreview ? '🔄 Đổi ảnh' : '📷 Chọn ảnh từ máy tính'}
               </button>
+            </div>
+            {imageError && <span className="oa-field-error">{imageError}</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>Hoặc dán link ảnh:</span>
+              <input
+                className="oa-input"
+                type="url"
+                placeholder="https://example.com/image.jpg"
+                value={form.externalImageUrl}
+                onChange={e => {
+                  set('externalImageUrl', e.target.value)
+                  if (e.target.value) { setImageFile(null); setImagePreview(e.target.value) }
+                  else setImagePreview('')
+                }}
+                style={{ flex: 1, fontSize: 13 }}
+              />
             </div>
           </div>
           <label className="oa-label">Nội dung HTML

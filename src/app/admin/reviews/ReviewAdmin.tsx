@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { updateReview, deleteReview, createReview, uploadReviewImage, checkReviewSlug } from './actions'
 
 type AdminReview = {
-  _id: string; title: string; slug: string; tag: string
+  _id: string; title: string; slug: string; tag: string; author?: string
   publishedAt?: string; excerpt?: string; content?: string; imageUrl?: string; _createdAt: string
 }
 
@@ -161,12 +161,14 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
 }) {
   const [form, setForm] = useState({
     title: initial?.title ?? '', slug: initial?.slug ?? '', tag: initial?.tag ?? 'Review',
+    author: initial?.author ?? '',
     publishedAt: initial?.publishedAt ?? new Date().toISOString().split('T')[0],
     excerpt: initial?.excerpt ?? '', content: initial?.content ?? '',
     externalImageUrl: '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(initial?.imageUrl ?? '')
+  const [imageError, setImageError] = useState('')
   const [isPending, startTransition] = useTransition()
   const [slugError, setSlugError] = useState('')
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
@@ -187,6 +189,7 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (slugError) return
+    setImageError('')
     startTransition(async () => {
       const skipCheck = mode === 'edit' && form.slug === initial?.slug
       if (!skipCheck) {
@@ -199,23 +202,35 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
           const fd = new FormData()
           fd.append('file', imageFile)
           image = await uploadReviewImage(fd)
-        } catch {}
+        } catch (err) {
+          setImageError(err instanceof Error ? err.message : 'Không tải được ảnh, vui lòng thử ảnh khác hoặc file nhỏ hơn')
+          return
+        }
       }
+      // null (khong phai undefined) de bao "xoa field nay" - undefined khong "song sot" qua Server Action
       const data = {
         title: form.title, slug: form.slug, tag: form.tag,
+        author: form.author || null,
         publishedAt: form.publishedAt,
-        excerpt: form.excerpt || undefined,
-        content: form.content || undefined,
+        excerpt: form.excerpt || null,
+        content: form.content || null,
         ...(image ? { image } : {}),
-        externalImageUrl: (!image && form.externalImageUrl) ? form.externalImageUrl : undefined,
+        externalImageUrl: (!image && form.externalImageUrl) ? form.externalImageUrl : null,
+      }
+      const localData = {
+        title: data.title, slug: data.slug, tag: data.tag,
+        author: data.author ?? undefined,
+        publishedAt: data.publishedAt,
+        excerpt: data.excerpt ?? undefined,
+        content: data.content ?? undefined,
       }
       const resolvedImageUrl = imagePreview || form.externalImageUrl || undefined
       if (mode === 'add') {
         const doc = await createReview(data)
-        onSaved({ _id: doc._id, _createdAt: new Date().toISOString(), ...data, imageUrl: resolvedImageUrl })
+        onSaved({ _id: doc._id, _createdAt: new Date().toISOString(), ...localData, imageUrl: resolvedImageUrl })
       } else if (initial) {
         await updateReview(initial._id, { ...data, slug: { _type: 'slug', current: form.slug } })
-        onSaved({ ...initial, ...data, imageUrl: resolvedImageUrl })
+        onSaved({ ...initial, ...localData, imageUrl: resolvedImageUrl })
       }
     })
   }
@@ -249,6 +264,7 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
               </select>
             </label>
             <label className="oa-label">Ngày đăng *<input className="oa-input" type="date" value={form.publishedAt} onChange={e => set('publishedAt', e.target.value)} required /></label>
+            <label className="oa-label">Tác giả<input className="oa-input" value={form.author} onChange={e => set('author', e.target.value)} /></label>
           </div>
           <div className="oa-label">Hình ảnh đại diện
             <input id="rv-img-input" type="file" accept="image/*" style={{ display: 'none' }}
@@ -268,6 +284,7 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
                 {imagePreview ? '🔄 Đổi ảnh' : '📷 Chọn ảnh từ máy tính'}
               </button>
             </div>
+            {imageError && <span className="oa-field-error">{imageError}</span>}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
               <span style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>Hoặc dán link ảnh:</span>
               <input

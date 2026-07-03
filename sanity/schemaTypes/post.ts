@@ -29,6 +29,7 @@ export const postType = defineType({
     defineField({ name: 'readTime', title: 'Read Time (minutes)', type: 'number' }),
     defineField({ name: 'content', title: 'Nội dung HTML', type: 'text' }),
     defineField({ name: 'image', title: 'Hình ảnh đại diện', type: 'image', options: { hotspot: true } }),
+    defineField({ name: 'externalImageUrl', title: 'Hình ảnh đại diện (link ngoài)', type: 'url' }),
     defineField({
       name: 'body',
       title: 'Body (Portable Text)',
