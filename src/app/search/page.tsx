@@ -155,7 +155,7 @@ export default async function SearchPage({
               defaultValue={query}
               placeholder="Search stores, deals, coupon codes..."
               autoFocus={!query}
-              style={{ width: '100%', maxWidth: 480, padding: '10px 16px', fontSize: 15, border: '1.5px solid #e5e7eb', borderRadius: 10, outline: 'none', fontFamily: 'inherit' }}
+              style={{ width: '100%', maxWidth: 480, padding: '10px 16px', fontSize: 15, border: '1.5px solid #e5e7eb', borderRadius: 10, outline: 'none', fontFamily: 'inherit', background: '#fff', color: '#111827' }}
             />
             <button
               type="submit"
