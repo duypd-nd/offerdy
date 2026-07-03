@@ -30,6 +30,8 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showModal, setShowModal] = useState(false)
   const [editingStore, setEditingStore] = useState<AdminStore | null>(null)
@@ -45,7 +47,10 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
       (s.slug ?? '').toLowerCase().includes(search.toLowerCase())
     const matchCat = categoryFilter === 'all' || s.category === categoryFilter
     const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? s.published !== false : s.published === false)
-    return matchSearch && matchCat && matchStatus
+    const createdDate = s._createdAt.slice(0, 10)
+    const matchDateFrom = !dateFrom || createdDate >= dateFrom
+    const matchDateTo = !dateTo || createdDate <= dateTo
+    return matchSearch && matchCat && matchStatus && matchDateFrom && matchDateTo
   })
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
@@ -108,6 +113,11 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
             <option value="active">Đang hiện</option>
             <option value="inactive">Đang ẩn</option>
           </select>
+          <input className="oa-select" type="date" title="Từ ngày" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }} />
+          <input className="oa-select" type="date" title="Đến ngày" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }} />
+          {(dateFrom || dateTo) && (
+            <button className="oa-btn" onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }}>✕ Bỏ lọc ngày</button>
+          )}
         </div>
         <div className="oa-actions">
           <button className="oa-btn oa-btn-primary" onClick={() => handleBulkPublish(true)} disabled={selected.size === 0 || isPending}>

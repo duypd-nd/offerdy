@@ -59,6 +59,8 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
   const [search, setSearch] = useState('')
   const [storeFilter, setStoreFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showModal, setShowModal] = useState(false)
   const [editingOffer, setEditingOffer] = useState<AdminOffer | null>(null)
@@ -73,7 +75,10 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
     const matchSearch = o.title.toLowerCase().includes(search.toLowerCase())
     const matchStore = storeFilter === 'all' || o.store._id === storeFilter
     const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? o.active : !o.active)
-    return matchSearch && matchStore && matchStatus
+    const createdDate = o._createdAt.slice(0, 10)
+    const matchDateFrom = !dateFrom || createdDate >= dateFrom
+    const matchDateTo = !dateTo || createdDate <= dateTo
+    return matchSearch && matchStore && matchStatus && matchDateFrom && matchDateTo
   })
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
@@ -143,6 +148,11 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
             <option value="active">Đang hiện</option>
             <option value="inactive">Đang ẩn</option>
           </select>
+          <input className="oa-select" type="date" title="Từ ngày" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }} />
+          <input className="oa-select" type="date" title="Đến ngày" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }} />
+          {(dateFrom || dateTo) && (
+            <button className="oa-btn" onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }}>✕ Bỏ lọc ngày</button>
+          )}
         </div>
         <div className="oa-actions">
           <button className="oa-btn oa-btn-primary" onClick={handleUpdate} disabled={isPending}>💾 Cập nhật ({selected.size})</button>
