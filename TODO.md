@@ -18,6 +18,15 @@
 - Excel/CSV import at `/admin/import`
 - Admin sidebar nav — 5 collapsible groups, CSS dot indicators, inline SVG chevron (no emoji)
 - Admin dashboard — redesigned with SVG stat cards, 5-group layout, recent activity table, inline styles (no CSS class dependency)
+- Deployed to Vercel, live at offerdy.com
+- SEO/GEO audit + fixes (2026-07-03/04):
+  - Wired `configSEO`/`configAuthor` into `layout.tsx` + blog/review detail pages (were unused before)
+  - Product/Offer JSON-LD on `/deals`, `/coupon-codes`; dateModified on blog/review JSON-LD
+  - `/deals`, `/coupon-codes` pagination now uses real URLs (`?page=N`), crawlable per-page
+  - Migrated ~20 `<img>` instances to `next/image` (fill+sizes)
+  - Added metadata to `/categories`, `/categories/[slug]`; added `/llms.txt`; `lastModified` on sitemap
+  - Fixed favicon (`icon.tsx`/`apple-icon.tsx` now read Sanity `configGeneral.favicon`, was hardcoded before)
+  - Logo size increased in Header/Footer; user uploaded new clean logo (no glow) + favicon via Studio
 
 ## Pending 🔲
 
@@ -28,12 +37,12 @@
 
 ### SEO / Visibility
 - [ ] Submit sitemap to Google Search Console after deploy
-- [ ] Add `robots.txt` rules if needed
+- [ ] Fill in `/admin/config/seo` (title, description, OG image, Google Search Console verification) and `/admin/config/author` (name, bio, avatar) — currently empty, so the code wiring has no effect yet
 - [ ] Verify canonical URLs resolve correctly on production
 
 ### Content
-- [ ] Populate Sanity with real deals, stores, offers
-- [ ] Add real blog posts (Comparison + Tips & Guides categories to populate those pages)
+- [ ] Populate Sanity with more real deals, stores, offers
+- [ ] Write real `/comparisons` posts (category=Comparison) — currently 0 posts, page shows empty state; needs real product/store facts, deferred pending user input
 - [ ] Configure About, Contact, legal pages via admin UI
 - [ ] Run `/admin/migrate/footer` once on production to fix footer links in Sanity
 

@@ -3,7 +3,7 @@
 ## Stack
 - **Framework**: Next.js (App Router), TypeScript, Tailwind CSS v4
 - **CMS**: Sanity (project ID: `ns0upb1t`) — all reads/writes via `writeClient`
-- **Hosting**: Vercel (planned)
+- **Hosting**: Vercel — live at offerdy.com
 - **Forms**: Formspree (with mailto fallback)
 
 ## Key Conventions
@@ -17,6 +17,10 @@
 - **No emoji in UI elements** (buttons, nav headers) — renders as broken black squares on Windows; use inline SVG instead
 - `isConfigured()` guard before every Sanity query, with static fallback data
 - All public-facing UI text must be in **English** (international audience)
+- **Images**: use `next/image` (`fill` + `sizes` for card/grid images, explicit `width`/`height` for fixed-size logos/avatars) — `next.config.ts` allows `remotePatterns: hostname:'**'` since admin can paste external image URLs from any domain. One exception: review detail hero image stays a plain `<img>` (`reviews/[slug]/page.tsx`) because it intentionally preserves natural aspect ratio (no crop), unlike the blog hero which uses `fill`+`cover`.
+- **SEO config wiring**: `configSEO` and `configAuthor` (Sanity singletons) are read via `getConfigSeo()` / `getConfigAuthor()` in `src/sanity/queries.ts` and consumed in `layout.tsx` (`generateMetadata`) and blog/review detail pages (author byline + JSON-LD `Person`). Don't add new SEO/author admin fields without also wiring the read side — `configSEO`/`configAuthor` sat unused for a while before this was caught.
+- **Favicon**: `src/app/icon.tsx` / `apple-icon.tsx` read `configGeneral.favicon` via `getFaviconUrl()`, falling back to a hardcoded navy/green icon if not configured. No static `favicon.ico` (removed — was the unused Next.js default).
+- `/llms.txt` (`src/app/llms.txt/route.ts`) auto-generates a GEO summary (categories, recent reviews/posts) from live Sanity data — update if major content sections change.
 
 ## Public Pages
 | Route | Status | Notes |
@@ -64,7 +68,7 @@
 - `src/components/BlogPageContent.tsx` — shared blog/post grid used by tips-guides; shows `post.imageUrl` if set, else coverEmoji fallback; English-only strings
 
 ## Sanity Config IDs
-`configGeneral`, `configSocial`, `configSeo`, `configContent`, `configAbout`, `configContact`,
+`configGeneral`, `configSocial`, `configSEO`, `configAuthor`, `configContent`, `configAbout`, `configContact`,
 `configSubmitDeal`, `configPartner`, `configTerms`, `configPrivacy`, `configCookies`, `configAffiliateDisclosure`
 
 ## Static Fallback Data
