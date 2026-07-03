@@ -1,9 +1,22 @@
 import { ImageResponse } from 'next/og'
+import { getFaviconUrl } from '@/sanity/queries'
 
 export const size = { width: 32, height: 32 }
 export const contentType = 'image/png'
 
-export default function Icon() {
+export default async function Icon() {
+  const faviconUrl = await getFaviconUrl()
+
+  if (faviconUrl) {
+    return new ImageResponse(
+      (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={faviconUrl} width={32} height={32} style={{ borderRadius: 8 }} alt="" />
+      ),
+      { ...size }
+    )
+  }
+
   return new ImageResponse(
     (
       <div

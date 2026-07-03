@@ -1,9 +1,34 @@
 import { ImageResponse } from 'next/og'
+import { getFaviconUrl } from '@/sanity/queries'
 
 export const size = { width: 180, height: 180 }
 export const contentType = 'image/png'
 
-export default function AppleIcon() {
+export default async function AppleIcon() {
+  const faviconUrl = await getFaviconUrl()
+
+  if (faviconUrl) {
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: 180,
+            height: 180,
+            borderRadius: 40,
+            background: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={faviconUrl} width={140} height={140} style={{ objectFit: 'contain' }} alt="" />
+        </div>
+      ),
+      { ...size }
+    )
+  }
+
   return new ImageResponse(
     (
       <div

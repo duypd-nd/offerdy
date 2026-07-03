@@ -19,6 +19,14 @@ const CONFIG_QUERY = `{
   }
 }`
 
+export async function getFaviconUrl(): Promise<string | null> {
+  if (!isConfigured()) return null
+  try {
+    const data = await writeClient.fetch(`*[_type == "configGeneral" && _id == "configGeneral"][0]{ "faviconUrl": favicon.asset->url }`)
+    return data?.faviconUrl ?? null
+  } catch { return null }
+}
+
 const SOCIAL_ICON: Record<string, string> = {
   facebook: 'f', twitter: '𝕏', instagram: '◉',
   youtube: '▶', linkedin: 'in', tiktok: '♪', pinterest: '𝑃', telegram: '✈',
