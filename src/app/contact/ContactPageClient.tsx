@@ -9,7 +9,7 @@ const s = {
   dot: { width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', display: 'inline-block', flexShrink: 0 } as React.CSSProperties,
   h1: { fontSize: 'clamp(28px,5vw,42px)', fontWeight: 900, color: 'var(--navy)', lineHeight: 1.1, letterSpacing: '-.8px', textWrap: 'balance' as const, marginBottom: 14, maxWidth: 520 } as React.CSSProperties,
   lead: { fontSize: 17, color: 'var(--muted)', lineHeight: 1.72, maxWidth: 520, marginBottom: 48 } as React.CSSProperties,
-  grid: { display: 'grid', gridTemplateColumns: '1fr 360px', gap: 32, alignItems: 'start' } as React.CSSProperties,
+  grid: { display: 'grid', gap: 32, alignItems: 'start' } as React.CSSProperties,
   card: { background: 'var(--white)', border: '1.5px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,25,41,.04)' } as React.CSSProperties,
   cardHead: { padding: '16px 22px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--navy)' } as React.CSSProperties,
   cardBody: { padding: '22px' } as React.CSSProperties,
@@ -66,7 +66,7 @@ export default function ContactPageClient({ data: d }: { data: ContactData }) {
       <h1 style={s.h1}>{d.h1}</h1>
       <p style={s.lead}>{d.heroLead}</p>
 
-      <div style={s.grid}>
+      <div className="contact-grid" style={s.grid}>
         {/* Left — form */}
         <div>
           <div style={s.card}>
@@ -83,7 +83,7 @@ export default function ContactPageClient({ data: d }: { data: ContactData }) {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="contact-form-row" style={{ display: 'grid', gap: 12 }}>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 5 }}>Your name <span style={{ color: '#EF4444' }}>*</span></label>
                       <input style={inp} value={name} onChange={e => setName(e.target.value)} required placeholder="Jane Smith" />

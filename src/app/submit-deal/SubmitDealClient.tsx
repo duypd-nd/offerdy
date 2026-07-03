@@ -48,7 +48,7 @@ export default function SubmitDealClient({ data: d }: { data: Required<SubmitDea
       <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.72, maxWidth: 520, marginBottom: 44 }}>{d.heroLead}</p>
 
       {/* How it works */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 44 }}>
+      <div className="sdeal-steps" style={{ display: 'grid', gap: 14, marginBottom: 44 }}>
         {(d.steps as Step[]).map((s, i) => (
           <div key={s._key} style={{ background: 'var(--white)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '20px 20px' }}>
             <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--green-50)', border: '1.5px solid #BBF7D0', color: 'var(--green-dark)', fontSize: 12, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>{i + 1}</div>
@@ -58,7 +58,7 @@ export default function SubmitDealClient({ data: d }: { data: Required<SubmitDea
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: 24, alignItems: 'start' }}>
+      <div className="sdeal-main-grid" style={{ display: 'grid', gap: 24, alignItems: 'start' }}>
         {/* Form */}
         <div style={{ background: 'var(--white)', border: '1.5px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
           <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>{d.formHeading}</div>
@@ -73,16 +73,16 @@ export default function SubmitDealClient({ data: d }: { data: Required<SubmitDea
               </div>
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="sdeal-form-row" style={{ display: 'grid', gap: 12 }}>
                   <div><label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 5 }}>Store name <span style={{ color: '#EF4444' }}>*</span></label><input style={inp} value={store} onChange={e => setStore(e.target.value)} required placeholder="e.g. Nike" /></div>
                   <div><label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 5 }}>Coupon code</label><input style={inp} value={code} onChange={e => setCode(e.target.value)} placeholder="e.g. SAVE20" /></div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="sdeal-form-row" style={{ display: 'grid', gap: 12 }}>
                   <div><label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 5 }}>Discount amount</label><input style={inp} value={discount} onChange={e => setDiscount(e.target.value)} placeholder="e.g. 20% off, $10 off" /></div>
                   <div><label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 5 }}>Expiry date</label><input style={inp} type="date" value={expiry} onChange={e => setExpiry(e.target.value)} /></div>
                 </div>
                 <div><label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 5 }}>Deal / product link <span style={{ color: '#EF4444' }}>*</span></label><input style={inp} value={link} onChange={e => setLink(e.target.value)} required placeholder="https://..." /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="sdeal-form-row" style={{ display: 'grid', gap: 12 }}>
                   <div><label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 5 }}>Your name</label><input style={inp} value={name} onChange={e => setName(e.target.value)} placeholder="Optional" /></div>
                   <div><label style={{ fontSize: 12, fontWeight: 600, color: 'var(--navy)', display: 'block', marginBottom: 5 }}>Your email</label><input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Optional" /></div>
                 </div>

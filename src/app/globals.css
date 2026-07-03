@@ -801,6 +801,7 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
   .footer-top{grid-template-columns:1fr 1fr}
   .blog-featured{grid-template-columns:1fr}
   .blog-featured-img{min-height:200px}
+  .blog-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:520px){
   .cat-grid{grid-template-columns:repeat(2,1fr)}
@@ -961,3 +962,21 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .cc-pg-btn:disabled{opacity:.3;cursor:not-allowed}
 .cc-pg-arrow{display:inline-flex;align-items:center;gap:5px;padding:0 14px;min-width:auto}
 .cc-pg-dots{padding:0 2px;color:var(--muted);font-size:15px;font-weight:700;user-select:none;line-height:38px}
+
+/* ── SUBMIT DEAL / CONTACT PAGES ── */
+.sdeal-steps{grid-template-columns:repeat(3,1fr)}
+.sdeal-main-grid{grid-template-columns:1fr 260px}
+.sdeal-form-row{grid-template-columns:1fr 1fr}
+.contact-grid{grid-template-columns:1fr 360px}
+.contact-form-row{grid-template-columns:1fr 1fr}
+@media(max-width:768px){
+  .sdeal-main-grid{grid-template-columns:1fr}
+  .contact-grid{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .sdeal-steps{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .sdeal-form-row{grid-template-columns:1fr}
+  .contact-form-row{grid-template-columns:1fr}
+}
