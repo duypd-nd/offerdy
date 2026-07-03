@@ -12,6 +12,7 @@ export default function ContentConfigForm({ initial }: { initial: Record<string,
   const [postsPerPage, setPostsPerPage] = useState(Number(initial.postsPerPage ?? 9))
   const [showExpiringBand, setShowExpiringBand] = useState(initial.showExpiringBand !== false)
   const [showVerifiedBadge, setShowVerifiedBadge] = useState(initial.showVerifiedBadge !== false)
+  const [showCategoryGrid, setShowCategoryGrid] = useState(initial.showCategoryGrid !== false)
   const [dealsGridColumns, setDealsGridColumns] = useState(Number(initial.dealsGridColumns ?? 4))
   const [announcementBar, setAnnouncementBar] = useState(String(initial.announcementBar ?? ''))
   const [announcementBarUrl, setAnnouncementBarUrl] = useState(String(initial.announcementBarUrl ?? ''))
@@ -26,7 +27,7 @@ export default function ContentConfigForm({ initial }: { initial: Record<string,
   const handleSave = () => {
     startTransition(async () => {
       await saveConfigDoc('configContent', {
-        dealsPerPage, reviewsPerPage, postsPerPage, showExpiringBand, showVerifiedBadge,
+        dealsPerPage, reviewsPerPage, postsPerPage, showExpiringBand, showVerifiedBadge, showCategoryGrid,
         dealsGridColumns, announcementBar: announcementBar || null,
         announcementBarUrl: announcementBarUrl || null,
         defaultOfferDescription: defaultOfferDescription || null,
@@ -86,6 +87,10 @@ export default function ContentConfigForm({ initial }: { initial: Record<string,
         <label className="cfg-check-row">
           <input type="checkbox" checked={showVerifiedBadge} onChange={e => setShowVerifiedBadge(e.target.checked)} />
           <div><div className="cfg-check-label">Hiển thị badge Verified trên mỗi deal</div></div>
+        </label>
+        <label className="cfg-check-row">
+          <input type="checkbox" checked={showCategoryGrid} onChange={e => setShowCategoryGrid(e.target.checked)} />
+          <div><div className="cfg-check-label">Hiển thị khối "Browse by Category" trên trang chủ</div></div>
         </label>
       </div>
 
