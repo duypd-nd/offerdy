@@ -7,12 +7,14 @@ export async function updateStore(id: string, patch: Record<string, unknown>) {
   await writeClient.patch(id).set(patch).commit()
   revalidatePath('/admin/stores')
   revalidatePath('/stores/[slug]', 'page')
+  revalidatePath('/stores')
   revalidatePath('/', 'page')
 }
 
 export async function deleteStore(id: string) {
   await writeClient.delete(id)
   revalidatePath('/admin/stores')
+  revalidatePath('/stores')
   revalidatePath('/', 'page')
 }
 
@@ -34,6 +36,7 @@ export async function createStore(data: {
     slug: { _type: 'slug', current: data.slug },
   })
   revalidatePath('/admin/stores')
+  revalidatePath('/stores')
   revalidatePath('/', 'page')
   return doc
 }

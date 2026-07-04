@@ -4,7 +4,7 @@ import Footer from '@/components/Footer'
 import StoresPageContent from '@/components/StoresPageContent'
 import { getStores } from '@/sanity/queries'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 export const metadata: Metadata = {
   title: 'All Stores — Coupon Codes & Deals by Store',

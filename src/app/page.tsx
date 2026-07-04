@@ -9,7 +9,7 @@ import ReviewsGrid from '@/components/ReviewsGrid'
 import Footer from '@/components/Footer'
 import { getDeals, getStores, getCategories, getReviews, getExpiringDeals, getConfigContent } from '@/sanity/queries'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 const BASE = 'https://www.offerdy.com'
 

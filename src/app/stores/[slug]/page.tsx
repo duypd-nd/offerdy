@@ -8,7 +8,7 @@ import { getStoreBySlug, getOffersByStore, getConfigContent, type HowToStep, typ
 import FaqAccordion from '@/components/FaqAccordion'
 import AffiliateLink from '@/components/AffiliateLink'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 const CATEGORY_LABELS: Record<string, string> = {
   electronics: '📱 Electronics', fashion: '👗 Fashion', beauty: '💄 Beauty',

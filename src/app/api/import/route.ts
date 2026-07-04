@@ -222,6 +222,7 @@ async function importStoresAndOffers(rows: ImportRow[]) {
   revalidatePath('/admin/stores')
   revalidatePath('/admin/offers')
   revalidatePath('/', 'page')
+  revalidatePath('/stores')
   revalidatePath('/stores/[slug]', 'page')
   return results
 }
