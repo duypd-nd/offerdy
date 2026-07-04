@@ -6,7 +6,13 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { getCategoryBySlug, getStoresByCategory } from '@/sanity/queries'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
+
+// Bat buoc phai co ham nay (du tra ve mang rong) thi revalidate o tren moi
+// thuc su co hieu luc voi route dynamic [slug] - xem stores/[slug]/page.tsx
+export async function generateStaticParams() {
+  return []
+}
 
 const BASE = 'https://www.offerdy.com'
 

@@ -6,6 +6,12 @@ import { getPageBySlug } from '@/sanity/queries'
 
 export const revalidate = 60
 
+// Bat buoc phai co ham nay (du tra ve mang rong) thi revalidate o tren moi
+// thuc su co hieu luc voi route dynamic [slug] - xem stores/[slug]/page.tsx
+export async function generateStaticParams() {
+  return []
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const page = await getPageBySlug(slug)
