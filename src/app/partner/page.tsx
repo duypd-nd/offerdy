@@ -6,7 +6,7 @@ import { getPartnerPage, type PartnerData, type Benefit } from '@/app/admin/part
 import { isConfigured } from '@/sanity/client'
 
 export const dynamic = 'force-dynamic'
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS: Required<PartnerData> = {
   h1: 'Partner with Offerdy',

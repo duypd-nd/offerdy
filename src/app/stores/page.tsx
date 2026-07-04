@@ -9,11 +9,11 @@ export const dynamic = 'force-dynamic'
 export const metadata: Metadata = {
   title: 'All Stores — Coupon Codes & Deals by Store',
   description: 'Find verified coupon codes and deals for hundreds of online stores. Browse by store to see all active offers.',
-  alternates: { canonical: 'https://offerdy.com/stores' },
+  alternates: { canonical: 'https://www.offerdy.com/stores' },
   openGraph: {
     title: 'All Stores — Coupon Codes & Deals by Store — Offerdy',
     description: 'Find verified coupon codes and deals for hundreds of online stores.',
-    url: 'https://offerdy.com/stores',
+    url: 'https://www.offerdy.com/stores',
     type: 'website',
   },
 }

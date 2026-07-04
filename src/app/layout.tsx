@@ -28,7 +28,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const twitterCard = seo.twitterCard === 'summary' ? 'summary' : 'summary_large_image'
 
   return {
-    metadataBase: new URL('https://offerdy.com'),
+    metadataBase: new URL('https://www.offerdy.com'),
     title: { default: title, template: titleTemplate },
     description,
     keywords: seo.keywords?.length ? seo.keywords : DEFAULT_KEYWORDS,
@@ -37,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: 'Offerdy',
       title,
       description,
-      url: 'https://offerdy.com',
+      url: 'https://www.offerdy.com',
       // og:image khong khai bao o day - duoc Next.js tu dong lay tu file-convention
       // route opengraph-image.tsx (route nay tu doc configSeo.defaultOgImageUrl)
     },
@@ -66,12 +66,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     '@graph': [
       {
         '@type': 'Organization',
-        '@id': 'https://offerdy.com/#organization',
+        '@id': 'https://www.offerdy.com/#organization',
         name: 'Offerdy',
-        url: 'https://offerdy.com',
+        url: 'https://www.offerdy.com',
         logo: {
           '@type': 'ImageObject',
-          url: 'https://offerdy.com/icon',
+          url: 'https://www.offerdy.com/icon',
           width: 32,
           height: 32,
         },
@@ -79,15 +79,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       },
       {
         '@type': 'WebSite',
-        '@id': 'https://offerdy.com/#website',
-        url: 'https://offerdy.com',
+        '@id': 'https://www.offerdy.com/#website',
+        url: 'https://www.offerdy.com',
         name: 'Offerdy',
-        publisher: { '@id': 'https://offerdy.com/#organization' },
+        publisher: { '@id': 'https://www.offerdy.com/#organization' },
         potentialAction: {
           '@type': 'SearchAction',
           target: {
             '@type': 'EntryPoint',
-            urlTemplate: 'https://offerdy.com/search?q={search_term_string}',
+            urlTemplate: 'https://www.offerdy.com/search?q={search_term_string}',
           },
           'query-input': 'required name=search_term_string',
         },

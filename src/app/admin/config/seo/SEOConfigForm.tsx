@@ -63,8 +63,8 @@ export default function SEOConfigForm({ initial }: { initial: Record<string, unk
           <textarea className="cfg-input cfg-textarea" rows={3} value={defaultDescription} onChange={e => setDefaultDescription(e.target.value)} />
         </label>
         <label className="cfg-label">Canonical URL
-          <span className="cfg-desc">Domain chính. VD: https://offerdy.com</span>
-          <input className="cfg-input" value={canonicalUrl} onChange={e => setCanonicalUrl(e.target.value)} placeholder="https://offerdy.com" />
+          <span className="cfg-desc">Domain chính. VD: https://www.offerdy.com</span>
+          <input className="cfg-input" value={canonicalUrl} onChange={e => setCanonicalUrl(e.target.value)} placeholder="https://www.offerdy.com" />
         </label>
         <label className="cfg-label">Twitter Card
           <select className="cfg-input cfg-select" value={twitterCard} onChange={e => setTwitterCard(e.target.value)}>

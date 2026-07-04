@@ -16,7 +16,7 @@ type PageProps = { searchParams: Promise<{ page?: string }> }
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const { page: pageParam } = await searchParams
   const page = Math.max(1, Number(pageParam) || 1)
-  const canonical = page > 1 ? `https://offerdy.com/coupon-codes?page=${page}` : 'https://offerdy.com/coupon-codes'
+  const canonical = page > 1 ? `https://www.offerdy.com/coupon-codes?page=${page}` : 'https://www.offerdy.com/coupon-codes'
   const title = page > 1 ? `Coupon Codes — Page ${page} | Offerdy` : BASE_TITLE
 
   return {

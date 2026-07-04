@@ -1,6 +1,6 @@
 import { getCategories, getPosts, getReviews } from '@/sanity/queries'
 
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 export async function GET() {
   const [categories, posts, reviews] = await Promise.all([

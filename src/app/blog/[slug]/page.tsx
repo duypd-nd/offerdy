@@ -14,7 +14,7 @@ function fmtDate(d: string) {
   catch { return d }
 }
 
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 const CAT_CLASS: Record<string, string> = {
   'Tips & Guides': 'cat-tips',

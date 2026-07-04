@@ -9,11 +9,11 @@ export const revalidate = 60
 export const metadata: Metadata = {
   title: 'Product Reviews — Honest, Tested & Verified',
   description: 'In-depth product reviews written by real buyers. No sponsored content, no bias — just honest assessments to help you shop smarter.',
-  alternates: { canonical: 'https://offerdy.com/reviews' },
+  alternates: { canonical: 'https://www.offerdy.com/reviews' },
   openGraph: {
     title: 'Product Reviews — Honest, Tested & Verified — Offerdy',
     description: 'In-depth product reviews written by real buyers. No sponsored content, no bias.',
-    url: 'https://offerdy.com/reviews',
+    url: 'https://www.offerdy.com/reviews',
     type: 'website',
   },
 }

@@ -7,7 +7,7 @@ import { isConfigured } from '@/sanity/client'
 
 export const dynamic = 'force-dynamic'
 
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 type Stat     = { _key: string; num: string; label: string }
 type Step     = { _key: string; title: string; desc: string }

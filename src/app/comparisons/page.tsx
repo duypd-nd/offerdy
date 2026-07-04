@@ -10,11 +10,11 @@ export const revalidate = 60
 export const metadata: Metadata = {
   title: 'Comparisons — Side-by-Side Deal Analysis | Offerdy',
   description: 'In-depth comparison guides to help you pick the best store, product, or deal. Unbiased, data-driven analysis.',
-  alternates: { canonical: 'https://offerdy.com/comparisons' },
+  alternates: { canonical: 'https://www.offerdy.com/comparisons' },
   openGraph: {
     title: 'Comparisons — Side-by-Side Deal Analysis | Offerdy',
     description: 'Unbiased store and product comparisons to help you find the best deal.',
-    url: 'https://offerdy.com/comparisons',
+    url: 'https://www.offerdy.com/comparisons',
     type: 'website',
   },
 }

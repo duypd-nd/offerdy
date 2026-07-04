@@ -9,11 +9,11 @@ export const revalidate = 60
 export const metadata: Metadata = {
   title: 'Tips & Guides — Smart Shopping Advice | Offerdy',
   description: 'Shopping tips, saving strategies, and expert guides to help you get the best deals online every time.',
-  alternates: { canonical: 'https://offerdy.com/tips-guides' },
+  alternates: { canonical: 'https://www.offerdy.com/tips-guides' },
   openGraph: {
     title: 'Tips & Guides — Smart Shopping Advice | Offerdy',
     description: 'Practical guides on how to save more, stack coupons, and shop smarter.',
-    url: 'https://offerdy.com/tips-guides',
+    url: 'https://www.offerdy.com/tips-guides',
     type: 'website',
   },
 }

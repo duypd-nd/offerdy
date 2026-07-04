@@ -9,11 +9,11 @@ export const revalidate = 60
 export const metadata: Metadata = {
   title: 'Flash Sales — Limited-Time Deals | Offerdy',
   description: 'Deals expiring soon — grab them before the clock runs out. Verified flash sales updated in real time.',
-  alternates: { canonical: 'https://offerdy.com/flash-sales' },
+  alternates: { canonical: 'https://www.offerdy.com/flash-sales' },
   openGraph: {
     title: 'Flash Sales — Limited-Time Deals | Offerdy',
     description: 'Time-sensitive deals with live countdown timers. Never miss a flash sale again.',
-    url: 'https://offerdy.com/flash-sales',
+    url: 'https://www.offerdy.com/flash-sales',
     type: 'website',
   },
 }

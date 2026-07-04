@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { writeClient } from '@/sanity/writeClient'
 
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let stores: { slug: string; _updatedAt: string }[] = []

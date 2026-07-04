@@ -7,7 +7,7 @@ import ContactPageClient from './ContactPageClient'
 
 export const dynamic = 'force-dynamic'
 
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 export type FaqItem = { _key: string; question: string; answer: string }
 

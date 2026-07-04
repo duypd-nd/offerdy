@@ -18,7 +18,7 @@ type SchemaDeal = {
   slug?: string
 }
 
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 export function dealsItemListJsonLd(deals: SchemaDeal[], limit = 100) {
   return {

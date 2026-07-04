@@ -27,6 +27,7 @@
   - Added metadata to `/categories`, `/categories/[slug]`; added `/llms.txt`; `lastModified` on sitemap
   - Fixed favicon (`icon.tsx`/`apple-icon.tsx` now read Sanity `configGeneral.favicon`, was hardcoded before)
   - Logo size increased in Header/Footer; user uploaded new clean logo (no glow) + favicon via Studio
+- TODO/context audit (2026-07-04): cross-checked every "Pending" item against live Sanity data + code + production, found and fixed a real bug — canonical URLs, sitemap, and JSON-LD across the whole site pointed to `https://offerdy.com` (redirects 308 to `www.offerdy.com` in prod); replaced with `https://www.offerdy.com` in all 28 affected files
 
 ## Pending 🔲
 
@@ -36,15 +37,15 @@
 - [x] Add production domain to Sanity CORS origins
 
 ### SEO / Visibility
-- [ ] Submit sitemap to Google Search Console after deploy
-- [ ] Fill in `/admin/config/seo` (title, description, OG image, Google Search Console verification) and `/admin/config/author` (name, bio, avatar) — currently empty, so the code wiring has no effect yet
-- [ ] Verify canonical URLs resolve correctly on production
+- [x] Submit sitemap to Google Search Console after deploy — verified, 37 pages submitted
+- [x] Fill in `/admin/config/seo` and `/admin/config/author` — confirmed populated in Sanity
+- [x] Verify canonical URLs resolve correctly on production — **found broken (2026-07-04)**: every canonical tag, sitemap URL, and JSON-LD `@id`/`url` hardcoded `https://offerdy.com` (no www), but production 308-redirects that bare domain to `https://www.offerdy.com`. Fixed by replacing all 46 occurrences across 28 files with `https://www.offerdy.com`. Typecheck + `npm run build` both pass clean. **Still needs**: push + deploy, then re-submit sitemap in GSC (URLs changed) and spot-check `view-source` on a couple of live pages.
 
 ### Content
-- [ ] Populate Sanity with more real deals, stores, offers
-- [ ] Write real `/comparisons` posts (category=Comparison) — currently 0 posts, page shows empty state; needs real product/store facts, deferred pending user input
-- [ ] Configure About, Contact, legal pages via admin UI
-- [ ] Run `/admin/migrate/footer` once on production to fix footer links in Sanity
+- [ ] Populate Sanity with more real deals, stores, offers — in progress by user (currently 361 stores, 21 deals, 8 reviews, 6 posts)
+- [ ] Write real `/comparisons` posts (category=Comparison) — still 0 posts (confirmed via Sanity query 2026-07-04), page shows empty state; needs real product/store facts, deferred pending user input
+- [x] Configure About, Contact, legal pages via admin UI — confirmed all have real content (About, Contact, Terms, Privacy, Cookies, Affiliate Disclosure)
+- [x] Run `/admin/migrate/footer` once on production — confirmed already applied, live `footerColumns` in Sanity matches the migration data exactly
 
 ### UX / Polish
 - [ ] Flash Sales public page — verify countdown timer renders correctly across timezones
@@ -54,6 +55,7 @@
 - [x] Search page — coupon codes + flash sales in results with SVG type icons
 
 ### Nice-to-have
-- [ ] `/posts` slug — confirm redirect or alias to `/blog` works
-- [ ] Monetisation: affiliate link tracking, ad slots
-- [ ] Analytics integration (Google Analytics / Plausible)
+- [x] `/posts` slug — confirmed alias to `/blog` works (live)
+- [x] Monetisation: affiliate link tracking — `AffiliateLink` component + GA4 `affiliate_click` event, verified end-to-end on production
+- [ ] Monetisation: ad slots (Google AdSense) — deferred until site has traffic
+- [x] Analytics integration — GA4 (`G-0H313ZSF8K`) via GTM (`GTM-K3N8W8B8`), verified in Realtime

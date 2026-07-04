@@ -24,7 +24,7 @@ const FALLBACK_ABOUT: Record<string, string> = {
   'best-buy': 'Best Buy là nhà bán lẻ điện tử hàng đầu Bắc Mỹ, chuyên điện tử, công nghệ và thiết bị gia dụng.',
 }
 
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params

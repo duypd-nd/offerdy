@@ -6,7 +6,7 @@ import { getLegalPage, type LegalData } from '@/app/admin/_legal/actions'
 import { isConfigured } from '@/sanity/client'
 
 export const dynamic = 'force-dynamic'
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS = {
   h1: 'Cookie Policy', lastUpdated: '2026-06-28', intro: '',

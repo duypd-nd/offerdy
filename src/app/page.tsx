@@ -11,7 +11,7 @@ import { getDeals, getStores, getCategories, getReviews, getExpiringDeals, getCo
 
 export const dynamic = 'force-dynamic'
 
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 export const metadata: Metadata = {
   alternates: { canonical: BASE },

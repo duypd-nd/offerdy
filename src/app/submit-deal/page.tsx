@@ -6,7 +6,7 @@ import { isConfigured } from '@/sanity/client'
 import SubmitDealClient from './SubmitDealClient'
 
 export const dynamic = 'force-dynamic'
-const BASE = 'https://offerdy.com'
+const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS: Required<SubmitDealData> = {
   h1: 'Submit a Deal',
