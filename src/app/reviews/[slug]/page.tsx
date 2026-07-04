@@ -59,7 +59,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
   if (!review) notFound()
 
   const authorName = review.author || authorConfig.defaultName
-  const authorUrl = authorConfig.twitterHandle
+  const authorTwitterUrl = authorConfig.twitterHandle
     ? `https://x.com/${authorConfig.twitterHandle.replace(/^@/, '')}`
     : undefined
 
@@ -83,7 +83,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
         reviewBody: review.excerpt ?? undefined,
         reviewRating: { '@type': 'Rating', ratingValue: review.stars, bestRating: 5, worstRating: 1 },
         author: authorName
-          ? { '@type': 'Person', name: authorName, url: authorUrl }
+          ? { '@type': 'Person', name: authorName, url: `${BASE}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined }
           : { '@type': 'Organization', name: 'Offerdy', url: BASE },
         itemReviewed: {
           '@type': 'Product',
@@ -186,7 +186,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                 )}
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-                    {authorName}{authorConfig.role && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {authorConfig.role}</span>}
+                    <Link href="/author" style={{ color: 'inherit' }}>{authorName}</Link>{authorConfig.role && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {authorConfig.role}</span>}
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{authorConfig.bio}</p>
                 </div>

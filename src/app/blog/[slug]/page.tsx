@@ -70,7 +70,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound()
 
   const authorName = post.author || authorConfig.defaultName
-  const authorUrl = authorConfig.twitterHandle
+  const authorTwitterUrl = authorConfig.twitterHandle
     ? `https://x.com/${authorConfig.twitterHandle.replace(/^@/, '')}`
     : undefined
 
@@ -91,7 +91,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         '@type': 'Article',
         headline: post.title,
         description: post.excerpt ?? undefined,
-        author: authorName ? { '@type': 'Person', name: authorName, url: authorUrl } : undefined,
+        author: authorName ? { '@type': 'Person', name: authorName, url: `${BASE}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined } : undefined,
         datePublished: post.date ?? undefined,
         dateModified: post.updatedAt ?? post.date ?? undefined,
         publisher: { '@type': 'Organization', name: 'Offerdy', url: BASE },
@@ -186,7 +186,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 )}
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-                    {authorName}{authorConfig.role && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {authorConfig.role}</span>}
+                    <Link href="/author" style={{ color: 'inherit' }}>{authorName}</Link>{authorConfig.role && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {authorConfig.role}</span>}
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{authorConfig.bio}</p>
                 </div>

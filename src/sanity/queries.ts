@@ -411,7 +411,7 @@ export async function getConfigSeo(): Promise<SeoConfig> {
 
 // ── Config: Author (fallback identity for posts/reviews) ────────
 const CONFIG_AUTHOR_QUERY = `*[_type == "configAuthor"][0] {
-  defaultName, role, "avatarUrl": avatar.asset->url, bio, email, twitterHandle
+  defaultName, role, "avatarUrl": avatar.asset->url, bio, email, twitterHandle, experienceBio, verificationProcess
 }`
 
 export type AuthorConfig = {
@@ -421,6 +421,8 @@ export type AuthorConfig = {
   bio?: string
   email?: string
   twitterHandle?: string
+  experienceBio?: string
+  verificationProcess?: string
 }
 
 export async function getConfigAuthor(): Promise<AuthorConfig> {

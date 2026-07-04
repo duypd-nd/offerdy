@@ -9,6 +9,8 @@ export default function AuthorConfigForm({ initial }: { initial: Record<string, 
   const [bio, setBio] = useState(String(initial.bio ?? ''))
   const [email, setEmail] = useState(String(initial.email ?? ''))
   const [twitterHandle, setTwitterHandle] = useState(String(initial.twitterHandle ?? ''))
+  const [experienceBio, setExperienceBio] = useState(String(initial.experienceBio ?? ''))
+  const [verificationProcess, setVerificationProcess] = useState(String(initial.verificationProcess ?? ''))
   const [isPending, startTransition] = useTransition()
   const [saved, setSaved] = useState(false)
 
@@ -20,6 +22,8 @@ export default function AuthorConfigForm({ initial }: { initial: Record<string, 
         bio: bio || null,
         email: email || null,
         twitterHandle: twitterHandle || null,
+        experienceBio: experienceBio || null,
+        verificationProcess: verificationProcess || null,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -48,6 +52,12 @@ export default function AuthorConfigForm({ initial }: { initial: Record<string, 
           <label className="cfg-label">Twitter/X handle<input className="cfg-input" value={twitterHandle} onChange={e => setTwitterHandle(e.target.value)} placeholder="@offerdy" /></label>
         </div>
         <div className="cfg-image-note">Ảnh đại diện (avatar) — upload qua <strong>Sanity Studio</strong>.</div>
+        <label className="cfg-label">Kinh nghiệm &amp; câu chuyện (hiển thị trên trang /author)
+          <textarea className="cfg-input cfg-textarea" rows={6} value={experienceBio} onChange={e => setExperienceBio(e.target.value)} placeholder="Giới thiệu chi tiết về nền tảng, kinh nghiệm..." />
+        </label>
+        <label className="cfg-label">Quy trình cá nhân kiểm tra mã (hiển thị trên trang /author)
+          <textarea className="cfg-input cfg-textarea" rows={5} value={verificationProcess} onChange={e => setVerificationProcess(e.target.value)} placeholder="Mô tả cách bạn tự kiểm tra/xác minh từng deal..." />
+        </label>
       </div>
 
       <div style={{ padding: '16px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
