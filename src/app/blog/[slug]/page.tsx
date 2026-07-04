@@ -7,7 +7,13 @@ import Footer from '@/components/Footer'
 import { getPostBySlug, getPosts, getConfigContent, getConfigAuthor } from '@/sanity/queries'
 import { posts as staticPosts } from '@/data/posts'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
+
+// Bat buoc phai co ham nay (du tra ve mang rong) thi revalidate o tren moi
+// thuc su co hieu luc voi route dynamic [slug] - xem stores/[slug]/page.tsx
+export async function generateStaticParams() {
+  return []
+}
 
 function fmtDate(d: string) {
   try { return new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) }
