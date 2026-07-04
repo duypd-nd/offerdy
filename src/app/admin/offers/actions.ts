@@ -7,18 +7,21 @@ export async function updateOffer(id: string, patch: Record<string, unknown>) {
   await writeClient.patch(id).set(patch).commit()
   revalidatePath('/admin/offers')
   revalidatePath('/stores/[slug]', 'page')
+  revalidatePath('/coupon-codes')
 }
 
 export async function deleteOffer(id: string) {
   await writeClient.delete(id)
   revalidatePath('/admin/offers')
   revalidatePath('/stores/[slug]', 'page')
+  revalidatePath('/coupon-codes')
 }
 
 export async function bulkDelete(ids: string[]) {
   await Promise.all(ids.map(id => writeClient.delete(id)))
   revalidatePath('/admin/offers')
   revalidatePath('/stores/[slug]', 'page')
+  revalidatePath('/coupon-codes')
 }
 
 export async function createOffer(data: {
@@ -42,4 +45,5 @@ export async function createOffer(data: {
   })
   revalidatePath('/admin/offers')
   revalidatePath('/stores/[slug]', 'page')
+  revalidatePath('/coupon-codes')
 }

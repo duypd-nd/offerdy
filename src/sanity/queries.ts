@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { isConfigured } from './client'
 import { writeClient } from './writeClient'
 import { deals as staticDeals, expiringDeals as staticExpiring } from '@/data/deals'
@@ -91,10 +92,21 @@ export async function getDeals(limit = 10) {
   } catch { return staticDeals }
 }
 
+// /deals doc thu SEARCHParams (?page=N) de phan trang bang URL that (SEO), nen ca trang
+// bi Next.js coi la dynamic rendering hoan toan - unstable_cache o day chi cache PHAN
+// GOI SANITY (khong phai ca trang), tranh goi Sanity moi luot xem trong khi van giu
+// route dynamic. revalidatePath('/deals') trong admin/deals/actions.ts van invalidate
+// dung cache nay (theo doc Next.js unstable_cache).
+const getCachedAllDeals = unstable_cache(
+  async () => writeClient.fetch(ALL_DEALS_QUERY),
+  ['all-deals'],
+  { revalidate: 60 }
+)
+
 export async function getAllDeals() {
   if (!isConfigured()) return staticDeals
   try {
-    const data = await writeClient.fetch(ALL_DEALS_QUERY)
+    const data = await getCachedAllDeals()
     return data.length ? data : staticDeals
   } catch { return staticDeals }
 }
@@ -467,10 +479,18 @@ const COUPON_OFFERS_QUERY = `*[_type == "offer" && active == true && defined(cou
   }
 }`
 
+// Cung ly do voi getAllDeals o tren: /coupon-codes cung dung ?page=N nen ca trang
+// van dynamic, unstable_cache o day chi tranh goi Sanity lai moi luot xem.
+const getCachedCouponOffers = unstable_cache(
+  async () => writeClient.fetch(COUPON_OFFERS_QUERY),
+  ['coupon-offers'],
+  { revalidate: 60 }
+)
+
 export async function getCouponOffers(): Promise<Offer[]> {
   if (!isConfigured()) return []
   try {
-    const data = await writeClient.fetch(COUPON_OFFERS_QUERY)
+    const data = await getCachedCouponOffers()
     return data ?? []
   } catch { return [] }
 }

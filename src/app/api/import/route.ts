@@ -224,6 +224,7 @@ async function importStoresAndOffers(rows: ImportRow[]) {
   revalidatePath('/', 'page')
   revalidatePath('/stores')
   revalidatePath('/stores/[slug]', 'page')
+  revalidatePath('/coupon-codes')
   return results
 }
 
