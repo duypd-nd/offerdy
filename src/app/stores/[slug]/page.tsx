@@ -10,6 +10,14 @@ import AffiliateLink from '@/components/AffiliateLink'
 
 export const revalidate = 60
 
+// Cho phep Next.js dung ISR (cache + revalidate) cho route dynamic [slug] thay vi
+// luon render dong tren moi request - bat buoc phai co ham nay (du tra ve mang rong)
+// thi revalidate o tren moi thuc su co hieu luc, dynamicParams mac dinh la true nen
+// slug nao chua duoc tao san van duoc render on-demand roi cache lai binh thuong.
+export async function generateStaticParams() {
+  return []
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   electronics: '📱 Electronics', fashion: '👗 Fashion', beauty: '💄 Beauty',
   home: '🏠 Home & Garden', sports: '🏃 Sports', food: '🍕 Food & Health',
