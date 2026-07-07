@@ -111,7 +111,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
     { title: 'Paste Code & Apply Your Savings', description: `At checkout, find the field labeled "Promo Code" or "Discount Code". Paste your code, then click "Apply". Your discount will be deducted from the order total instantly.` },
   ]
 
-  const faqs: FaqItem[] = globalContent.defaultFaqs?.length ? globalContent.defaultFaqs : [
+  const faqs: FaqItem[] = store.faq?.length ? store.faq : globalContent.defaultFaqs?.length ? globalContent.defaultFaqs : [
     { question: `Does {store} have coupon codes right now?`, answer: `Yes! We currently list ${offers.length} active offer${offers.length !== 1 ? 's' : ''} for {store}. Our team verifies each coupon before publishing so you only see codes that actually work.` },
     { question: `How do I use a {store} coupon code?`, answer: `Copy the code from this page, visit {store}${store.website ? ` (${store.website})` : ''}, add items to your cart, then paste the code in the "Promo Code" or "Discount Code" field at checkout and click Apply.` },
     { question: `Why isn't my {store} coupon code working?`, answer: `Coupon codes may have minimum order requirements, be limited to certain product categories, or be for new customers only. Check the offer details on this page. If a code has expired, try another one from the list above.` },
@@ -278,6 +278,27 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
               <h2 className="sol-about-title">About {store.name}</h2>
               <div className="sol-about-body" dangerouslySetInnerHTML={{ __html: aboutHtml }} />
             </div>
+
+            {/* Pros & Cons */}
+            {(store.prosAndCons?.pros?.length || store.prosAndCons?.cons?.length) && (
+              <div className="sol-proscons">
+                <h2 className="sol-about-title">Pros &amp; Cons</h2>
+                <div className="sol-proscons-grid">
+                  {store.prosAndCons?.pros?.length ? (
+                    <div className="sol-proscons-card sol-proscons-pros">
+                      <div className="sol-proscons-label">Pros</div>
+                      <ul>{store.prosAndCons.pros.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
+                    </div>
+                  ) : null}
+                  {store.prosAndCons?.cons?.length ? (
+                    <div className="sol-proscons-card sol-proscons-cons">
+                      <div className="sol-proscons-label">Cons</div>
+                      <ul>{store.prosAndCons.cons.map((c: string, i: number) => <li key={i}>{c}</li>)}</ul>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
 
             {/* How-to guide */}
             <div className="sol-howto">

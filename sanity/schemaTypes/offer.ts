@@ -97,6 +97,36 @@ export const offerType = defineType({
       description: 'Số lần khách bấm nút Get Code/Get Deal (tự động cập nhật từ website)',
       readOnly: true,
     }),
+
+    // ── AI Content Engine ──────────────────────────────────────
+    defineField({
+      name: 'aiReviewStatus',
+      title: 'Trạng thái duyệt AI',
+      type: 'string',
+      initialValue: 'none',
+      options: {
+        list: [
+          { title: 'Chưa có draft', value: 'none' },
+          { title: 'Chờ duyệt', value: 'pending' },
+          { title: 'Đã duyệt', value: 'approved' },
+          { title: 'Đã từ chối', value: 'rejected' },
+        ],
+      },
+      readOnly: true,
+      description: 'Quản lý qua trang /admin/ai-review — không chỉnh tay',
+    }),
+    defineField({
+      name: 'aiDraft',
+      title: 'AI Draft (chờ duyệt)',
+      type: 'object',
+      readOnly: true,
+      description: 'Nội dung AI đề xuất — duyệt tại /admin/ai-review, không chỉnh tay ở đây',
+      fields: [
+        defineField({ name: 'description', title: 'Mô tả chi tiết (draft)', type: 'text', rows: 3 }),
+        defineField({ name: 'generatedAt', title: 'Thời gian generate', type: 'datetime' }),
+        defineField({ name: 'model', title: 'Model', type: 'string' }),
+      ],
+    }),
   ],
   orderings: [
     {

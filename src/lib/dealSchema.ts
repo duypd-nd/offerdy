@@ -52,6 +52,7 @@ export function dealsItemListJsonLd(deals: SchemaDeal[], limit = 100) {
 type SchemaCoupon = {
   title: string
   offerText?: string
+  description?: string
   couponCode?: string
   link: string
   expiresAt?: string
@@ -68,7 +69,7 @@ export function couponsItemListJsonLd(offers: SchemaCoupon[], limit = 100) {
       item: {
         '@type': 'Offer',
         name: offer.title,
-        description: offer.offerText,
+        description: offer.description || offer.offerText,
         url: offer.link,
         seller: { '@type': 'Organization', name: offer.store.name, url: `${BASE}/stores/${offer.store.slug}` },
         validThrough: offer.expiresAt,

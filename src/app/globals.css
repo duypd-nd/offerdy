@@ -584,6 +584,22 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .sol-about-h3{font-family:var(--font-d),system-ui,sans-serif;font-size:14px;font-weight:700;color:var(--text);margin:14px 0 4px}
 .sol-about-link{color:var(--green-dark);text-decoration:underline;text-underline-offset:2px}
 
+/* ── PROS & CONS ── */
+.sol-proscons{margin-top:32px;padding-top:28px;border-top:1px solid var(--border)}
+.sol-proscons-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px}
+.sol-proscons-card{border-radius:var(--r);padding:20px 22px}
+.sol-proscons-pros{background:var(--green-50);border:1.5px solid var(--green-100)}
+.sol-proscons-cons{background:rgba(239,68,68,.05);border:1.5px solid rgba(239,68,68,.18)}
+.sol-proscons-label{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+.sol-proscons-pros .sol-proscons-label{color:var(--green-dark)}
+.sol-proscons-cons .sol-proscons-label{color:#b91c1c}
+.sol-proscons-card ul{margin:0;padding-left:0;list-style:none;font-size:14px;color:var(--muted);line-height:1.7;display:flex;flex-direction:column;gap:8px}
+.sol-proscons-card li{display:flex;align-items:flex-start;gap:8px}
+.sol-proscons-card li::before{flex-shrink:0;font-weight:700;line-height:1.5}
+.sol-proscons-pros li::before{content:'✓';color:var(--green-dark)}
+.sol-proscons-cons li::before{content:'✕';color:#b91c1c}
+@media (max-width:640px){.sol-proscons-grid{grid-template-columns:1fr}}
+
 /* ── HOW-TO GUIDE ── */
 .sol-howto{margin-top:36px;padding-top:32px;border-top:1px solid var(--border);text-align:center}
 .sol-howto-label{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--green-dark);background:var(--green-50);border:1px solid var(--green-100);border-radius:99px;padding:4px 14px;margin-bottom:14px}

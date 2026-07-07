@@ -174,6 +174,22 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
         </div>
         <div className="oa-actions">
           <button className="oa-btn oa-btn-primary" onClick={handleUpdate} disabled={isPending}>💾 Cập nhật ({selected.size})</button>
+          <button className="oa-btn" onClick={() => {
+            if (selected.size === 0) return
+            startTransition(async () => {
+              const res = await fetch('/api/ai/content/generate-offer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ offerIds: Array.from(selected) }),
+              })
+              const data = await res.json()
+              const ok = Array.isArray(data.results) ? data.results.filter((r: { ok: boolean }) => r.ok).length : 0
+              showToast(`Đã tạo draft AI cho ${ok}/${selected.size} offer — xem tại AI Review Queue`)
+              setSelected(new Set())
+            })
+          }} disabled={selected.size === 0 || isPending}>
+            🤖 Tạo nội dung AI ({selected.size})
+          </button>
           <button className="oa-btn oa-btn-green" onClick={() => setShowModal(true)}>＋ Thêm mới</button>
           <button className="oa-btn oa-btn-red" onClick={handleBulkDelete} disabled={selected.size === 0 || isPending}>🗑 Xóa ({selected.size})</button>
         </div>

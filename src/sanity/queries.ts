@@ -138,6 +138,8 @@ const STORE_BY_SLUG_QUERY = `*[_type == "store" && slug.current == $slug && publ
   "slug": slug.current, website, affiliateLink, category, maxOffer,
   "imageUrl": image.asset->url,
   shortDescription, description,
+  faq[]{ question, answer },
+  prosAndCons{ pros, cons },
   events[]{ title, "date": date, description, discount, link },
   metaTitle, metaKeywords, metaDescription
 }`

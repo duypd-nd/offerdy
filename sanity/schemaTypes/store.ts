@@ -9,6 +9,7 @@ export const storeType = defineType({
     { name: 'content', title: '📝 Nội dung' },
     { name: 'events',  title: '📅 Events' },
     { name: 'seo',     title: '🔍 SEO' },
+    { name: 'ai',      title: '🤖 AI Content' },
   ],
   fields: [
     // ── Trạng thái ─────────────────────────────────────────────
@@ -121,6 +122,37 @@ export const storeType = defineType({
       group: 'content',
       description: 'Hỗ trợ thẻ HTML: <b>bold</b>, <i>italic</i>, <br>, <p>, <ul><li>...',
     }),
+    defineField({
+      name: 'faq',
+      title: 'FAQ',
+      type: 'array',
+      group: 'content',
+      description: 'Câu hỏi thường gặp về store — hiện trên trang store + FAQPage schema',
+      of: [
+        {
+          type: 'object',
+          name: 'faqItem',
+          title: 'FAQ Item',
+          fields: [
+            defineField({ name: 'question', title: 'Câu hỏi', type: 'string', validation: r => r.required() }),
+            defineField({ name: 'answer', title: 'Câu trả lời', type: 'text', rows: 3, validation: r => r.required() }),
+          ],
+          preview: {
+            select: { title: 'question' },
+          },
+        },
+      ],
+    }),
+    defineField({
+      name: 'prosAndCons',
+      title: 'Ưu điểm / Nhược điểm',
+      type: 'object',
+      group: 'content',
+      fields: [
+        defineField({ name: 'pros', title: 'Ưu điểm', type: 'array', of: [{ type: 'string' }] }),
+        defineField({ name: 'cons', title: 'Nhược điểm', type: 'array', of: [{ type: 'string' }] }),
+      ],
+    }),
 
     // ── Events ─────────────────────────────────────────────────
     defineField({
@@ -199,6 +231,87 @@ export const storeType = defineType({
       rows: 3,
       group: 'seo',
       description: 'Mô tả SEO (150-160 ký tự) — nếu bỏ trống dùng mô tả ngắn',
+    }),
+
+    // ── AI Content Engine ──────────────────────────────────────
+    defineField({
+      name: 'aiReviewStatus',
+      title: 'Trạng thái duyệt AI',
+      type: 'string',
+      group: 'ai',
+      initialValue: 'none',
+      options: {
+        list: [
+          { title: 'Chưa có draft', value: 'none' },
+          { title: 'Chờ duyệt', value: 'pending' },
+          { title: 'Đã duyệt', value: 'approved' },
+          { title: 'Đã từ chối', value: 'rejected' },
+        ],
+      },
+      readOnly: true,
+      description: 'Quản lý qua trang /admin/ai-review — không chỉnh tay',
+    }),
+    defineField({
+      name: 'aiDraft',
+      title: 'AI Draft (chờ duyệt)',
+      type: 'object',
+      group: 'ai',
+      readOnly: true,
+      description: 'Nội dung AI đề xuất — duyệt tại /admin/ai-review, không chỉnh tay ở đây',
+      fields: [
+        defineField({ name: 'shortDescription', title: 'Mô tả ngắn (draft)', type: 'string' }),
+        defineField({
+          name: 'about',
+          title: 'About Store (draft)',
+          type: 'object',
+          fields: [
+            defineField({ name: 'tagline', title: 'Câu giới thiệu ngắn', type: 'string' }),
+            defineField({ name: 'introBadgeEmoji', title: 'Emoji badge', type: 'string' }),
+            defineField({ name: 'introText', title: 'Đoạn giới thiệu', type: 'text', rows: 3 }),
+            ...(['productRange', 'customerBenefits', 'shoppingExperience', 'whyChoose'] as const).map(name =>
+              defineField({
+                name,
+                title: { productRange: 'Card: Product Range', customerBenefits: 'Card: Customer Benefits', shoppingExperience: 'Card: Shopping Experience', whyChoose: 'Card: Why Choose' }[name],
+                type: 'object',
+                fields: [
+                  defineField({ name: 'icon', title: 'Icon (emoji)', type: 'string' }),
+                  defineField({ name: 'title', title: 'Tiêu đề', type: 'string' }),
+                  defineField({ name: 'text', title: 'Nội dung', type: 'text', rows: 3 }),
+                ],
+              })
+            ),
+          ],
+        }),
+        defineField({ name: 'metaTitle', title: 'Meta Title (draft)', type: 'string' }),
+        defineField({ name: 'metaKeywords', title: 'Meta Keywords (draft)', type: 'string' }),
+        defineField({ name: 'metaDescription', title: 'Meta Description (draft)', type: 'text', rows: 3 }),
+        defineField({
+          name: 'faq',
+          title: 'FAQ (draft)',
+          type: 'array',
+          of: [
+            {
+              type: 'object',
+              name: 'faqItem',
+              fields: [
+                defineField({ name: 'question', title: 'Câu hỏi', type: 'string' }),
+                defineField({ name: 'answer', title: 'Câu trả lời', type: 'text', rows: 3 }),
+              ],
+            },
+          ],
+        }),
+        defineField({
+          name: 'prosAndCons',
+          title: 'Ưu/Nhược điểm (draft)',
+          type: 'object',
+          fields: [
+            defineField({ name: 'pros', title: 'Ưu điểm', type: 'array', of: [{ type: 'string' }] }),
+            defineField({ name: 'cons', title: 'Nhược điểm', type: 'array', of: [{ type: 'string' }] }),
+          ],
+        }),
+        defineField({ name: 'generatedAt', title: 'Thời gian generate', type: 'datetime' }),
+        defineField({ name: 'model', title: 'Model', type: 'string' }),
+      ],
     }),
   ],
 

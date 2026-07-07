@@ -21,6 +21,7 @@ const NAV: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: '/admin/stores',       label: 'Stores',        icon: '🏪' },
+      { href: '/admin/ai-review',    label: 'AI Review Queue', icon: '🤖' },
       { href: '/admin/offers',       label: 'Tất cả Offers', icon: '🎁' },
       { href: '/admin/flash-sales',  label: 'Flash Sales',   icon: '⚡' },
       { href: '/admin/coupon-codes', label: 'Coupon Codes',  icon: '🏷️' },

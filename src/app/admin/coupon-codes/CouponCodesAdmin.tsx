@@ -62,6 +62,19 @@ export default function CouponCodesAdmin({ initialOffers, stores }: { initialOff
     })
   }
 
+  const handleGenerateAi = (id: string) => {
+    startTransition(async () => {
+      const res = await fetch('/api/ai/content/generate-offer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ offerIds: [id] }),
+      })
+      const data = await res.json()
+      const ok = Array.isArray(data.results) && data.results[0]?.ok
+      showToast(ok ? 'Đã tạo draft AI — xem tại AI Review Queue' : 'Tạo draft AI thất bại')
+    })
+  }
+
   return (
     <div className="oa-wrap">
       {toast && <div className="oa-toast">{toast}</div>}
@@ -132,6 +145,7 @@ export default function CouponCodesAdmin({ initialOffers, stores }: { initialOff
                     <button className="oa-row-save" title={o.active ? 'Ẩn' : 'Hiện'} onClick={() => handleToggleActive(o._id, o.active)} disabled={isPending}>
                       {o.active ? '◉' : '○'}
                     </button>
+                    <button className="oa-row-save" title="Tạo nội dung AI" onClick={() => handleGenerateAi(o._id)} disabled={isPending}>🤖</button>
                     <button className="oa-row-save" title="Sửa" onClick={() => setEditingOffer(o)}>✎</button>
                     <button className="oa-row-del" title="Xóa" onClick={() => handleDelete(o._id)}>🗑</button>
                   </div>

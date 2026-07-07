@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
     "@portabletext/react": "^6.2.0",
     "@sanity/image-url": "^2.1.1",
     "@sanity/vision": "^6.2.0",
@@ -18,7 +19,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "sanity": "^6.2.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

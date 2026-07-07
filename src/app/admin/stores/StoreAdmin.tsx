@@ -130,6 +130,22 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
           <button className="oa-btn oa-btn-primary" onClick={() => handleBulkPublish(true)} disabled={selected.size === 0 || isPending}>
             ✓ Duyệt ({selected.size})
           </button>
+          <button className="oa-btn" onClick={() => {
+            if (selected.size === 0) return
+            startTransition(async () => {
+              const res = await fetch('/api/ai/content/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ storeIds: Array.from(selected) }),
+              })
+              const data = await res.json()
+              const ok = Array.isArray(data.results) ? data.results.filter((r: { ok: boolean }) => r.ok).length : 0
+              showToast(`Đã tạo draft AI cho ${ok}/${selected.size} store — xem tại AI Review Queue`)
+              setSelected(new Set())
+            })
+          }} disabled={selected.size === 0 || isPending}>
+            🤖 Tạo nội dung AI ({selected.size})
+          </button>
           <button className="oa-btn oa-btn-green" onClick={() => setShowModal(true)}>
             ＋ Thêm mới
           </button>
