@@ -484,7 +484,12 @@ export async function getFlashSaleOffers(): Promise<Offer[]> {
 }
 
 // ── Coupon Code Offers ─────────────────────────────────────────
-const COUPON_OFFERS_QUERY = `*[_type == "offer" && active == true && defined(couponCode) && couponCode != ""] | order(order desc, _createdAt desc) {
+// (!defined(expiresAt) || expiresAt >= now()) loai bo code da het han khoi trang
+// listing chinh - hien thi code chet nhu con song la lua nguoi dung (xem
+// WORKFLOW_EXPIRED_COUPONS.md "Never mislead users"). Store page van hien
+// offer het han gan day o muc rieng "Recently Expired", chi trang listing
+// nay (khong co per-offer detail page nen khong can giu lai cho SEO) moi loc bo.
+const COUPON_OFFERS_QUERY = `*[_type == "offer" && active == true && defined(couponCode) && couponCode != "" && (!defined(expiresAt) || expiresAt >= now())] | order(order desc, _createdAt desc) {
   "id": _id,
   title,
   offerText,

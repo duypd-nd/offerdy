@@ -68,12 +68,18 @@ function VoteButtons({ offerId, initialActive, initialExpired }: {
   )
 }
 
-function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName }: {
+function fmtExpiredDate(iso: string) {
+  try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) }
+  catch { return iso }
+}
+
+function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName, expired }: {
   offer: Offer
   defaultDescriptions: string[]
   index: number
   destinationUrl: string
   storeName?: string
+  expired?: boolean
 }) {
   const defaultDescription = defaultDescriptions.length > 0
     ? defaultDescriptions[index % defaultDescriptions.length]
@@ -82,45 +88,53 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName
   const [copied, setCopied] = useState(false)
   const hasCode = !!offer.couponCode
 
-  if (offer.expiresAt && new Date(offer.expiresAt) < new Date()) return null
-
   const daysLeft = offer.expiresAt
     ? Math.ceil((new Date(offer.expiresAt).getTime() - Date.now()) / 86400000)
     : null
 
   return (
-    <div className="sol-row">
+    <div className={`sol-row${expired ? ' sol-row-expired' : ''}`}>
       {/* Discount */}
       <div className="sol-disc">{offer.offerText || (hasCode ? 'Code' : 'Deal')}</div>
 
       {/* Body */}
       <div className="sol-body">
         <div className="sol-meta">
-          {offer.verified !== false && (
-            <span className={`sol-vbadge${hasCode ? '' : ' deal'}`}>
-              ✓ Verified {hasCode ? 'Code' : 'Deal'}
-            </span>
-          )}
-          {daysLeft !== null && daysLeft <= 7 && (
-            <span className="sol-exp">⏰ {daysLeft}d left</span>
+          {expired ? (
+            <span className="sol-expired-badge">✕ Expired {offer.expiresAt && fmtExpiredDate(offer.expiresAt)}</span>
+          ) : (
+            <>
+              {offer.verified !== false && (
+                <span className={`sol-vbadge${hasCode ? '' : ' deal'}`}>
+                  ✓ Verified {hasCode ? 'Code' : 'Deal'}
+                </span>
+              )}
+              {daysLeft !== null && daysLeft <= 7 && (
+                <span className="sol-exp">⏰ {daysLeft}d left</span>
+              )}
+            </>
           )}
         </div>
         <div className="sol-title">{offer.title}</div>
         {(offer.description || defaultDescription) && (
           <p className="sol-desc">{offer.description || defaultDescription}</p>
         )}
-        {offer.usageTips && <p className="sol-desc sol-desc-tip">💡 {offer.usageTips}</p>}
-        {offer.eligibilityNotes && <p className="sol-desc sol-desc-eligibility">ℹ️ {offer.eligibilityNotes}</p>}
-        <VoteButtons
-          offerId={offer.id}
-          initialActive={offer.votesActive ?? 0}
-          initialExpired={offer.votesExpired ?? 0}
-        />
+        {!expired && offer.usageTips && <p className="sol-desc sol-desc-tip">💡 {offer.usageTips}</p>}
+        {!expired && offer.eligibilityNotes && <p className="sol-desc sol-desc-eligibility">ℹ️ {offer.eligibilityNotes}</p>}
+        {!expired && (
+          <VoteButtons
+            offerId={offer.id}
+            initialActive={offer.votesActive ?? 0}
+            initialExpired={offer.votesExpired ?? 0}
+          />
+        )}
       </div>
 
       {/* CTA */}
       <div className="sol-cta">
-        {hasCode ? (
+        {expired ? (
+          <span className="sol-expired-note">No longer available — try an active offer above</span>
+        ) : hasCode ? (
           revealed ? (
             <div className="sol-code-revealed">
               <span className="sol-code-val">{offer.couponCode}</span>
@@ -177,7 +191,10 @@ export default function StoreOfferList({
   const destinationUrl = affiliateLink ?? (storeWebsite ? `https://${storeWebsite.replace(/^https?:\/\//, '')}` : '#')
   const [filter, setFilter] = useState<Filter>('all')
 
-  const active   = offers.filter(o => !o.expiresAt || new Date(o.expiresAt) >= new Date())
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000)
+  const active   = offers.filter(o => !o.expiresAt || new Date(o.expiresAt) >= now)
+  const recentlyExpired = offers.filter(o => o.expiresAt && new Date(o.expiresAt) < now && new Date(o.expiresAt) >= thirtyDaysAgo)
   const codes    = active.filter(o => !!o.couponCode)
   const deals    = active.filter(o => !o.couponCode)
   const verified = active.filter(o => o.active !== false)
@@ -224,6 +241,25 @@ export default function StoreOfferList({
           ))
         )}
       </div>
+
+      {recentlyExpired.length > 0 && (
+        <div className="sol-expired-section">
+          <div className="sol-expired-title">Recently Expired</div>
+          <div className="sol-list">
+            {recentlyExpired.map((o, i) => (
+              <OfferRow
+                key={o.id}
+                offer={o}
+                defaultDescriptions={defaultDescriptions}
+                index={i}
+                destinationUrl={destinationUrl}
+                storeName={storeName}
+                expired
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -539,6 +539,14 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 /* CTA column */
 .sol-cta{flex-shrink:0;width:176px;display:flex;justify-content:flex-end}
 
+/* Expired offers */
+.sol-expired-section{margin-top:20px}
+.sol-expired-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+.sol-row-expired{opacity:.6}
+.sol-row-expired:hover{background:transparent}
+.sol-expired-badge{font-size:11px;font-weight:700;color:#6b7280;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;padding:2px 8px}
+.sol-expired-note{font-size:11px;color:var(--muted);text-align:right;max-width:160px;line-height:1.4}
+
 /* Get Deal button */
 .sol-get-deal{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:38px;width:100%;padding:0 20px;background:var(--green-dark);color:white;font-size:13px;font-weight:700;border-radius:var(--r-sm);text-decoration:none;white-space:nowrap;transition:filter .15s}
 .sol-get-deal:hover{filter:brightness(1.1);color:white}
