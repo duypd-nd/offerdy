@@ -68,6 +68,18 @@ export const offerType = defineType({
       description: 'Thông tin thêm về điều kiện áp dụng, sản phẩm áp dụng…',
     }),
     defineField({
+      name: 'usageTips',
+      title: 'Cách dùng (usage tips)',
+      type: 'string',
+      description: '1 câu ngắn hướng dẫn cách áp dụng offer này',
+    }),
+    defineField({
+      name: 'eligibilityNotes',
+      title: 'Điều kiện áp dụng (eligibility)',
+      type: 'string',
+      description: '1 câu ngắn về điều kiện/giới hạn áp dụng (nếu có)',
+    }),
+    defineField({
       name: 'expiresAt',
       title: 'Hết hạn vào',
       type: 'datetime',
@@ -146,6 +158,8 @@ export const offerType = defineType({
       description: 'Nội dung AI đề xuất — duyệt tại /admin/ai-review, không chỉnh tay ở đây',
       fields: [
         defineField({ name: 'description', title: 'Mô tả chi tiết (draft)', type: 'text', rows: 3 }),
+        defineField({ name: 'usageTips', title: 'Cách dùng (draft)', type: 'string' }),
+        defineField({ name: 'eligibilityNotes', title: 'Điều kiện áp dụng (draft)', type: 'string' }),
         defineField({ name: 'generatedAt', title: 'Thời gian generate', type: 'datetime' }),
         defineField({ name: 'model', title: 'Model', type: 'string' }),
       ],

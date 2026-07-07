@@ -9,14 +9,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let reviews: { slug: string; _updatedAt: string }[] = []
   let pages: { slug: string; _updatedAt: string }[] = []
   let categories: { slug: string; _updatedAt: string }[] = []
+  let deals: { slug: string; _updatedAt: string }[] = []
 
   try {
-    ;[stores, posts, reviews, pages, categories] = await Promise.all([
+    ;[stores, posts, reviews, pages, categories, deals] = await Promise.all([
       writeClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now()]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "page" && published != false]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "category"]{ "slug": slug.current, _updatedAt }`),
+      writeClient.fetch(`*[_type == "deal"]{ "slug": slug.current, _updatedAt }`),
     ])
   } catch {}
 
@@ -74,6 +76,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: c._updatedAt,
       changeFrequency: 'weekly' as const,
       priority: 0.7,
+    })),
+    ...deals.filter(d => d.slug).map(d => ({
+      url: `${BASE}/deals/${d.slug}`,
+      lastModified: d._updatedAt,
+      changeFrequency: 'weekly' as const,
+      priority: 0.6,
     })),
   ]
 }

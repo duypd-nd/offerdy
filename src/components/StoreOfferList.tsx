@@ -109,6 +109,8 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName
         {(offer.description || defaultDescription) && (
           <p className="sol-desc">{offer.description || defaultDescription}</p>
         )}
+        {offer.usageTips && <p className="sol-desc sol-desc-tip">💡 {offer.usageTips}</p>}
+        {offer.eligibilityNotes && <p className="sol-desc sol-desc-eligibility">ℹ️ {offer.eligibilityNotes}</p>}
         <VoteButtons
           offerId={offer.id}
           initialActive={offer.votesActive ?? 0}

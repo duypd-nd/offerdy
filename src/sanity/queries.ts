@@ -119,6 +119,21 @@ export async function getDealsByStore(storeName: string) {
   )
 }
 
+const DEAL_BY_SLUG_QUERY = `*[_type == "deal" && slug.current == $slug][0] {
+  "id": _id, title, store, emoji, imgClass, "imageUrl": image.asset->url,
+  priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl,
+  "slug": slug.current,
+  summary, prosAndCons{ pros, cons }, faq[]{ question, answer },
+  metaTitle, metaDescription, _createdAt, _updatedAt
+}`
+
+export async function getDealBySlug(slug: string) {
+  if (!isConfigured()) return null
+  try {
+    return await writeClient.fetch(DEAL_BY_SLUG_QUERY, { slug })
+  } catch { return null }
+}
+
 export async function getExpiringDeals() {
   if (!isConfigured()) return staticExpiring
   try {
@@ -282,6 +297,8 @@ export type Offer = {
   couponCode?: string
   link: string
   description?: string
+  usageTips?: string
+  eligibilityNotes?: string
   expiresAt?: string
   active: boolean
   verified: boolean
@@ -320,6 +337,8 @@ const OFFERS_BY_STORE_QUERY = `*[_type == "offer" && active == true && store->sl
   couponCode,
   "link": link,
   description,
+  usageTips,
+  eligibilityNotes,
   expiresAt,
   active,
   "verified": coalesce(verified, true),

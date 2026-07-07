@@ -11,10 +11,15 @@ const PENDING_OFFERS_QUERY = `*[_type == "offer" && aiReviewStatus == "pending"]
   _id, title, offerText, "storeName": store->name, "storeSlug": store->slug.current, aiDraft
 }`
 
+const PENDING_DEALS_QUERY = `*[_type == "deal" && aiReviewStatus == "pending"] | order(_createdAt desc) {
+  _id, title, store, "slug": slug.current, aiDraft
+}`
+
 export default async function AiReviewPage() {
-  const [stores, offers] = await Promise.all([
+  const [stores, offers, deals] = await Promise.all([
     writeClient.fetch(PENDING_STORES_QUERY),
     writeClient.fetch(PENDING_OFFERS_QUERY),
+    writeClient.fetch(PENDING_DEALS_QUERY),
   ])
-  return <AiReviewAdmin initialStores={stores ?? []} initialOffers={offers ?? []} />
+  return <AiReviewAdmin initialStores={stores ?? []} initialOffers={offers ?? []} initialDeals={deals ?? []} />
 }

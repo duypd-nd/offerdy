@@ -130,6 +130,22 @@ export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] 
             <button className="oa-btn oa-btn-green" onClick={handleSaveOrder} disabled={isPending}>💾 Lưu thứ tự</button>
           )}
           <button className="oa-btn oa-btn-green" onClick={() => setShowModal(true)}>＋ Thêm mới</button>
+          <button className="oa-btn" onClick={() => {
+            if (selected.size === 0) return
+            startTransition(async () => {
+              const res = await fetch('/api/ai/content/generate-deal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dealIds: Array.from(selected) }),
+              })
+              const data = await res.json()
+              const ok = Array.isArray(data.results) ? data.results.filter((r: { ok: boolean }) => r.ok).length : 0
+              showToast(`Đã tạo draft AI cho ${ok}/${selected.size} deal — xem tại AI Review Queue`)
+              setSelected(new Set())
+            })
+          }} disabled={selected.size === 0 || isPending}>
+            🤖 Tạo nội dung AI ({selected.size})
+          </button>
           <button className="oa-btn oa-btn-red" onClick={() => {
             if (selected.size === 0) return
             if (!confirm(`Xóa ${selected.size} deal?`)) return

@@ -47,7 +47,11 @@ export default function DealsGrid({ deals, columns, showVerified = true }: { dea
             }
             <div className="deal-body">
               <div className="deal-store">{deal.store}</div>
-              <div className="deal-title">{deal.title}</div>
+              {deal.slug ? (
+                <Link href={`/deals/${deal.slug}`} className="deal-title" style={{ textDecoration: 'none', color: 'inherit' }}>{deal.title}</Link>
+              ) : (
+                <div className="deal-title">{deal.title}</div>
+              )}
               <div className="deal-price-row">
                 <span className="price-sale">{deal.priceSale}</span>
                 <span className="price-orig">{deal.priceOrig}</span>

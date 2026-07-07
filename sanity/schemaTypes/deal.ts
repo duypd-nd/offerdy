@@ -26,6 +26,77 @@ export const dealType = defineType({
     defineField({ name: 'isExpiring', title: 'Expiring Soon?', type: 'boolean', initialValue: false }),
     defineField({ name: 'expiresAt', title: 'Expires At', type: 'datetime' }),
     defineField({ name: 'dealUrl', title: 'Deal URL', type: 'url' }),
+
+    // ── GEO Content (hiển thị trên /deals/[slug]) ──────────────
+    defineField({ name: 'summary', title: 'Tóm tắt (vì sao đáng mua)', type: 'text', rows: 3 }),
+    defineField({
+      name: 'prosAndCons', title: 'Ưu điểm / Nhược điểm', type: 'object',
+      fields: [
+        defineField({ name: 'pros', title: 'Pros', type: 'array', of: [{ type: 'string' }] }),
+        defineField({ name: 'cons', title: 'Cons', type: 'array', of: [{ type: 'string' }] }),
+      ],
+    }),
+    defineField({
+      name: 'faq', title: 'FAQ', type: 'array',
+      of: [{
+        type: 'object',
+        fields: [
+          defineField({ name: 'question', title: 'Câu hỏi', type: 'string' }),
+          defineField({ name: 'answer', title: 'Trả lời', type: 'text', rows: 2 }),
+        ],
+      }],
+    }),
+    defineField({ name: 'metaTitle', title: 'Meta Title', type: 'string' }),
+    defineField({ name: 'metaDescription', title: 'Meta Description', type: 'text', rows: 2 }),
+
+    // ── AI Content Engine ──────────────────────────────────────
+    defineField({
+      name: 'aiReviewStatus',
+      title: 'Trạng thái duyệt AI',
+      type: 'string',
+      initialValue: 'none',
+      options: {
+        list: [
+          { title: 'Chưa có draft', value: 'none' },
+          { title: 'Chờ duyệt', value: 'pending' },
+          { title: 'Đã duyệt', value: 'approved' },
+          { title: 'Đã từ chối', value: 'rejected' },
+        ],
+      },
+      readOnly: true,
+      description: 'Quản lý qua trang /admin/ai-review — không chỉnh tay',
+    }),
+    defineField({
+      name: 'aiDraft',
+      title: 'AI Draft (chờ duyệt)',
+      type: 'object',
+      readOnly: true,
+      description: 'Nội dung AI đề xuất — duyệt tại /admin/ai-review, không chỉnh tay ở đây',
+      fields: [
+        defineField({ name: 'summary', title: 'Tóm tắt (draft)', type: 'text', rows: 3 }),
+        defineField({
+          name: 'prosAndCons', title: 'Pros/Cons (draft)', type: 'object',
+          fields: [
+            defineField({ name: 'pros', title: 'Pros', type: 'array', of: [{ type: 'string' }] }),
+            defineField({ name: 'cons', title: 'Cons', type: 'array', of: [{ type: 'string' }] }),
+          ],
+        }),
+        defineField({
+          name: 'faq', title: 'FAQ (draft)', type: 'array',
+          of: [{
+            type: 'object',
+            fields: [
+              defineField({ name: 'question', title: 'Câu hỏi', type: 'string' }),
+              defineField({ name: 'answer', title: 'Trả lời', type: 'text', rows: 2 }),
+            ],
+          }],
+        }),
+        defineField({ name: 'metaTitle', title: 'Meta Title (draft)', type: 'string' }),
+        defineField({ name: 'metaDescription', title: 'Meta Description (draft)', type: 'text', rows: 2 }),
+        defineField({ name: 'generatedAt', title: 'Thời gian generate', type: 'datetime' }),
+        defineField({ name: 'model', title: 'Model', type: 'string' }),
+      ],
+    }),
   ],
   preview: {
     select: { title: 'title', subtitle: 'store', media: 'emoji' },

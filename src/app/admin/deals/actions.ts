@@ -6,6 +6,7 @@ import { writeClient } from '@/sanity/writeClient'
 function revalidateDeals() {
   revalidatePath('/admin/deals')
   revalidatePath('/deals')
+  revalidatePath('/deals/[slug]', 'page')
   revalidatePath('/')
 }
 
