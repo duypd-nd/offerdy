@@ -19,9 +19,14 @@ export async function toggleOfferActive(id: string, active: boolean) {
   revalidate()
 }
 
-export async function deleteOffer(id: string) {
-  await writeClient.delete(id)
-  revalidate()
+export async function deleteOffer(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await writeClient.delete(id)
+    revalidate()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
 }
 
 export async function createFlashSaleOffer(data: {

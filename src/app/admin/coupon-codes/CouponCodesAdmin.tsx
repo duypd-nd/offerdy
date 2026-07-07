@@ -52,9 +52,9 @@ export default function CouponCodesAdmin({ offers: initialOffers, stores, page, 
   const handleDelete = (id: string) => {
     if (!confirm('Xóa coupon code này?')) return
     startTransition(async () => {
-      await deleteCouponOffer(id)
-      showToast('Đã xóa')
-      router.refresh()
+      const result = await deleteCouponOffer(id)
+      showToast(result.ok ? 'Đã xóa' : `Lỗi khi xóa: ${result.error}`)
+      if (result.ok) router.refresh()
     })
   }
 
@@ -276,7 +276,7 @@ function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
           <div className="oa-modal-footer">
             {mode === 'edit' && onDeleted && initial && (
               <button type="button" className="oa-btn oa-btn-red"
-                onClick={() => { if (!confirm('Xóa coupon này?')) return; startTransition(async () => { await deleteCouponOffer(initial._id); onDeleted() }) }}
+                onClick={() => { if (!confirm('Xóa coupon này?')) return; startTransition(async () => { const result = await deleteCouponOffer(initial._id); if (result.ok) onDeleted(); else alert(`Không thể xóa: ${result.error}`) }) }}
                 disabled={isPending}>🗑 Xóa</button>
             )}
             <div style={{ flex: 1 }} />

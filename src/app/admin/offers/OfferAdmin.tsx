@@ -121,16 +121,20 @@ export default function OfferAdmin({ offers: initialOffers, stores, page, totalP
 
   const handleDelete = (id: string) => {
     if (!confirm('Xóa offer này?')) return
-    startTransition(async () => { await deleteOffer(id); showToast('Đã xóa'); router.refresh() })
+    startTransition(async () => {
+      const result = await deleteOffer(id)
+      showToast(result.ok ? 'Đã xóa' : `Lỗi khi xóa: ${result.error}`)
+      if (result.ok) router.refresh()
+    })
   }
 
   const handleBulkDelete = () => {
     if (selected.size === 0) return
     if (!confirm(`Xóa ${selected.size} offer?`)) return
     startTransition(async () => {
-      await bulkDelete([...selected])
+      const result = await bulkDelete([...selected])
       setSelected(new Set())
-      showToast(`Đã xóa ${selected.size} offer`)
+      showToast(result.ok ? `Đã xóa ${selected.size} offer` : `Xóa thất bại ${result.failed.length}/${selected.size} offer (có thể đã có click)`)
       router.refresh()
     })
   }
@@ -337,7 +341,7 @@ function EditModal({ offer, stores, onClose, onSaved, onDeleted }: {
             </label>
           </div>
           <div className="oa-modal-footer">
-            <button type="button" className="oa-btn oa-btn-red" onClick={() => { if (!confirm('Xóa offer này?')) return; startTransition(async () => { await deleteOffer(offer._id); onDeleted() }) }} disabled={isPending}>🗑 Xóa</button>
+            <button type="button" className="oa-btn oa-btn-red" onClick={() => { if (!confirm('Xóa offer này?')) return; startTransition(async () => { const result = await deleteOffer(offer._id); if (result.ok) onDeleted(); else alert(`Không thể xóa: ${result.error}`) }) }} disabled={isPending}>🗑 Xóa</button>
             <div style={{ flex: 1 }} />
             <button type="button" className="oa-btn" onClick={onClose}>Hủy</button>
             <button type="submit" className="oa-btn oa-btn-green" disabled={isPending}>{isPending ? 'Đang lưu...' : '💾 Lưu thay đổi'}</button>

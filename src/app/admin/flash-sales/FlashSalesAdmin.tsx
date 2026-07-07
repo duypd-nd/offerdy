@@ -69,9 +69,9 @@ export default function FlashSalesAdmin({ initialOffers, stores }: { initialOffe
   const handleDelete = (id: string) => {
     if (!confirm('Xóa flash sale này?')) return
     startTransition(async () => {
-      await deleteOffer(id)
-      setOffers(prev => prev.filter(o => o._id !== id))
-      showToast('Đã xóa')
+      const result = await deleteOffer(id)
+      if (result.ok) setOffers(prev => prev.filter(o => o._id !== id))
+      showToast(result.ok ? 'Đã xóa' : `Lỗi khi xóa: ${result.error}`)
     })
   }
 
@@ -277,7 +277,7 @@ function FlashSaleModal({ mode, initial, stores, onClose, onSaved, onDeleted }: 
           <div className="oa-modal-footer">
             {mode === 'edit' && onDeleted && initial && (
               <button type="button" className="oa-btn oa-btn-red"
-                onClick={() => { if (!confirm('Xóa flash sale này?')) return; startTransition(async () => { await deleteOffer(initial._id); onDeleted(initial._id) }) }}
+                onClick={() => { if (!confirm('Xóa flash sale này?')) return; startTransition(async () => { const result = await deleteOffer(initial._id); if (result.ok) onDeleted(initial._id); else alert(`Không thể xóa: ${result.error}`) }) }}
                 disabled={isPending}>🗑 Xóa</button>
             )}
             <div style={{ flex: 1 }} />

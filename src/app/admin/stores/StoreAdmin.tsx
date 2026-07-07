@@ -87,11 +87,13 @@ export default function StoreAdmin({ stores: initialStores, categories: propCate
   }
 
   const handleDelete = (id: string) => {
-    if (!confirm('Xóa store này? Tất cả offer liên quan có thể bị lỗi.')) return
+    if (!confirm('Xóa store này? Tất cả offer liên quan sẽ bị xóa theo.')) return
     startTransition(async () => {
-      await deleteStore(id)
-      showToast('Đã xóa store')
-      router.refresh()
+      const result = await deleteStore(id)
+      showToast(result.ok
+        ? `Đã xóa store${result.deletedOfferCount ? ` và ${result.deletedOfferCount} offer liên quan` : ''}`
+        : `Lỗi khi xóa: ${result.error}`)
+      if (result.ok) router.refresh()
     })
   }
 
@@ -155,11 +157,15 @@ export default function StoreAdmin({ stores: initialStores, categories: propCate
           </button>
           <button className="oa-btn oa-btn-red" onClick={() => {
             if (selected.size === 0) return
-            if (!confirm(`Xóa ${selected.size} store?`)) return
+            if (!confirm(`Xóa ${selected.size} store? Tất cả offer liên quan sẽ bị xóa theo.`)) return
             startTransition(async () => {
-              for (const id of selected) await deleteStore(id)
+              const results = await Promise.all([...selected].map(id => deleteStore(id)))
+              const failedCount = results.filter(r => !r.ok).length
+              const totalOffersDeleted = results.reduce((sum, r) => sum + (r.deletedOfferCount ?? 0), 0)
               setSelected(new Set())
-              showToast(`Đã xóa ${selected.size} store`)
+              showToast(failedCount === 0
+                ? `Đã xóa ${selected.size} store${totalOffersDeleted ? ` và ${totalOffersDeleted} offer liên quan` : ''}`
+                : `Xóa thất bại ${failedCount}/${selected.size} store`)
               router.refresh()
             })
           }} disabled={selected.size === 0 || isPending}>
@@ -339,8 +345,12 @@ function EditStoreModal({ store, categories, onClose, onSaved, onDeleted }: {
   }
 
   const handleDelete = () => {
-    if (!confirm('Xóa store này? Tất cả offer liên quan có thể bị lỗi.')) return
-    startTransition(async () => { await deleteStore(store._id); onDeleted() })
+    if (!confirm('Xóa store này? Tất cả offer liên quan sẽ bị xóa theo.')) return
+    startTransition(async () => {
+      const result = await deleteStore(store._id)
+      if (result.ok) onDeleted()
+      else alert(`Không thể xóa: ${result.error}`)
+    })
   }
 
   return (

@@ -11,11 +11,27 @@ export async function updateStore(id: string, patch: Record<string, unknown>) {
   revalidatePath('/', 'page')
 }
 
-export async function deleteStore(id: string) {
-  await writeClient.delete(id)
-  revalidatePath('/admin/stores')
-  revalidatePath('/stores')
-  revalidatePath('/', 'page')
+export async function deleteStore(id: string): Promise<{ ok: boolean; error?: string; deletedOfferCount?: number }> {
+  try {
+    // Offer -> Store la strong reference nen Sanity chan xoa store con offer gan vao.
+    // Xoa ca offer lien quan trong cung 1 transaction, tranh de lai offer "mo coi"
+    // hien thi sai tren web cong khai (dung y canh bao da co san o UI xac nhan).
+    const offerIds: string[] = await writeClient.fetch(`*[_type == "offer" && references($id)]._id`, { id })
+    const tx = writeClient.transaction()
+    for (const offerId of offerIds) tx.delete(offerId)
+    tx.delete(id)
+    await tx.commit()
+
+    revalidatePath('/admin/stores')
+    revalidatePath('/stores')
+    revalidatePath('/', 'page')
+    revalidatePath('/admin/offers')
+    revalidatePath('/admin/coupon-codes')
+    revalidatePath('/coupon-codes')
+    return { ok: true, deletedOfferCount: offerIds.length }
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
 }
 
 export async function createStore(data: {
