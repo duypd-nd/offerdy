@@ -68,7 +68,7 @@ export default function DealsPageContent({ deals, page, totalPages, totalCount }
 
         {totalCount === 0 && (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted)' }}>
-            Chưa có deal nào.
+            No deals yet.
           </div>
         )}
 

@@ -70,7 +70,7 @@ export default async function StaticPage({ params }: { params: Promise<{ slug: s
             <div className="article-body" dangerouslySetInnerHTML={{ __html: page.content }} />
           ) : (
             <div style={{ padding: '48px 0', textAlign: 'center', color: '#9ca3af' }}>
-              <p style={{ fontSize: 16 }}>Nội dung đang được cập nhật.</p>
+              <p style={{ fontSize: 16 }}>Content coming soon.</p>
             </div>
           )}
 
@@ -81,7 +81,7 @@ export default async function StaticPage({ params }: { params: Promise<{ slug: s
             fontSize: 12,
             color: '#9ca3af',
           }}>
-            Cập nhật: {new Date(page._updatedAt).toLocaleDateString('vi-VN', {
+            Updated: {new Date(page._updatedAt).toLocaleDateString('en-US', {
               year: 'numeric', month: 'long', day: 'numeric',
             })}
           </div>

@@ -24,12 +24,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   travel: '✈️ Travel', books: '📚 Books', gaming: '🎮 Gaming', general: '🛒 General',
 }
 const FALLBACK_ABOUT: Record<string, string> = {
-  amazon: 'Amazon là một trong những nền tảng mua sắm trực tuyến lớn nhất thế giới với hàng triệu sản phẩm từ điện tử, thời trang, gia dụng đến làm đẹp. Giao hàng nhanh, đổi trả linh hoạt.',
-  apple: 'Apple thiết kế và phân phối điện thoại, máy tính, tablet và phụ kiện cao cấp. Nổi tiếng với thiết kế tinh tế và hệ sinh thái liền mạch.',
-  nike: 'Nike là thương hiệu thể thao hàng đầu thế giới, chuyên giày dép, quần áo và phụ kiện thể thao. Just Do It.',
-  samsung: 'Samsung cung cấp điện thoại thông minh, TV, tủ lạnh và thiết bị gia dụng cao cấp với công nghệ tiên tiến.',
-  adidas: 'Adidas — thương hiệu thể thao quốc tế với giày dép, quần áo cho cả vận động viên chuyên nghiệp lẫn người dùng thường ngày.',
-  'best-buy': 'Best Buy là nhà bán lẻ điện tử hàng đầu Bắc Mỹ, chuyên điện tử, công nghệ và thiết bị gia dụng.',
+  amazon: 'Amazon is one of the largest online shopping platforms in the world, offering millions of products across electronics, fashion, home goods, and beauty. Fast shipping and flexible returns.',
+  apple: 'Apple designs and sells premium phones, computers, tablets, and accessories. Known for refined design and a seamless ecosystem.',
+  nike: 'Nike is a leading global sportswear brand, specializing in footwear, apparel, and sports accessories. Just Do It.',
+  samsung: 'Samsung offers smartphones, TVs, refrigerators, and premium home appliances with advanced technology.',
+  adidas: 'Adidas — an international sportswear brand offering footwear and apparel for both professional athletes and everyday wear.',
+  'best-buy': 'Best Buy is a leading North American electronics retailer, specializing in electronics, technology, and home appliances.',
 }
 
 const BASE = 'https://www.offerdy.com'
@@ -238,7 +238,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
             ) : (
               <div className="store-empty">
                 <div className="store-empty-icon">🏷️</div>
-                <div className="store-empty-title">Chưa có offer nào cho {store.name}</div>
+                <div className="store-empty-title">No offers yet for {store.name}</div>
                 <div className="store-empty-sub">Check back soon — we add new offers daily.</div>
               </div>
             )}

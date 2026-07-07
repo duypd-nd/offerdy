@@ -84,7 +84,7 @@ function Dropdown({ query, onClose, live, loading }: {
   const nothing = !ms.length && !mc.length && !md.length && !mr.length && !mp.length
 
   if (loading && nothing) {
-    return <div className="sd-empty">Đang tìm…</div>
+    return <div className="sd-empty">Searching…</div>
   }
   if (nothing) {
     return <div className="sd-empty">No results for &ldquo;<strong>{q}</strong>&rdquo; — try a brand or product name.</div>

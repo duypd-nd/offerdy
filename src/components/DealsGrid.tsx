@@ -58,7 +58,7 @@ export default function DealsGrid({ deals, columns, showVerified = true }: { dea
               </div>
               {deal.dealUrl
                 ? <AffiliateLink href={deal.dealUrl} storeName={deal.store} className="deal-cta">Get Deal →</AffiliateLink>
-                : <span className="deal-cta deal-cta-disabled">Chưa có link</span>
+                : <span className="deal-cta deal-cta-disabled">No link yet</span>
               }
             </div>
           </div>

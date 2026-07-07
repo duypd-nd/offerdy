@@ -111,7 +111,7 @@ export default function ReviewsPageContent({ reviews }: { reviews: Review[] }) {
 
           {filtered.length === 0 && (
             <p style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted)' }}>
-              Chưa có bài viết nào trong mục này.
+              No posts in this category yet.
             </p>
           )}
 
