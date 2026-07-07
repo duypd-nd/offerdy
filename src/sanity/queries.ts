@@ -579,7 +579,7 @@ const MERCHANT_HEALTH_QUERY = `*[_type == "store"] {
     "total": count(*[_type == "offer" && references(^._id) && active == true]),
     "verified": count(*[_type == "offer" && references(^._id) && active == true && verified == true]),
     "linkOk": count(*[_type == "offer" && references(^._id) && active == true && linkStatus == "ok"]),
-    "linkChecked": count(*[_type == "offer" && references(^._id) && active == true && linkStatus != "unchecked"])
+    "linkChecked": count(*[_type == "offer" && references(^._id) && active == true && defined(linkStatus) && linkStatus != "unchecked"])
   }
 }`
 
@@ -598,4 +598,29 @@ export async function getMerchantHealthData(): Promise<StoreHealthInput[]> {
     const data = await getCachedMerchantHealthData()
     return data ?? []
   } catch { return [] }
+}
+
+// ── Daily Report (AI) ────────────────────────────────────────────
+export type DailyReport = {
+  generatedAt?: string
+  summary?: string
+  recommendations?: string[]
+  avgHealthScore?: number
+  criticalStoreCount?: number
+  brokenLinkCount?: number
+  missingContentCount?: number
+  openErrorCount?: number
+  model?: string
+}
+
+const DAILY_REPORT_QUERY = `*[_type == "dailyReport"][0] {
+  generatedAt, summary, recommendations, avgHealthScore,
+  criticalStoreCount, brokenLinkCount, missingContentCount, openErrorCount, model
+}`
+
+export async function getLatestDailyReport(): Promise<DailyReport | null> {
+  if (!isConfigured()) return null
+  try {
+    return await writeClient.fetch(DAILY_REPORT_QUERY)
+  } catch { return null }
 }

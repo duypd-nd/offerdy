@@ -1,7 +1,7 @@
 import { writeClient } from '@/sanity/writeClient'
 import Link from 'next/link'
 import { getRecentSentryIssues } from '@/lib/sentryApi'
-import { getMerchantHealthData } from '@/sanity/queries'
+import { getMerchantHealthData, getLatestDailyReport } from '@/sanity/queries'
 import { computeStoreHealth, HEALTH_LEVEL_COLOR, HEALTH_LEVEL_LABEL as LEVEL_LABEL } from '@/lib/merchantHealth'
 
 export const dynamic = 'force-dynamic'
@@ -41,7 +41,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, sentryIssues, healthData] = await Promise.all([
+  const [offers, stores, recentClicks, sentryIssues, healthData, dailyReport] = await Promise.all([
     writeClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -59,6 +59,7 @@ export default async function ReportsPage() {
     ),
     getRecentSentryIssues(10),
     getMerchantHealthData(),
+    getLatestDailyReport(),
   ])
 
   const healthScores = healthData.map(computeStoreHealth)
@@ -135,6 +136,32 @@ export default async function ReportsPage() {
           Lượt click vào link affiliate (Get Code / Get Deal / Visit Website)
         </p>
       </div>
+
+      {/* ── AI Daily Report — tom tat + de xuat hanh dong, sinh tu dong moi ngay ── */}
+      {dailyReport?.summary && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #bbf7d0', fontSize: 13, fontWeight: 700, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>🤖 AI Daily Report</span>
+              {dailyReport.generatedAt && (
+                <span style={{ fontSize: 11, fontWeight: 500, color: '#4d7c5f' }}>
+                  Cập nhật {new Date(dailyReport.generatedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </div>
+            <div style={{ padding: 16 }}>
+              <p style={{ fontSize: 14, color: '#14532d', lineHeight: 1.6, margin: '0 0 12px' }}>{dailyReport.summary}</p>
+              {dailyReport.recommendations && dailyReport.recommendations.length > 0 && (
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  {dailyReport.recommendations.map((r, i) => (
+                    <li key={i} style={{ fontSize: 13, color: '#166534', lineHeight: 1.7 }}>{r}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Thống kê theo thời gian (số liệu chính của báo cáo) ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>

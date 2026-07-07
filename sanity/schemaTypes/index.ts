@@ -15,10 +15,15 @@ import { configSEOType } from './configSEO'
 import { configContentType } from './configContent'
 import { configAdsType } from './configAds'
 
+// AI-generated singletons
+import { dailyReportType } from './dailyReport'
+
 export const schemaTypes = [
   // Content
   dealType, storeType, categoryType, reviewType, postType, offerType, pageType,
   // Config
   configGeneralType, configAuthorType, configSocialType,
   configSEOType, configContentType, configAdsType,
+  // AI-generated
+  dailyReportType,
 ]
