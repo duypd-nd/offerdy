@@ -610,12 +610,18 @@ export type DailyReport = {
   brokenLinkCount?: number
   missingContentCount?: number
   openErrorCount?: number
+  seoIssueCount?: number
+  todayClicks?: number
+  sevenDayClicks?: number
+  needsAttentionCount?: number
+  zeroClickStoreCount?: number
   model?: string
 }
 
 const DAILY_REPORT_QUERY = `*[_type == "dailyReport"][0] {
   generatedAt, summary, recommendations, avgHealthScore,
-  criticalStoreCount, brokenLinkCount, missingContentCount, openErrorCount, model
+  criticalStoreCount, brokenLinkCount, missingContentCount, openErrorCount, seoIssueCount,
+  todayClicks, sevenDayClicks, needsAttentionCount, zeroClickStoreCount, model
 }`
 
 export async function getLatestDailyReport(): Promise<DailyReport | null> {
@@ -623,4 +629,111 @@ export async function getLatestDailyReport(): Promise<DailyReport | null> {
   try {
     return await writeClient.fetch(DAILY_REPORT_QUERY)
   } catch { return null }
+}
+
+// ── Click Analytics (AI Analytics Engine) ───────────────────────
+export type ClickAnalyticsSummary = {
+  todayCount: number
+  sevenDayCount: number
+  thirtyDayCount: number
+  allTimeCount: number
+  topOffers: { title: string; storeName?: string; clicks: number }[]
+  needsAttentionCount: number
+  zeroClickStoreCount: number
+}
+
+const CLICK_ANALYTICS_QUERY = `{
+  "offers": *[_type == "offer" && active == true] {
+    title, "clicks": coalesce(clicks, 0), verified, expiresAt,
+    "storeId": store._ref, "storeName": store->name
+  },
+  "stores": *[_type == "store" && published != false] {
+    "id": _id, "directClicks": coalesce(clicks, 0)
+  },
+  "recentClicks": *[_type == "click" && _createdAt >= $thirtyDaysAgo]._createdAt
+}`
+
+export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary> {
+  const empty: ClickAnalyticsSummary = {
+    todayCount: 0, sevenDayCount: 0, thirtyDayCount: 0, allTimeCount: 0,
+    topOffers: [], needsAttentionCount: 0, zeroClickStoreCount: 0,
+  }
+  if (!isConfigured()) return empty
+  try {
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
+
+    const data = await writeClient.fetch<{
+      offers: { title: string; clicks: number; verified?: boolean; expiresAt?: string; storeId?: string; storeName?: string }[]
+      stores: { id: string; directClicks: number }[]
+      recentClicks: string[]
+    }>(CLICK_ANALYTICS_QUERY, { thirtyDaysAgo })
+
+    const todayCount = data.recentClicks.filter(c => c >= startOfToday).length
+    const sevenDayCount = data.recentClicks.filter(c => c >= sevenDaysAgo).length
+    const thirtyDayCount = data.recentClicks.length
+    const allTimeCount = data.offers.reduce((sum, o) => sum + o.clicks, 0) + data.stores.reduce((sum, s) => sum + s.directClicks, 0)
+
+    const topOffers = [...data.offers]
+      .filter(o => o.clicks > 0)
+      .sort((a, b) => b.clicks - a.clicks)
+      .slice(0, 3)
+      .map(o => ({ title: o.title, storeName: o.storeName, clicks: o.clicks }))
+
+    const daysUntil = (iso: string) => Math.ceil((new Date(iso).getTime() - now.getTime()) / 86400000)
+    const needsAttentionCount = data.offers.filter(o =>
+      o.clicks > 0 && (o.verified === false || (o.expiresAt && daysUntil(o.expiresAt) <= 7))
+    ).length
+
+    const storeClickTotals = new Map<string, number>()
+    for (const s of data.stores) storeClickTotals.set(s.id, s.directClicks)
+    for (const o of data.offers) {
+      if (!o.storeId) continue
+      storeClickTotals.set(o.storeId, (storeClickTotals.get(o.storeId) ?? 0) + o.clicks)
+    }
+    const zeroClickStoreCount = [...storeClickTotals.values()].filter(c => c === 0).length
+
+    return { todayCount, sevenDayCount, thirtyDayCount, allTimeCount, topOffers, needsAttentionCount, zeroClickStoreCount }
+  } catch { return empty }
+}
+
+// ── SEO Audit ──────────────────────────────────────────────────
+const SEO_AUDIT_QUERY = `{
+  "stores": *[_type == "store" && published != false] {
+    "id": _id, name, "slug": slug.current, metaTitle, metaDescription,
+    "faqCount": count(faq), "hasImage": defined(image)
+  },
+  "deals": *[_type == "deal"] {
+    "id": _id, title, "slug": slug.current, metaTitle, metaDescription,
+    "faqCount": count(faq), "hasImage": defined(image)
+  },
+  "posts": *[_type == "post" && defined(publishedAt) && publishedAt <= now()] {
+    "id": _id, title, "slug": slug.current, excerpt, "hasImage": defined(image)
+  },
+  "reviews": *[_type == "review" && (!defined(publishedAt) || publishedAt <= now())] {
+    "id": _id, title, "slug": slug.current, excerpt, "hasImage": defined(image)
+  }
+}`
+
+export type SeoAuditData = {
+  stores: import('@/lib/seoAudit').StoreSeoInput[]
+  deals: import('@/lib/seoAudit').DealSeoInput[]
+  posts: import('@/lib/seoAudit').PostSeoInput[]
+  reviews: import('@/lib/seoAudit').ReviewSeoInput[]
+}
+
+const getCachedSeoAuditData = unstable_cache(
+  async () => writeClient.fetch<SeoAuditData>(SEO_AUDIT_QUERY),
+  ['seo-audit'],
+  { revalidate: 60 }
+)
+
+export async function getSeoAuditData(): Promise<SeoAuditData> {
+  const empty = { stores: [], deals: [], posts: [], reviews: [] }
+  if (!isConfigured()) return empty
+  try {
+    return (await getCachedSeoAuditData()) ?? empty
+  } catch { return empty }
 }

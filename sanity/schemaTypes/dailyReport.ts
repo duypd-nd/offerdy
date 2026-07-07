@@ -15,6 +15,11 @@ export const dailyReportType = defineType({
     defineField({ name: 'brokenLinkCount', title: 'Số offer link hỏng', type: 'number' }),
     defineField({ name: 'missingContentCount', title: 'Số store thiếu nội dung', type: 'number' }),
     defineField({ name: 'openErrorCount', title: 'Số lỗi production chưa xử lý', type: 'number' }),
+    defineField({ name: 'seoIssueCount', title: 'Số vấn đề SEO Audit', type: 'number' }),
+    defineField({ name: 'todayClicks', title: 'Click hôm nay', type: 'number' }),
+    defineField({ name: 'sevenDayClicks', title: 'Click 7 ngày qua', type: 'number' }),
+    defineField({ name: 'needsAttentionCount', title: 'Offer có click cần chú ý', type: 'number' }),
+    defineField({ name: 'zeroClickStoreCount', title: 'Số store chưa từng có click', type: 'number' }),
     defineField({ name: 'model', title: 'Model', type: 'string' }),
   ],
   preview: {

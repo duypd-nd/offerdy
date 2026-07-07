@@ -158,6 +158,13 @@ export default async function ReportsPage() {
                   ))}
                 </ul>
               )}
+              {typeof dailyReport.seoIssueCount === 'number' && (
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #bbf7d0', fontSize: 12 }}>
+                  <Link href="/admin/seo-audit" style={{ color: '#166534', fontWeight: 600 }}>
+                    🔎 {dailyReport.seoIssueCount} vấn đề SEO Audit — Xem chi tiết →
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>
