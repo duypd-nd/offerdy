@@ -9,6 +9,7 @@ type ImportResult = {
   imported: number
   errors: { row: number; message: string }[]
   warnings?: { row: number; message: string }[]
+  aiDrafts?: { storeId: string; storeName: string; ok: boolean }[]
 }
 
 const STORES_COLS = [
@@ -192,7 +193,7 @@ export default function ImportClient() {
     if (!rows || rows.length === 0) return
     setLoading(true)
     const totalBatches = Math.ceil(rows.length / BATCH_SIZE)
-    const combined: ImportResult = { imported: 0, errors: [], warnings: [] }
+    const combined: ImportResult = { imported: 0, errors: [], warnings: [], aiDrafts: [] }
     setProgress({ done: 0, total: totalBatches })
 
     try {
@@ -225,13 +226,14 @@ export default function ImportClient() {
           combined.warnings!.push(
             ...(batchResult.warnings ?? []).map((w) => ({ ...w, row: offset + w.row }))
           )
+          combined.aiDrafts!.push(...(batchResult.aiDrafts ?? []))
         } catch (err) {
           combined.errors.push({ row: offset + 2, message: String(err) })
         }
         setProgress({ done: b + 1, total: totalBatches })
         setResults((prev) => ({
           ...prev,
-          [type]: { ...combined, errors: [...combined.errors], warnings: [...combined.warnings!] },
+          [type]: { ...combined, errors: [...combined.errors], warnings: [...combined.warnings!], aiDrafts: [...combined.aiDrafts!] },
         }))
       }
       setImportedTabs((prev) => new Set([...prev, type]))
@@ -431,6 +433,12 @@ export default function ImportClient() {
                           Dòng {w.row}: {w.message}
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {(currentResult.aiDrafts?.length ?? 0) > 0 && (
+                    <div style={{ marginTop: 8, color: '#16a34a', fontSize: 12 }}>
+                      🤖 {currentResult.aiDrafts!.filter((d) => d.ok).length} draft nội dung AI đã sẵn sàng —{' '}
+                      <a href="/admin/ai-review" style={{ color: '#16a34a', textDecoration: 'underline' }}>xem tại AI Review Queue</a>
                     </div>
                   )}
                 </div>

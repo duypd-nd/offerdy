@@ -2,6 +2,9 @@ import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
 import dns from 'dns/promises'
 import { isIP } from 'net'
+import { generateStoreContent } from '@/lib/ai/generateStoreContent'
+
+const IMPORT_AI_STORE_CAP = Number(process.env.IMPORT_AI_STORE_CAP) || 8
 
 function isPrivateOrReservedIp(ip: string): boolean {
   const version = isIP(ip)
@@ -115,23 +118,51 @@ async function uploadImageFromUrl(url: string): Promise<UploadImageResult> {
   }
 }
 
+function offerCodeKey(storeId: string, couponCode: string) {
+  return `${storeId}::code::${couponCode.trim().toLowerCase()}`
+}
+function offerTitleKey(storeId: string, title: string) {
+  return `${storeId}::title::${title.trim().toLowerCase()}`
+}
+
 // Combined: each row = 1 offer; rows with same store_name share the same store
 async function importStoresAndOffers(rows: ImportRow[]) {
   const results: {
     imported: number
     errors: { row: number; message: string }[]
     warnings: { row: number; message: string }[]
+    aiDrafts: { storeId: string; storeName: string; ok: boolean }[]
   } = {
     imported: 0,
     errors: [],
     warnings: [],
+    aiDrafts: [],
   }
 
-  // Pre-load existing stores into cache
-  const existingStores = await writeClient.fetch<{ _id: string; name: string }[]>(
-    `*[_type == "store"]{_id, name}`
-  )
+  // Pre-load existing stores into cache (description/category/website/maxOffer needed
+  // later to decide + populate AI draft generation for matched-existing stores)
+  const existingStores = await writeClient.fetch<{
+    _id: string; name: string; description?: string; category?: string; website?: string; maxOffer?: number
+  }[]>(`*[_type == "store"]{_id, name, description, category, website, maxOffer}`)
   const storeCache = new Map(existingStores.map((s) => [s.name.toLowerCase(), s._id]))
+  const storeInfo = new Map(existingStores.map((s) => [s._id, s]))
+
+  // Pre-load existing offers for duplicate detection (store+couponCode, or store+title
+  // when no code) — extended within the loop so duplicates inside the same file are
+  // also caught, not just against data already in Sanity.
+  const existingOffers = await writeClient.fetch<{ storeId: string; title: string; couponCode?: string }[]>(
+    `*[_type == "offer"]{ "storeId": store._ref, title, couponCode }`
+  )
+  const offerKeys = new Set<string>()
+  for (const o of existingOffers) {
+    if (o.couponCode) offerKeys.add(offerCodeKey(o.storeId, o.couponCode))
+    else offerKeys.add(offerTitleKey(o.storeId, o.title))
+  }
+
+  // Stores touched this batch that end up with no description — candidates for a
+  // bounded, inline AI draft generation pass after the main loop (see guardrail note
+  // in the plan: capped so we never risk a serverless timeout on a 50-row batch).
+  const aiCandidates = new Map<string, { id: string; name: string; category?: string; website?: string; maxOffer?: number }>()
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
@@ -185,37 +216,79 @@ async function importStoresAndOffers(rows: ImportRow[]) {
         const created = await writeClient.create(storeDoc)
         storeId = created._id
         storeCache.set(storeName.toLowerCase(), storeId)
+
+        if (!storeDoc.description) {
+          aiCandidates.set(storeId, {
+            id: storeId, name: storeName,
+            category: storeDoc.category as string | undefined,
+            website: storeDoc.website as string | undefined,
+            maxOffer: storeDoc.maxOffer as number | undefined,
+          })
+        }
+      } else if (!aiCandidates.has(storeId)) {
+        const info = storeInfo.get(storeId)
+        if (info && !info.description) {
+          aiCandidates.set(storeId, {
+            id: storeId, name: info.name, category: info.category, website: info.website, maxOffer: info.maxOffer,
+          })
+        }
       }
 
-      // Create offer (skip if no offerText)
+      // Create offer (skip if no offerText, or if it's a duplicate of one already on this store)
       if (offerText) {
-        const offerDoc: SanityDoc = {
-          _type: 'offer',
-          title: offerTitle || `Uu dai tai ${storeName}`,
-          offerText,
-          link,
-          store: { _type: 'reference', _ref: storeId },
-          active: String(row.active).toLowerCase() !== 'false' && row.active !== 0,
-          verified: String(row.verified).toLowerCase() !== 'false' && row.verified !== 0,
-          order: row.order ? Number(row.order) : 0,
-          votesActive: 0,
-          votesExpired: 0,
-        }
-        if (row.couponCode) offerDoc.couponCode = String(row.couponCode)
-        if (row.expiresAt) {
-          try {
-            offerDoc.expiresAt = new Date(String(row.expiresAt)).toISOString()
-          } catch {
-            // skip invalid date
-          }
-        }
+        const title = offerTitle || `Uu dai tai ${storeName}`
+        const couponCode = row.couponCode ? String(row.couponCode).trim() : ''
+        const dupKey = couponCode ? offerCodeKey(storeId, couponCode) : offerTitleKey(storeId, title)
 
-        await writeClient.create(offerDoc)
+        if (offerKeys.has(dupKey)) {
+          results.warnings.push({
+            row: i + 2,
+            message: `"${storeName}": offer "${title}" da ton tai, bo qua`,
+          })
+        } else {
+          const offerDoc: SanityDoc = {
+            _type: 'offer',
+            title,
+            offerText,
+            link,
+            store: { _type: 'reference', _ref: storeId },
+            active: String(row.active).toLowerCase() !== 'false' && row.active !== 0,
+            verified: String(row.verified).toLowerCase() !== 'false' && row.verified !== 0,
+            order: row.order ? Number(row.order) : 0,
+            votesActive: 0,
+            votesExpired: 0,
+          }
+          if (couponCode) offerDoc.couponCode = couponCode
+          if (row.expiresAt) {
+            try {
+              offerDoc.expiresAt = new Date(String(row.expiresAt)).toISOString()
+            } catch {
+              // skip invalid date
+            }
+          }
+
+          await writeClient.create(offerDoc)
+          offerKeys.add(dupKey)
+        }
       }
 
       results.imported++
     } catch (err) {
       results.errors.push({ row: i + 2, message: String(err) })
+    }
+  }
+
+  // Bounded inline AI draft generation — see guardrail note in the plan for why this
+  // is capped instead of covering every candidate (Anthropic call latency vs. Vercel
+  // function timeout on a 50-row batch). Any candidate beyond the cap is still picked
+  // up automatically by the nightly cron (aiReviewStatus defaults to 'none').
+  const capped = [...aiCandidates.values()].slice(0, IMPORT_AI_STORE_CAP)
+  for (const candidate of capped) {
+    try {
+      await generateStoreContent(candidate)
+      results.aiDrafts.push({ storeId: candidate.id, storeName: candidate.name, ok: true })
+    } catch {
+      results.aiDrafts.push({ storeId: candidate.id, storeName: candidate.name, ok: false })
     }
   }
 
