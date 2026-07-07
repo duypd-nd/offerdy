@@ -98,6 +98,29 @@ export const offerType = defineType({
       readOnly: true,
     }),
 
+    // ── Link Health ─────────────────────────────────────────────
+    defineField({
+      name: 'linkStatus',
+      title: 'Trạng thái link',
+      type: 'string',
+      initialValue: 'unchecked',
+      options: {
+        list: [
+          { title: 'Chưa kiểm tra', value: 'unchecked' },
+          { title: 'Còn hoạt động', value: 'ok' },
+          { title: 'Hỏng', value: 'broken' },
+        ],
+      },
+      readOnly: true,
+      description: 'Tự động cập nhật từ /admin/link-checker hoặc cron kiểm tra link — không chỉnh tay',
+    }),
+    defineField({
+      name: 'linkCheckedAt',
+      title: 'Lần kiểm tra link gần nhất',
+      type: 'datetime',
+      readOnly: true,
+    }),
+
     // ── AI Content Engine ──────────────────────────────────────
     defineField({
       name: 'aiReviewStatus',

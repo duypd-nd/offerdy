@@ -28,6 +28,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/deals',        label: 'Deals',         icon: '💰' },
       { href: '/admin/categories',   label: 'Categories',    icon: '🗂️' },
       { href: '/admin/reports',      label: 'Báo cáo Click',  icon: '📊' },
+      { href: '/admin/merchant-health', label: 'Merchant Health', icon: '❤️' },
       { href: '/admin/link-checker', label: 'Kiểm tra Link',  icon: '🔍' },
     ],
   },

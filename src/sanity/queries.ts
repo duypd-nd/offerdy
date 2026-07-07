@@ -7,6 +7,7 @@ import { categories as staticCategories } from '@/data/categories'
 import { reviews as staticReviews } from '@/data/reviews'
 import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
+import type { StoreHealthInput } from '@/lib/merchantHealth'
 
 // ── Site Settings (from configGeneral + configSocial) ──────────
 const CONFIG_QUERY = `{
@@ -540,4 +541,33 @@ export async function getPageBySlug(slug: string) {
       { slug }
     )
   } catch { return null }
+}
+
+// ── Merchant Health (admin-only) ────────────────────────────────
+const MERCHANT_HEALTH_QUERY = `*[_type == "store"] {
+  "id": _id,
+  name,
+  "slug": slug.current,
+  "hasImage": defined(image),
+  "hasDescription": defined(description) && description != "",
+  "faqCount": count(faq),
+  "hasProsAndCons": count(prosAndCons.pros) > 0 && count(prosAndCons.cons) > 0,
+  metaTitle,
+  metaKeywords,
+  metaDescription,
+  "updatedAt": _updatedAt,
+  "offerStats": {
+    "total": count(*[_type == "offer" && references(^._id) && active == true]),
+    "verified": count(*[_type == "offer" && references(^._id) && active == true && verified == true]),
+    "linkOk": count(*[_type == "offer" && references(^._id) && active == true && linkStatus == "ok"]),
+    "linkChecked": count(*[_type == "offer" && references(^._id) && active == true && linkStatus != "unchecked"])
+  }
+}`
+
+export async function getMerchantHealthData(): Promise<StoreHealthInput[]> {
+  if (!isConfigured()) return []
+  try {
+    const data = await writeClient.fetch<StoreHealthInput[]>(MERCHANT_HEALTH_QUERY)
+    return data ?? []
+  } catch { return [] }
 }

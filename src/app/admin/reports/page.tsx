@@ -1,6 +1,13 @@
 import { writeClient } from '@/sanity/writeClient'
 import Link from 'next/link'
 import { getRecentSentryIssues } from '@/lib/sentryApi'
+import { getMerchantHealthData } from '@/sanity/queries'
+import { computeStoreHealth, HEALTH_LEVEL_COLOR, type HealthLevel } from '@/lib/merchantHealth'
+
+const LEVEL_LABEL: Record<HealthLevel, string> = {
+  'Excellent': 'Xuất sắc', 'Very Good': 'Rất tốt', 'Healthy': 'Tốt',
+  'Needs Improvement': 'Cần cải thiện', 'Poor': 'Kém', 'Critical': 'Nguy cấp',
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +46,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, sentryIssues] = await Promise.all([
+  const [offers, stores, recentClicks, sentryIssues, healthData] = await Promise.all([
     writeClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -56,7 +63,22 @@ export default async function ReportsPage() {
       { thirtyDaysAgo }
     ),
     getRecentSentryIssues(10),
+    getMerchantHealthData(),
   ])
+
+  const healthScores = healthData.map(computeStoreHealth)
+  const avgHealth = healthScores.length ? Math.round(healthScores.reduce((sum, h) => sum + h.overall, 0) / healthScores.length) : 0
+  const criticalStores = healthData
+    .map((s, i) => ({ store: s, health: healthScores[i] }))
+    .filter(({ health }) => health.level === 'Critical' || health.level === 'Poor')
+    .sort((a, b) => a.health.overall - b.health.overall)
+    .slice(0, 5)
+  const bestStores = healthData
+    .map((s, i) => ({ store: s, health: healthScores[i] }))
+    .sort((a, b) => b.health.overall - a.health.overall)
+    .slice(0, 5)
+  const brokenLinkOffers = healthData.reduce((sum, s) => sum + (s.offerStats.linkChecked - s.offerStats.linkOk), 0)
+  const missingContentStores = healthData.filter(s => !s.hasDescription || s.faqCount < 3).length
 
   const todayCount = recentClicks.filter(c => c._createdAt >= startOfToday).length
   const sevenDayCount = recentClicks.filter(c => c._createdAt >= sevenDaysAgo).length
@@ -118,6 +140,45 @@ export default async function ReportsPage() {
           Lượt click vào link affiliate (Get Code / Get Deal / Visit Website)
         </p>
       </div>
+
+      {/* ── Platform Health (Daily Report) ── */}
+      {healthData.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: 13, fontWeight: 700, color: '#374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📈 Platform Health — {healthData.length} store</span>
+              <Link href="/admin/merchant-health" style={{ fontSize: 12, color: '#16a34a', textDecoration: 'underline' }}>Xem chi tiết →</Link>
+            </div>
+            <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: 20 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 32, fontWeight: 800, color: HEALTH_LEVEL_COLOR[avgHealth >= 80 ? 'Healthy' : avgHealth >= 60 ? 'Poor' : 'Critical'] }}>{avgHealth}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>Điểm TB</div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8 }}>{brokenLinkOffers} offer link hỏng</div>
+                <div style={{ fontSize: 11, color: '#94a3b8' }}>{missingContentStores} store thiếu nội dung</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}>⚠️ Cần chú ý nhất</div>
+                {criticalStores.length === 0 ? (
+                  <div style={{ fontSize: 12, color: '#16a34a' }}>Không có store nào ở mức Poor/Critical</div>
+                ) : criticalStores.map(({ store, health }) => (
+                  <div key={store.id} style={{ fontSize: 12, color: '#1e293b', marginBottom: 4 }}>
+                    <span style={{ fontWeight: 800, color: HEALTH_LEVEL_COLOR[health.level] }}>{health.overall}</span> {store.name}
+                    <span style={{ color: '#94a3b8' }}> · {LEVEL_LABEL[health.level]}</span>
+                  </div>
+                ))}
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', marginBottom: 6 }}>✓ Tốt nhất</div>
+                {bestStores.map(({ store, health }) => (
+                  <div key={store.id} style={{ fontSize: 12, color: '#1e293b', marginBottom: 4 }}>
+                    <span style={{ fontWeight: 800, color: HEALTH_LEVEL_COLOR[health.level] }}>{health.overall}</span> {store.name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Lỗi production (Sentry) ── */}
       {sentryIssues.length > 0 && (
