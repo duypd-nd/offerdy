@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
+import { getAnthropicClient } from './anthropicClient'
 
 const AboutCardSchema = z.object({
   icon: z.string().describe('A single emoji representing this card'),
@@ -42,12 +42,6 @@ export type StoreContentInput = {
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
-// Anthropic() reads ANTHROPIC_API_KEY from env — throws at call time (not import time)
-// if unset, since this module is imported by API routes that may load before the key exists.
-function getClient() {
-  return new Anthropic()
-}
-
 const SYSTEM_PROMPT = `You are an SEO/GEO content writer for Offerdy, a coupon and deals affiliate website.
 
 Write honest, generic marketing copy for the store described in the user message. You must NEVER invent facts: no specific discount percentages, dates, coupon codes, or claims not present in the input. If a max discount is given, you may reference it using that exact number — do not invent a different number. Do not claim a specific number of active offers, coupons, or promotions.
@@ -68,7 +62,7 @@ Generate: a 1-sentence tagline (shortDescription), an "about" section (tagline s
 }
 
 export async function generateStoreContent(store: StoreContentInput) {
-  const response = await getClient().messages.parse({
+  const response = await getAnthropicClient().messages.parse({
     model: MODEL,
     max_tokens: 2048,
     system: SYSTEM_PROMPT,

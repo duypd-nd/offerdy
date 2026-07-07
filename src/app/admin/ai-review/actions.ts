@@ -48,14 +48,19 @@ export async function rejectAiDraft(storeId: string) {
   revalidateStore()
 }
 
-export async function regenerateAiDraft(storeId: string) {
-  const store = await writeClient.fetch(
-    `*[_id == $id][0]{ "id": _id, name, category, website, maxOffer, shortDescription, description }`,
-    { id: storeId }
-  )
-  if (!store) throw new Error('Store not found')
-  await generateStoreContent(store)
-  revalidateStore()
+export async function regenerateAiDraft(storeId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const store = await writeClient.fetch(
+      `*[_id == $id][0]{ "id": _id, name, category, website, maxOffer, shortDescription, description }`,
+      { id: storeId }
+    )
+    if (!store) return { ok: false, error: 'Store not found' }
+    await generateStoreContent(store)
+    revalidateStore()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
 }
 
 // ── Offers ──────────────────────────────────────────────────────
@@ -70,12 +75,17 @@ export async function rejectOfferAiDraft(offerId: string) {
   revalidateOffer()
 }
 
-export async function regenerateOfferAiDraft(offerId: string) {
-  const offer = await writeClient.fetch(
-    `*[_id == $id][0]{ "id": _id, title, offerText, expiresAt, "storeName": store->name, "hasCouponCode": defined(couponCode) }`,
-    { id: offerId }
-  )
-  if (!offer) throw new Error('Offer not found')
-  await generateOfferContent(offer)
-  revalidateOffer()
+export async function regenerateOfferAiDraft(offerId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const offer = await writeClient.fetch(
+      `*[_id == $id][0]{ "id": _id, title, offerText, expiresAt, "storeName": store->name, "hasCouponCode": defined(couponCode) }`,
+      { id: offerId }
+    )
+    if (!offer) return { ok: false, error: 'Offer not found' }
+    await generateOfferContent(offer)
+    revalidateOffer()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
 }

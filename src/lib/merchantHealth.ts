@@ -102,3 +102,12 @@ export const HEALTH_LEVEL_COLOR: Record<HealthLevel, string> = {
   'Poor': '#EA580C',
   'Critical': '#DC2626',
 }
+
+export const HEALTH_LEVEL_LABEL: Record<HealthLevel, string> = {
+  'Excellent': 'Xuất sắc',
+  'Very Good': 'Rất tốt',
+  'Healthy': 'Tốt',
+  'Needs Improvement': 'Cần cải thiện',
+  'Poor': 'Kém',
+  'Critical': 'Nguy cấp',
+}

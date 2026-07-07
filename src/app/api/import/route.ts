@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import dns from 'dns/promises'
 import { isIP } from 'net'
 import { generateStoreContent } from '@/lib/ai/generateStoreContent'
+import { normalize } from '@/lib/fuzzy'
 
 const IMPORT_AI_STORE_CAP = Number(process.env.IMPORT_AI_STORE_CAP) || 8
 
@@ -119,10 +120,10 @@ async function uploadImageFromUrl(url: string): Promise<UploadImageResult> {
 }
 
 function offerCodeKey(storeId: string, couponCode: string) {
-  return `${storeId}::code::${couponCode.trim().toLowerCase()}`
+  return `${storeId}::code::${normalize(couponCode)}`
 }
 function offerTitleKey(storeId: string, title: string) {
-  return `${storeId}::title::${title.trim().toLowerCase()}`
+  return `${storeId}::title::${normalize(title)}`
 }
 
 // Combined: each row = 1 offer; rows with same store_name share the same store
@@ -149,9 +150,11 @@ async function importStoresAndOffers(rows: ImportRow[]) {
 
   // Pre-load existing offers for duplicate detection (store+couponCode, or store+title
   // when no code) — extended within the loop so duplicates inside the same file are
-  // also caught, not just against data already in Sanity.
+  // also caught, not just against data already in Sanity. Scoped to ACTIVE offers only:
+  // a coupon that was previously deactivated (expired/removed) and legitimately comes
+  // back in a new import should be allowed to be re-created, not blocked forever.
   const existingOffers = await writeClient.fetch<{ storeId: string; title: string; couponCode?: string }[]>(
-    `*[_type == "offer"]{ "storeId": store._ref, title, couponCode }`
+    `*[_type == "offer" && active == true]{ "storeId": store._ref, title, couponCode }`
   )
   const offerKeys = new Set<string>()
   for (const o of existingOffers) {
@@ -192,6 +195,11 @@ async function importStoresAndOffers(rows: ImportRow[]) {
           slug: { _type: 'slug', current: slug },
           published: true,
           affiliateLink: link,
+          // Sanity's schema `initialValue` only applies inside Studio's own creation
+          // form, never to documents created via writeClient.create() — must set
+          // explicitly or this stays undefined and silently fails `== "none"` filters
+          // (e.g. the nightly AI-content cron never picks the store up).
+          aiReviewStatus: 'none',
         }
         if (row.abbr) storeDoc.abbr = String(row.abbr).substring(0, 3)
         if (row.website) storeDoc.website = String(row.website)
@@ -257,6 +265,10 @@ async function importStoresAndOffers(rows: ImportRow[]) {
             order: row.order ? Number(row.order) : 0,
             votesActive: 0,
             votesExpired: 0,
+            // Same reasoning as storeDoc.aiReviewStatus above — schema initialValue
+            // does not apply to API-created documents.
+            aiReviewStatus: 'none',
+            linkStatus: 'unchecked',
           }
           if (couponCode) offerDoc.couponCode = couponCode
           if (row.expiresAt) {
@@ -283,14 +295,17 @@ async function importStoresAndOffers(rows: ImportRow[]) {
   // function timeout on a 50-row batch). Any candidate beyond the cap is still picked
   // up automatically by the nightly cron (aiReviewStatus defaults to 'none').
   const capped = [...aiCandidates.values()].slice(0, IMPORT_AI_STORE_CAP)
-  for (const candidate of capped) {
-    try {
-      await generateStoreContent(candidate)
-      results.aiDrafts.push({ storeId: candidate.id, storeName: candidate.name, ok: true })
-    } catch {
-      results.aiDrafts.push({ storeId: candidate.id, storeName: candidate.name, ok: false })
-    }
-  }
+  const aiResults = await Promise.all(
+    capped.map(async (candidate) => {
+      try {
+        await generateStoreContent(candidate)
+        return { storeId: candidate.id, storeName: candidate.name, ok: true }
+      } catch {
+        return { storeId: candidate.id, storeName: candidate.name, ok: false }
+      }
+    })
+  )
+  results.aiDrafts.push(...aiResults)
 
   revalidatePath('/admin/stores')
   revalidatePath('/admin/offers')

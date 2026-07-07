@@ -1,7 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
+import { getAnthropicClient } from './anthropicClient'
 
 const OfferContentSchema = z.object({
   description: z.string().describe('1-2 sentences shown inline under the offer on the store page'),
@@ -17,10 +17,6 @@ export type OfferContentInput = {
 }
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
-
-function getClient() {
-  return new Anthropic()
-}
 
 const SYSTEM_PROMPT = `You are an SEO/GEO content writer for Offerdy, a coupon and deals affiliate website.
 
@@ -39,7 +35,7 @@ Write a 1-2 sentence description of this offer for shoppers at ${offer.storeName
 }
 
 export async function generateOfferContent(offer: OfferContentInput) {
-  const response = await getClient().messages.parse({
+  const response = await getAnthropicClient().messages.parse({
     model: MODEL,
     max_tokens: 512,
     system: SYSTEM_PROMPT,

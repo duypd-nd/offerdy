@@ -166,8 +166,10 @@ function StoreReviewPanel({ initialStores }: { initialStores: PendingStore[] }) 
   const handleRegenerate = () => {
     if (!selected) return
     startTransition(async () => {
-      await regenerateAiDraft(selected._id)
-      showToast(`Đang tạo lại nội dung cho ${selected.name}... reload trang để xem draft mới`)
+      const result = await regenerateAiDraft(selected._id)
+      showToast(result.ok
+        ? `Đang tạo lại nội dung cho ${selected.name}... reload trang để xem draft mới`
+        : `Lỗi khi tạo lại nội dung cho ${selected.name}: ${result.error}`)
     })
   }
 
@@ -323,8 +325,10 @@ function OfferReviewPanel({ initialOffers }: { initialOffers: PendingOffer[] }) 
   const handleRegenerate = () => {
     if (!selected) return
     startTransition(async () => {
-      await regenerateOfferAiDraft(selected._id)
-      showToast(`Đang tạo lại nội dung cho ${selected.title}... reload trang để xem draft mới`)
+      const result = await regenerateOfferAiDraft(selected._id)
+      showToast(result.ok
+        ? `Đang tạo lại nội dung cho ${selected.title}... reload trang để xem draft mới`
+        : `Lỗi khi tạo lại nội dung cho ${selected.title}: ${result.error}`)
     })
   }
 

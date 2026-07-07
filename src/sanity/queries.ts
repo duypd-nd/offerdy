@@ -564,10 +564,19 @@ const MERCHANT_HEALTH_QUERY = `*[_type == "store"] {
   }
 }`
 
+// 4 count() subqueries per store — at 361+ stores that's 1000+ full offer-collection
+// scans per page load with no cache. Same unstable_cache pattern as getAllDeals/
+// getCouponOffers above; admin-only pages, 60s staleness is a non-issue here.
+const getCachedMerchantHealthData = unstable_cache(
+  async () => writeClient.fetch<StoreHealthInput[]>(MERCHANT_HEALTH_QUERY),
+  ['merchant-health'],
+  { revalidate: 60 }
+)
+
 export async function getMerchantHealthData(): Promise<StoreHealthInput[]> {
   if (!isConfigured()) return []
   try {
-    const data = await writeClient.fetch<StoreHealthInput[]>(MERCHANT_HEALTH_QUERY)
+    const data = await getCachedMerchantHealthData()
     return data ?? []
   } catch { return [] }
 }
