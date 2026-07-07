@@ -23,7 +23,7 @@ const StoreContentSchema = z.object({
   metaTitle: z.string(),
   metaKeywords: z.string(),
   metaDescription: z.string(),
-  faq: z.array(z.object({ question: z.string(), answer: z.string() })).min(3).max(5),
+  faq: z.array(z.object({ question: z.string(), answer: z.string() })).min(5).max(8),
   prosAndCons: z.object({
     pros: z.array(z.string()).min(3).max(3),
     cons: z.array(z.string()).min(2).max(3),
@@ -58,13 +58,15 @@ Max advertised discount: ${store.maxOffer ? `${store.maxOffer}%` : 'not specifie
 Existing short description: ${store.shortDescription ?? '(none)'}
 Existing long description: ${store.description ?? '(none)'}
 
-Generate: a 1-sentence tagline (shortDescription), an "about" section (tagline sub-heading, intro badge emoji, a 2-4 sentence intro paragraph, and exactly 4 cards per the required order/topics above), an SEO metaTitle (<=60 chars), metaKeywords (5-8 comma separated keywords), a metaDescription (<=160 chars), 3-5 FAQ pairs about shopping at this store (general, not fabricated specifics), and prosAndCons (3 pros, 2-3 cons, framed honestly and generically — e.g. shipping fees may apply on some orders, availability varies by region).`
+Generate: a 1-sentence tagline (shortDescription), an "about" section (tagline sub-heading, intro badge emoji, a 2-4 sentence intro paragraph, and exactly 4 cards per the required order/topics above), an SEO metaTitle (<=60 chars), metaKeywords (5-8 comma separated keywords), a metaDescription (<=160 chars), and prosAndCons (3 pros, 2-3 cons, framed honestly and generically — e.g. shipping fees may apply on some orders, availability varies by region).
+
+For the FAQ: write between 5 and 8 pairs — as many as you can support with genuinely distinct, useful questions a shopper would actually ask about this store (coupon usage, general shipping/returns framed generically, trustworthiness, how offers are verified, category-specific buying questions). Write fewer (closer to 5) if the store's category/context doesn't give you enough distinct real angles — do not pad with repetitive or generic filler questions just to hit 8.`
 }
 
 export async function generateStoreContent(store: StoreContentInput) {
   const response = await getAnthropicClient().messages.parse({
     model: MODEL,
-    max_tokens: 2048,
+    max_tokens: 2560,
     system: SYSTEM_PROMPT,
     output_config: { format: zodOutputFormat(StoreContentSchema) },
     messages: [{ role: 'user', content: buildUserPrompt(store) }],

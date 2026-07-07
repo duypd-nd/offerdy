@@ -5,7 +5,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import AffiliateLink from '@/components/AffiliateLink'
 import FaqAccordion from '@/components/FaqAccordion'
-import { getDealBySlug } from '@/sanity/queries'
+import { getDealBySlug, getConfigContent } from '@/sanity/queries'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 
 export const revalidate = 60
@@ -41,9 +41,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 }
 
+function fmtDate(d: string) {
+  try { return new Date(d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) }
+  catch { return d }
+}
+
 export default async function DealDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const deal = await getDealBySlug(slug)
+  const [deal, globalContent] = await Promise.all([
+    getDealBySlug(slug),
+    getConfigContent(),
+  ])
   if (!deal) notFound()
 
   const badge = dealDiscountBadge(deal)
@@ -107,10 +115,10 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 20px 64px' }}>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 28 }}>
             <div style={{
-              width: 160, height: 160, borderRadius: 16, flexShrink: 0,
+              width: 280, height: 280, borderRadius: 16, flexShrink: 0,
               background: 'var(--bg, #f8fafc)', border: '1px solid var(--border, #e5e7eb)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: deal.imageUrl ? undefined : 56, overflow: 'hidden',
+              fontSize: deal.imageUrl ? undefined : 96, overflow: 'hidden',
             }}>
               {deal.imageUrl
                 // eslint-disable-next-line @next/next/no-img-element -- giu ty le anh goc
@@ -118,7 +126,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
                 : (deal.emoji ?? '🏷️')
               }
             </div>
-            <div style={{ flex: 1, minWidth: 240 }}>
+            <div style={{ flex: 1, minWidth: 280 }}>
               {deal.store && <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>{deal.store}</div>}
               <h1 style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.25, margin: '0 0 12px' }}>{deal.title}</h1>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
@@ -177,6 +185,19 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
             <div className="sol-faq">
               <h2 className="sol-faq-title">Frequently Asked Questions</h2>
               <FaqAccordion faqs={deal.faq} storeName={deal.store ?? ''} />
+            </div>
+          )}
+
+          {(globalContent.articleDisclaimer || globalContent.articleReviewedBy) && (
+            <div className="article-disclaimer">
+              {globalContent.articleDisclaimer && (
+                <p dangerouslySetInnerHTML={{ __html: globalContent.articleDisclaimer.replace(/\{site\}/g, 'Offerdy').replace(/\{store\}/g, deal.store ? `<span style="color:#16a34a;font-weight:700">${deal.store}</span>` : 'the store') }} />
+              )}
+              {globalContent.articleReviewedBy && (
+                <p className="article-disclaimer-meta">
+                  {(deal._updatedAt || deal._createdAt) && `Last updated: ${fmtDate(deal._updatedAt ?? deal._createdAt)} · `}{globalContent.articleReviewedBy}
+                </p>
+              )}
             </div>
           )}
         </div>

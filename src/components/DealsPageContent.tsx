@@ -51,7 +51,7 @@ export default function DealsPageContent({ deals, page, totalPages, totalCount }
               <div className="deal-body">
                 <div className="deal-store">{deal.store}</div>
                 {deal.slug ? (
-                  <Link href={`/deals/${deal.slug}`} className="deal-title" style={{ textDecoration: 'none', color: 'inherit' }}>{deal.title}</Link>
+                  <Link href={`/deals/${deal.slug}`} className="deal-title" style={{ textDecoration: 'none', color: '#2563eb' }}>{deal.title}</Link>
                 ) : (
                   <div className="deal-title">{deal.title}</div>
                 )}
