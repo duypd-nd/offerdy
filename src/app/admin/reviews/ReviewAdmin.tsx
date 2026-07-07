@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { updateReview, deleteReview, createReview, uploadReviewImage, checkReviewSlug } from './actions'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { useUrlPage } from '../_components/useUrlPage'
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
 type AdminReview = {
   _id: string; title: string; slug: string; tag: string; author?: string
@@ -15,8 +19,8 @@ export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminR
   const [editingReview, setEditingReview] = useState<AdminReview | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
+  const page = useUrlPage()
+  const { setParams } = useAdminUrlState()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
@@ -28,9 +32,8 @@ export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminR
     return matchSearch && matchTag
   })
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages || 1)))
+  const totalPages = Math.ceil(filtered.length / ADMIN_PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE)
 
   const toggleSelect = (id: string) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const toggleAll = () => setSelected(selected.size === paginated.length ? new Set() : new Set(paginated.map(r => r._id)))
@@ -61,8 +64,8 @@ export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminR
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm review..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          <select className="oa-select" value={tagFilter} onChange={e => { setTagFilter(e.target.value); setPage(1) }}>
+          <input className="oa-search" placeholder="Tìm review..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
+          <select className="oa-select" value={tagFilter} onChange={e => { setTagFilter(e.target.value); setParams({}) }}>
             <option value="all">Tất cả loại</option>
             <option value="Review">Review</option>
             <option value="Comparison">Comparison</option>
@@ -100,7 +103,7 @@ export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminR
             {paginated.map((r, i) => (
               <tr key={r._id} className={selected.has(r._id) ? 'oa-row-sel' : ''}>
                 <td className="oa-td-check"><input type="checkbox" checked={selected.has(r._id)} onChange={() => toggleSelect(r._id)} /></td>
-                <td className="oa-td-num">{(page-1)*PAGE_SIZE+i+1}</td>
+                <td className="oa-td-num">{(page-1)*ADMIN_PAGE_SIZE+i+1}</td>
                 <td>
                   <button className="oa-name-btn" onClick={() => setEditingReview(r)}>{r.title}</button>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{r.slug}</div>
@@ -128,18 +131,10 @@ export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminR
 
       <div className="oa-footer">
         <div className="oa-count">
-          {filtered.length > 0 ? `${(page-1)*PAGE_SIZE+1}–${Math.min(page*PAGE_SIZE, filtered.length)} / ${filtered.length} review` : '0 review'}
+          {filtered.length > 0 ? `${(page-1)*ADMIN_PAGE_SIZE+1}–${Math.min(page*ADMIN_PAGE_SIZE, filtered.length)} / ${filtered.length} review` : '0 review'}
           {filtered.length !== reviews.length && ` (tổng ${reviews.length})`}
         </div>
-        {totalPages > 1 && (
-          <div className="oa-pagination">
-            <button className="oa-page-btn" onClick={() => goToPage(1)} disabled={page===1}>«</button>
-            <button className="oa-page-btn" onClick={() => goToPage(page-1)} disabled={page===1}>← Trước</button>
-            <span className="oa-page-info">{page} / {totalPages}</span>
-            <button className="oa-page-btn" onClick={() => goToPage(page+1)} disabled={page===totalPages}>Sau →</button>
-            <button className="oa-page-btn" onClick={() => goToPage(totalPages)} disabled={page===totalPages}>»</button>
-          </div>
-        )}
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
 
       {showModal && (

@@ -2,21 +2,19 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { computeStoreHealth, levelFor, HEALTH_LEVEL_COLOR, type HealthLevel, type StoreHealthInput } from '@/lib/merchantHealth'
+import { computeStoreHealth, levelFor, HEALTH_LEVEL_COLOR, HEALTH_LEVEL_LABEL as LEVEL_LABEL, type HealthLevel, type StoreHealthInput } from '@/lib/merchantHealth'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { useUrlPage } from '../_components/useUrlPage'
 
 const LEVELS: HealthLevel[] = ['Excellent', 'Very Good', 'Healthy', 'Needs Improvement', 'Poor', 'Critical']
-const LEVEL_LABEL: Record<HealthLevel, string> = {
-  'Excellent': 'Xuất sắc',
-  'Very Good': 'Rất tốt',
-  'Healthy': 'Tốt',
-  'Needs Improvement': 'Cần cải thiện',
-  'Poor': 'Kém',
-  'Critical': 'Nguy cấp',
-}
+const PAGE_SIZE = 100
 
 export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInput[] }) {
   const [levelFilter, setLevelFilter] = useState<'all' | HealthLevel>('all')
   const [search, setSearch] = useState('')
+  const page = useUrlPage()
+  const { setParams } = useAdminUrlState()
 
   const scored = useMemo(
     () => stores.map(s => ({ store: s, health: computeStoreHealth(s) })).sort((a, b) => a.health.overall - b.health.overall),
@@ -28,6 +26,9 @@ export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInp
     const matchSearch = store.name.toLowerCase().includes(search.toLowerCase())
     return matchLevel && matchSearch
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const avgScore = scored.length ? Math.round(scored.reduce((sum, s) => sum + s.health.overall, 0) / scored.length) : 0
   const distribution = LEVELS.map(level => ({ level, count: scored.filter(s => s.health.level === level).length }))
@@ -49,7 +50,7 @@ export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInp
         {distribution.map(({ level, count }) => (
           <button
             key={level}
-            onClick={() => setLevelFilter(levelFilter === level ? 'all' : level)}
+            onClick={() => { setLevelFilter(levelFilter === level ? 'all' : level); setParams({}) }}
             className="oa-table-wrap"
             style={{ padding: 16, textAlign: 'center', cursor: 'pointer', border: levelFilter === level ? `2px solid ${HEALTH_LEVEL_COLOR[level]}` : undefined }}
           >
@@ -61,9 +62,9 @@ export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInp
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm store..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="oa-search" placeholder="Tìm store..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
           {levelFilter !== 'all' && (
-            <button className="oa-btn" onClick={() => setLevelFilter('all')}>✕ Bỏ lọc ({LEVEL_LABEL[levelFilter]})</button>
+            <button className="oa-btn" onClick={() => { setLevelFilter('all'); setParams({}) }}>✕ Bỏ lọc ({LEVEL_LABEL[levelFilter]})</button>
           )}
         </div>
       </div>
@@ -84,9 +85,9 @@ export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInp
             </tr>
           </thead>
           <tbody>
-            {filtered.map(({ store, health }, i) => (
+            {paginated.map(({ store, health }, i) => (
               <tr key={store.id}>
-                <td className="oa-td-num">{i + 1}</td>
+                <td className="oa-td-num">{(page - 1) * PAGE_SIZE + i + 1}</td>
                 <td>
                   <div style={{ fontWeight: 600 }}>{store.name}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{store.slug}</div>
@@ -119,11 +120,20 @@ export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInp
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {paginated.length === 0 && (
               <tr><td colSpan={9} className="oa-empty">Không tìm thấy store nào</td></tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="oa-footer">
+        <div className="oa-count">
+          {filtered.length > 0
+            ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} / ${filtered.length} store`
+            : '0 store'}
+        </div>
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
     </div>
   )

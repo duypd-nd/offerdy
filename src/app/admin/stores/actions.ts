@@ -51,6 +51,14 @@ export async function uploadStoreImage(formData: FormData) {
   return { _type: 'image', asset: { _type: 'reference', _ref: asset._id } }
 }
 
+export async function getStoreDescription(id: string): Promise<string | undefined> {
+  const result = await writeClient.fetch<{ description?: string } | null>(
+    `*[_id == $id][0]{ description }`,
+    { id }
+  )
+  return result?.description
+}
+
 export async function checkStoreSlug(slug: string, excludeId?: string): Promise<boolean> {
   if (!slug) return false
   const q = excludeId

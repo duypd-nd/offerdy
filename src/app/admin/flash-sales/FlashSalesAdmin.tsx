@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { updateOfferExpiry, toggleOfferActive, deleteOffer, createFlashSaleOffer } from './actions'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { useUrlPage } from '../_components/useUrlPage'
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
 type AdminOffer = {
   _id: string
@@ -37,8 +41,8 @@ export default function FlashSalesAdmin({ initialOffers, stores }: { initialOffe
   const [storeFilter, setStoreFilter] = useState('all')
   const [showModal, setShowModal] = useState(false)
   const [editingOffer, setEditingOffer] = useState<AdminOffer | null>(null)
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
+  const page = useUrlPage()
+  const { setParams } = useAdminUrlState()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
@@ -51,9 +55,8 @@ export default function FlashSalesAdmin({ initialOffers, stores }: { initialOffe
     return matchSearch && matchStore
   })
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages || 1)))
+  const totalPages = Math.ceil(filtered.length / ADMIN_PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE)
 
   const handleToggleActive = (id: string, current: boolean) => {
     startTransition(async () => {
@@ -89,8 +92,8 @@ export default function FlashSalesAdmin({ initialOffers, stores }: { initialOffe
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm deal..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          <select className="oa-select" value={storeFilter} onChange={e => { setStoreFilter(e.target.value); setPage(1) }}>
+          <input className="oa-search" placeholder="Tìm deal..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
+          <select className="oa-select" value={storeFilter} onChange={e => { setStoreFilter(e.target.value); setParams({}) }}>
             <option value="all">Tất cả store</option>
             {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
           </select>
@@ -116,7 +119,7 @@ export default function FlashSalesAdmin({ initialOffers, stores }: { initialOffe
           <tbody>
             {paginated.map((o, i) => (
               <tr key={o._id}>
-                <td className="oa-td-num">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
                 <td>
                   <button className="oa-name-btn" onClick={() => setEditingOffer(o)}>{o.title}</button>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{o.offerText}</div>
@@ -159,18 +162,10 @@ export default function FlashSalesAdmin({ initialOffers, stores }: { initialOffe
       <div className="oa-footer">
         <div className="oa-count">
           {filtered.length > 0
-            ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} / ${filtered.length} deal`
+            ? `${(page - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(page * ADMIN_PAGE_SIZE, filtered.length)} / ${filtered.length} deal`
             : '0 deal'}
         </div>
-        {totalPages > 1 && (
-          <div className="oa-pagination">
-            <button className="oa-page-btn" onClick={() => goToPage(1)} disabled={page === 1}>«</button>
-            <button className="oa-page-btn" onClick={() => goToPage(page - 1)} disabled={page === 1}>← Trước</button>
-            <span className="oa-page-info">{page} / {totalPages}</span>
-            <button className="oa-page-btn" onClick={() => goToPage(page + 1)} disabled={page === totalPages}>Sau →</button>
-            <button className="oa-page-btn" onClick={() => goToPage(totalPages)} disabled={page === totalPages}>»</button>
-          </div>
-        )}
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
 
       {showModal && (

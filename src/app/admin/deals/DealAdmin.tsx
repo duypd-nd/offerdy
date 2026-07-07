@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { updateDeal, deleteDeal, createDeal, uploadDealImage, uploadDealImageFromUrl, bulkUpdateOrder } from './actions'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { useUrlPage } from '../_components/useUrlPage'
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
 const calcDiscount = (orig: string, sale: string) => {
   const o = parseFloat(orig.replace(/[^0-9.]/g, ''))
@@ -32,8 +36,8 @@ export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editingDeal, setEditingDeal] = useState<AdminDeal | null>(null)
   const [showModal, setShowModal] = useState(false)
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
+  const page = useUrlPage()
+  const { setParams } = useAdminUrlState()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null)
@@ -82,9 +86,8 @@ export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] 
     return matchSearch && matchStatus
   })
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages || 1)))
+  const totalPages = Math.ceil(filtered.length / ADMIN_PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE)
 
   const toggleSelect = (id: string) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const toggleAll = () => setSelected(selected.size === paginated.length ? new Set() : new Set(paginated.map(d => d._id)))
@@ -115,8 +118,8 @@ export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] 
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm deal..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          <select className="oa-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
+          <input className="oa-search" placeholder="Tìm deal..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
+          <select className="oa-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setParams({}) }}>
             <option value="all">Tất cả</option>
             <option value="verified">Verified</option>
             <option value="unverified">Chưa verify</option>
@@ -171,7 +174,7 @@ export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] 
               >
                 <td style={{ cursor: 'grab', color: '#9ca3af', textAlign: 'center', fontSize: 16, userSelect: 'none' }} title="Kéo để sắp xếp">≡</td>
                 <td className="oa-td-check"><input type="checkbox" checked={selected.has(d._id)} onChange={() => toggleSelect(d._id)} /></td>
-                <td className="oa-td-num">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
                 <td><button className="oa-name-btn" onClick={() => setEditingDeal(d)}>{d.title}</button></td>
                 <td>{d.imageUrl ? <img src={d.imageUrl} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }} /> : <span style={{ color: '#d1d5db' }}>—</span>}</td>
                 <td style={{ fontSize: 13, color: '#9ca3af', textDecoration: 'line-through' }}>{d.priceOrig}</td>
@@ -198,18 +201,10 @@ export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] 
 
       <div className="oa-footer">
         <div className="oa-count">
-          {filtered.length > 0 ? `${(page-1)*PAGE_SIZE+1}–${Math.min(page*PAGE_SIZE, filtered.length)} / ${filtered.length} deal` : '0 deal'}
+          {filtered.length > 0 ? `${(page-1)*ADMIN_PAGE_SIZE+1}–${Math.min(page*ADMIN_PAGE_SIZE, filtered.length)} / ${filtered.length} deal` : '0 deal'}
           {filtered.length !== deals.length && ` (tổng ${deals.length})`}
         </div>
-        {totalPages > 1 && (
-          <div className="oa-pagination">
-            <button className="oa-page-btn" onClick={() => goToPage(1)} disabled={page === 1}>«</button>
-            <button className="oa-page-btn" onClick={() => goToPage(page - 1)} disabled={page === 1}>← Trước</button>
-            <span className="oa-page-info">{page} / {totalPages}</span>
-            <button className="oa-page-btn" onClick={() => goToPage(page + 1)} disabled={page === totalPages}>Sau →</button>
-            <button className="oa-page-btn" onClick={() => goToPage(totalPages)} disabled={page === totalPages}>»</button>
-          </div>
-        )}
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
 
       {showModal && (

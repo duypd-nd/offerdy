@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateCouponOffer, deleteCouponOffer, createCouponOffer } from './actions'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
 type AdminOffer = {
   _id: string
@@ -18,39 +22,39 @@ type AdminOffer = {
 }
 
 type AdminStore = { _id: string; name: string }
+type CouponFilters = { q: string; store: string }
 
-export default function CouponCodesAdmin({ initialOffers, stores }: { initialOffers: AdminOffer[]; stores: AdminStore[] }) {
+export default function CouponCodesAdmin({ offers: initialOffers, stores, page, totalPages, total, filters }: {
+  offers: AdminOffer[]; stores: AdminStore[]
+  page: number; totalPages: number; total: number; filters: CouponFilters
+}) {
+  const router = useRouter()
+  const { setParams } = useAdminUrlState()
   const [offers, setOffers] = useState(initialOffers)
-  const [search, setSearch] = useState('')
-  const [storeFilter, setStoreFilter] = useState('all')
+  useEffect(() => setOffers(initialOffers), [initialOffers])
+
+  const [searchInput, setSearchInput] = useState(filters.q)
+  useEffect(() => setSearchInput(filters.q), [filters.q])
+  useEffect(() => {
+    if (searchInput === filters.q) return
+    const t = setTimeout(() => setParams({ q: searchInput || null }), 400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput])
+
   const [showModal, setShowModal] = useState(false)
   const [editingOffer, setEditingOffer] = useState<AdminOffer | null>(null)
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  const filtered = offers.filter(o => {
-    const matchSearch =
-      o.title.toLowerCase().includes(search.toLowerCase()) ||
-      (o.couponCode ?? '').toLowerCase().includes(search.toLowerCase()) ||
-      o.store.name.toLowerCase().includes(search.toLowerCase())
-    const matchStore = storeFilter === 'all' || o.store._id === storeFilter
-    return matchSearch && matchStore
-  })
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages || 1)))
-
   const handleDelete = (id: string) => {
     if (!confirm('Xóa coupon code này?')) return
     startTransition(async () => {
       await deleteCouponOffer(id)
-      setOffers(prev => prev.filter(o => o._id !== id))
       showToast('Đã xóa')
+      router.refresh()
     })
   }
 
@@ -92,8 +96,8 @@ export default function CouponCodesAdmin({ initialOffers, stores }: { initialOff
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm mã hoặc store..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          <select className="oa-select" value={storeFilter} onChange={e => { setStoreFilter(e.target.value); setPage(1) }}>
+          <input className="oa-search" placeholder="Tìm mã hoặc store..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+          <select className="oa-select" value={filters.store || 'all'} onChange={e => setParams({ store: e.target.value === 'all' ? null : e.target.value })}>
             <option value="all">Tất cả store</option>
             {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
           </select>
@@ -117,9 +121,9 @@ export default function CouponCodesAdmin({ initialOffers, stores }: { initialOff
             </tr>
           </thead>
           <tbody>
-            {paginated.map((o, i) => (
+            {offers.map((o, i) => (
               <tr key={o._id}>
-                <td className="oa-td-num">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
                 <td>
                   <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 800, background: 'var(--bg)', border: '1.5px dashed #D1D5E0', borderRadius: 6, padding: '4px 10px', letterSpacing: 2, color: 'var(--navy)' }}>
                     {o.couponCode ?? '—'}
@@ -152,7 +156,7 @@ export default function CouponCodesAdmin({ initialOffers, stores }: { initialOff
                 </td>
               </tr>
             ))}
-            {paginated.length === 0 && (
+            {offers.length === 0 && (
               <tr><td colSpan={7} className="oa-empty">Không tìm thấy coupon code nào</td></tr>
             )}
           </tbody>
@@ -161,31 +165,23 @@ export default function CouponCodesAdmin({ initialOffers, stores }: { initialOff
 
       <div className="oa-footer">
         <div className="oa-count">
-          {filtered.length > 0
-            ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} / ${filtered.length} mã`
+          {total > 0
+            ? `${(page - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(page * ADMIN_PAGE_SIZE, total)} / ${total} mã`
             : '0 mã'}
         </div>
-        {totalPages > 1 && (
-          <div className="oa-pagination">
-            <button className="oa-page-btn" onClick={() => goToPage(1)} disabled={page === 1}>«</button>
-            <button className="oa-page-btn" onClick={() => goToPage(page - 1)} disabled={page === 1}>← Trước</button>
-            <span className="oa-page-info">{page} / {totalPages}</span>
-            <button className="oa-page-btn" onClick={() => goToPage(page + 1)} disabled={page === totalPages}>Sau →</button>
-            <button className="oa-page-btn" onClick={() => goToPage(totalPages)} disabled={page === totalPages}>»</button>
-          </div>
-        )}
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
 
       {showModal && (
         <CouponModal mode="add" stores={stores}
           onClose={() => setShowModal(false)}
-          onSaved={o => { setOffers(prev => [o, ...prev]); setShowModal(false); showToast('Đã thêm coupon') }} />
+          onSaved={() => { setShowModal(false); showToast('Đã thêm coupon'); router.refresh() }} />
       )}
       {editingOffer && (
         <CouponModal mode="edit" initial={editingOffer} stores={stores}
           onClose={() => setEditingOffer(null)}
-          onSaved={updated => { setOffers(prev => prev.map(o => o._id === updated._id ? updated : o)); setEditingOffer(null); showToast('Đã lưu') }}
-          onDeleted={id => { setOffers(prev => prev.filter(o => o._id !== id)); setEditingOffer(null); showToast('Đã xóa') }} />
+          onSaved={() => { setEditingOffer(null); showToast('Đã lưu'); router.refresh() }}
+          onDeleted={() => { setEditingOffer(null); showToast('Đã xóa'); router.refresh() }} />
       )}
     </div>
   )
@@ -193,7 +189,7 @@ export default function CouponCodesAdmin({ initialOffers, stores }: { initialOff
 
 function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
   mode: 'add' | 'edit'; initial?: AdminOffer; stores: AdminStore[]
-  onClose: () => void; onSaved: (o: AdminOffer) => void; onDeleted?: (id: string) => void
+  onClose: () => void; onSaved: () => void; onDeleted?: () => void
 }) {
   const [form, setForm] = useState({
     title: initial?.title ?? '',
@@ -213,7 +209,6 @@ function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
     e.preventDefault()
     if (!form.title || !form.offerText || !form.couponCode || !form.storeId) return
     startTransition(async () => {
-      const store = stores.find(s => s._id === form.storeId)!
       const payload = {
         title: form.title, offerText: form.offerText, couponCode: form.couponCode,
         link: form.link, description: form.description || undefined,
@@ -222,11 +217,10 @@ function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
       }
       if (mode === 'add') {
         await createCouponOffer({ ...payload, storeId: form.storeId })
-        onSaved({ _id: Date.now().toString(), ...payload, store: { _id: store._id, name: store.name }, _createdAt: new Date().toISOString() })
       } else if (initial) {
         await updateCouponOffer(initial._id, { ...payload, store: { _type: 'reference', _ref: form.storeId } })
-        onSaved({ ...initial, ...payload, store: { _id: store._id, name: store.name } })
       }
+      onSaved()
     })
   }
 
@@ -282,7 +276,7 @@ function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
           <div className="oa-modal-footer">
             {mode === 'edit' && onDeleted && initial && (
               <button type="button" className="oa-btn oa-btn-red"
-                onClick={() => { if (!confirm('Xóa coupon này?')) return; startTransition(async () => { await deleteCouponOffer(initial._id); onDeleted(initial._id) }) }}
+                onClick={() => { if (!confirm('Xóa coupon này?')) return; startTransition(async () => { await deleteCouponOffer(initial._id); onDeleted() }) }}
                 disabled={isPending}>🗑 Xóa</button>
             )}
             <div style={{ flex: 1 }} />

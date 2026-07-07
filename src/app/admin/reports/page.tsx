@@ -2,12 +2,7 @@ import { writeClient } from '@/sanity/writeClient'
 import Link from 'next/link'
 import { getRecentSentryIssues } from '@/lib/sentryApi'
 import { getMerchantHealthData } from '@/sanity/queries'
-import { computeStoreHealth, HEALTH_LEVEL_COLOR, type HealthLevel } from '@/lib/merchantHealth'
-
-const LEVEL_LABEL: Record<HealthLevel, string> = {
-  'Excellent': 'Xuất sắc', 'Very Good': 'Rất tốt', 'Healthy': 'Tốt',
-  'Needs Improvement': 'Cần cải thiện', 'Poor': 'Kém', 'Critical': 'Nguy cấp',
-}
+import { computeStoreHealth, HEALTH_LEVEL_COLOR, HEALTH_LEVEL_LABEL as LEVEL_LABEL } from '@/lib/merchantHealth'
 
 export const dynamic = 'force-dynamic'
 
@@ -141,6 +136,49 @@ export default async function ReportsPage() {
         </p>
       </div>
 
+      {/* ── Thống kê theo thời gian (số liệu chính của báo cáo) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+        <StatCard label="Hôm nay" value={todayCount} />
+        <StatCard label="7 ngày qua" value={sevenDayCount} />
+        <StatCard label="30 ngày qua" value={thirtyDayCount} />
+        <StatCard label="Tất cả thời gian" value={allTimeCount} highlight />
+      </div>
+
+      {/* ── Lỗi production (Sentry) — ưu tiên cao nhất, cần xử lý ngay ── */}
+      {sentryIssues.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{
+              padding: '12px 16px', borderBottom: '1px solid #fee2e2', background: '#fef2f2',
+              fontSize: 13, fontWeight: 700, color: '#dc2626', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span>🚨 Lỗi production chưa xử lý ({sentryIssues.length})</span>
+              <a href={`https://${process.env.SENTRY_ORG}.sentry.io/issues/`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#dc2626', textDecoration: 'underline' }}>
+                Xem tất cả trên Sentry →
+              </a>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <tbody>
+                {sentryIssues.map((issue, i) => (
+                  <tr key={issue.id} style={{ borderTop: i > 0 ? '1px solid #f1f5f9' : undefined }}>
+                    <td style={{ padding: '10px 16px', fontSize: 13, color: '#1e293b', fontWeight: 500, maxWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <a href={issue.permalink} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', textDecoration: 'none' }}>{issue.title}</a>
+                      {issue.culprit && <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {issue.culprit}</span>}
+                    </td>
+                    <td style={{ padding: '10px 16px', fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                      Lần cuối: {new Date(issue.lastSeen).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 800, color: '#dc2626', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {issue.count} lần
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* ── Platform Health (Daily Report) ── */}
       {healthData.length > 0 && (
         <div style={{ marginBottom: 24 }}>
@@ -179,49 +217,6 @@ export default async function ReportsPage() {
           </div>
         </div>
       )}
-
-      {/* ── Lỗi production (Sentry) ── */}
-      {sentryIssues.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{
-              padding: '12px 16px', borderBottom: '1px solid #fee2e2', background: '#fef2f2',
-              fontSize: 13, fontWeight: 700, color: '#dc2626', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <span>🚨 Lỗi production chưa xử lý ({sentryIssues.length})</span>
-              <a href={`https://${process.env.SENTRY_ORG}.sentry.io/issues/`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#dc2626', textDecoration: 'underline' }}>
-                Xem tất cả trên Sentry →
-              </a>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                {sentryIssues.map((issue, i) => (
-                  <tr key={issue.id} style={{ borderTop: i > 0 ? '1px solid #f1f5f9' : undefined }}>
-                    <td style={{ padding: '10px 16px', fontSize: 13, color: '#1e293b', fontWeight: 500, maxWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <a href={issue.permalink} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', textDecoration: 'none' }}>{issue.title}</a>
-                      {issue.culprit && <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {issue.culprit}</span>}
-                    </td>
-                    <td style={{ padding: '10px 16px', fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>
-                      Lần cuối: {new Date(issue.lastSeen).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 800, color: '#dc2626', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {issue.count} lần
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── Thống kê theo thời gian ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
-        <StatCard label="Hôm nay" value={todayCount} />
-        <StatCard label="7 ngày qua" value={sevenDayCount} />
-        <StatCard label="30 ngày qua" value={thirtyDayCount} />
-        <StatCard label="Tất cả thời gian" value={allTimeCount} highlight />
-      </div>
 
       {/* ── Cần chú ý ── */}
       {needsAttention.length > 0 && (

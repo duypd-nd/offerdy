@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { updateStore, deleteStore, createStore, uploadStoreImageFromUrl, checkStoreSlug } from './actions'
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { updateStore, deleteStore, createStore, uploadStoreImageFromUrl, checkStoreSlug, getStoreDescription } from './actions'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
 type AdminCategory = { value: string; label: string; emoji?: string }
 
@@ -24,50 +28,50 @@ type AdminStore = {
   description?: string; imageUrl?: string; _createdAt: string
 }
 
-// Local (browser) date key, matching what toLocaleDateString('vi-VN') displays —
-// slicing the raw UTC ISO string is off by a day whenever local time crosses midnight.
-function localDateKey(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+type StoreFilters = { q: string; category: string; status: string; from: string; to: string }
 
-export default function StoreAdmin({ initialStores, categories: propCategories }: { initialStores: AdminStore[]; categories?: AdminCategory[] }) {
+export default function StoreAdmin({ stores: initialStores, categories: propCategories, page, totalPages, total, filters }: {
+  stores: AdminStore[]; categories?: AdminCategory[]
+  page: number; totalPages: number; total: number; filters: StoreFilters
+}) {
   const CATEGORIES = propCategories?.length ? propCategories : FALLBACK_CATEGORIES
+  const router = useRouter()
+  const { setParams } = useAdminUrlState()
   const [stores, setStores] = useState(initialStores)
-  const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  useEffect(() => setStores(initialStores), [initialStores])
+
+  const [searchInput, setSearchInput] = useState(filters.q)
+  useEffect(() => setSearchInput(filters.q), [filters.q])
+  useEffect(() => {
+    if (searchInput === filters.q) return
+    const t = setTimeout(() => setParams({ q: searchInput || null }), 400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput])
+
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showModal, setShowModal] = useState(false)
   const [editingStore, setEditingStore] = useState<AdminStore | null>(null)
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
+  const [loadingEditId, setLoadingEditId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  const filtered = stores.filter(s => {
-    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.slug ?? '').toLowerCase().includes(search.toLowerCase())
-    const matchCat = categoryFilter === 'all' || s.category === categoryFilter
-    const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? s.published !== false : s.published === false)
-    const createdDate = localDateKey(s._createdAt)
-    const matchDateFrom = !dateFrom || createdDate >= dateFrom
-    const matchDateTo = !dateTo || createdDate <= dateTo
-    return matchSearch && matchCat && matchStatus && matchDateFrom && matchDateTo
-  })
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages || 1)))
+  const openEdit = async (s: AdminStore) => {
+    setLoadingEditId(s._id)
+    try {
+      const description = await getStoreDescription(s._id)
+      setEditingStore({ ...s, description })
+    } finally {
+      setLoadingEditId(null)
+    }
+  }
 
   const toggleSelect = (id: string) => setSelected(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s
   })
-  const toggleAll = () => setSelected(selected.size === paginated.length ? new Set() : new Set(paginated.map(s => s._id)))
+  const toggleAll = () => setSelected(selected.size === stores.length ? new Set() : new Set(stores.map(s => s._id)))
 
   const handleField = (id: string, field: string, value: unknown) =>
     setStores(prev => prev.map(s => s._id === id ? { ...s, [field]: value } : s))
@@ -86,8 +90,8 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
     if (!confirm('Xóa store này? Tất cả offer liên quan có thể bị lỗi.')) return
     startTransition(async () => {
       await deleteStore(id)
-      setStores(prev => prev.filter(s => s._id !== id))
       showToast('Đã xóa store')
+      router.refresh()
     })
   }
 
@@ -110,20 +114,20 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm tên, slug..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          <select className="oa-select" value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1) }}>
+          <input className="oa-search" placeholder="Tìm tên, slug..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+          <select className="oa-select" value={filters.category || 'all'} onChange={e => setParams({ category: e.target.value === 'all' ? null : e.target.value })}>
             <option value="all">Tất cả danh mục</option>
             {CATEGORIES.map((c: AdminCategory) => <option key={c.value} value={c.value}>{c.emoji ? `${c.emoji} ${c.label}` : c.label}</option>)}
           </select>
-          <select className="oa-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
+          <select className="oa-select" value={filters.status || 'all'} onChange={e => setParams({ status: e.target.value === 'all' ? null : e.target.value })}>
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Đang hiện</option>
             <option value="inactive">Đang ẩn</option>
           </select>
-          <input className="oa-select" type="date" title="Từ ngày" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }} />
-          <input className="oa-select" type="date" title="Đến ngày" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }} />
-          {(dateFrom || dateTo) && (
-            <button className="oa-btn" onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }}>✕ Bỏ lọc ngày</button>
+          <input className="oa-select" type="date" title="Từ ngày" value={filters.from} onChange={e => setParams({ from: e.target.value || null })} />
+          <input className="oa-select" type="date" title="Đến ngày" value={filters.to} onChange={e => setParams({ to: e.target.value || null })} />
+          {(filters.from || filters.to) && (
+            <button className="oa-btn" onClick={() => setParams({ from: null, to: null })}>✕ Bỏ lọc ngày</button>
           )}
         </div>
         <div className="oa-actions">
@@ -154,9 +158,9 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
             if (!confirm(`Xóa ${selected.size} store?`)) return
             startTransition(async () => {
               for (const id of selected) await deleteStore(id)
-              setStores(prev => prev.filter(s => !selected.has(s._id)))
               setSelected(new Set())
               showToast(`Đã xóa ${selected.size} store`)
+              router.refresh()
             })
           }} disabled={selected.size === 0 || isPending}>
             🗑 Xóa ({selected.size})
@@ -168,7 +172,7 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
         <table className="oa-table">
           <thead>
             <tr>
-              <th className="oa-th-check"><input type="checkbox" checked={selected.size === paginated.length && paginated.length > 0} onChange={toggleAll} /></th>
+              <th className="oa-th-check"><input type="checkbox" checked={selected.size === stores.length && stores.length > 0} onChange={toggleAll} /></th>
               <th className="oa-th-num">#</th>
               <th>Tên Store</th>
               <th>Danh mục</th>
@@ -180,12 +184,14 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
             </tr>
           </thead>
           <tbody>
-            {paginated.map((s, i) => (
+            {stores.map((s, i) => (
               <tr key={s._id} className={selected.has(s._id) ? 'oa-row-sel' : ''}>
                 <td className="oa-td-check"><input type="checkbox" checked={selected.has(s._id)} onChange={() => toggleSelect(s._id)} /></td>
-                <td className="oa-td-num">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
                 <td>
-                  <button className="oa-name-btn" onClick={() => setEditingStore(s)}>{s.name}</button>
+                  <button className="oa-name-btn" onClick={() => openEdit(s)} disabled={loadingEditId === s._id}>
+                    {loadingEditId === s._id ? 'Đang tải...' : s.name}
+                  </button>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{s.slug}</div>
                 </td>
                 <td style={{ fontSize: 13 }}>{catLabel(s.category)}</td>
@@ -224,7 +230,7 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
                 </td>
               </tr>
             ))}
-            {paginated.length === 0 && (
+            {stores.length === 0 && (
               <tr><td colSpan={9} className="oa-empty">Không tìm thấy store nào</td></tr>
             )}
           </tbody>
@@ -233,27 +239,18 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
 
       <div className="oa-footer">
         <div className="oa-count">
-          {filtered.length > 0
-            ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} / ${filtered.length} store`
+          {total > 0
+            ? `${(page - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(page * ADMIN_PAGE_SIZE, total)} / ${total} store`
             : '0 store'}
-          {filtered.length !== stores.length && ` (tổng ${stores.length})`}
         </div>
-        {totalPages > 1 && (
-          <div className="oa-pagination">
-            <button className="oa-page-btn" onClick={() => goToPage(1)} disabled={page === 1} title="Trang đầu">«</button>
-            <button className="oa-page-btn" onClick={() => goToPage(page - 1)} disabled={page === 1}>← Trước</button>
-            <span className="oa-page-info">{page} / {totalPages}</span>
-            <button className="oa-page-btn" onClick={() => goToPage(page + 1)} disabled={page === totalPages}>Sau →</button>
-            <button className="oa-page-btn" onClick={() => goToPage(totalPages)} disabled={page === totalPages} title="Trang cuối">»</button>
-          </div>
-        )}
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
 
       {showModal && (
         <AddStoreModal
           categories={CATEGORIES}
           onClose={() => setShowModal(false)}
-          onCreated={s => { setStores(prev => [s, ...prev]); setShowModal(false); showToast('Đã thêm store mới') }}
+          onCreated={() => { setShowModal(false); showToast('Đã thêm store mới'); router.refresh() }}
         />
       )}
 
@@ -262,15 +259,15 @@ export default function StoreAdmin({ initialStores, categories: propCategories }
           store={editingStore}
           categories={CATEGORIES}
           onClose={() => setEditingStore(null)}
-          onSaved={updated => {
-            setStores(prev => prev.map(s => s._id === updated._id ? updated : s))
+          onSaved={() => {
             setEditingStore(null)
             showToast('Đã lưu thay đổi')
+            router.refresh()
           }}
-          onDeleted={id => {
-            setStores(prev => prev.filter(s => s._id !== id))
+          onDeleted={() => {
             setEditingStore(null)
             showToast('Đã xóa store')
+            router.refresh()
           }}
         />
       )}
@@ -282,8 +279,8 @@ function EditStoreModal({ store, categories, onClose, onSaved, onDeleted }: {
   store: AdminStore
   categories: AdminCategory[]
   onClose: () => void
-  onSaved: (s: AdminStore) => void
-  onDeleted: (id: string) => void
+  onSaved: () => void
+  onDeleted: () => void
 }) {
   const [form, setForm] = useState({
     name: store.name,
@@ -337,13 +334,13 @@ function EditStoreModal({ store, categories, onClose, onSaved, onDeleted }: {
         ...imagePatch,
       }
       await updateStore(store._id, patch)
-      onSaved({ ...store, ...form, slug: form.slug, maxOffer: form.maxOffer !== '' ? Number(form.maxOffer) : undefined, imageUrl: logoUrl || store.imageUrl })
+      onSaved()
     })
   }
 
   const handleDelete = () => {
     if (!confirm('Xóa store này? Tất cả offer liên quan có thể bị lỗi.')) return
-    startTransition(async () => { await deleteStore(store._id); onDeleted(store._id) })
+    startTransition(async () => { await deleteStore(store._id); onDeleted() })
   }
 
   return (
@@ -434,7 +431,7 @@ function EditStoreModal({ store, categories, onClose, onSaved, onDeleted }: {
 function AddStoreModal({ categories, onClose, onCreated }: {
   categories: AdminCategory[]
   onClose: () => void
-  onCreated: (s: AdminStore) => void
+  onCreated: () => void
 }) {
   const [form, setForm] = useState({ name: '', slug: '', website: '', affiliateLink: '', category: '', maxOffer: '', abbr: '', shortDescription: '', description: '', published: true })
   const [logoUrl, setLogoUrl] = useState('')
@@ -480,21 +477,7 @@ function AddStoreModal({ categories, onClose, onCreated }: {
         published: form.published,
       })
       if (imageRef) await updateStore(doc._id, { image: imageRef })
-      onCreated({
-        _id: doc._id,
-        name: form.name,
-        slug: form.slug,
-        published: form.published,
-        category: form.category || undefined,
-        website: form.website || undefined,
-        affiliateLink: form.affiliateLink || undefined,
-        maxOffer: form.maxOffer !== '' ? Number(form.maxOffer) : undefined,
-        abbr: form.abbr || undefined,
-        shortDescription: form.shortDescription || undefined,
-        description: form.description || undefined,
-        imageUrl: logoUrl || undefined,
-        _createdAt: new Date().toISOString(),
-      })
+      onCreated()
     })
   }
 

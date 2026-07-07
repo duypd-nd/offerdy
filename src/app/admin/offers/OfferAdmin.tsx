@@ -1,7 +1,11 @@
 ﻿'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { updateOffer, deleteOffer, bulkDelete, createOffer } from './actions'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
 type AdminOffer = {
   _id: string; title: string; active: boolean; verified: boolean
@@ -10,13 +14,7 @@ type AdminOffer = {
   store: { _id: string; name: string; slug?: string }
 }
 type AdminStore = { _id: string; name: string }
-
-// Local (browser) date key, matching what toLocaleDateString('vi-VN') displays —
-// slicing the raw UTC ISO string is off by a day whenever local time crosses midnight.
-function localDateKey(iso: string) {
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+type OfferFilters = { q: string; store: string; status: string; from: string; to: string }
 
 function StoreSearchInput({ stores, value, onChange, allLabel }: {
   stores: AdminStore[]; value: string; onChange: (id: string) => void
@@ -75,39 +73,34 @@ function StoreSearchInput({ stores, value, onChange, allLabel }: {
   )
 }
 
-export default function OfferAdmin({ initialOffers, stores }: { initialOffers: AdminOffer[]; stores: AdminStore[] }) {
+export default function OfferAdmin({ offers: initialOffers, stores, page, totalPages, total, filters }: {
+  offers: AdminOffer[]; stores: AdminStore[]
+  page: number; totalPages: number; total: number; filters: OfferFilters
+}) {
+  const router = useRouter()
+  const { setParams } = useAdminUrlState()
   const [offers, setOffers] = useState(initialOffers)
-  const [search, setSearch] = useState('')
-  const [storeFilter, setStoreFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  useEffect(() => setOffers(initialOffers), [initialOffers])
+
+  const [searchInput, setSearchInput] = useState(filters.q)
+  useEffect(() => setSearchInput(filters.q), [filters.q])
+  useEffect(() => {
+    if (searchInput === filters.q) return
+    const t = setTimeout(() => setParams({ q: searchInput || null }), 400)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput])
+
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showModal, setShowModal] = useState(false)
   const [editingOffer, setEditingOffer] = useState<AdminOffer | null>(null)
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
-  const filtered = offers.filter(o => {
-    const matchSearch = o.title.toLowerCase().includes(search.toLowerCase())
-    const matchStore = storeFilter === 'all' || o.store._id === storeFilter
-    const matchStatus = statusFilter === 'all' || (statusFilter === 'active' ? o.active : !o.active)
-    const createdDate = localDateKey(o._createdAt)
-    const matchDateFrom = !dateFrom || createdDate >= dateFrom
-    const matchDateTo = !dateTo || createdDate <= dateTo
-    return matchSearch && matchStore && matchStatus && matchDateFrom && matchDateTo
-  })
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages)))
-
   const toggleSelect = (id: string) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
-  const toggleAll = () => setSelected(selected.size === paginated.length ? new Set() : new Set(paginated.map(o => o._id)))
+  const toggleAll = () => setSelected(selected.size === offers.length ? new Set() : new Set(offers.map(o => o._id)))
 
   const handleField = (id: string, field: string, value: unknown) => {
     setOffers(prev => prev.map(o => o._id === id ? { ...o, [field]: value } : o))
@@ -128,7 +121,7 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
 
   const handleDelete = (id: string) => {
     if (!confirm('Xóa offer này?')) return
-    startTransition(async () => { await deleteOffer(id); setOffers(prev => prev.filter(o => o._id !== id)); showToast('Đã xóa') })
+    startTransition(async () => { await deleteOffer(id); showToast('Đã xóa'); router.refresh() })
   }
 
   const handleBulkDelete = () => {
@@ -136,9 +129,9 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
     if (!confirm(`Xóa ${selected.size} offer?`)) return
     startTransition(async () => {
       await bulkDelete([...selected])
-      setOffers(prev => prev.filter(o => !selected.has(o._id)))
       setSelected(new Set())
       showToast(`Đã xóa ${selected.size} offer`)
+      router.refresh()
     })
   }
 
@@ -159,17 +152,17 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm kiếm..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          <StoreSearchInput stores={stores} value={storeFilter} onChange={id => { setStoreFilter(id); setPage(1) }} allLabel="Tất cả store" />
-          <select className="oa-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
+          <input className="oa-search" placeholder="Tìm kiếm..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+          <StoreSearchInput stores={stores} value={filters.store || 'all'} onChange={id => setParams({ store: id === 'all' ? null : id })} allLabel="Tất cả store" />
+          <select className="oa-select" value={filters.status || 'all'} onChange={e => setParams({ status: e.target.value === 'all' ? null : e.target.value })}>
             <option value="all">Tất cả trạng thái</option>
             <option value="active">Đang hiện</option>
             <option value="inactive">Đang ẩn</option>
           </select>
-          <input className="oa-select" type="date" title="Từ ngày" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }} />
-          <input className="oa-select" type="date" title="Đến ngày" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }} />
-          {(dateFrom || dateTo) && (
-            <button className="oa-btn" onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }}>✕ Bỏ lọc ngày</button>
+          <input className="oa-select" type="date" title="Từ ngày" value={filters.from} onChange={e => setParams({ from: e.target.value || null })} />
+          <input className="oa-select" type="date" title="Đến ngày" value={filters.to} onChange={e => setParams({ to: e.target.value || null })} />
+          {(filters.from || filters.to) && (
+            <button className="oa-btn" onClick={() => setParams({ from: null, to: null })}>✕ Bỏ lọc ngày</button>
           )}
         </div>
         <div className="oa-actions">
@@ -199,7 +192,7 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
         <table className="oa-table">
           <thead>
             <tr>
-              <th className="oa-th-check"><input type="checkbox" checked={selected.size === paginated.length && paginated.length > 0} onChange={toggleAll} /></th>
+              <th className="oa-th-check"><input type="checkbox" checked={selected.size === offers.length && offers.length > 0} onChange={toggleAll} /></th>
               <th className="oa-th-num">#</th>
               <th>Tên Offer</th>
               <th>Duyệt</th>
@@ -211,10 +204,10 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
             </tr>
           </thead>
           <tbody>
-            {paginated.map((o, i) => (
+            {offers.map((o, i) => (
               <tr key={o._id} className={selected.has(o._id) ? 'oa-row-sel' : ''}>
                 <td className="oa-td-check"><input type="checkbox" checked={selected.has(o._id)} onChange={() => toggleSelect(o._id)} /></td>
-                <td className="oa-td-num">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
                 <td>
                   <button className="oa-name-btn" onClick={() => setEditingOffer(o)}>{o.title}</button>
                   {o.couponCode && <span className="oa-code">🏷 {o.couponCode}</span>}
@@ -229,13 +222,11 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
                     <option value="1">Có</option><option value="0">Không</option>
                   </select>
                 </td>
-                <td>
-                  <select className="oa-inline-sel oa-store-sel" value={o.store._id} onChange={e => {
-                    const s = stores.find(x => x._id === e.target.value)
+                <td style={{ minWidth: 160 }}>
+                  <StoreSearchInput stores={stores} value={o.store._id} onChange={id => {
+                    const s = stores.find(x => x._id === id)
                     if (s) handleField(o._id, 'store', { _id: s._id, name: s.name })
-                  }}>
-                    {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                  </select>
+                  }} />
                 </td>
                 <td><input className="oa-inline-num" type="number" value={o.order} onChange={e => handleField(o._id, 'order', Number(e.target.value))} /></td>
                 <td className="oa-td-date">{new Date(o._createdAt).toLocaleDateString('vi-VN')}</td>
@@ -252,32 +243,23 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
                 </td>
               </tr>
             ))}
-            {paginated.length === 0 && <tr><td colSpan={9} className="oa-empty">Không tìm thấy offer nào</td></tr>}
+            {offers.length === 0 && <tr><td colSpan={9} className="oa-empty">Không tìm thấy offer nào</td></tr>}
           </tbody>
         </table>
       </div>
 
       <div className="oa-footer">
         <div className="oa-count">
-          {filtered.length > 0 ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} / ${filtered.length} offer` : '0 offer'}
-          {filtered.length !== offers.length && ` (tổng ${offers.length})`}
+          {total > 0 ? `${(page - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(page * ADMIN_PAGE_SIZE, total)} / ${total} offer` : '0 offer'}
         </div>
-        {totalPages > 1 && (
-          <div className="oa-pagination">
-            <button className="oa-page-btn" onClick={() => goToPage(1)} disabled={page === 1}>«</button>
-            <button className="oa-page-btn" onClick={() => goToPage(page - 1)} disabled={page === 1}>← Trước</button>
-            <span className="oa-page-info">{page} / {totalPages}</span>
-            <button className="oa-page-btn" onClick={() => goToPage(page + 1)} disabled={page === totalPages}>Sau →</button>
-            <button className="oa-page-btn" onClick={() => goToPage(totalPages)} disabled={page === totalPages}>»</button>
-          </div>
-        )}
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
 
-      {showModal && <AddModal stores={stores} onClose={() => setShowModal(false)} onCreated={o => { setOffers(prev => [o, ...prev]); setShowModal(false); showToast('Đã thêm offer mới') }} />}
+      {showModal && <AddModal stores={stores} onClose={() => setShowModal(false)} onCreated={() => { setShowModal(false); showToast('Đã thêm offer mới'); router.refresh() }} />}
       {editingOffer && (
         <EditModal offer={editingOffer} stores={stores} onClose={() => setEditingOffer(null)}
-          onSaved={updated => { setOffers(prev => prev.map(o => o._id === updated._id ? updated : o)); setEditingOffer(null); showToast('Đã lưu') }}
-          onDeleted={id => { setOffers(prev => prev.filter(o => o._id !== id)); setEditingOffer(null); showToast('Đã xóa') }} />
+          onSaved={() => { setEditingOffer(null); showToast('Đã lưu'); router.refresh() }}
+          onDeleted={() => { setEditingOffer(null); showToast('Đã xóa'); router.refresh() }} />
       )}
     </div>
   )
@@ -285,7 +267,7 @@ export default function OfferAdmin({ initialOffers, stores }: { initialOffers: A
 
 function EditModal({ offer, stores, onClose, onSaved, onDeleted }: {
   offer: AdminOffer; stores: AdminStore[]
-  onClose: () => void; onSaved: (o: AdminOffer) => void; onDeleted: (id: string) => void
+  onClose: () => void; onSaved: () => void; onDeleted: () => void
 }) {
   const [form, setForm] = useState({
     title: offer.title, offerText: offer.offerText, couponCode: offer.couponCode ?? '',
@@ -305,8 +287,7 @@ function EditModal({ offer, stores, onClose, onSaved, onDeleted }: {
         store: { _type: 'reference', _ref: form.storeId },
         order: form.order, active: form.active, verified: form.verified,
       })
-      const store = stores.find(s => s._id === form.storeId)!
-      onSaved({ ...offer, ...form, couponCode: form.couponCode || undefined, description: form.description || undefined, store: { _id: store._id, name: store.name } })
+      onSaved()
     })
   }
 
@@ -356,7 +337,7 @@ function EditModal({ offer, stores, onClose, onSaved, onDeleted }: {
             </label>
           </div>
           <div className="oa-modal-footer">
-            <button type="button" className="oa-btn oa-btn-red" onClick={() => { if (!confirm('Xóa offer này?')) return; startTransition(async () => { await deleteOffer(offer._id); onDeleted(offer._id) }) }} disabled={isPending}>🗑 Xóa</button>
+            <button type="button" className="oa-btn oa-btn-red" onClick={() => { if (!confirm('Xóa offer này?')) return; startTransition(async () => { await deleteOffer(offer._id); onDeleted() }) }} disabled={isPending}>🗑 Xóa</button>
             <div style={{ flex: 1 }} />
             <button type="button" className="oa-btn" onClick={onClose}>Hủy</button>
             <button type="submit" className="oa-btn oa-btn-green" disabled={isPending}>{isPending ? 'Đang lưu...' : '💾 Lưu thay đổi'}</button>
@@ -367,7 +348,7 @@ function EditModal({ offer, stores, onClose, onSaved, onDeleted }: {
   )
 }
 
-function AddModal({ stores, onClose, onCreated }: { stores: AdminStore[]; onClose: () => void; onCreated: (o: AdminOffer) => void }) {
+function AddModal({ stores, onClose, onCreated }: { stores: AdminStore[]; onClose: () => void; onCreated: () => void }) {
   const [form, setForm] = useState({ title: '', offerText: '', couponCode: '', storeId: stores[0]?._id ?? '', order: 0, active: true, verified: true })
   const [isPending, startTransition] = useTransition()
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
@@ -377,8 +358,7 @@ function AddModal({ stores, onClose, onCreated }: { stores: AdminStore[]; onClos
     if (!form.title || !form.offerText || !form.storeId) return
     startTransition(async () => {
       await createOffer(form)
-      const store = stores.find(s => s._id === form.storeId)!
-      onCreated({ _id: Date.now().toString(), ...form, link: '', store: { _id: store._id, name: store.name }, _createdAt: new Date().toISOString() })
+      onCreated()
     })
   }
 

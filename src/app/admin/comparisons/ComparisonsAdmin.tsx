@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { updateComparison, deleteComparison, createComparison, checkComparisonSlug } from './actions'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { useUrlPage } from '../_components/useUrlPage'
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
 type AdminPost = {
   _id: string; title: string; slug: string; author?: string
@@ -13,17 +17,16 @@ export default function ComparisonsAdmin({ initialPosts }: { initialPosts: Admin
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingPost, setEditingPost] = useState<AdminPost | null>(null)
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
+  const page = useUrlPage()
+  const { setParams } = useAdminUrlState()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
   const filtered = posts.filter(p => p.title.toLowerCase().includes(search.toLowerCase()))
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages || 1)))
+  const totalPages = Math.ceil(filtered.length / ADMIN_PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE)
 
   const handleDelete = (id: string) => {
     if (!confirm('Xóa bài so sánh này?')) return
@@ -51,7 +54,7 @@ export default function ComparisonsAdmin({ initialPosts }: { initialPosts: Admin
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm bài so sánh..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
+          <input className="oa-search" placeholder="Tìm bài so sánh..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
         </div>
         <div className="oa-actions">
           <button className="oa-btn oa-btn-green" onClick={() => setShowModal(true)}>＋ Thêm bài so sánh</button>
@@ -73,7 +76,7 @@ export default function ComparisonsAdmin({ initialPosts }: { initialPosts: Admin
           <tbody>
             {paginated.map((p, i) => (
               <tr key={p._id}>
-                <td className="oa-td-num">{(page - 1) * PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
                 <td>
                   <button className="oa-name-btn" onClick={() => setEditingPost(p)}>{p.title}</button>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{p.slug}</div>
@@ -105,17 +108,9 @@ export default function ComparisonsAdmin({ initialPosts }: { initialPosts: Admin
 
       <div className="oa-footer">
         <div className="oa-count">
-          {filtered.length > 0 ? `${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, filtered.length)} / ${filtered.length} bài` : '0 bài'}
+          {filtered.length > 0 ? `${(page - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(page * ADMIN_PAGE_SIZE, filtered.length)} / ${filtered.length} bài` : '0 bài'}
         </div>
-        {totalPages > 1 && (
-          <div className="oa-pagination">
-            <button className="oa-page-btn" onClick={() => goToPage(1)} disabled={page === 1}>«</button>
-            <button className="oa-page-btn" onClick={() => goToPage(page - 1)} disabled={page === 1}>← Trước</button>
-            <span className="oa-page-info">{page} / {totalPages}</span>
-            <button className="oa-page-btn" onClick={() => goToPage(page + 1)} disabled={page === totalPages}>Sau →</button>
-            <button className="oa-page-btn" onClick={() => goToPage(totalPages)} disabled={page === totalPages}>»</button>
-          </div>
-        )}
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
 
       {showModal && (

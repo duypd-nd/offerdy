@@ -2,6 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { updatePost, deletePost, createPost, uploadPostImage, bulkSetPublished, checkPostSlug } from './actions'
+import AdminPagination from '../_components/AdminPagination'
+import { useAdminUrlState } from '../_components/useAdminUrlState'
+import { useUrlPage } from '../_components/useUrlPage'
+import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
 const POST_CATS = ['Tips & Guides', 'Store Guide', 'Deals Roundup', 'News']
 
@@ -17,8 +21,8 @@ export default function PostAdmin({ initialPosts }: { initialPosts: AdminPost[] 
   const [editingPost, setEditingPost] = useState<AdminPost | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [page, setPage] = useState(1)
-  const PAGE_SIZE = 20
+  const page = useUrlPage()
+  const { setParams } = useAdminUrlState()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
@@ -30,9 +34,8 @@ export default function PostAdmin({ initialPosts }: { initialPosts: AdminPost[] 
     return matchSearch && matchCat
   })
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, totalPages || 1)))
+  const totalPages = Math.ceil(filtered.length / ADMIN_PAGE_SIZE)
+  const paginated = filtered.slice((page - 1) * ADMIN_PAGE_SIZE, page * ADMIN_PAGE_SIZE)
 
   const toggleSelect = (id: string) => setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const toggleAll = () => setSelected(selected.size === paginated.length ? new Set() : new Set(paginated.map(p => p._id)))
@@ -63,8 +66,8 @@ export default function PostAdmin({ initialPosts }: { initialPosts: AdminPost[] 
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm bài viết..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          <select className="oa-select" value={catFilter} onChange={e => { setCatFilter(e.target.value); setPage(1) }}>
+          <input className="oa-search" placeholder="Tìm bài viết..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
+          <select className="oa-select" value={catFilter} onChange={e => { setCatFilter(e.target.value); setParams({}) }}>
             <option value="all">Tất cả danh mục</option>
             {POST_CATS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -122,7 +125,7 @@ export default function PostAdmin({ initialPosts }: { initialPosts: AdminPost[] 
             {paginated.map((p, i) => (
               <tr key={p._id} className={selected.has(p._id) ? 'oa-row-sel' : ''}>
                 <td className="oa-td-check"><input type="checkbox" checked={selected.has(p._id)} onChange={() => toggleSelect(p._id)} /></td>
-                <td className="oa-td-num">{(page-1)*PAGE_SIZE+i+1}</td>
+                <td className="oa-td-num">{(page-1)*ADMIN_PAGE_SIZE+i+1}</td>
                 <td>
                   <button className="oa-name-btn" onClick={() => setEditingPost(p)}>{p.title}</button>
                   <div style={{ fontSize: 11, color: '#9ca3af' }}>{p.slug}</div>
@@ -152,18 +155,10 @@ export default function PostAdmin({ initialPosts }: { initialPosts: AdminPost[] 
 
       <div className="oa-footer">
         <div className="oa-count">
-          {filtered.length > 0 ? `${(page-1)*PAGE_SIZE+1}–${Math.min(page*PAGE_SIZE, filtered.length)} / ${filtered.length} bài` : '0 bài'}
+          {filtered.length > 0 ? `${(page-1)*ADMIN_PAGE_SIZE+1}–${Math.min(page*ADMIN_PAGE_SIZE, filtered.length)} / ${filtered.length} bài` : '0 bài'}
           {filtered.length !== posts.length && ` (tổng ${posts.length})`}
         </div>
-        {totalPages > 1 && (
-          <div className="oa-pagination">
-            <button className="oa-page-btn" onClick={() => goToPage(1)} disabled={page===1}>«</button>
-            <button className="oa-page-btn" onClick={() => goToPage(page-1)} disabled={page===1}>← Trước</button>
-            <span className="oa-page-info">{page} / {totalPages}</span>
-            <button className="oa-page-btn" onClick={() => goToPage(page+1)} disabled={page===totalPages}>Sau →</button>
-            <button className="oa-page-btn" onClick={() => goToPage(totalPages)} disabled={page===totalPages}>»</button>
-          </div>
-        )}
+        <AdminPagination page={page} totalPages={totalPages} />
       </div>
 
       {showModal && (
