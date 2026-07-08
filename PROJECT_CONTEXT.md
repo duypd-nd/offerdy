@@ -22,12 +22,15 @@
 - **Production domain is `https://www.offerdy.com`** — the bare `offerdy.com` 308-redirects to it. Every canonical tag / sitemap URL / JSON-LD `@id` must use the `www.` form (hardcoded as `https://www.offerdy.com` per-file, not read from `NEXT_PUBLIC_SITE_URL` which is set on Vercel but unused by code). Fixed 2026-07-04 after an audit found all URLs pointing to the bare (redirecting) domain — if adding a new page with `generateMetadata`/JSON-LD, copy the `www.` form from an existing page, not the Vercel env var name.
 - **Favicon**: `src/app/icon.tsx` / `apple-icon.tsx` read `configGeneral.favicon` via `getFaviconUrl()`, falling back to a hardcoded navy/green icon if not configured. No static `favicon.ico` (removed — was the unused Next.js default).
 - `/llms.txt` (`src/app/llms.txt/route.ts`) auto-generates a GEO summary (categories, recent reviews/posts) from live Sanity data — update if major content sections change.
+- **Expired Coupon handling**: offers expired ≤30 days ago show under a "Recently Expired" badge (no CTA) instead of disappearing outright; `/coupon-codes` excludes expired codes from the main list rather than showing dead codes as if live.
+- **Language split**: public-facing pages are 100% English; `/admin/*` stays Vietnamese. Don't "fix" Vietnamese strings inside `/admin`.
 
 ## Public Pages
 | Route | Status | Notes |
 |-------|--------|-------|
 | `/` | ✅ Live | Homepage |
 | `/deals` | ✅ Live | All deals |
+| `/deals/[slug]` | ✅ Live | Deal detail — Summary/Pros&Cons/FAQ, AI-generated via `generateDealContent.ts`, JSON-LD Product+FAQPage+Breadcrumb |
 | `/stores` | ✅ Live | Store directory |
 | `/stores/[slug]` | ✅ Live | Store detail + offers |
 | `/categories` | ✅ Live | Category list |
@@ -47,7 +50,7 @@
 | `/cookies` | ✅ Live | Sanity-editable legal page |
 | `/affiliate-disclosure` | ✅ Live | Sanity-editable legal page |
 | `/flash-sales` | ✅ Live | Live countdown timers, offers expiring soon |
-| `/coupon-codes` | ✅ Live | 5-col grid, masked reveal → copy + open link, pagination |
+| `/coupon-codes` | ✅ Live | 5-col grid, masked reveal → copy + open link, pagination; expired codes filtered out of the main list (see Expired Coupon handling below) |
 | `/comparisons` | ✅ Live | Posts category=Comparison |
 | `/tips-guides` | ✅ Live | Posts category=Tips & Guides |
 | `/[slug]` | ✅ Live | CMS-managed custom pages |
@@ -61,6 +64,26 @@
 - Import (`/admin/import`)
 - Flash Sales, Coupon Codes, Comparisons, Tips & Guides admin sections
 - Migration util: `/admin/migrate/footer` (one-time footer link patch)
+- **`/admin/ai-review`** — approval queue for AI-generated drafts, 3 tabs: Stores / Offers / Deals. Preview via iframe `srcDoc`, Approve/Reject/Regenerate.
+- **`/admin/merchant-health`** — 0-100 health score per store (Content 40% / SEO 20% / Affiliate 25% / Freshness 15%), sorted worst-first, links back to `/admin/stores`
+- **`/admin/seo-audit`** — deterministic (non-AI) audit: missing/duplicate meta title/description, missing FAQ, missing images, short excerpts
+- **`/admin/reports`** — "Platform Health" (avg score, broken links, stores needing attention) + AI Daily Report (Vietnamese summary + action items from Merchant Health + Sentry) + click analytics (top stores/offers, time-windowed) + Sentry unresolved issues
+- 9 list pages (stores/offers/coupon-codes/deals/flash-sales/comparisons/posts/reviews/tips-guides) + merchant-health use real URL pagination (`?page=N`; stores/offers/coupon-codes also put filters in the URL) via shared `src/lib/adminPagination.ts` + `src/app/admin/_components/{AdminPagination,useAdminUrlState,useUrlPage}` — do not reintroduce "load all then slice client-side"
+
+## AI Engines (Anthropic Claude Sonnet 5 + Vercel Cron)
+9/9 built as of 2026-07-08 (scaled-down vs. the aspirational multi-agent/queue spec in `docs/03-workflows/*.md`, which assumes infra this project doesn't have — real affiliate network APIs, job queues):
+- **Content** — `src/lib/ai/generateStoreContent.ts` / `generateOfferContent.ts` / `generateDealContent.ts`, structured output (`zodOutputFormat`), hard constraint: never invent numbers/promos/codes. Cron `/api/cron/ai-content-nightly` (batch, drafts only) + manual trigger APIs under `/api/ai/content/*`. Approval in `/admin/ai-review`.
+- **Import** — `/admin/import` (Excel/CSV, batched to stay under Vercel's 4.5MB body limit)
+- **Image** — `src/lib/ogTemplate.tsx`, per-entity `opengraph-image.tsx` for `/stores/[slug]`, `/blog/[slug]`, `/reviews/[slug]` (no AI image gen, no API cost — pure `next/og`/Satori)
+- **Health (Merchant)** — `src/lib/merchantHealth.ts` → `/admin/merchant-health`, computed live (not cached/precomputed)
+- **Link Health** — `src/lib/checkOfferLink.ts`, manual (`/api/check-links`) + nightly cron `/api/cron/link-check-nightly`, writes `offer.linkStatus`/`linkCheckedAt`
+- **SEO** — `/admin/seo-audit` (deterministic, no AI needed)
+- **GEO** — Offer `usageTips`/`eligibilityNotes` + full Deal detail content (`/deals/[slug]`)
+- **Analytics** — folded into AI Daily Report rather than a parallel system (click/conversion data feeds the same AI summary)
+- **Daily Report** — `/api/cron/daily-report` → Sanity singleton `dailyReport` → shown atop `/admin/reports`
+- Reviewer role is covered by the `/code-review` skill, not a dedicated engine.
+
+**Sanity reference gotcha**: strong references (default) block deletion of the referenced doc. `offer.store` is intentionally strong (real data integrity) but store deletion now cascades to delete its offers in one transaction rather than failing silently — see `src/app/admin/stores/actions.ts`. Analytics/log-only references (e.g. `click.offer`/`click.store`) use `_weak: true` (exact field name — `weak` is rejected by Sanity) since referential integrity doesn't matter there. When adding a new reference field, decide which case it is up front instead of defaulting to strong and discovering a deletion deadlock later.
 
 ## Shared Components
 - `src/app/admin/_legal/LegalForm.tsx` — shared admin form for all 4 legal pages
@@ -74,3 +97,4 @@
 
 ## Static Fallback Data
 `src/data/` — deals, stores, categories, reviews, posts, siteSettings (used when Sanity not configured)
+

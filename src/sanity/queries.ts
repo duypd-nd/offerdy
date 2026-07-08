@@ -124,7 +124,8 @@ const DEAL_BY_SLUG_QUERY = `*[_type == "deal" && slug.current == $slug][0] {
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl,
   "slug": slug.current,
   summary, prosAndCons{ pros, cons }, faq[]{ question, answer },
-  metaTitle, metaDescription, _createdAt, _updatedAt
+  metaTitle, metaDescription, _createdAt, _updatedAt,
+  "relatedReview": relatedReview->{ title, "slug": slug.current }
 }`
 
 export async function getDealBySlug(slug: string) {
@@ -715,10 +716,10 @@ const SEO_AUDIT_QUERY = `{
     "faqCount": count(faq), "hasImage": defined(image)
   },
   "posts": *[_type == "post" && defined(publishedAt) && publishedAt <= now()] {
-    "id": _id, title, "slug": slug.current, excerpt, "hasImage": defined(image)
+    "id": _id, title, "slug": slug.current, excerpt, "hasImage": defined(image) || defined(externalImageUrl)
   },
   "reviews": *[_type == "review" && (!defined(publishedAt) || publishedAt <= now())] {
-    "id": _id, title, "slug": slug.current, excerpt, "hasImage": defined(image)
+    "id": _id, title, "slug": slug.current, excerpt, "hasImage": defined(image) || defined(externalImageUrl)
   }
 }`
 

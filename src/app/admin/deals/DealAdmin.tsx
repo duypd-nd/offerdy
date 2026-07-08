@@ -1,11 +1,65 @@
 ﻿'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef, useEffect } from 'react'
 import { updateDeal, deleteDeal, createDeal, uploadDealImage, uploadDealImageFromUrl, bulkUpdateOrder } from './actions'
 import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
+
+function ReviewSearchInput({ reviews, value, onChange }: {
+  reviews: ReviewOption[]; value: string; onChange: (id: string) => void
+}) {
+  const selected = reviews.find(r => r._id === value)
+  const [query, setQuery] = useState(selected?.title ?? '')
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  const filtered = reviews.filter(r => r.title.toLowerCase().includes(query.toLowerCase())).slice(0, 10)
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <input
+        className="oa-input"
+        value={query}
+        placeholder="Tìm review..."
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        autoComplete="off"
+      />
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1.5px solid #e4eaf2', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,.1)', zIndex: 100, maxHeight: 240, overflowY: 'auto' }}>
+          <div
+            onMouseDown={() => { onChange(''); setQuery(''); setOpen(false) }}
+            style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: value === '' ? 700 : 400, background: value === '' ? '#f0fdf4' : 'transparent', color: value === '' ? '#16a34a' : '#0f1929', borderBottom: '1px solid #f1f5f9' }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#f6f8fb')}
+            onMouseLeave={e => (e.currentTarget.style.background = value === '' ? '#f0fdf4' : 'transparent')}
+          >
+            — Không có —
+          </div>
+          {filtered.map(r => (
+            <div
+              key={r._id}
+              onMouseDown={() => { onChange(r._id); setQuery(r.title); setOpen(false) }}
+              style={{ padding: '9px 14px', cursor: 'pointer', fontSize: 13, fontWeight: value === r._id ? 700 : 400, background: value === r._id ? '#f0fdf4' : 'transparent', color: value === r._id ? '#16a34a' : '#0f1929' }}
+              onMouseEnter={e => (e.currentTarget.style.background = '#f6f8fb')}
+              onMouseLeave={e => (e.currentTarget.style.background = value === r._id ? '#f0fdf4' : 'transparent')}
+            >
+              {r.title}
+            </div>
+          ))}
+          {filtered.length === 0 && <div style={{ padding: '9px 14px', fontSize: 13, color: '#9ca3af' }}>Không tìm thấy review nào</div>}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const calcDiscount = (orig: string, sale: string) => {
   const o = parseFloat(orig.replace(/[^0-9.]/g, ''))
@@ -27,9 +81,12 @@ type AdminDeal = {
   imageUrl?: string; priceSale: string; priceOrig: string
   discount: number; discountByAmount?: boolean; verified: boolean; isExpiring: boolean
   expiresAt?: string; dealUrl?: string; _createdAt: string; _updatedAt?: string; order?: number
+  relatedReview?: { _id: string; title: string }
 }
 
-export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] }) {
+type ReviewOption = { _id: string; title: string }
+
+export default function DealAdmin({ initialDeals, allReviews = [] }: { initialDeals: AdminDeal[]; allReviews?: ReviewOption[] }) {
   const [deals, setDeals] = useState(initialDeals)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -224,11 +281,11 @@ export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] 
       </div>
 
       {showModal && (
-        <DealModal mode="add" onClose={() => setShowModal(false)}
+        <DealModal mode="add" allReviews={allReviews} onClose={() => setShowModal(false)}
           onSaved={d => { setDeals(prev => [d, ...prev]); setShowModal(false); showToast('Đã thêm deal mới') }} />
       )}
       {editingDeal && (
-        <DealModal mode="edit" initial={editingDeal} onClose={() => setEditingDeal(null)}
+        <DealModal mode="edit" initial={editingDeal} allReviews={allReviews} onClose={() => setEditingDeal(null)}
           onSaved={updated => { setDeals(prev => prev.map(d => d._id === updated._id ? updated : d)); setEditingDeal(null); showToast('Đã lưu') }}
           onDeleted={id => { setDeals(prev => prev.filter(d => d._id !== id)); setEditingDeal(null); showToast('Đã xóa') }} />
       )}
@@ -236,8 +293,8 @@ export default function DealAdmin({ initialDeals }: { initialDeals: AdminDeal[] 
   )
 }
 
-function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
-  mode: 'add' | 'edit'; initial?: AdminDeal
+function DealModal({ mode, initial, allReviews = [], onClose, onSaved, onDeleted }: {
+  mode: 'add' | 'edit'; initial?: AdminDeal; allReviews?: ReviewOption[]
   onClose: () => void; onSaved: (d: AdminDeal) => void; onDeleted?: (id: string) => void
 }) {
   const [form, setForm] = useState({
@@ -250,6 +307,7 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
     isExpiring: initial?.isExpiring ?? false,
     expiresAt: initial?.expiresAt ? initial.expiresAt.slice(0, 16) : '',
     dealUrl: initial?.dealUrl ?? '',
+    relatedReviewId: initial?.relatedReview?._id ?? '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(initial?.imageUrl ?? '')
@@ -280,6 +338,7 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
           return
         }
       }
+      const relatedReviewRef = form.relatedReviewId ? { _type: 'reference' as const, _ref: form.relatedReviewId } : undefined
       const data = {
         title: form.title,
         priceSale: form.priceSale,
@@ -291,13 +350,17 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
         expiresAt: form.expiresAt || undefined,
         dealUrl: form.dealUrl || undefined,
         ...(image ? { image } : {}),
+        ...(relatedReviewRef ? { relatedReview: relatedReviewRef } : {}),
       }
+      const relatedReviewForState = form.relatedReviewId
+        ? { _id: form.relatedReviewId, title: allReviews.find(r => r._id === form.relatedReviewId)?.title ?? '' }
+        : undefined
       if (mode === 'add') {
         const doc = await createDeal(data)
-        onSaved({ _id: doc._id, slug: (doc.slug as { current: string })?.current ?? '', _createdAt: new Date().toISOString(), ...data, imageUrl: imagePreview || undefined })
+        onSaved({ _id: doc._id, slug: (doc.slug as { current: string })?.current ?? '', _createdAt: new Date().toISOString(), ...data, imageUrl: imagePreview || undefined, relatedReview: relatedReviewForState })
       } else if (initial) {
-        await updateDeal(initial._id, data)
-        onSaved({ ...initial, ...data, imageUrl: imagePreview || undefined })
+        await updateDeal(initial._id, data, relatedReviewRef ? undefined : ['relatedReview'])
+        onSaved({ ...initial, ...data, imageUrl: imagePreview || undefined, relatedReview: relatedReviewForState })
       }
     })
   }
@@ -384,6 +447,13 @@ function DealModal({ mode, initial, onClose, onSaved, onDeleted }: {
 
           <label className="oa-label">Deal URL
             <input className="oa-input" value={form.dealUrl} onChange={e => set('dealUrl', e.target.value)} placeholder="https://..." />
+          </label>
+
+          <label className="oa-label">Review liên quan (nếu có)
+            <ReviewSearchInput reviews={allReviews} value={form.relatedReviewId} onChange={id => set('relatedReviewId', id)} />
+            <span style={{ display: 'block', fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+              Chỉ chọn nếu bài review thực sự nói về đúng sản phẩm này — trang deal sẽ hiện link sang bài review đó.
+            </span>
           </label>
 
           <div className="oa-modal-row">

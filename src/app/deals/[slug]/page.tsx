@@ -154,6 +154,24 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
             </div>
           </div>
 
+          {deal.relatedReview && (
+            <Link
+              href={`/reviews/${deal.relatedReview.slug}`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28, padding: '14px 18px',
+                background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12,
+                textDecoration: 'none', color: '#15803d',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>
+                Read our full review of {deal.relatedReview.title} <span aria-hidden>→</span>
+              </span>
+            </Link>
+          )}
+
           {deal.summary && (
             <div style={{ marginBottom: 28 }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Why This Deal Is Worth It</h2>

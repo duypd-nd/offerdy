@@ -26,6 +26,13 @@ export const dealType = defineType({
     defineField({ name: 'isExpiring', title: 'Expiring Soon?', type: 'boolean', initialValue: false }),
     defineField({ name: 'expiresAt', title: 'Expires At', type: 'datetime' }),
     defineField({ name: 'dealUrl', title: 'Deal URL', type: 'url' }),
+    defineField({
+      name: 'relatedReview',
+      title: 'Review liên quan',
+      type: 'reference',
+      to: [{ type: 'review' }],
+      description: 'Chỉ chọn nếu có sẵn bài Review nói đúng về sản phẩm/deal này — không tự động khớp, chọn tay để tránh gán nhầm sản phẩm.',
+    }),
 
     // ── GEO Content (hiển thị trên /deals/[slug]) ──────────────
     defineField({ name: 'summary', title: 'Tóm tắt (vì sao đáng mua)', type: 'text', rows: 3 }),

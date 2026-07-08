@@ -132,20 +132,9 @@ export default async function AdminDashboard() {
     <div style={{ padding: '32px 28px', maxWidth: 1200 }}>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 32 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>Dashboard</h1>
-          <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>Quản lý toàn bộ nội dung Offerdy</p>
-        </div>
-        <a href="/" target="_blank" rel="noopener noreferrer" className="oa-btn"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none', flexShrink: 0 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          Xem Website
-        </a>
+      <div style={{ marginBottom: 32 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>Dashboard</h1>
+        <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>Quản lý toàn bộ nội dung Offerdy</p>
       </div>
 
       {/* ── Offers & Deals ── */}

@@ -151,12 +151,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             </div>
 
             <div className="article-body">
-              {post.excerpt && (
-                <p style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)', marginBottom: 28, lineHeight: 1.7 }}>
-                  {post.excerpt}
-                </p>
-              )}
-
               {'content' in post && typeof (post as { content?: string }).content === 'string' && (post as { content: string }).content.length > 100 ? (
                 <div dangerouslySetInnerHTML={{ __html: (post as { content: string }).content }} />
               ) : 'body' in post && Array.isArray((post as { body?: unknown[] }).body) && (post as { body: unknown[] }).body.length > 0 ? (

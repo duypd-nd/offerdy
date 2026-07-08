@@ -10,8 +10,10 @@ function revalidateDeals() {
   revalidatePath('/')
 }
 
-export async function updateDeal(id: string, patch: Record<string, unknown>) {
-  await writeClient.patch(id).set(patch).commit()
+export async function updateDeal(id: string, patch: Record<string, unknown>, unset?: string[]) {
+  let p = writeClient.patch(id).set(patch)
+  if (unset?.length) p = p.unset(unset)
+  await p.commit()
   revalidateDeals()
 }
 
@@ -24,6 +26,7 @@ export async function createDeal(data: {
   title: string; priceSale: string; priceOrig: string
   discount: number; verified: boolean; isExpiring: boolean
   image?: unknown; expiresAt?: string; dealUrl?: string
+  relatedReview?: { _type: 'reference'; _ref: string }
 }) {
   const slug = data.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
   const doc = await writeClient.create({
