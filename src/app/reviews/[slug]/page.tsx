@@ -4,6 +4,7 @@ import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
+import FaqAccordion from '@/components/FaqAccordion'
 import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor } from '@/sanity/queries'
 import { reviews as staticReviews } from '@/data/reviews'
 
@@ -21,8 +22,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params
   const review = await getReviewBySlug(slug)
   if (!review) return {}
-  const title = review.title
-  const description = review.excerpt ?? `Read our in-depth review of ${review.title}, verified by the Offerdy team.`
+  const title = review.metaTitle ?? review.title
+  const description = review.metaDescription ?? review.excerpt ?? `Read our in-depth review of ${review.title}, verified by the Offerdy team.`
   const url = `${BASE}/reviews/${slug}`
   return {
     title,
@@ -103,8 +104,18 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
           { '@type': 'ListItem', position: 3, name: review.title, item: `${BASE}/reviews/${slug}` },
         ],
       },
+      ...(review.faq?.length ? [{
+        '@type': 'FAQPage',
+        mainEntity: review.faq.map((f: { question: string; answer: string }) => ({
+          '@type': 'Question',
+          name: f.question,
+          acceptedAnswer: { '@type': 'Answer', text: f.answer },
+        })),
+      }] : []),
     ],
   }
+
+  const buyUrl = review.affiliateUrl || review.productUrl
 
   return (
     <>
@@ -144,6 +155,12 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
               <span>✅ Verified purchase</span>
             </div>
 
+            {buyUrl && (
+              <a href={buyUrl} target="_blank" rel="sponsored noopener noreferrer" className="article-cta" style={{ marginBottom: 20 }}>
+                🛒 Check the best price →
+              </a>
+            )}
+
             <div className="article-hero-img" style={{ background: review.imageUrl ? undefined : review.imgBg }}>
               {review.imageUrl
                 // eslint-disable-next-line @next/next/no-img-element -- giu ty le anh goc, khong crop (khac blog hero dung fill+cover)
@@ -165,6 +182,26 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                 <PlaceholderBody review={review} />
               )}
             </div>
+
+            {(review.prosAndCons?.pros?.length || review.prosAndCons?.cons?.length) && (
+              <div className="sol-proscons" style={{ marginBottom: 28 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Pros &amp; Cons</h2>
+                <div className="sol-proscons-grid">
+                  {review.prosAndCons?.pros?.length ? (
+                    <div className="sol-proscons-card sol-proscons-pros">
+                      <div className="sol-proscons-label">Pros</div>
+                      <ul>{review.prosAndCons.pros.map((p: string, i: number) => <li key={i}>{p}</li>)}</ul>
+                    </div>
+                  ) : null}
+                  {review.prosAndCons?.cons?.length ? (
+                    <div className="sol-proscons-card sol-proscons-cons">
+                      <div className="sol-proscons-label">Cons</div>
+                      <ul>{review.prosAndCons.cons.map((c: string, i: number) => <li key={i}>{c}</li>)}</ul>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            )}
 
             {(globalConfig.articleDisclaimer || globalConfig.articleReviewedBy) && (
               <div className="article-disclaimer">
@@ -190,6 +227,13 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                   </div>
                   <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{authorConfig.bio}</p>
                 </div>
+              </div>
+            )}
+
+            {review.faq?.length > 0 && (
+              <div className="sol-faq">
+                <h2 className="sol-faq-title">Frequently Asked Questions</h2>
+                <FaqAccordion faqs={review.faq} storeName={review.title} />
               </div>
             )}
           </article>

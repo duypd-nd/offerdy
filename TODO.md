@@ -1,6 +1,7 @@
 # Offerdy — TODO
 
 ## Done ✅
+- AI Review Writer (2026-07-10→11): dan link san pham trong `/admin/reviews` (Them moi lan Chinh sua) → AI viet bai review tieng Anh day du (excerpt/content/FAQ/prosAndCons/so sao/gradient), anh + CTA gan link affiliate, retry tu dong khi AI qua tai/loi validate, trang chu chi hien 2 hang review — xem `PROJECT_CONTEXT.md` → "AI Engines"
 - Homepage, Deals, Stores, Categories, Reviews, Blog pages
 - About page (SEO/GEO optimised, Sanity-connected admin form)
 - Contact page (Formspree, FAQ accordion, Sanity admin)

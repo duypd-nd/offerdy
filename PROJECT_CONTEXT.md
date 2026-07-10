@@ -36,7 +36,7 @@
 | `/categories` | ✅ Live | Category list |
 | `/categories/[slug]` | ✅ Live | Category deals |
 | `/reviews` | ✅ Live | Product reviews |
-| `/reviews/[slug]` | ✅ Live | Review detail |
+| `/reviews/[slug]` | ✅ Live | Review detail — FAQ + JSON-LD FAQPage, CTA nut affiliate/productUrl neu co |
 | `/blog` | ✅ Live | Blog (redirects exist at /posts) |
 | `/blog/[slug]` | ✅ Live | Blog post detail |
 | `/posts` | ✅ Live | Same as /blog |
@@ -73,6 +73,7 @@
 ## AI Engines (Anthropic Claude Sonnet 5 + Vercel Cron)
 9/9 built as of 2026-07-08 (scaled-down vs. the aspirational multi-agent/queue spec in `docs/03-workflows/*.md`, which assumes infra this project doesn't have — real affiliate network APIs, job queues):
 - **Content** — `src/lib/ai/generateStoreContent.ts` / `generateOfferContent.ts` / `generateDealContent.ts`, structured output (`zodOutputFormat`), hard constraint: never invent numbers/promos/codes. Cron `/api/cron/ai-content-nightly` (batch, drafts only) + manual trigger APIs under `/api/ai/content/*`. Approval in `/admin/ai-review`.
+- **AI Review Writer** (2026-07-10→11) — trong `/admin/reviews`, ca 2 mode Them moi va Chinh sua deu co panel "Viet bai bang AI": admin dan link san pham (+ link affiliate rieng, tu dong = link san pham cho den khi admin tu sua) → `scrapeProductLink` (cheerio, SSRF-safe qua `src/lib/safeFetch.ts`) lay title/description/anh/gia → admin duyet/bo chon anh → `generateReviewDraft` goi `src/lib/ai/generateReviewContent.ts` (viet tieng Anh, co retry 3 lan cho loi 429/5xx/529 Overloaded va loi validate FAQ thieu, tra ve `{error}` than thien thay vi crash) sinh: excerpt, content (5 phan, khong nhung pros/cons), `prosAndCons` rieng (3-5 pros/2-4 cons, render 2-cot xanh/do giong `/deals/[slug]`), 5-8 FAQ, so sao de xuat, gradient theo danh muc → upload anh len Sanity + thay placeholder `[IMAGE:n]`/`[CTA]` bang the that gan link affiliate → do vao form de admin sua truoc khi Luu (khong co hang doi duyet rieng, khac voi Store/Offer/Deal; mode edit khong bi doi slug/URL bai da co). Field moi tren `review`: `productUrl`, `affiliateUrl`, `faq`, `prosAndCons`, `metaTitle`, `metaDescription`. Trang chu (`/`) chi hien 2 hang review (`reviewsGridColumns * 2`), xem full o `/reviews`.
 - **Import** — `/admin/import` (Excel/CSV, batched to stay under Vercel's 4.5MB body limit)
 - **Image** — `src/lib/ogTemplate.tsx`, per-entity `opengraph-image.tsx` for `/stores/[slug]`, `/blog/[slug]`, `/reviews/[slug]` (no AI image gen, no API cost — pure `next/og`/Satori)
 - **Health (Merchant)** — `src/lib/merchantHealth.ts` → `/admin/merchant-health`, computed live (not cached/precomputed)

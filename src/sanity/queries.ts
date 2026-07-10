@@ -246,7 +246,8 @@ export async function getReviews() {
 
 const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, emoji, tag, stars, author,
-  "date": publishedAt, "updatedAt": _updatedAt, imgBg, body, content, "imageUrl": coalesce(image.asset->url, externalImageUrl)
+  "date": publishedAt, "updatedAt": _updatedAt, imgBg, body, content, "imageUrl": coalesce(image.asset->url, externalImageUrl),
+  faq, prosAndCons, metaTitle, metaDescription, productUrl, affiliateUrl
 }`
 
 // ── Blog Posts ─────────────────────────────────────────────────

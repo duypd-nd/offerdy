@@ -4,7 +4,9 @@ import ReviewAdmin from './ReviewAdmin'
 export const dynamic = 'force-dynamic'
 
 const QUERY = `*[_type == "review"] | order(publishedAt desc, _createdAt desc) {
-  _id, title, "slug": slug.current, tag, author, publishedAt, excerpt, content, "imageUrl": coalesce(image.asset->url, externalImageUrl), _createdAt
+  _id, title, "slug": slug.current, tag, author, publishedAt, excerpt, content,
+  stars, imgBg, productUrl, affiliateUrl, faq, prosAndCons, metaTitle, metaDescription,
+  "imageUrl": coalesce(image.asset->url, externalImageUrl), _createdAt
 }`
 
 export default async function AdminReviewsPage() {

@@ -1,16 +1,52 @@
 ﻿'use client'
 
 import { useState, useTransition } from 'react'
-import { updateReview, deleteReview, createReview, uploadReviewImage, checkReviewSlug } from './actions'
+import {
+  updateReview, deleteReview, createReview, uploadReviewImage, checkReviewSlug,
+  scrapeProductLink, generateReviewDraft,
+} from './actions'
+import type { ScrapedProduct } from '@/lib/ai/scrapeProductPage'
 import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 
+type FaqItem = { question: string; answer: string }
+type ProsAndCons = { pros: string[]; cons: string[] }
+
 type AdminReview = {
   _id: string; title: string; slug: string; tag: string; author?: string
   publishedAt?: string; excerpt?: string; content?: string; imageUrl?: string; _createdAt: string
+  stars?: number; imgBg?: string; productUrl?: string; affiliateUrl?: string
+  faq?: FaqItem[]; prosAndCons?: ProsAndCons; metaTitle?: string; metaDescription?: string
 }
+
+function parseFaqText(text: string): FaqItem[] {
+  return text.split(/\n\s*\n/).map(block => {
+    const [question, ...rest] = block.split('\n')
+    return { question: (question ?? '').trim(), answer: rest.join('\n').trim() }
+  }).filter(f => f.question && f.answer)
+}
+
+function faqToText(faq?: FaqItem[]): string {
+  return (faq ?? []).map(f => `${f.question}\n${f.answer}`).join('\n\n')
+}
+
+function linesToList(text: string): string[] {
+  return text.split('\n').map(s => s.trim()).filter(Boolean)
+}
+
+function listToLines(list?: string[]): string {
+  return (list ?? []).join('\n')
+}
+
+const GRADIENT_PRESETS: { label: string; value: string }[] = [
+  { label: 'Xanh dương', value: 'linear-gradient(135deg,#EFF6FF,#BFDBFE)' },
+  { label: 'Hồng', value: 'linear-gradient(135deg,#FDF2F8,#FBCFE8)' },
+  { label: 'Xanh lá', value: 'linear-gradient(135deg,#F0FDF4,#BBF7D0)' },
+  { label: 'Tím', value: 'linear-gradient(135deg,#FAF5FF,#E9D5FF)' },
+  { label: 'Cam', value: 'linear-gradient(135deg,#FFF7ED,#FED7AA)' },
+]
 
 export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminReview[] }) {
   const [reviews, setReviews] = useState(initialReviews)
@@ -160,13 +196,110 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
     publishedAt: initial?.publishedAt ?? new Date().toISOString().split('T')[0],
     excerpt: initial?.excerpt ?? '', content: initial?.content ?? '',
     externalImageUrl: '',
+    stars: initial?.stars ? String(initial.stars) : '',
+    imgBg: initial?.imgBg ?? '',
+    metaTitle: initial?.metaTitle ?? '', metaDescription: initial?.metaDescription ?? '',
+    productUrl: initial?.productUrl ?? '', affiliateUrl: initial?.affiliateUrl ?? '',
+    faqText: faqToText(initial?.faq),
+    prosText: listToLines(initial?.prosAndCons?.pros), consText: listToLines(initial?.prosAndCons?.cons),
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(initial?.imageUrl ?? '')
   const [imageError, setImageError] = useState('')
+  const [preUploadedImage, setPreUploadedImage] = useState<unknown>(null)
   const [isPending, startTransition] = useTransition()
   const [slugError, setSlugError] = useState('')
   const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }))
+  const [showSeo, setShowSeo] = useState(false)
+
+  // Link Affiliate mac dinh = Link san pham cho den khi admin tu go sua rieng
+  const [affiliateTouched, setAffiliateTouched] = useState(!!initial?.affiliateUrl)
+  const handleProductUrlChange = (url: string) => {
+    setForm(f => ({ ...f, productUrl: url, affiliateUrl: affiliateTouched ? f.affiliateUrl : url }))
+  }
+  const handleAffiliateUrlChange = (url: string) => {
+    set('affiliateUrl', url)
+    setAffiliateTouched(true)
+  }
+
+  // ── AI Review Writer (dung duoc ca mode add lan edit — de backfill anh/noi dung cho bai da co) ──
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiProductUrl, setAiProductUrl] = useState(initial?.productUrl ?? '')
+  const [aiAffiliateUrl, setAiAffiliateUrl] = useState(initial?.affiliateUrl ?? '')
+  const [aiAffiliateTouched, setAiAffiliateTouched] = useState(!!initial?.affiliateUrl)
+  const [aiStage, setAiStage] = useState<'idle' | 'scraping' | 'scraped' | 'generating'>('idle')
+  const [aiError, setAiError] = useState('')
+  const [scraped, setScraped] = useState<ScrapedProduct | null>(null)
+  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set())
+
+  // Link Affiliate mac dinh = Link san pham cho den khi admin tu go sua rieng
+  // (giong cach slug tu sinh tu title cho den khi admin sua slug tay)
+  const handleAiProductUrlChange = (url: string) => {
+    setAiProductUrl(url)
+    if (!aiAffiliateTouched) setAiAffiliateUrl(url)
+  }
+  const handleAiAffiliateUrlChange = (url: string) => {
+    setAiAffiliateUrl(url)
+    setAiAffiliateTouched(true)
+  }
+
+  const handleScrape = () => {
+    if (!aiProductUrl) return
+    setAiError('')
+    setAiStage('scraping')
+    startTransition(async () => {
+      const res = await scrapeProductLink(aiProductUrl)
+      if ('error' in res) {
+        setAiError(res.error)
+        setAiStage('idle')
+        return
+      }
+      setScraped(res)
+      setSelectedImages(new Set(res.images.map((_, i) => i)))
+      setAiStage('scraped')
+    })
+  }
+
+  const handleGenerateAi = () => {
+    if (!scraped) return
+    setAiError('')
+    setAiStage('generating')
+    startTransition(async () => {
+      const selectedImageUrls = scraped.images.filter((_, i) => selectedImages.has(i))
+      const result = await generateReviewDraft({
+        productUrl: aiProductUrl,
+        affiliateUrl: aiAffiliateUrl || undefined,
+        scraped,
+        selectedImageUrls,
+      })
+      if ('error' in result) {
+        setAiError(result.error)
+        setAiStage('scraped')
+        return
+      }
+      // Mode edit: giu nguyen slug/URL bai da co, khong de AI doi link bai dang ton tai
+      const slug = mode === 'add'
+        ? result.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+        : form.slug
+      setForm(f => ({
+        ...f,
+        title: result.title, slug, excerpt: result.excerpt, content: result.content,
+        stars: String(result.stars), imgBg: result.imgBg,
+        metaTitle: result.metaTitle, metaDescription: result.metaDescription,
+        faqText: faqToText(result.faq),
+        prosText: listToLines(result.prosAndCons.pros), consText: listToLines(result.prosAndCons.cons),
+        productUrl: aiProductUrl, affiliateUrl: aiAffiliateUrl,
+      }))
+      setAffiliateTouched(true)
+      if (result.image) {
+        setPreUploadedImage(result.image)
+        setImagePreview(result.imageUrl ?? '')
+        setImageFile(null)
+      }
+      setAiStage('scraped')
+      setAiOpen(false)
+    })
+  }
 
   const handleTitleChange = (title: string) => {
     const slug = title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
@@ -191,7 +324,7 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
         const exists = await checkReviewSlug(form.slug, mode === 'edit' ? initial?._id : undefined)
         if (exists) { setSlugError(`Slug "${form.slug}" đã tồn tại, vui lòng chọn slug khác`); return }
       }
-      let image: unknown = undefined
+      let image: unknown = preUploadedImage ?? undefined
       if (imageFile) {
         try {
           const fd = new FormData()
@@ -202,6 +335,10 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
           return
         }
       }
+      const faq = parseFaqText(form.faqText)
+      const pros = linesToList(form.prosText)
+      const cons = linesToList(form.consText)
+      const prosAndCons = (pros.length || cons.length) ? { pros, cons } : null
       // null (khong phai undefined) de bao "xoa field nay" - undefined khong "song sot" qua Server Action
       const data = {
         title: form.title, slug: form.slug, tag: form.tag,
@@ -211,6 +348,14 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
         content: form.content || null,
         ...(image ? { image } : {}),
         externalImageUrl: (!image && form.externalImageUrl) ? form.externalImageUrl : null,
+        stars: form.stars ? Number(form.stars) : null,
+        imgBg: form.imgBg || null,
+        productUrl: form.productUrl || null,
+        affiliateUrl: form.affiliateUrl || null,
+        faq: faq.length ? faq : null,
+        prosAndCons,
+        metaTitle: form.metaTitle || null,
+        metaDescription: form.metaDescription || null,
       }
       const localData = {
         title: data.title, slug: data.slug, tag: data.tag,
@@ -218,6 +363,14 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
         publishedAt: data.publishedAt,
         excerpt: data.excerpt ?? undefined,
         content: data.content ?? undefined,
+        stars: data.stars ?? undefined,
+        imgBg: data.imgBg ?? undefined,
+        productUrl: data.productUrl ?? undefined,
+        affiliateUrl: data.affiliateUrl ?? undefined,
+        faq: data.faq ?? undefined,
+        prosAndCons: data.prosAndCons ?? undefined,
+        metaTitle: data.metaTitle ?? undefined,
+        metaDescription: data.metaDescription ?? undefined,
       }
       const resolvedImageUrl = imagePreview || form.externalImageUrl || undefined
       if (mode === 'add') {
@@ -238,6 +391,58 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
           <button className="oa-modal-close" onClick={onClose}>✕</button>
         </div>
         <form className="oa-modal-body" onSubmit={handleSubmit}>
+          <div style={{ border: '1.5px dashed var(--green-100, #DCFCE7)', background: 'var(--green-50, #F0FDF4)', borderRadius: 10, padding: 14, marginBottom: 4 }}>
+            <button type="button" onClick={() => setAiOpen(v => !v)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 14, fontWeight: 700, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 6 }}>
+              ✨ {mode === 'add' ? 'Tạo bài bằng AI từ link sản phẩm' : 'Viết lại bằng AI từ link sản phẩm'} {aiOpen ? '▲' : '▼'}
+            </button>
+              {aiOpen && (
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <label className="oa-label">Link sản phẩm (để AI đọc dữ liệu) *
+                    <input className="oa-input" type="url" placeholder="https://shop.com/san-pham-abc"
+                      value={aiProductUrl} onChange={e => handleAiProductUrlChange(e.target.value)} />
+                  </label>
+                  <label className="oa-label">Link Affiliate (chèn vào bài — mặc định = link sản phẩm, sửa lại nếu có link tracking riêng)
+                    <input className="oa-input" type="url" placeholder="https://affiliate-network.com/track?..."
+                      value={aiAffiliateUrl} onChange={e => handleAiAffiliateUrlChange(e.target.value)} />
+                  </label>
+                  <div>
+                    <button type="button" className="oa-btn" onClick={handleScrape}
+                      disabled={!aiProductUrl || aiStage === 'scraping' || aiStage === 'generating'}>
+                      {aiStage === 'scraping' ? 'Đang lấy dữ liệu...' : '🔍 Lấy thông tin sản phẩm'}
+                    </button>
+                  </div>
+                  {aiError && <span className="oa-field-error">{aiError} — bạn vẫn có thể điền tay bên dưới.</span>}
+                  {scraped && (
+                    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13 }}>{scraped.title}</div>
+                      {scraped.description && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{scraped.description.slice(0, 180)}</div>}
+                      {scraped.price && <div style={{ fontSize: 12, color: '#16a34a', fontWeight: 700, marginTop: 4 }}>{scraped.price} {scraped.currency ?? ''}</div>}
+                      {scraped.images.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                          {scraped.images.map((url, i) => (
+                            <label key={url} style={{ position: 'relative', cursor: 'pointer' }}>
+                              <img src={url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: selectedImages.has(i) ? '2px solid #16a34a' : '1px solid #e5e7eb', opacity: selectedImages.has(i) ? 1 : 0.4 }} />
+                              <input type="checkbox" checked={selectedImages.has(i)} style={{ position: 'absolute', top: 4, left: 4 }}
+                                onChange={() => setSelectedImages(prev => {
+                                  const s = new Set(prev)
+                                  s.has(i) ? s.delete(i) : s.add(i)
+                                  return s
+                                })} />
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ marginTop: 12 }}>
+                        <button type="button" className="oa-btn oa-btn-green" onClick={handleGenerateAi} disabled={aiStage === 'generating'}>
+                          {aiStage === 'generating' ? 'AI đang viết bài...' : '✍️ Viết bài bằng AI'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+          </div>
           <label className="oa-label">Tiêu đề *<input className="oa-input" value={form.title} onChange={e => handleTitleChange(e.target.value)} required /></label>
           <label className="oa-label">
             Slug *
@@ -299,6 +504,56 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
           <label className="oa-label">Nội dung HTML
             <textarea className="oa-input oa-textarea" rows={8} value={form.content} onChange={e => set('content', e.target.value)} placeholder="<p>Nội dung review...</p>" style={{ fontFamily: 'monospace', fontSize: 13 }} />
           </label>
+
+          <div className="oa-modal-row">
+            <label className="oa-label">Số sao (1-5)
+              <input className="oa-input" type="number" min={1} max={5} value={form.stars} onChange={e => set('stars', e.target.value)} />
+            </label>
+            <label className="oa-label" style={{ flex: 2 }}>Tông màu nền (gradient)
+              <input className="oa-input" value={form.imgBg} onChange={e => set('imgBg', e.target.value)} placeholder="linear-gradient(135deg,#EEF2FF,#C7D2FE)" />
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                {GRADIENT_PRESETS.map(p => (
+                  <button key={p.value} type="button" title={p.label} onClick={() => set('imgBg', p.value)}
+                    style={{ width: 22, height: 22, borderRadius: 6, background: p.value, border: form.imgBg === p.value ? '2px solid #16a34a' : '1px solid #e5e7eb', cursor: 'pointer' }} />
+                ))}
+              </div>
+            </label>
+          </div>
+
+          <div className="oa-modal-row">
+            <label className="oa-label">Link sản phẩm<input className="oa-input" type="url" value={form.productUrl} onChange={e => handleProductUrlChange(e.target.value)} /></label>
+            <label className="oa-label">Link Affiliate (mặc định = link sản phẩm)<input className="oa-input" type="url" value={form.affiliateUrl} onChange={e => handleAffiliateUrlChange(e.target.value)} /></label>
+          </div>
+
+          <div className="oa-modal-row">
+            <label className="oa-label">Pros (mỗi dòng 1 ý)
+              <textarea className="oa-input oa-textarea" rows={4} value={form.prosText} onChange={e => set('prosText', e.target.value)}
+                placeholder={'Ưu điểm 1\nƯu điểm 2'} style={{ fontSize: 13 }} />
+            </label>
+            <label className="oa-label">Cons (mỗi dòng 1 ý)
+              <textarea className="oa-input oa-textarea" rows={4} value={form.consText} onChange={e => set('consText', e.target.value)}
+                placeholder={'Nhược điểm 1\nNhược điểm 2'} style={{ fontSize: 13 }} />
+            </label>
+          </div>
+
+          <label className="oa-label">FAQ (mỗi câu hỏi/trả lời cách nhau 1 dòng trống)
+            <textarea className="oa-input oa-textarea" rows={6} value={form.faqText} onChange={e => set('faqText', e.target.value)}
+              placeholder={'Câu hỏi 1?\nTrả lời 1\n\nCâu hỏi 2?\nTrả lời 2'} style={{ fontSize: 13 }} />
+          </label>
+
+          <div>
+            <button type="button" onClick={() => setShowSeo(v => !v)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 13, fontWeight: 700, color: '#6b7280' }}>
+              SEO nâng cao {showSeo ? '▲' : '▼'}
+            </button>
+            {showSeo && (
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label className="oa-label">Meta Title<input className="oa-input" value={form.metaTitle} onChange={e => set('metaTitle', e.target.value)} /></label>
+                <label className="oa-label">Meta Description<textarea className="oa-input oa-textarea" rows={2} value={form.metaDescription} onChange={e => set('metaDescription', e.target.value)} /></label>
+              </div>
+            )}
+          </div>
+
           <div className="oa-modal-footer">
             {mode === 'edit' && onDeleted && (
               <button type="button" className="oa-btn oa-btn-red" onClick={() => { if (!initial || !confirm('Xóa?')) return; startTransition(async () => { await deleteReview(initial._id); onDeleted(initial._id) }) }} disabled={isPending}>🗑 Xóa</button>

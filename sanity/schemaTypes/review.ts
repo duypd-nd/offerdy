@@ -25,6 +25,29 @@ export const reviewType = defineType({
       name: 'body', title: 'Full Article (Portable Text)', type: 'array',
       of: [{ type: 'block' }, { type: 'image', options: { hotspot: true } }],
     }),
+
+    // ── AI Review Writer ────────────────────────────────────────
+    defineField({ name: 'productUrl', title: 'Link sản phẩm (AI đọc dữ liệu)', type: 'url' }),
+    defineField({ name: 'affiliateUrl', title: 'Link Affiliate (chèn vào bài — để trống = dùng link sản phẩm)', type: 'url' }),
+    defineField({
+      name: 'prosAndCons', title: 'Ưu điểm / Nhược điểm', type: 'object',
+      fields: [
+        defineField({ name: 'pros', title: 'Pros', type: 'array', of: [{ type: 'string' }] }),
+        defineField({ name: 'cons', title: 'Cons', type: 'array', of: [{ type: 'string' }] }),
+      ],
+    }),
+    defineField({
+      name: 'faq', title: 'FAQ', type: 'array',
+      of: [{
+        type: 'object',
+        fields: [
+          defineField({ name: 'question', title: 'Câu hỏi', type: 'string' }),
+          defineField({ name: 'answer', title: 'Trả lời', type: 'text', rows: 2 }),
+        ],
+      }],
+    }),
+    defineField({ name: 'metaTitle', title: 'Meta Title', type: 'string' }),
+    defineField({ name: 'metaDescription', title: 'Meta Description', type: 'text', rows: 2 }),
   ],
   preview: {
     select: { title: 'title', subtitle: 'tag' },

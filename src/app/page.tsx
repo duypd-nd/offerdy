@@ -42,7 +42,7 @@ export default async function Home() {
         {(config.showExpiringBand !== false) && expiringDeals.length > 0 && <ExpiringBand deals={expiringDeals} />}
         <DealsGrid deals={deals} columns={config.dealsGridColumns} showVerified={config.showVerifiedBadge !== false} />
         {(config.showCategoryGrid !== false) && <CategoryGrid categories={categories} />}
-        <ReviewsGrid reviews={reviews} columns={config.reviewsGridColumns} />
+        <ReviewsGrid reviews={reviews.slice(0, (config.reviewsGridColumns ?? 4) * 2)} columns={config.reviewsGridColumns} />
       </main>
       <Footer />
     </>

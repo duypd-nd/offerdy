@@ -1,63 +1,10 @@
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
-import dns from 'dns/promises'
-import { isIP } from 'net'
 import { generateStoreContent } from '@/lib/ai/generateStoreContent'
 import { normalize } from '@/lib/fuzzy'
+import { uploadImageFromUrl } from '@/lib/safeFetch'
 
 const IMPORT_AI_STORE_CAP = Number(process.env.IMPORT_AI_STORE_CAP) || 8
-
-function isPrivateOrReservedIp(ip: string): boolean {
-  const version = isIP(ip)
-  if (version === 4) {
-    const [a, b] = ip.split('.').map(Number)
-    if (a === 10 || a === 127 || a === 0) return true
-    if (a === 169 && b === 254) return true // link-local, gom ca cloud metadata 169.254.169.254
-    if (a === 172 && b >= 16 && b <= 31) return true
-    if (a === 192 && b === 168) return true
-    if (a === 100 && b >= 64 && b <= 127) return true // CGNAT
-    if (a >= 224) return true // multicast/reserved
-    return false
-  }
-  if (version === 6) {
-    const lower = ip.toLowerCase()
-    if (lower === '::1' || lower === '::') return true
-    if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true // fe80::/10
-    if (lower.startsWith('fc') || lower.startsWith('fd')) return true // fc00::/7
-    if (lower.startsWith('::ffff:')) {
-      const v4 = lower.slice(7)
-      if (isIP(v4) === 4) return isPrivateOrReservedIp(v4)
-    }
-    return false
-  }
-  return true // hostname khong resolve duoc thanh IP hop le -> coi la khong an toan
-}
-
-async function checkImageUrlSafety(rawUrl: string): Promise<string | null> {
-  let parsed: URL
-  try {
-    parsed = new URL(rawUrl)
-  } catch {
-    return `URL khong hop le: "${rawUrl}"`
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return `Protocol khong duoc phep: "${parsed.protocol}"`
-  }
-  if (parsed.hostname.toLowerCase() === 'localhost') {
-    return 'Khong duoc phep tro toi localhost'
-  }
-
-  try {
-    const records = await dns.lookup(parsed.hostname, { all: true })
-    if (records.length === 0) return `Khong resolve duoc DNS cho "${parsed.hostname}"`
-    if (records.some((r) => isPrivateOrReservedIp(r.address))) {
-      return `Dia chi IP noi bo/khong an toan cho "${parsed.hostname}"`
-    }
-    return null
-  } catch {
-    return `Khong resolve duoc DNS cho "${parsed.hostname}"`
-  }
-}
 
 function slugify(str: string) {
   return str
@@ -72,52 +19,6 @@ function slugify(str: string) {
 
 type ImportRow = Record<string, string | number | boolean | null | undefined>
 type SanityDoc = { _type: string } & Record<string, unknown>
-
-type FetchImageResult = { res: Response } | { error: string }
-
-async function fetchImageSafely(url: string, maxRedirects = 5): Promise<FetchImageResult> {
-  let currentUrl = url
-  for (let i = 0; i <= maxRedirects; i++) {
-    const unsafeReason = await checkImageUrlSafety(currentUrl)
-    if (unsafeReason) return { error: unsafeReason }
-    let res: Response
-    try {
-      res = await fetch(currentUrl, { redirect: 'manual' })
-    } catch (err) {
-      return { error: `Khong ket noi duoc toi "${currentUrl}": ${String(err)}` }
-    }
-    if (res.status >= 300 && res.status < 400) {
-      const location = res.headers.get('location')
-      if (!location) return { error: `Redirect tu "${currentUrl}" thieu header Location` }
-      currentUrl = new URL(location, currentUrl).toString()
-      continue
-    }
-    return { res }
-  }
-  return { error: `Qua nhieu redirect (>${maxRedirects}) bat dau tu "${url}"` }
-}
-
-type UploadImageResult = { image: SanityDoc } | { error: string }
-
-async function uploadImageFromUrl(url: string): Promise<UploadImageResult> {
-  const fetched = await fetchImageSafely(url)
-  if ('error' in fetched) return fetched
-  const { res } = fetched
-  if (!res.ok) return { error: `HTTP ${res.status} khi tai "${url}"` }
-  try {
-    const blob = await res.blob()
-    const filename = url.split('/').pop()?.split('?')[0] || 'logo.png'
-    const asset = await writeClient.assets.upload('image', blob, {
-      filename,
-      contentType: blob.type || 'image/png',
-    })
-    return {
-      image: { _type: 'image', asset: { _type: 'reference', _ref: asset._id } },
-    }
-  } catch (err) {
-    return { error: `Loi khi upload len Sanity: ${String(err)}` }
-  }
-}
 
 function offerCodeKey(storeId: string, couponCode: string) {
   return `${storeId}::code::${normalize(couponCode)}`
