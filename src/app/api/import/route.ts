@@ -230,6 +230,17 @@ function normalizePublishedAt(value: unknown): string {
   return String(value)
 }
 
+function linesToList(text: string): string[] {
+  return text.split('\n').map(s => s.trim()).filter(Boolean)
+}
+
+function parseFaqText(text: string): { question: string; answer: string }[] {
+  return text.split(/\n\s*\n/).map(block => {
+    const [question, ...rest] = block.split('\n')
+    return { question: (question ?? '').trim(), answer: rest.join('\n').trim() }
+  }).filter(f => f.question && f.answer)
+}
+
 function scheduledPublishedAt(rowIndex: number, schedule?: Schedule): string | null {
   if (!schedule || schedule.postsPerDay < 1) return null
   const globalIndex = schedule.startIndex + rowIndex
@@ -346,6 +357,17 @@ async function importReviews(rows: ImportRow[], schedule?: Schedule) {
       if (row.imgBg) doc.imgBg = String(row.imgBg)
       if (row.content) doc.content = String(row.content)
       if (row.externalImageUrl) doc.externalImageUrl = String(row.externalImageUrl)
+      if (row.productUrl) doc.productUrl = String(row.productUrl)
+      if (row.affiliateUrl) doc.affiliateUrl = String(row.affiliateUrl)
+      const pros = row.pros ? linesToList(String(row.pros)) : []
+      const cons = row.cons ? linesToList(String(row.cons)) : []
+      if (pros.length || cons.length) doc.prosAndCons = { pros, cons }
+      if (row.faq) {
+        const faq = parseFaqText(String(row.faq))
+        if (faq.length) doc.faq = faq
+      }
+      if (row.metaTitle) doc.metaTitle = String(row.metaTitle)
+      if (row.metaDescription) doc.metaDescription = String(row.metaDescription)
 
       await writeClient.create(doc)
       results.imported++

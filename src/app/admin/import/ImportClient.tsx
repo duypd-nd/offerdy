@@ -55,6 +55,13 @@ const REVIEWS_COLS = [
   { key: 'imgBg',            required: false, note: 'CSS gradient nền, VD: linear-gradient(135deg,#f00,#00f)' },
   { key: 'content',          required: false, note: 'Nội dung review, hỗ trợ HTML' },
   { key: 'externalImageUrl', required: false, note: 'URL ảnh cover — ưu tiên hơn emoji nếu có' },
+  { key: 'productUrl',       required: false, note: 'Link sản phẩm gốc' },
+  { key: 'affiliateUrl',     required: false, note: 'Link affiliate cho nút CTA & link trong bài — để trống = dùng productUrl' },
+  { key: 'pros',             required: false, note: 'Ưu điểm, mỗi ý 1 dòng trong ô (Alt+Enter để xuống dòng)' },
+  { key: 'cons',             required: false, note: 'Nhược điểm, mỗi ý 1 dòng trong ô (Alt+Enter để xuống dòng)' },
+  { key: 'faq',              required: false, note: 'Câu hỏi + trả lời, mỗi cặp cách nhau 1 dòng trống. VD trong 1 ô: "Câu hỏi 1?\\nTrả lời 1\\n\\nCâu hỏi 2?\\nTrả lời 2"' },
+  { key: 'metaTitle',        required: false, note: 'SEO Meta Title — để trống = dùng title' },
+  { key: 'metaDescription',  required: false, note: 'SEO Meta Description — để trống = dùng excerpt' },
 ]
 
 type ColDef = { key: string; required: boolean; note?: string }

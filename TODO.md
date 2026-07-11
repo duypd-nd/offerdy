@@ -37,6 +37,9 @@
 - Fixed 2 silent-failure bugs in admin delete (offer/store) caused by Sanity strong references (click log now uses `_weak`, store delete now cascades to its offers) + added error toasts to every delete button in admin (errors were previously swallowed silently)
 - Fixed `linkStatus` field-doesn't-exist-vs-"unchecked" GROQ bug that was undercounting platform health score
 - Translated remaining Vietnamese strings on public-facing pages to English
+- Review article polish (2026-07-11): fixed unstyled `<img>`/`<figure>` inside AI-generated review `content` HTML (was rendering full-width, unaligned — added `.article-body img/figure` CSS), fixed CTA button contrast bug caused by that same fix overriding `.article-cta`, capped hero image to 520px centered, removed duplicate AI-appended affiliate disclosure paragraph (site already shows one via `globalConfig.articleDisclaimer`)
+- Review Excel import — added `productUrl`/`affiliateUrl`/`pros`/`cons`/`faq`/`metaTitle`/`metaDescription` columns to the Reviews sheet at `/admin/import` (previously only `title`/`excerpt`/`stars`/`tag`/`author`/`emoji`/`publishedAt`/`imgBg`/`content`/`externalImageUrl` were importable)
+- Review coupon code feature (2026-07-11): new `couponCode` field on `review` schema + admin form; when set, renders `ReviewCouponBox` — a prominent teal "exclusive deal" ticket box (dashed code, click-to-copy, "Get Code & Shop" CTA) on the review page; hidden entirely when empty
 
 ## Pending 🔲
 

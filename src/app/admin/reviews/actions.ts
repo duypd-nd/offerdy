@@ -37,7 +37,7 @@ export async function createReview(data: {
   title: string; slug: string; tag: string; publishedAt: string
   excerpt?: string | null; content?: string | null; author?: string | null; image?: unknown; externalImageUrl?: string | null
   stars?: number | null; imgBg?: string | null
-  productUrl?: string | null; affiliateUrl?: string | null
+  productUrl?: string | null; affiliateUrl?: string | null; couponCode?: string | null
   faq?: { question: string; answer: string }[] | null
   prosAndCons?: { pros: string[]; cons: string[] } | null
   metaTitle?: string | null; metaDescription?: string | null
@@ -123,7 +123,6 @@ export async function generateReviewDraft(input: {
     content = content.split('[CTA]').join(
       `<a class="article-cta" href="${linkUrl}" target="_blank" rel="sponsored noopener noreferrer">Check the best price →</a>`
     )
-    content += '\n<p class="article-disclosure">This article may contain affiliate links — Offerdy may earn a commission if you make a purchase through these links.</p>'
 
     return {
       title: draft.title,

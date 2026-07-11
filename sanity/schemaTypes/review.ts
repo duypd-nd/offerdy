@@ -29,6 +29,7 @@ export const reviewType = defineType({
     // ── AI Review Writer ────────────────────────────────────────
     defineField({ name: 'productUrl', title: 'Link sản phẩm (AI đọc dữ liệu)', type: 'url' }),
     defineField({ name: 'affiliateUrl', title: 'Link Affiliate (chèn vào bài — để trống = dùng link sản phẩm)', type: 'url' }),
+    defineField({ name: 'couponCode', title: 'Mã giảm giá (hiện nổi bật trong bài — để trống = ẩn)', type: 'string' }),
     defineField({
       name: 'prosAndCons', title: 'Ưu điểm / Nhược điểm', type: 'object',
       fields: [

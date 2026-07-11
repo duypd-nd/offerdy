@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import FaqAccordion from '@/components/FaqAccordion'
+import ReviewCouponBox from '@/components/ReviewCouponBox'
 import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor } from '@/sanity/queries'
 import { reviews as staticReviews } from '@/data/reviews'
 
@@ -160,6 +161,8 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                 🛒 Check the best price →
               </a>
             )}
+
+            {review.couponCode && <ReviewCouponBox code={review.couponCode} link={buyUrl} />}
 
             <div className="article-hero-img" style={{ background: review.imageUrl ? undefined : review.imgBg }}>
               {review.imageUrl

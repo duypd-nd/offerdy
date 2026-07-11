@@ -17,7 +17,7 @@ type ProsAndCons = { pros: string[]; cons: string[] }
 type AdminReview = {
   _id: string; title: string; slug: string; tag: string; author?: string
   publishedAt?: string; excerpt?: string; content?: string; imageUrl?: string; _createdAt: string
-  stars?: number; imgBg?: string; productUrl?: string; affiliateUrl?: string
+  stars?: number; imgBg?: string; productUrl?: string; affiliateUrl?: string; couponCode?: string
   faq?: FaqItem[]; prosAndCons?: ProsAndCons; metaTitle?: string; metaDescription?: string
 }
 
@@ -200,6 +200,7 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
     imgBg: initial?.imgBg ?? '',
     metaTitle: initial?.metaTitle ?? '', metaDescription: initial?.metaDescription ?? '',
     productUrl: initial?.productUrl ?? '', affiliateUrl: initial?.affiliateUrl ?? '',
+    couponCode: initial?.couponCode ?? '',
     faqText: faqToText(initial?.faq),
     prosText: listToLines(initial?.prosAndCons?.pros), consText: listToLines(initial?.prosAndCons?.cons),
   })
@@ -352,6 +353,7 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
         imgBg: form.imgBg || null,
         productUrl: form.productUrl || null,
         affiliateUrl: form.affiliateUrl || null,
+        couponCode: form.couponCode || null,
         faq: faq.length ? faq : null,
         prosAndCons,
         metaTitle: form.metaTitle || null,
@@ -367,6 +369,7 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
         imgBg: data.imgBg ?? undefined,
         productUrl: data.productUrl ?? undefined,
         affiliateUrl: data.affiliateUrl ?? undefined,
+        couponCode: data.couponCode ?? undefined,
         faq: data.faq ?? undefined,
         prosAndCons: data.prosAndCons ?? undefined,
         metaTitle: data.metaTitle ?? undefined,
@@ -524,6 +527,11 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
             <label className="oa-label">Link sản phẩm<input className="oa-input" type="url" value={form.productUrl} onChange={e => handleProductUrlChange(e.target.value)} /></label>
             <label className="oa-label">Link Affiliate (mặc định = link sản phẩm)<input className="oa-input" type="url" value={form.affiliateUrl} onChange={e => handleAffiliateUrlChange(e.target.value)} /></label>
           </div>
+
+          <label className="oa-label">Mã giảm giá (hiện nổi bật trong bài — để trống = ẩn phần này)
+            <input className="oa-input" value={form.couponCode} onChange={e => set('couponCode', e.target.value.toUpperCase())}
+              placeholder="VD: OFFERDY20" style={{ fontFamily: 'monospace', letterSpacing: 1 }} />
+          </label>
 
           <div className="oa-modal-row">
             <label className="oa-label">Pros (mỗi dòng 1 ý)
