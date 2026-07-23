@@ -23,7 +23,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const deal = await getDealBySlug(slug)
   if (!deal) return {}
   const title = deal.metaTitle || `${deal.title} — ${dealDiscountBadge(deal).main} Off`
-  const description = deal.metaDescription || deal.summary || `${deal.title} at ${deal.store}: sale price ${deal.priceSale}, was ${deal.priceOrig}.`
+  // `store` co the rong (21/21 deal hien tai deu rong du schema danh dau required —
+  // du lieu import qua API khong bi Sanity validation chan). Khong guard thi meta
+  // description ra "... at null: sale price ..." — dung dong Google hien thi va dung
+  // dong hien trong the preview khi dan link len mang xa hoi.
+  const description = deal.metaDescription || deal.summary
+    || `${deal.title}${deal.store ? ` at ${deal.store}` : ''}: sale price ${deal.priceSale}, was ${deal.priceOrig}.`
   const url = `${BASE}/deals/${slug}`
   return {
     title,
@@ -35,7 +40,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url,
       siteName: 'Offerdy',
       type: 'website',
-      images: deal.imageUrl ? [{ url: deal.imageUrl, alt: deal.title }] : [],
+      // KHONG set images o day — de opengraph-image.tsx cung thu muc lo. Set tuong
+      // minh se ghi de route do (da kiem chung tren production), khien preview quay
+      // ve anh Sanity tho, mat gia + % giam trong the.
     },
     twitter: { card: 'summary_large_image', title, description },
   }

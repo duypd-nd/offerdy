@@ -52,13 +52,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url,
       siteName: 'Offerdy',
       type: 'website',
-      images: store.imageUrl ? [{ url: store.imageUrl, alt: store.name }] : [],
+      // Khong set images — nhuong cho opengraph-image.tsx (xem chu thich o do)
     },
     twitter: {
-      card: 'summary',
+      // summary_large_image chu khong phai summary: anh OG la 1200x630 duoc thiet ke
+      // rieng, the nho hinh vuong cua 'summary' cat mat phan lon noi dung.
+      card: 'summary_large_image',
       title,
       description,
-      images: store.imageUrl ? [store.imageUrl] : [],
     },
   }
 }

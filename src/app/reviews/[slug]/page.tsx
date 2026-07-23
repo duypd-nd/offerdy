@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       type: 'article',
       publishedTime: review.date ?? undefined,
       modifiedTime: review.updatedAt ?? undefined,
-      images: review.imageUrl ? [{ url: review.imageUrl, alt: title }] : [],
+      // Khong set images — nhuong cho opengraph-image.tsx (xem chu thich o do)
     },
     twitter: { card: 'summary_large_image', title, description },
   }
