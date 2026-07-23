@@ -43,7 +43,7 @@ function ResultSection({ label, items, badge, badgeClass, query, onClose }: {
       <div className="sd-lbl">{label}</div>
       {items.slice(0, 5).map((item, i) => {
         const icon = item.imageUrl
-          ? <img src={item.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 'inherit' }} />
+          ? <Image src={item.imageUrl} alt="" fill sizes="32px" style={{ objectFit: 'contain', borderRadius: 'inherit' }} />
           : item.icon
         return item.url
           ? <Link key={i} href={item.url} className="sd-item sd-item-link" onClick={onClose}>

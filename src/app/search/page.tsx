@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { writeClient } from '@/sanity/writeClient'
@@ -216,9 +217,9 @@ export default async function SearchPage({
                           style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 16px', borderRadius: 10, border: '1px solid #f1f5f9', background: '#fff', textDecoration: 'none', color: 'inherit' }}
                         >
                           {/* Thumbnail */}
-                          <div style={{ width: 40, height: 40, borderRadius: 8, flexShrink: 0, background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, overflow: 'hidden' }}>
+                          <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 8, flexShrink: 0, background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, overflow: 'hidden' }}>
                             {type === 'store' && r.imageUrl
-                              ? <img src={r.imageUrl} alt={r.title} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                              ? <Image src={r.imageUrl} alt={r.title} fill sizes="40px" style={{ objectFit: 'contain' }} />
                               : type === 'store'
                                 ? (r.abbr ?? r.title.slice(0, 3).toUpperCase())
                                 : meta.icon}

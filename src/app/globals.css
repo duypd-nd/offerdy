@@ -53,7 +53,7 @@ button{cursor:pointer;font-family:inherit;border:none}
 .sd-item{display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;transition:background .12s}
 .sd-item:hover{background:var(--bg)}
 .sd-item-link{text-decoration:none;color:inherit;display:flex}
-.sd-ico{width:32px;height:32px;border-radius:var(--r-sm);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.sd-ico{position:relative;overflow:hidden;width:32px;height:32px;border-radius:var(--r-sm);background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
 .sd-item:hover .sd-ico{background:var(--green-50);border-color:var(--green-100)}
 .sd-info{flex:1;min-width:0}
 .sd-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -994,7 +994,7 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .cc-card:hover{border-color:var(--green);box-shadow:0 0 0 3px rgba(34,197,94,.07),var(--shadow);transform:translateY(-2px)}
 
 .cc-card-store{display:flex;align-items:center;gap:7px}
-.cc-store-av{width:26px;height:26px;border-radius:7px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;letter-spacing:.3px;flex-shrink:0}
+.cc-store-av{position:relative;width:26px;height:26px;border-radius:7px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;letter-spacing:.3px;flex-shrink:0;overflow:hidden}
 .cc-store-nm{font-size:11px;font-weight:700;color:var(--navy);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 a.cc-store-nm:hover{color:var(--green-dark)}
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Offer } from '@/sanity/queries'
 import AffiliateLink from '@/components/AffiliateLink'
 
@@ -91,7 +92,7 @@ function CouponCard({ offer }: { offer: Offer }) {
       <div className="cc-card-store">
         <span className="cc-store-av" style={{ padding: offer.store?.imageUrl ? 2 : undefined }}>
           {offer.store?.imageUrl
-            ? <img src={offer.store.imageUrl} alt={offer.store.name} style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 5 }} />
+            ? <Image src={offer.store.imageUrl} alt={offer.store.name ?? ''} fill sizes="26px" style={{ objectFit: 'contain', borderRadius: 5 }} />
             : (offer.store?.abbr ?? offer.store?.name ?? '?').slice(0, 2).toUpperCase()}
         </span>
         <span style={{ flex: 1, minWidth: 0 }}>
