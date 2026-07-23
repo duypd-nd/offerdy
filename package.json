@@ -9,28 +9,28 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.110.0",
+    "@anthropic-ai/sdk": "^0.113.0",
     "@portabletext/react": "^6.2.0",
     "@sanity/image-url": "^2.1.1",
-    "@sanity/vision": "^6.2.0",
-    "@sentry/nextjs": "^10.63.0",
+    "@sanity/vision": "^6.6.0",
+    "@sentry/nextjs": "^10.67.0",
     "cheerio": "^1.2.0",
-    "next": "16.2.9",
-    "next-sanity": "^13.1.1",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "sanity": "^6.2.0",
+    "next": "16.2.11",
+    "next-sanity": "^13.1.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sanity": "^6.6.0",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.13.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.9",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.2.11",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
   }
 }
