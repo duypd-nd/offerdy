@@ -138,12 +138,16 @@ export function DealOgImage({ title, store, priceSale, priceOrig, badgeMain, bad
   )
 }
 
-export function BrandedOgImage({ eyebrow, title, subtitle, logoUrl, initials }: {
+export function BrandedOgImage({ eyebrow, title, subtitle, logoUrl, initials, couponCode }: {
   eyebrow?: string
   title: string
   subtitle?: string
   logoUrl?: string
   initials?: string
+  /** Ma coupon affiliate — hien ticket noi bat trong the OG. Bo trong -> an di.
+   *  Day la thu keo click nhat khi chia se len Facebook/X: nguoi ta thay ma giam
+   *  gia ngay trong preview truoc khi bam vao. */
+  couponCode?: string
 }) {
   return (
     <div
@@ -216,6 +220,19 @@ export function BrandedOgImage({ eyebrow, title, subtitle, logoUrl, initials }: 
         }}>
           {truncate(title, 90)}
         </div>
+        {couponCode && (
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 16,
+              padding: '13px 28px', borderRadius: 14,
+              background: `linear-gradient(135deg, ${GREEN} 0%, ${GREEN_DARK} 100%)`,
+              boxShadow: '0 14px 32px rgba(34,197,94,0.42)',
+            }}>
+              <span style={{ fontSize: 22, fontWeight: 800, color: NAVY, textTransform: 'uppercase', letterSpacing: 3, display: 'flex' }}>Code</span>
+              <span style={{ fontSize: 40, fontWeight: 800, color: NAVY, letterSpacing: 1, display: 'flex' }}>{truncate(couponCode, 18)}</span>
+            </div>
+          </div>
+        )}
         {subtitle && (
           <div style={{ fontSize: 26, color: 'rgba(255,255,255,0.72)', textShadow: '0 2px 12px rgba(0,0,0,0.35)', display: 'flex' }}>
             {truncate(subtitle, 100)}

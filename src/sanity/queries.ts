@@ -185,6 +185,21 @@ export async function getStoreBySlug(slug: string) {
   } catch { return null }
 }
 
+/** Ma coupon noi bat cua mot store — cho the OG chia se mang xa hoi hien "CODE: X".
+ *  Lay offer active dau tien (theo order) co couponCode. Null neu store khong co
+ *  ma nao -> the OG an phan coupon di. Theo nguyen tac fallback: null khi rong/loi. */
+export async function getStoreTopCoupon(slug: string): Promise<{ code: string; offerText?: string } | null> {
+  if (!isConfigured()) return null
+  try {
+    const data = await writeClient.fetch(
+      `*[_type == "offer" && store->slug.current == $slug && active != false && defined(couponCode)]
+        | order(coalesce(order, 9999) asc)[0]{ "code": couponCode, offerText }`,
+      { slug }
+    )
+    return data?.code ? data : null
+  } catch { return null }
+}
+
 // ── Categories ─────────────────────────────────────────────────
 const CATEGORIES_QUERY = `*[_type == "category"] | order(order asc) {
   "id": _id, name, emoji, "count": dealCount, colorClass,
