@@ -73,13 +73,14 @@ function fmtExpiredDate(iso: string) {
   catch { return iso }
 }
 
-function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName, expired }: {
+function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName, expired, now }: {
   offer: Offer
   defaultDescriptions: string[]
   index: number
   destinationUrl: string
   storeName?: string
   expired?: boolean
+  now: number
 }) {
   const defaultDescription = defaultDescriptions.length > 0
     ? defaultDescriptions[index % defaultDescriptions.length]
@@ -88,8 +89,12 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName
   const [copied, setCopied] = useState(false)
   const hasCode = !!offer.couponCode
 
+  // Dung `now` do server truyen xuong, KHONG goi Date.now() o day: component nay
+  // la 'use client' nen no chay ca luc SSR lan luc hydrate. Hai lan goi Date.now()
+  // cach nhau (trang cache ISR 60s + lech dong ho may user) co the ra so ngay khac
+  // nhau -> hydration mismatch. Xem chu thich o StoreOfferList.
   const daysLeft = offer.expiresAt
-    ? Math.ceil((new Date(offer.expiresAt).getTime() - Date.now()) / 86400000)
+    ? Math.ceil((new Date(offer.expiresAt).getTime() - now) / 86400000)
     : null
 
   return (
@@ -177,12 +182,21 @@ export default function StoreOfferList({
   storeName,
   affiliateLink,
   storeWebsite,
+  now,
 }: {
   offers: Offer[]
   defaultDescription?: string
   storeName?: string
   affiliateLink?: string
   storeWebsite?: string
+  /** Moc thoi gian do server sinh ra luc render trang (xem stores/[slug]/page.tsx).
+   *  Bat buoc phai la prop chu khong tu tinh trong component: component nay chay
+   *  ca o SSR lan hydrate, neu moi ben tu goi new Date() thi mot offer het han
+   *  dung trong khoang giua se bi xep vao 2 nhom khac nhau -> React thay so luong
+   *  con khac nhau -> hydration mismatch (nang hon lech chu, vi doi ca cay DOM).
+   *  Trang cache ISR 60s nen `now` cham toi da 60 giay — khong anh huong gi voi
+   *  do chinh xac theo NGAY. */
+  now: number
 }) {
   const defaultDescriptions = (defaultDescription ?? '')
     .split('\n')
@@ -191,10 +205,10 @@ export default function StoreOfferList({
   const destinationUrl = affiliateLink ?? (storeWebsite ? `https://${storeWebsite.replace(/^https?:\/\//, '')}` : '#')
   const [filter, setFilter] = useState<Filter>('all')
 
-  const now = new Date()
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000)
-  const active   = offers.filter(o => !o.expiresAt || new Date(o.expiresAt) >= now)
-  const recentlyExpired = offers.filter(o => o.expiresAt && new Date(o.expiresAt) < now && new Date(o.expiresAt) >= thirtyDaysAgo)
+  const nowDate = new Date(now)
+  const thirtyDaysAgo = new Date(now - 30 * 86400000)
+  const active   = offers.filter(o => !o.expiresAt || new Date(o.expiresAt) >= nowDate)
+  const recentlyExpired = offers.filter(o => o.expiresAt && new Date(o.expiresAt) < nowDate && new Date(o.expiresAt) >= thirtyDaysAgo)
   const codes    = active.filter(o => !!o.couponCode)
   const deals    = active.filter(o => !o.couponCode)
   const verified = active.filter(o => o.active !== false)
@@ -237,6 +251,7 @@ export default function StoreOfferList({
               index={i}
               destinationUrl={destinationUrl}
               storeName={storeName}
+              now={now}
             />
           ))
         )}
@@ -255,6 +270,7 @@ export default function StoreOfferList({
                 destinationUrl={destinationUrl}
                 storeName={storeName}
                 expired
+                now={now}
               />
             ))}
           </div>

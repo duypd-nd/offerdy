@@ -234,7 +234,8 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
             <p className="sol-sub">{shortDesc}</p>
 
             {offers.length > 0 ? (
-              <StoreOfferList offers={offers} defaultDescription={globalContent.defaultOfferDescription} storeName={store.name} affiliateLink={store.affiliateLink} storeWebsite={store.website} />
+              // eslint-disable-next-line react-hooks/purity -- server component: Date.now() chay luc revalidate, KHONG hydrate. Co y truyen xuong de client dung chung mot moc thoi gian voi server.
+              <StoreOfferList offers={offers} defaultDescription={globalContent.defaultOfferDescription} storeName={store.name} affiliateLink={store.affiliateLink} storeWebsite={store.website} now={Date.now()} />
             ) : (
               <div className="store-empty">
                 <div className="store-empty-icon">🏷️</div>

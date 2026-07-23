@@ -55,7 +55,11 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
   if (!deal) notFound()
 
   const badge = dealDiscountBadge(deal)
+  // Server component: chi chay luc build/revalidate (60s), khong hydrate nen
+  // khong co nguy co mismatch. Rule react-hooks/purity khong phan biet duoc
+  // server voi client component nen bao nham o day.
   const daysLeft = deal.expiresAt
+    // eslint-disable-next-line react-hooks/purity
     ? Math.ceil((new Date(deal.expiresAt).getTime() - Date.now()) / 86400000)
     : null
 
