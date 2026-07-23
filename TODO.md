@@ -1,6 +1,7 @@
 # Offerdy — TODO
 
 ## Done ✅
+- Maintenance pass (2026-07-23): upgraded 9 dependency groups to latest (Next 16.2.9→16.2.11, React 19.2.4→19.2.8, Sanity 6.2→6.6, Sentry, Tailwind, Anthropic SDK, `@types/node` 20→24); migrated the deprecated `middleware` convention to `proxy` (`src/middleware.ts` → `src/proxy.ts` via the official codemod, Basic Auth verified still returning 401 on production `/admin` and `/api/import`); pinned Node to `24.x` via `engines`; stopped `/comparisons` from being indexed while empty. ESLint 10 + TypeScript 7 tested and rejected — see "Tech debt / Infra"
 - AI Review Writer (2026-07-10→11): dan link san pham trong `/admin/reviews` (Them moi lan Chinh sua) → AI viet bai review tieng Anh day du (excerpt/content/FAQ/prosAndCons/so sao/gradient), anh + CTA gan link affiliate, retry tu dong khi AI qua tai/loi validate, trang chu chi hien 2 hang review — xem `PROJECT_CONTEXT.md` → "AI Engines"
 - Homepage, Deals, Stores, Categories, Reviews, Blog pages
 - About page (SEO/GEO optimised, Sanity-connected admin form)
@@ -51,19 +52,19 @@
 ### SEO / Visibility
 - [x] Submit sitemap to Google Search Console after deploy — verified, 37 pages submitted
 - [x] Fill in `/admin/config/seo` and `/admin/config/author` — confirmed populated in Sanity
-- [x] Verify canonical URLs resolve correctly on production — **found broken (2026-07-04)**: every canonical tag, sitemap URL, and JSON-LD `@id`/`url` hardcoded `https://offerdy.com` (no www), but production 308-redirects that bare domain to `https://www.offerdy.com`. Fixed by replacing all 46 occurrences across 28 files with `https://www.offerdy.com`. Typecheck + `npm run build` both pass clean. **Still needs**: push + deploy, then re-submit sitemap in GSC (URLs changed) and spot-check `view-source` on a couple of live pages.
+- [x] Verify canonical URLs resolve correctly on production — **found broken (2026-07-04)**: every canonical tag, sitemap URL, and JSON-LD `@id`/`url` hardcoded `https://offerdy.com` (no www), but production 308-redirects that bare domain to `https://www.offerdy.com`. Fixed by replacing all 46 occurrences across 28 files with `https://www.offerdy.com`. Typecheck + `npm run build` both pass clean. **Live spot-check done 2026-07-23**: `/`, `/deals`, `/reviews`, `/stores` all emit `<link rel="canonical" href="https://www.offerdy.com/...">` (www form, correct). Only remaining step is a GSC sitemap re-submission, which is a manual action in the Search Console UI — note that `sitemap.xml` now serves 340 URLs, not the 37 recorded earlier.
 
 ### Content
-- [ ] Populate Sanity with more real deals, stores, offers — in progress by user (as of 2026-07-04: 361 stores, 21 deals, 8 reviews, 6 posts; counts change continuously, re-query Sanity for exact numbers rather than trusting this line)
-- [ ] Write real `/comparisons` posts (category=Comparison) — still 0 posts, page shows empty state; needs real product/store facts, deferred pending user input
-- [ ] **228/361 stores (63% as of 2026-07-04) still missing a real logo** — Clearbit (the service the old Excel template suggested) is dead, no DNS resolution. User declined the low-quality fallback (Google favicon service, 48x48px) and wants real high-res logos instead — do not auto-fetch a low-quality substitute without asking again.
+- [ ] Populate Sanity with more real deals, stores, offers — in progress by user (queried live 2026-07-23: **275 published stores, 830 offers, 21 deals, 10 reviews, 6 posts**; counts change continuously, re-query Sanity for exact numbers rather than trusting this line)
+- [ ] Write real `/comparisons` posts (category=Comparison) — still 0 posts, page shows empty state; needs real product/store facts, deferred pending user input. **No longer an SEO liability**: since `2ea03a5` the page auto-serves `noindex,follow` and drops itself from `sitemap.xml` while empty, and auto-reverses on the first published post — no code change needed when content lands.
+- [x] **Store logos — DONE** (verified live 2026-07-23: 275/275 published stores have a real Sanity CDN asset, 0 missing). Was "228/361 missing" as of 2026-07-04; store count also dropped 361 → 275 in the meantime. Clearbit is dead and the Google-favicon fallback was declined — the logos that landed are real uploads, so keep that bar for any new store.
 - [ ] Affiliate network — user has **not yet chosen a network or obtained real API credentials**. Advised (discussion only, no code): avoid CJ/Rakuten (hard to get approved as a new site), consider Sovrn Commerce/Skimlinks (no per-merchant approval) or ShareASale/FlexOffers. Do not invent affiliate data or write integration code until the user has real credentials — see `feedback_real_content_only` memory.
 - [x] Configure About, Contact, legal pages via admin UI — confirmed all have real content (About, Contact, Terms, Privacy, Cookies, Affiliate Disclosure)
 - [x] Run `/admin/migrate/footer` once on production — confirmed already applied, live `footerColumns` in Sanity matches the migration data exactly
 
 ### UX / Polish
 - [ ] Flash Sales public page — verify countdown timer renders correctly across timezones
-- [ ] `/about` and `/author` are not linked from the main nav or footer (footer content is admin-managed via Sanity `footerColumns`, not hardcoded) — reduces their E-E-A-T value since they're only reachable by direct URL
+- [x] `/about` and `/author` internal linking — **verified fixed** (2026-07-23: grepped live homepage HTML, both `href="/about"` and `href="/author"` present). The old note claiming they were unreachable except by direct URL is no longer true.
 - [x] Coupon Codes — store logo image support (shows `store.imageUrl` if set, else abbr avatar)
 - [x] Comparisons / Tips & Guides / Blog — featured image on post cards (`imageUrl` → `<img>`, else coverEmoji)
 - [x] BlogPageContent.tsx — all English strings (no Vietnamese)
@@ -75,5 +76,11 @@
 - [ ] Monetisation: ad slots (Google AdSense) — deferred until site has traffic
 - [x] Analytics integration — GA4 (`G-0H313ZSF8K`) via GTM (`GTM-K3N8W8B8`), verified in Realtime
 
-### Governance docs (open decision, not yet resolved)
-- [ ] `AGENTS.md`, `CLAUDE.md`, `PROJECT_CONTEXT.md` (partial), `Website.code-workspace`, and the new `docs/` tree have been sitting modified/untracked in the working tree since 2026-07-07 — a "vision" governance rewrite drafted alongside the AI Engine work but deliberately **not committed**, pending the user's decision to keep or discard. Ask before committing.
+### Tech debt / Infra (audited 2026-07-23)
+- [ ] **`xlsx@0.18.5` has 2 unpatched high advisories** (Prototype Pollution `GHSA-4r6h-8v6p-xvw6`, ReDoS `GHSA-5pgg-2g8v-p4x9`) — `npm audit` says "No fix available" because SheetJS left npm and self-hosts now. Used by `/admin/import`. **Urgency is low, not zero**: the route sits behind Basic Auth (`src/proxy.ts`), so an attacker needs admin credentials *and* a crafted spreadsheet. Options when picked up: migrate to `exceljs`, or install SheetJS from its official CDN tarball.
+- [ ] **ESLint 10 and TypeScript 7 are blocked by Next 16.2.11** — both tested and reverted 2026-07-23. ESLint 10: `eslint-plugin-react` (bundled inside `eslint-config-next`, not removable) calls `context.getFilename()`, removed in v10 → crashes before linting any file. TypeScript 7: `tsc --noEmit` passes but `next build` dies in the build worker (`The "id" argument must be of type string`). Re-test after a Next minor bump; don't retry blindly.
+- [ ] **55 lint problems (30 errors, 25 warnings)** — pre-existing, confirmed present before the 2026-07-23 dependency upgrade (re-ran lint on the old stack to be sure). **Mostly low value**: all 14 `no-html-link-for-pages` errors are in `/admin/*` (behind auth, not indexed, so no SEO/UX impact). Only genuinely worth fixing is `react-hooks/purity` in `src/components/StoreOfferList.tsx:92` — `Date.now()` during render of a `'use client'` component risks a hydration mismatch at a day boundary. The twin in `src/app/deals/[slug]/page.tsx:59` is harmless (server component, `revalidate = 60`).
+> **Note (not a task)** — Node is pinned to `24.x` via `engines.node` (commit `8d5b679`), which **overrides** the Vercel dashboard setting. To move Node, bump `engines`, `@types/node`, and the local runtime together; `@types/node` must never lead the runtime.
+
+### Governance docs
+- [x] **RESOLVED** — the governance rewrite (`AGENTS.md`, `CLAUDE.md`, `PROJECT_CONTEXT.md`, `Website.code-workspace`, `docs/` tree) was committed at `f4a7470`. Verified 2026-07-23: all four files plus 30 files under `docs/` are tracked, working tree clean. No open decision left here.
