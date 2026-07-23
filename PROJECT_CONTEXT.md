@@ -4,6 +4,7 @@
 - **Framework**: Next.js (App Router), TypeScript, Tailwind CSS v4
 - **CMS**: Sanity (project ID: `ns0upb1t`) — all reads/writes via `writeClient`
 - **Hosting**: Vercel — live at offerdy.com
+- **Node**: pinned to `24.x` via `engines.node` in `package.json` — this **overrides** the Vercel dashboard setting, so bump it here (together with `@types/node`) rather than in Project Settings
 - **Forms**: Formspree (with mailto fallback)
 
 ## Key Conventions
