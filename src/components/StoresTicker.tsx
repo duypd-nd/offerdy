@@ -37,9 +37,10 @@ export default function StoresTicker({ stores }: { stores: Store[] }) {
               className="store-card"
               aria-hidden={i >= stores.length ? 'true' : undefined}
             >
-              <div className={`store-ticker-img ${store.colorClass ?? ''}`}>
+              <div className={`store-ticker-img ${store.imageUrl ? 'store-ticker-img--logo' : (store.colorClass ?? '')}`}>
                 {store.imageUrl
-                  ? <Image src={store.imageUrl} alt={store.name} fill sizes="72px" style={{ objectFit: 'cover' }} />
+                  // contain (khong phai cover) de khong cat mat logo — dong bo voi card /stores
+                  ? <Image src={store.imageUrl} alt={store.name} fill sizes="72px" style={{ objectFit: 'contain' }} />
                   : <span style={{ fontFamily: 'var(--font-d),system-ui,sans-serif', fontSize: 16, fontWeight: 800, color: 'white' }}>{store.abbr}</span>
                 }
               </div>
