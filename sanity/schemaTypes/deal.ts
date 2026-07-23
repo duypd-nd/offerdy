@@ -27,6 +27,13 @@ export const dealType = defineType({
     defineField({ name: 'expiresAt', title: 'Expires At', type: 'datetime' }),
     defineField({ name: 'dealUrl', title: 'Deal URL', type: 'url' }),
     defineField({
+      name: 'category',
+      title: 'Danh mục',
+      type: 'reference',
+      to: [{ type: 'category' }],
+      description: 'Dùng để lọc trên trang /deals. Tham chiếu tới document Category (không phải enum text như store.category) — đổi tên/emoji ở Category là đổi khắp nơi. Để trống thì deal vẫn hiện ở tab "All", chỉ không lọc được theo danh mục.',
+    }),
+    defineField({
       name: 'relatedReview',
       title: 'Review liên quan',
       type: 'reference',

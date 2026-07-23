@@ -15,6 +15,9 @@ export type Deal = {
   dealUrl?: string
   isExpiring?: boolean
   slug?: string
+  /** Tham chieu toi category doc. Undefined = deal chua duoc phan loai —
+   *  van hien o tab "All" tren /deals, chi khong loc rieng duoc. */
+  category?: { name: string; emoji?: string; slug: string }
 }
 
 export type ExpiringDeal = {

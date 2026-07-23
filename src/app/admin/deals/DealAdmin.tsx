@@ -82,11 +82,15 @@ type AdminDeal = {
   discount: number; discountByAmount?: boolean; verified: boolean; isExpiring: boolean
   expiresAt?: string; dealUrl?: string; _createdAt: string; _updatedAt?: string; order?: number
   relatedReview?: { _id: string; title: string }
+  category?: { _id: string; name: string; emoji?: string }
 }
 
 type ReviewOption = { _id: string; title: string }
+type CategoryOption = { _id: string; name: string; emoji?: string }
 
-export default function DealAdmin({ initialDeals, allReviews = [] }: { initialDeals: AdminDeal[]; allReviews?: ReviewOption[] }) {
+export default function DealAdmin({ initialDeals, allReviews = [], allCategories = [] }: {
+  initialDeals: AdminDeal[]; allReviews?: ReviewOption[]; allCategories?: CategoryOption[]
+}) {
   const [deals, setDeals] = useState(initialDeals)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -281,11 +285,11 @@ export default function DealAdmin({ initialDeals, allReviews = [] }: { initialDe
       </div>
 
       {showModal && (
-        <DealModal mode="add" allReviews={allReviews} onClose={() => setShowModal(false)}
+        <DealModal mode="add" allReviews={allReviews} allCategories={allCategories} onClose={() => setShowModal(false)}
           onSaved={d => { setDeals(prev => [d, ...prev]); setShowModal(false); showToast('Đã thêm deal mới') }} />
       )}
       {editingDeal && (
-        <DealModal mode="edit" initial={editingDeal} allReviews={allReviews} onClose={() => setEditingDeal(null)}
+        <DealModal mode="edit" initial={editingDeal} allReviews={allReviews} allCategories={allCategories} onClose={() => setEditingDeal(null)}
           onSaved={updated => { setDeals(prev => prev.map(d => d._id === updated._id ? updated : d)); setEditingDeal(null); showToast('Đã lưu') }}
           onDeleted={id => { setDeals(prev => prev.filter(d => d._id !== id)); setEditingDeal(null); showToast('Đã xóa') }} />
       )}
@@ -293,8 +297,8 @@ export default function DealAdmin({ initialDeals, allReviews = [] }: { initialDe
   )
 }
 
-function DealModal({ mode, initial, allReviews = [], onClose, onSaved, onDeleted }: {
-  mode: 'add' | 'edit'; initial?: AdminDeal; allReviews?: ReviewOption[]
+function DealModal({ mode, initial, allReviews = [], allCategories = [], onClose, onSaved, onDeleted }: {
+  mode: 'add' | 'edit'; initial?: AdminDeal; allReviews?: ReviewOption[]; allCategories?: CategoryOption[]
   onClose: () => void; onSaved: (d: AdminDeal) => void; onDeleted?: (id: string) => void
 }) {
   const [form, setForm] = useState({
@@ -308,6 +312,7 @@ function DealModal({ mode, initial, allReviews = [], onClose, onSaved, onDeleted
     expiresAt: initial?.expiresAt ? initial.expiresAt.slice(0, 16) : '',
     dealUrl: initial?.dealUrl ?? '',
     relatedReviewId: initial?.relatedReview?._id ?? '',
+    categoryId: initial?.category?._id ?? '',
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(initial?.imageUrl ?? '')
@@ -339,6 +344,7 @@ function DealModal({ mode, initial, allReviews = [], onClose, onSaved, onDeleted
         }
       }
       const relatedReviewRef = form.relatedReviewId ? { _type: 'reference' as const, _ref: form.relatedReviewId } : undefined
+      const categoryRef = form.categoryId ? { _type: 'reference' as const, _ref: form.categoryId } : undefined
       const data = {
         title: form.title,
         priceSale: form.priceSale,
@@ -351,16 +357,28 @@ function DealModal({ mode, initial, allReviews = [], onClose, onSaved, onDeleted
         dealUrl: form.dealUrl || undefined,
         ...(image ? { image } : {}),
         ...(relatedReviewRef ? { relatedReview: relatedReviewRef } : {}),
+        ...(categoryRef ? { category: categoryRef } : {}),
       }
       const relatedReviewForState = form.relatedReviewId
         ? { _id: form.relatedReviewId, title: allReviews.find(r => r._id === form.relatedReviewId)?.title ?? '' }
         : undefined
+      const categoryForState = form.categoryId
+        ? (() => {
+            const c = allCategories.find(c => c._id === form.categoryId)
+            return { _id: form.categoryId, name: c?.name ?? '', emoji: c?.emoji }
+          })()
+        : undefined
       if (mode === 'add') {
         const doc = await createDeal(data)
-        onSaved({ _id: doc._id, slug: (doc.slug as { current: string })?.current ?? '', _createdAt: new Date().toISOString(), ...data, imageUrl: imagePreview || undefined, relatedReview: relatedReviewForState })
+        onSaved({ _id: doc._id, slug: (doc.slug as { current: string })?.current ?? '', _createdAt: new Date().toISOString(), ...data, imageUrl: imagePreview || undefined, relatedReview: relatedReviewForState, category: categoryForState })
       } else if (initial) {
-        await updateDeal(initial._id, data, relatedReviewRef ? undefined : ['relatedReview'])
-        onSaved({ ...initial, ...data, imageUrl: imagePreview || undefined, relatedReview: relatedReviewForState })
+        // Bo trong select -> phai unset han field tren Sanity, khong thi ref cu con lai
+        const unset = [
+          ...(relatedReviewRef ? [] : ['relatedReview']),
+          ...(categoryRef ? [] : ['category']),
+        ]
+        await updateDeal(initial._id, data, unset.length ? unset : undefined)
+        onSaved({ ...initial, ...data, imageUrl: imagePreview || undefined, relatedReview: relatedReviewForState, category: categoryForState })
       }
     })
   }
@@ -447,6 +465,18 @@ function DealModal({ mode, initial, allReviews = [], onClose, onSaved, onDeleted
 
           <label className="oa-label">Deal URL
             <input className="oa-input" value={form.dealUrl} onChange={e => set('dealUrl', e.target.value)} placeholder="https://..." />
+          </label>
+
+          <label className="oa-label">Danh mục
+            <select className="oa-input" value={form.categoryId} onChange={e => set('categoryId', e.target.value)}>
+              <option value="">— Chưa phân loại —</option>
+              {allCategories.map(c => (
+                <option key={c._id} value={c._id}>{c.emoji ? `${c.emoji} ` : ''}{c.name}</option>
+              ))}
+            </select>
+            <span style={{ display: 'block', fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+              Dùng để lọc trên trang /deals. Để trống thì deal vẫn hiện ở tab &ldquo;All&rdquo;, chỉ không lọc riêng được.
+            </span>
           </label>
 
           <label className="oa-label">Review liên quan (nếu có)

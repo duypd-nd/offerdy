@@ -12,25 +12,66 @@ function CheckIcon() {
   )
 }
 
-function pageHref(p: number) {
-  return p <= 1 ? '/deals' : `/deals?page=${p}`
+type DealCategory = { name: string; emoji?: string; slug: string }
+
+/** Giu category khi doi trang, va bo ?page khi doi category (ve trang 1) —
+ *  neu khong, doi sang danh muc it deal hon se rot vao trang khong ton tai. */
+function dealsHref(page: number, category?: string) {
+  const qs = new URLSearchParams()
+  if (category) qs.set('category', category)
+  if (page > 1) qs.set('page', String(page))
+  const q = qs.toString()
+  return `/deals${q ? `?${q}` : ''}`
 }
 
-export default function DealsPageContent({ deals, page, totalPages, totalCount }: {
+export default function DealsPageContent({ deals, page, totalPages, totalCount, categories = [], activeCategory }: {
   deals: Deal[]; page: number; totalPages: number; totalCount: number
+  categories?: DealCategory[]; activeCategory?: string
 }) {
+  const pageHref = (p: number) => dealsHref(p, activeCategory)
+  const activeName = categories.find(c => c.slug === activeCategory)?.name
+
   return (
     <>
       <div className="section" style={{ paddingTop: 24 }}>
         <div className="section-header">
           <div>
-            <div className="section-title">All Deals</div>
+            <div className="section-title">{activeName ? `${activeName} Deals` : 'All Deals'}</div>
             <div className="section-sub">
               {totalCount} deals found · 100% verified
               {totalPages > 1 && ` · Page ${page}/${totalPages}`}
             </div>
           </div>
         </div>
+
+        {/* Dung lai .sol-tabs/.sol-tab co san trong globals.css (StoreOfferList dang
+            dung) thay vi them class moi — da co hover + trang thai .active. Chi them
+            textDecoration inline vi class do von viet cho <button>, khong phai <a>.
+            Chi render khi co it nhat 1 danh muc duoc gan, tranh thanh tab tro tren
+            trong luc admin chua phan loai deal nao. */}
+        {categories.length > 0 && (
+          <div className="sol-tabs" style={{ flexWrap: 'wrap' }}>
+            <Link
+              href={dealsHref(1)}
+              className={`sol-tab${!activeCategory ? ' active' : ''}`}
+              style={{ textDecoration: 'none' }}
+              aria-current={!activeCategory ? 'page' : undefined}
+            >
+              All
+            </Link>
+            {categories.map(c => (
+              <Link
+                key={c.slug}
+                href={dealsHref(1, c.slug)}
+                className={`sol-tab${activeCategory === c.slug ? ' active' : ''}`}
+                style={{ textDecoration: 'none' }}
+                aria-current={activeCategory === c.slug ? 'page' : undefined}
+              >
+                {c.emoji && <span aria-hidden="true">{c.emoji} </span>}{c.name}
+              </Link>
+            ))}
+          </div>
+        )}
 
         <div className="deals-grid">
           {deals.map(deal => {

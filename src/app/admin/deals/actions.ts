@@ -27,6 +27,7 @@ export async function createDeal(data: {
   discount: number; verified: boolean; isExpiring: boolean
   image?: unknown; expiresAt?: string; dealUrl?: string
   relatedReview?: { _type: 'reference'; _ref: string }
+  category?: { _type: 'reference'; _ref: string }
 }) {
   const slug = data.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
   const doc = await writeClient.create({
