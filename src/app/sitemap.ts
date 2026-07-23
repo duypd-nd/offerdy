@@ -10,15 +10,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let pages: { slug: string; _updatedAt: string }[] = []
   let categories: { slug: string; _updatedAt: string }[] = []
   let deals: { slug: string; _updatedAt: string }[] = []
+  // Dem rieng bai Comparison de quyet dinh co dua /comparisons vao sitemap khong.
+  // Neu fetch loi -> giu 0 -> loai URL ra, dung huong an toan: tha bo sot mot URL
+  // hop le (Google se crawl lai) con hon nop mot trang rong cho Google index.
+  let comparisonCount = 0
 
   try {
-    ;[stores, posts, reviews, pages, categories, deals] = await Promise.all([
+    ;[stores, posts, reviews, pages, categories, deals, comparisonCount] = await Promise.all([
       writeClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now()]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "page" && published != false]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "category"]{ "slug": slug.current, _updatedAt }`),
       writeClient.fetch(`*[_type == "deal"]{ "slug": slug.current, _updatedAt }`),
+      // Cung dieu kien loc voi COMPARISON_POSTS_QUERY trong src/sanity/queries.ts —
+      // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
+      writeClient.fetch(`count(*[_type == "post" && category == "Comparison" && (!defined(publishedAt) || publishedAt <= now())])`),
     ])
   } catch {}
 
@@ -31,7 +38,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/coupon-codes`,          lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
     { url: `${BASE}/reviews`,               lastModified: now, changeFrequency: 'weekly',  priority: 0.8 },
     { url: `${BASE}/blog`,                  lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },
-    { url: `${BASE}/comparisons`,           lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },
+    ...(comparisonCount > 0
+      ? [{ url: `${BASE}/comparisons`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
+      : []),
     { url: `${BASE}/tips-guides`,           lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },
     { url: `${BASE}/categories`,            lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
     { url: `${BASE}/about`,                 lastModified: now, changeFrequency: 'monthly', priority: 0.5 },

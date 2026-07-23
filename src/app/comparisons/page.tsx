@@ -7,16 +7,25 @@ import { getComparisonPosts } from '@/sanity/queries'
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  title: 'Comparisons — Side-by-Side Deal Analysis | Offerdy',
-  description: 'In-depth comparison guides to help you pick the best store, product, or deal. Unbiased, data-driven analysis.',
-  alternates: { canonical: 'https://www.offerdy.com/comparisons' },
-  openGraph: {
+// Khi chua co bai Comparison nao, trang chi hien empty state -> khong cho Google
+// index (thin content), nhung van de follow de link equity chay sang /blog.
+// Tu dong index lai ngay khi co bai dau tien, khong can sua code.
+// Sitemap cung loai /comparisons ra trong cung dieu kien — xem src/app/sitemap.ts
+export async function generateMetadata(): Promise<Metadata> {
+  const posts = await getComparisonPosts()
+
+  return {
     title: 'Comparisons — Side-by-Side Deal Analysis | Offerdy',
-    description: 'Unbiased store and product comparisons to help you find the best deal.',
-    url: 'https://www.offerdy.com/comparisons',
-    type: 'website',
-  },
+    description: 'In-depth comparison guides to help you pick the best store, product, or deal. Unbiased, data-driven analysis.',
+    alternates: { canonical: 'https://www.offerdy.com/comparisons' },
+    ...(posts.length === 0 && { robots: { index: false, follow: true } }),
+    openGraph: {
+      title: 'Comparisons — Side-by-Side Deal Analysis | Offerdy',
+      description: 'Unbiased store and product comparisons to help you find the best deal.',
+      url: 'https://www.offerdy.com/comparisons',
+      type: 'website',
+    },
+  }
 }
 
 export default async function ComparisonsPage() {
