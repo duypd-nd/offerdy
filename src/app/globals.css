@@ -1126,3 +1126,28 @@ a.cc-store-nm:hover{color:var(--green-dark)}
   .dd-cta{display:flex;width:100%;margin-top:16px;padding:16px}
 }
 
+
+/* ── MOBILE: o tim kiem no rong khi focus ─────────────────────
+   Cham vao o tim kiem -> logo thu lai roi bien mat sang trai, o tim kiem no
+   ra lap cho do. Thuan CSS bang :focus-within nen tu dong dao nguoc khi blur,
+   khong can them JS. Chi ap dung <=768px (mobile); desktop giu nguyen.        */
+@media(max-width:768px){
+  .header-inner{gap:12px}
+  .header-inner .logo{
+    overflow:hidden;
+    max-width:220px;
+    transition:max-width .34s cubic-bezier(.4,0,.2,1),opacity .24s ease,margin-left .34s cubic-bezier(.4,0,.2,1);
+  }
+  /* Khi con tro dang o trong o tim kiem: nuot logo + khoang gap ben trai no */
+  .header-inner:focus-within .logo{
+    max-width:0;
+    opacity:0;
+    margin-left:-12px;
+    pointer-events:none;
+  }
+  /* search-wrapper von flex:1 nen tu day rong theo lien khi logo co lai —
+     them transition de dam bao muot ke ca khi trinh duyet khong reflow lien tuc */
+  .header-inner .search-wrapper{transition:max-width .34s cubic-bezier(.4,0,.2,1)}
+}
+
+
