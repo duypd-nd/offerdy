@@ -1097,3 +1097,32 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 }
 
 
+
+/* ── DEAL DETAIL HERO (/deals/[slug]) ──────────────────────────
+   Truoc day toan bo phan nay dung inline style nen khong co media query:
+   anh co dinh 280px (khong lap day chieu rong dien thoai, lech trai) va nut
+   Get Deal chi rong ~nua man. Tren mobile ca hai deu can full-width.          */
+.dd-hero{display:flex;gap:26px;align-items:flex-start;margin-bottom:30px}
+.dd-media{width:290px;height:290px;flex-shrink:0;border-radius:16px;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:96px}
+.dd-media img{width:100%;height:100%;object-fit:cover}
+.dd-info{flex:1;min-width:0}
+.dd-store{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.dd-title{font-size:27px;font-weight:800;line-height:1.24;letter-spacing:-.5px;margin:0 0 16px}
+.dd-prices{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:6px}
+.dd-now{font-size:29px;font-weight:800;color:var(--green-dark);letter-spacing:-.6px}
+.dd-was{font-size:16px;color:var(--muted);text-decoration:line-through}
+.dd-badge{font-size:12px;font-weight:800;color:var(--sale);background:#fff1f2;border:1px solid #fecdd3;border-radius:7px;padding:4px 10px}
+.dd-expiry{font-size:13px;font-weight:600;color:#d97706;margin-top:8px}
+.dd-cta{display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-top:18px;padding:14px 34px;border-radius:13px;background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);color:#fff;font-weight:700;font-size:16px;text-decoration:none;box-shadow:0 10px 24px rgba(22,163,74,.28);transition:transform .12s,box-shadow .2s}
+.dd-cta:hover{box-shadow:0 14px 30px rgba(22,163,74,.36)}
+.dd-cta:active{transform:scale(.98)}
+
+@media(max-width:560px){
+  .dd-hero{flex-direction:column;gap:18px;margin-bottom:26px}
+  .dd-media{width:100%;height:auto;aspect-ratio:1/1}
+  .dd-title{font-size:23px}
+  .dd-now{font-size:27px}
+  /* Nut mua la yeu to chuyen doi so 1 — full-width, vung cham to */
+  .dd-cta{display:flex;width:100%;margin-top:16px;padding:16px}
+}
+

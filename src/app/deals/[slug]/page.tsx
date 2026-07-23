@@ -124,42 +124,28 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
         </div>
 
         <div style={{ maxWidth: 720, margin: '0 auto', padding: '32px 20px 64px' }}>
-          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start', marginBottom: 28 }}>
-            <div style={{
-              width: 280, height: 280, borderRadius: 16, flexShrink: 0,
-              background: 'var(--bg, #f8fafc)', border: '1px solid var(--border, #e5e7eb)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: deal.imageUrl ? undefined : 96, overflow: 'hidden',
-            }}>
+          <div className="dd-hero">
+            <div className="dd-media">
               {deal.imageUrl
                 // eslint-disable-next-line @next/next/no-img-element -- giu ty le anh goc
-                ? <img src={deal.imageUrl} alt={deal.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img src={deal.imageUrl} alt={deal.title} />
                 : (deal.emoji ?? '🏷️')
               }
             </div>
-            <div style={{ flex: 1, minWidth: 280 }}>
-              {deal.store && <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>{deal.store}</div>}
-              <h1 style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.25, margin: '0 0 12px' }}>{deal.title}</h1>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
-                <span style={{ fontSize: 24, fontWeight: 800, color: '#16A34A' }}>{deal.priceSale}</span>
-                <span style={{ fontSize: 15, color: 'var(--muted)', textDecoration: 'line-through' }}>{deal.priceOrig}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '2px 8px' }}>
-                  {badge.main} {badge.sub ?? ''}
-                </span>
+            <div className="dd-info">
+              {deal.store && <div className="dd-store">{deal.store}</div>}
+              <h1 className="dd-title">{deal.title}</h1>
+              <div className="dd-prices">
+                <span className="dd-now">{deal.priceSale}</span>
+                {deal.priceOrig && <span className="dd-was">{deal.priceOrig}</span>}
+                <span className="dd-badge">{badge.main}{badge.sub ? ` ${badge.sub}` : ''}</span>
               </div>
               {daysLeft !== null && daysLeft >= 0 && (
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#d97706', marginBottom: 12 }}>
+                <div className="dd-expiry">
                   ⏰ {daysLeft === 0 ? 'Expires today' : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`}
                 </div>
               )}
-              <AffiliateLink
-                href={deal.dealUrl ?? '/deals'}
-                storeName={deal.store}
-                style={{
-                  display: 'inline-block', marginTop: 8, padding: '12px 28px', borderRadius: 10,
-                  background: '#16A34A', color: '#fff', fontWeight: 700, fontSize: 15, textDecoration: 'none',
-                }}
-              >
+              <AffiliateLink href={deal.dealUrl ?? '/deals'} storeName={deal.store} className="dd-cta">
                 Get Deal →
               </AffiliateLink>
             </div>
