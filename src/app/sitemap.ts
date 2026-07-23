@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { writeClient } from '@/sanity/writeClient'
+import { getCategorySlugsWithStores } from '@/sanity/queries'
 
 const BASE = 'https://www.offerdy.com'
 
@@ -14,6 +15,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Neu fetch loi -> giu 0 -> loai URL ra, dung huong an toan: tha bo sot mot URL
   // hop le (Google se crawl lai) con hon nop mot trang rong cho Google index.
   let comparisonCount = 0
+  // Chi nop category doc nao thuc su co store. Cung ly do voi /comparisons.
+  let categoriesWithStores: Set<string> = new Set()
 
   try {
     ;[stores, posts, reviews, pages, categories, deals, comparisonCount] = await Promise.all([
@@ -28,6 +31,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       writeClient.fetch(`count(*[_type == "post" && category == "Comparison" && (!defined(publishedAt) || publishedAt <= now())])`),
     ])
   } catch {}
+
+  categoriesWithStores = await getCategorySlugsWithStores()
 
   const now = new Date()
   const statics: MetadataRoute.Sitemap = [
@@ -80,7 +85,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly' as const,
       priority: 0.5,
     })),
-    ...categories.filter(c => c.slug).map(c => ({
+    ...categories.filter(c => c.slug && categoriesWithStores.has(c.slug)).map(c => ({
       url: `${BASE}/categories/${c.slug}`,
       lastModified: c._updatedAt,
       changeFrequency: 'weekly' as const,

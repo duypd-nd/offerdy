@@ -18,7 +18,10 @@ const BASE = 'https://www.offerdy.com'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const cat = await getCategoryBySlug(slug)
+  const [cat, stores] = await Promise.all([
+    getCategoryBySlug(slug),
+    getStoresByCategory(slug),
+  ])
   if (!cat) return {}
   const title = `${cat.emoji} ${cat.name} Deals & Coupons — Offerdy`
   const description = cat.description ?? `Browse the best ${cat.name} deals and verified coupon codes.`
@@ -27,6 +30,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title,
     description,
     alternates: { canonical: url },
+    // Category chua co store nao -> khong cho Google index trang rong, van follow.
+    // Tu dao nguoc khi co store dau tien. Sitemap loai URL nay ra trong cung dieu
+    // kien (xem getCategorySlugsWithStores trong src/sanity/queries.ts).
+    ...(stores.length === 0 && { robots: { index: false, follow: true } }),
     openGraph: { title, description, url, siteName: 'Offerdy', type: 'website' },
     twitter: { card: 'summary', title, description },
   }

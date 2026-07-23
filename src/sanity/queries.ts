@@ -192,11 +192,29 @@ export async function getCategories() {
   } catch { return staticCategories }
 }
 
-// map category slug → store.category value
+// Map slug cua CATEGORY DOC -> gia tri enum trong store.category.
+// Du an dang co 2 he thong danh muc song song: category doc (9 cai, slug kieu
+// 'home--garden') va store.category (enum 10 gia tri, kieu 'home'). Bang nay la
+// cau noi giua chung.
+//
+// !! Key phai la slug THAT cua category doc. Truoc day key ghi 'home'/'food'/
+// 'tech'/'ai'/'kids' trong khi slug that la 'home--garden'/'food--health'/
+// 'tech--gadgets'/'ai-tools'/'kids--baby' -> khong khop -> 4 trang category
+// hien 0 store du trong DB co du lieu (25 store food, 9 store home...).
+// Neu them category doc moi, nho them key o day.
+//
+// 'ai-tools' va 'kids--baby' CO Y de trong: khong co gia tri store.category nao
+// tuong ung. Truoc day chung map sang 'general' — sai, vi 'general' dang co 180
+// store, tuc se do toan bo store khong lien quan vao 2 trang do. Tha de rong
+// (da co noindex xu ly) con hon hien sai.
 const SLUG_TO_STORE_CAT: Record<string, string> = {
-  tech: 'electronics', fashion: 'fashion', beauty: 'beauty',
-  home: 'home', food: 'food', travel: 'travel',
-  ai: 'general', sports: 'sports', kids: 'general',
+  'tech--gadgets': 'electronics',
+  'fashion':       'fashion',
+  'beauty':        'beauty',
+  'home--garden':  'home',
+  'food--health':  'food',
+  'travel':        'travel',
+  'sports':        'sports',
 }
 
 export async function getCategoryBySlug(slug: string) {
@@ -224,6 +242,32 @@ export async function getStoresByCategory(slug: string) {
       { slug, legacy: legacyValue }
     )
   } catch { return [] }
+}
+
+/** Tra ve slug cua nhung category doc THUC SU co it nhat 1 store.
+ *  Dung cho sitemap: category rong thi khong nop cho Google (thin content),
+ *  giong cach xu ly /comparisons. Trang category tu noindex rieng cua no.
+ *  Loi fetch -> tra Set rong -> loai het category ra khoi sitemap: huong an toan,
+ *  tha bo sot URL hop le con hon nop trang rong. */
+export async function getCategorySlugsWithStores(): Promise<Set<string>> {
+  if (!isConfigured()) return new Set()
+  try {
+    const data = await writeClient.fetch<{
+      cats: { slug: string | null }[]
+      used: (string | null)[]
+    }>(`{
+      "cats": *[_type == "category"]{ "slug": slug.current },
+      "used": array::unique(*[_type == "store" && published != false].category)
+    }`)
+    const used = new Set((data?.used ?? []).filter(Boolean) as string[])
+    return new Set(
+      (data?.cats ?? [])
+        .map(c => c.slug)
+        .filter((s): s is string => !!s)
+        // khop truc tiep (store tag dung slug) HOAC qua bang map sang enum cu
+        .filter(s => used.has(s) || used.has(SLUG_TO_STORE_CAT[s] ?? ' '))
+    )
+  } catch { return new Set() }
 }
 
 // ── Reviews ────────────────────────────────────────────────────
