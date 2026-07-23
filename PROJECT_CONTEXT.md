@@ -30,7 +30,8 @@
 | Route | Status | Notes |
 |-------|--------|-------|
 | `/` | ✅ Live | Homepage |
-| `/deals` | ✅ Live | All deals |
+| `/deals` | ✅ Live | All deals — filter by category via `?category=<slug>` |
+| `/links` | ✅ Live | **Link-in-bio** for Instagram/TikTok (neither allows clickable links in captions, so the bio points here permanently instead of being re-edited per post). Mobile-first, no header/footer, 12 latest deals. `noindex` + kept out of `sitemap.ts` on purpose — it duplicates `/deals` and would compete with it in search. Styles are the `.lb-*` block in `globals.css`; the wordmark is **text, not the Sanity logo** (that logo is dark-on-transparent and vanishes on this dark background) |
 | `/deals/[slug]` | ✅ Live | Deal detail — Summary/Pros&Cons/FAQ, AI-generated via `generateDealContent.ts`, JSON-LD Product+FAQPage+Breadcrumb |
 | `/stores` | ✅ Live | Store directory |
 | `/stores/[slug]` | ✅ Live | Store detail + offers |

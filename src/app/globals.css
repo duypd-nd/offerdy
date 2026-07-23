@@ -1040,3 +1040,55 @@ a.cc-store-nm:hover{color:var(--green-dark)}
   .sdeal-form-row{grid-template-columns:1fr}
   .contact-form-row{grid-template-columns:1fr}
 }
+
+/* ── LINK IN BIO (/links) ──────────────────────────────────────
+   Trang dich cho bio Instagram/TikTok — hai nen tang khong cho bam link trong
+   caption, nen bio tro co dinh vao day thay vi phai sua link moi lan dang deal.
+   Thiet ke uu tien dien thoai: 1 cot, the nam ngang de thay duoc nhieu deal
+   tren mot man hinh hon the doc, vung cham deu >= 44px.                       */
+.lb-page{min-height:100vh;background:linear-gradient(160deg,#0B1420 0%,#0F1929 45%,#14243B 100%);padding:36px 18px 56px;position:relative;overflow:hidden}
+.lb-page::before{content:"";position:absolute;top:-180px;right:-160px;width:520px;height:520px;background:radial-gradient(circle closest-side,rgba(34,197,94,.30) 0%,rgba(34,197,94,.10) 45%,transparent 85%);pointer-events:none}
+.lb-page::after{content:"";position:absolute;bottom:-200px;left:-180px;width:480px;height:480px;background:radial-gradient(circle closest-side,rgba(34,197,94,.16) 0%,transparent 80%);pointer-events:none}
+.lb-wrap{max-width:480px;margin:0 auto;position:relative;z-index:1}
+
+.lb-hero{text-align:center;margin-bottom:26px}
+.lb-logo{display:block;height:46px;width:auto;max-width:min(230px,72%);margin:0 auto 16px;object-fit:contain}
+/* Fallback khi chua cau hinh logo: o vuong chu cai dau */
+.lb-avatar{width:84px;height:84px;border-radius:24px;margin:0 auto 14px;background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:800;color:var(--navy);box-shadow:0 14px 34px rgba(0,0,0,.45)}
+.lb-name{font-size:34px;font-weight:800;color:#fff;letter-spacing:-.6px;line-height:1.2}
+.lb-name span{color:var(--green)}
+.lb-tag{font-size:14px;color:rgba(255,255,255,.62);margin-top:7px;line-height:1.5}
+
+.lb-chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:22px}
+.lb-chip{display:inline-flex;align-items:center;min-height:38px;padding:0 16px;border-radius:999px;font-size:13px;font-weight:700;color:rgba(255,255,255,.9);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);transition:background .18s,border-color .18s,transform .12s}
+.lb-chip:active{transform:scale(.96);background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.5)}
+
+.lb-sec{display:flex;align-items:center;gap:10px;margin:0 2px 12px}
+.lb-sec-t{font-size:12px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--green)}
+.lb-sec-line{flex:1;height:1px;background:linear-gradient(90deg,rgba(34,197,94,.4),transparent)}
+
+.lb-list{display:flex;flex-direction:column;gap:11px}
+.lb-card{display:flex;align-items:center;gap:13px;padding:11px;background:var(--white);border-radius:17px;box-shadow:0 10px 26px rgba(0,0,0,.30);transition:transform .14s,box-shadow .2s;min-height:44px}
+.lb-card:active{transform:scale(.985);box-shadow:0 6px 16px rgba(0,0,0,.34)}
+.lb-thumb{position:relative;width:86px;height:86px;flex-shrink:0;border-radius:12px;overflow:hidden;background:var(--bg)}
+.lb-badge{position:absolute;top:5px;left:5px;display:inline-flex;align-items:baseline;gap:2px;padding:3px 8px;border-radius:999px;background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);font-size:12px;font-weight:800;color:var(--navy);box-shadow:0 3px 9px rgba(0,0,0,.28)}
+.lb-badge i{font-style:normal;font-size:9px;font-weight:800}
+.lb-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.lb-title{font-size:14px;font-weight:700;color:var(--text);line-height:1.38;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lb-price{display:flex;align-items:baseline;gap:8px}
+.lb-now{font-size:18px;font-weight:800;color:var(--green-dark);letter-spacing:-.4px}
+.lb-was{font-size:13px;color:var(--light);text-decoration:line-through}
+.lb-go{flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--green-50);display:flex;align-items:center;justify-content:center;color:var(--green-dark);font-size:16px;font-weight:800}
+
+.lb-all{display:flex;align-items:center;justify-content:center;min-height:52px;margin-top:16px;border-radius:15px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:15px;font-weight:700;transition:background .18s,transform .12s}
+.lb-all:active{transform:scale(.98);background:rgba(34,197,94,.22)}
+
+.lb-foot{margin-top:30px;text-align:center;font-size:11.5px;color:rgba(255,255,255,.42);line-height:1.65}
+.lb-foot a{color:rgba(255,255,255,.62);text-decoration:underline}
+
+@media (max-width:380px){
+  .lb-thumb{width:74px;height:74px}
+  .lb-title{font-size:13.5px}
+  .lb-now{font-size:17px}
+}
+
