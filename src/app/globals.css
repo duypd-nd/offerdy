@@ -117,6 +117,11 @@ a.announce-bar:hover{background:var(--green-dark)}
 .store-name{font-size:12px;font-weight:600;color:var(--text);text-align:center;white-space:normal;line-height:1.3;min-height:31px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .store-count{font-size:11px;color:var(--muted)}
 .sa-default{background:linear-gradient(135deg,#e2e8f0,#cbd5e1)}
+/* Khi card CO logo -> nen trang cho dong nhat voi cac logo von co nen trang,
+   logo nen trong suot khong con lo nen xam. Hairline duoi de tach vung logo
+   voi vung ten (khong con gradient lam ranh gioi nua). Store KHONG co logo van
+   dung gradient mau (chu viet tat mau trang doc duoc tren do). */
+.store-page-sa--logo{background:#fff;border-bottom:1px solid var(--border)}
 .sa-amz{background:linear-gradient(135deg,#FF9900,#FF6600)}
 .sa-apl{background:linear-gradient(135deg,#555,#222)}
 .sa-nke{background:linear-gradient(135deg,#111,#333)}

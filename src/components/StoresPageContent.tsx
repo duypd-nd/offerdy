@@ -102,7 +102,7 @@ export default function StoresPageContent({ stores }: { stores: StoreWithCount[]
         <div className="stores-page-grid">
           {paginated.map((store, i) => (
             <Link key={store.name + i} href={`/stores/${store.slug ?? store.name.toLowerCase().replace(/\s+/g, '-')}`} className="store-page-card">
-              <div className={`store-page-sa ${store.colorClass ?? 'sa-default'}`}>
+              <div className={`store-page-sa ${store.imageUrl ? 'store-page-sa--logo' : (store.colorClass ?? 'sa-default')}`}>
                 {store.imageUrl
                   ? <Image src={store.imageUrl} alt={store.name} fill sizes="(max-width: 768px) 33vw, 160px" style={{ objectFit: 'contain' }} />
                   : store.abbr
