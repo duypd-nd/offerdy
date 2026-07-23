@@ -67,7 +67,9 @@ export default async function LinksPage() {
                           src={deal.imageUrl}
                           alt={deal.title}
                           fill
-                          sizes="86px"
+                          // 2 cot: moi anh chiem ~nua chieu rong man hinh, tru
+                          // padding trang va khe giua 2 cot.
+                          sizes="(max-width: 520px) 45vw, 230px"
                           style={{ objectFit: 'cover' }}
                           // Anh dau tien la LCP cua trang (hero chi co chu).
                           // Trang nay nhan traffic tu bio Instagram/TikTok — gan nhu
@@ -87,8 +89,6 @@ export default async function LinksPage() {
                         {deal.priceOrig && <span className="lb-was">{deal.priceOrig}</span>}
                       </div>
                     </div>
-
-                    <span className="lb-go" aria-hidden="true">›</span>
                   </Link>
                 )
               })}

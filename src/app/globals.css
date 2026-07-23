@@ -1067,18 +1067,20 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .lb-sec-t{font-size:12px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--green)}
 .lb-sec-line{flex:1;height:1px;background:linear-gradient(90deg,rgba(34,197,94,.4),transparent)}
 
-.lb-list{display:flex;flex-direction:column;gap:11px}
-.lb-card{display:flex;align-items:center;gap:13px;padding:11px;background:var(--white);border-radius:17px;box-shadow:0 10px 26px rgba(0,0,0,.30);transition:transform .14s,box-shadow .2s;min-height:44px}
-.lb-card:active{transform:scale(.985);box-shadow:0 6px 16px rgba(0,0,0,.34)}
-.lb-thumb{position:relative;width:86px;height:86px;flex-shrink:0;border-radius:12px;overflow:hidden;background:var(--bg)}
-.lb-badge{position:absolute;top:5px;left:5px;display:inline-flex;align-items:baseline;gap:2px;padding:3px 8px;border-radius:999px;background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);font-size:12px;font-weight:800;color:var(--navy);box-shadow:0 3px 9px rgba(0,0,0,.28)}
-.lb-badge i{font-style:normal;font-size:9px;font-weight:800}
-.lb-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
-.lb-title{font-size:14px;font-weight:700;color:var(--text);line-height:1.38;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.lb-price{display:flex;align-items:baseline;gap:8px}
+/* Luoi 2 cot: anh vuong to o tren, chu o duoi. Anh san pham la thu dung lai
+   ngon tay khi luot, nen cho no chiem gan het chieu rong cot.               */
+.lb-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.lb-card{display:flex;flex-direction:column;background:var(--white);border-radius:16px;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.30);transition:transform .14s,box-shadow .2s}
+.lb-card:active{transform:scale(.975);box-shadow:0 6px 16px rgba(0,0,0,.34)}
+.lb-thumb{position:relative;width:100%;aspect-ratio:1/1;background:var(--bg)}
+.lb-badge{position:absolute;top:7px;left:7px;display:inline-flex;align-items:baseline;gap:3px;padding:4px 10px;border-radius:999px;background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);font-size:13px;font-weight:800;color:var(--navy);box-shadow:0 3px 10px rgba(0,0,0,.3)}
+.lb-badge i{font-style:normal;font-size:9.5px;font-weight:800}
+.lb-body{display:flex;flex-direction:column;gap:7px;padding:11px 12px 13px;min-width:0}
+.lb-title{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.7em}
+/* Gia gap dong khi qua dai (vd Rp4.961.899) thay vi day vo cot ben canh */
+.lb-price{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
 .lb-now{font-size:18px;font-weight:800;color:var(--green-dark);letter-spacing:-.4px}
-.lb-was{font-size:13px;color:var(--light);text-decoration:line-through}
-.lb-go{flex-shrink:0;width:34px;height:34px;border-radius:50%;background:var(--green-50);display:flex;align-items:center;justify-content:center;color:var(--green-dark);font-size:16px;font-weight:800}
+.lb-was{font-size:12.5px;color:var(--light);text-decoration:line-through}
 
 .lb-all{display:flex;align-items:center;justify-content:center;min-height:52px;margin-top:16px;border-radius:15px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:15px;font-weight:700;transition:background .18s,transform .12s}
 .lb-all:active{transform:scale(.98);background:rgba(34,197,94,.22)}
@@ -1087,8 +1089,11 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .lb-foot a{color:rgba(255,255,255,.62);text-decoration:underline}
 
 @media (max-width:380px){
-  .lb-thumb{width:74px;height:74px}
-  .lb-title{font-size:13.5px}
-  .lb-now{font-size:17px}
+  .lb-list{gap:10px}
+  .lb-body{padding:9px 10px 11px}
+  .lb-title{font-size:12.5px}
+  .lb-now{font-size:16.5px}
+  .lb-was{font-size:11.5px}
 }
+
 
