@@ -90,8 +90,8 @@ export async function getDeals(limit = 10) {
   if (!isConfigured()) return staticDeals
   try {
     const data = await writeClient.fetch(dealsQuery(limit))
-    return data.length ? data : staticDeals
-  } catch { return staticDeals }
+    return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
+  } catch { return [] }
 }
 
 // /deals doc thu SEARCHParams (?page=N) de phan trang bang URL that (SEO), nen ca trang
@@ -109,8 +109,8 @@ export async function getAllDeals() {
   if (!isConfigured()) return staticDeals
   try {
     const data = await getCachedAllDeals()
-    return data.length ? data : staticDeals
-  } catch { return staticDeals }
+    return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
+  } catch { return [] }
 }
 
 export async function getDealsByStore(storeName: string) {
@@ -166,17 +166,23 @@ export async function getStores() {
   if (!isConfigured()) return staticStores
   try {
     const data = await writeClient.fetch(STORES_QUERY)
-    return data.length ? data : staticStores
-  } catch { return staticStores }
+    // QUAN TRONG: khi Sanity DA cau hinh (production), tra dung ket qua ke ca RONG.
+    // Truoc day 'data.length ? data : staticStores' khien site live hien 12 store
+    // demo bia (Amazon/Nike/Apple...) moi khi du lieu that bi xoa/chua co — vi pham
+    // nguyen tac "chi dung noi dung that". Static CHI cho local dev khong co Sanity
+    // env (nhanh !isConfigured o tren). Loi fetch cung tra rong, khong tra demo.
+    return data ?? []
+  } catch { return [] }
 }
 
 export async function getStoreBySlug(slug: string) {
-  const fallback = staticStores.find(s => s.slug === slug) ?? null
-  if (!isConfigured()) return fallback
+  // Static chi cho local dev khong co Sanity. Configured -> khong thay thi null
+  // (trang goi notFound), KHONG tra store demo — vi du /stores/amazon se hien
+  // chi tiet store gia neu con fallback.
+  if (!isConfigured()) return staticStores.find(s => s.slug === slug) ?? null
   try {
-    const data = await writeClient.fetch(STORE_BY_SLUG_QUERY, { slug })
-    return data ?? fallback
-  } catch { return fallback }
+    return await writeClient.fetch(STORE_BY_SLUG_QUERY, { slug }) ?? null
+  } catch { return null }
 }
 
 // ── Categories ─────────────────────────────────────────────────
@@ -189,8 +195,8 @@ export async function getCategories() {
   if (!isConfigured()) return staticCategories
   try {
     const data = await writeClient.fetch(CATEGORIES_QUERY)
-    return data.length ? data : staticCategories
-  } catch { return staticCategories }
+    return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
+  } catch { return [] }
 }
 
 // Map slug cua CATEGORY DOC -> gia tri enum trong store.category.
@@ -219,16 +225,15 @@ const SLUG_TO_STORE_CAT: Record<string, string> = {
 }
 
 export async function getCategoryBySlug(slug: string) {
-  if (isConfigured()) {
-    try {
-      const data = await writeClient.fetch(
-        `*[_type == "category" && slug.current == $slug][0]{ "id": _id, name, emoji, "count": dealCount, colorClass, "slug": slug.current, description }`,
-        { slug }
-      )
-      if (data) return data
-    } catch {}
-  }
-  return staticCategories.find(c => c.slug === slug || c.id === slug) ?? null
+  // Static chi cho local dev. Configured -> khong thay thi null (khong tra category
+  // demo). Truoc day sau try van fall-through ve staticCategories ke ca khi configured.
+  if (!isConfigured()) return staticCategories.find(c => c.slug === slug || c.id === slug) ?? null
+  try {
+    return await writeClient.fetch(
+      `*[_type == "category" && slug.current == $slug][0]{ "id": _id, name, emoji, "count": dealCount, colorClass, "slug": slug.current, description }`,
+      { slug }
+    ) ?? null
+  } catch { return null }
 }
 
 export async function getStoresByCategory(slug: string) {
@@ -285,8 +290,8 @@ export async function getReviews() {
   if (!isConfigured()) return staticReviews
   try {
     const data = await writeClient.fetch(REVIEWS_QUERY)
-    return data.length ? data : staticReviews
-  } catch { return staticReviews }
+    return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
+  } catch { return [] }
 }
 
 const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
@@ -312,26 +317,22 @@ export async function getPosts() {
   if (!isConfigured()) return staticPosts
   try {
     const data = await writeClient.fetch(POSTS_QUERY)
-    return data.length ? data : staticPosts
-  } catch { return staticPosts }
+    return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
+  } catch { return [] }
 }
 
 export async function getPostBySlug(slug: string) {
-  const fallback = staticPosts.find(p => p.slug === slug) ?? null
-  if (!isConfigured()) return fallback
+  if (!isConfigured()) return staticPosts.find(p => p.slug === slug) ?? null
   try {
-    const data = await writeClient.fetch(POST_BY_SLUG_QUERY, { slug })
-    return data ?? fallback
-  } catch { return fallback }
+    return await writeClient.fetch(POST_BY_SLUG_QUERY, { slug }) ?? null
+  } catch { return null }
 }
 
 export async function getReviewBySlug(slug: string) {
-  const fallback = staticReviews.find(r => r.slug === slug) ?? null
-  if (!isConfigured()) return fallback
+  if (!isConfigured()) return staticReviews.find(r => r.slug === slug) ?? null
   try {
-    const data = await writeClient.fetch(REVIEW_BY_SLUG_QUERY, { slug })
-    return data ?? fallback
-  } catch { return fallback }
+    return await writeClient.fetch(REVIEW_BY_SLUG_QUERY, { slug }) ?? null
+  } catch { return null }
 }
 
 // ── Search suggestions moved to /api/search-suggest (live, fuzzy-matched) ──
@@ -597,8 +598,8 @@ export async function getTipsGuidePosts() {
   if (!isConfigured()) return staticPosts.filter(p => p.category === 'Tips & Guides')
   try {
     const data = await writeClient.fetch(TIPS_GUIDES_QUERY)
-    return data?.length ? data : staticPosts.filter(p => p.category === 'Tips & Guides')
-  } catch { return staticPosts.filter(p => p.category === 'Tips & Guides') }
+    return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
+  } catch { return [] }
 }
 
 export async function getPageBySlug(slug: string) {
