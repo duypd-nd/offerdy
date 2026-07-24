@@ -377,6 +377,14 @@ function linesToList(text: string): string[] {
   return text.split('\n').map(s => s.trim()).filter(Boolean)
 }
 
+// A blank cell returns undefined so the caller can leave the field untouched
+// (the no-op rule); a filled cell is truthy unless it clearly reads as false.
+function parseBool(value: unknown): boolean | undefined {
+  const s = String(value ?? '').trim().toLowerCase()
+  if (s === '') return undefined
+  return s !== 'false' && s !== '0' && s !== 'no'
+}
+
 function parseFaqText(text: string): { question: string; answer: string }[] {
   return text.split(/\n\s*\n/).map(block => {
     const [question, ...rest] = block.split('\n')
@@ -523,6 +531,165 @@ async function importReviews(rows: ImportRow[], schedule?: Schedule) {
   return results
 }
 
+// Each row = 1 deal, matched by slug(title): existing deal is updated, new
+// title creates a deal. Filled cell overwrites, blank cell is a no-op — so
+// adding content to the 21 existing deals only needs title + content columns
+// (price/store left blank stay untouched). Basic fields ARE writable here
+// (unlike the store importer) because a deal has no separate affiliate-link
+// field to protect — its outbound link is `dealUrl`, which the operator owns.
+async function importDeals(rows: ImportRow[]) {
+  const results: {
+    imported: number
+    errors: { row: number; message: string }[]
+    warnings: { row: number; message: string }[]
+  } = { imported: 0, errors: [], warnings: [] }
+
+  const existingDeals = await writeClient.fetch<{ _id: string; slug: string }[]>(
+    `*[_type == "deal"]{ _id, "slug": slug.current }`
+  )
+  const dealBySlug = new Map(existingDeals.map((d) => [d.slug, d._id]))
+
+  // Category is a reference; resolve by name OR slug (case-insensitive). A value
+  // that matches neither is reported and dropped rather than failing the row.
+  const cats = await writeClient.fetch<{ _id: string; name?: string; slug?: string }[]>(
+    `*[_type == "category"]{ _id, name, "slug": slug.current }`
+  )
+  const catByKey = new Map<string, string>()
+  for (const c of cats) {
+    if (c.name) catByKey.set(c.name.toLowerCase(), c._id)
+    if (c.slug) catByKey.set(c.slug.toLowerCase(), c._id)
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const title = cellText(row, 'title')
+    if (!title) {
+      results.errors.push({ row: i + 2, message: 'Thieu cot "title"' })
+      continue
+    }
+    const slug = slugify(title)
+    const existingId = dealBySlug.get(slug)
+
+    try {
+      const fields: Record<string, unknown> = {}
+      const warnings: string[] = []
+
+      const store = cellText(row, 'store')
+      if (store) fields.store = store
+      const priceSale = cellText(row, 'priceSale')
+      if (priceSale) fields.priceSale = priceSale
+      const priceOrig = cellText(row, 'priceOrig')
+      if (priceOrig) fields.priceOrig = priceOrig
+
+      const discountRaw = cellText(row, 'discount')
+      let discount: number | undefined
+      if (discountRaw) {
+        discount = Number(discountRaw)
+        if (!Number.isFinite(discount) || discount < 1 || discount > 99) {
+          results.errors.push({ row: i + 2, message: `"${title}": discount phai la so tu 1-99` })
+          continue
+        }
+        fields.discount = discount
+      }
+
+      const discountByAmount = parseBool(row.discountByAmount)
+      if (discountByAmount !== undefined) fields.discountByAmount = discountByAmount
+      const isExpiring = parseBool(row.isExpiring)
+      if (isExpiring !== undefined) fields.isExpiring = isExpiring
+      const verified = parseBool(row.verified)
+      if (verified !== undefined) fields.verified = verified
+
+      const emoji = cellText(row, 'emoji')
+      if (emoji) fields.emoji = emoji
+      const imgClass = cellText(row, 'imgClass')
+      if (imgClass) fields.imgClass = imgClass
+      const dealUrl = cellText(row, 'dealUrl')
+      if (dealUrl) fields.dealUrl = dealUrl
+
+      const expiresRaw = cellText(row, 'expiresAt')
+      if (expiresRaw) {
+        const d = new Date(expiresRaw)
+        if (Number.isNaN(d.getTime())) warnings.push(`"${title}": expiresAt "${expiresRaw}" khong hop le, bo qua`)
+        else fields.expiresAt = d.toISOString()
+      }
+
+      const catRaw = cellText(row, 'category')
+      if (catRaw) {
+        const cid = catByKey.get(catRaw.toLowerCase())
+        if (cid) fields.category = { _type: 'reference', _ref: cid }
+        else warnings.push(`"${title}": danh muc "${catRaw}" khong ton tai, bo qua`)
+      }
+
+      // ── AI-style content (the same 5 fields the Deal AI draft writes) ──
+      const summary = cellText(row, 'summary')
+      if (summary) fields.summary = summary
+      const metaTitle = cellText(row, 'metaTitle')
+      if (metaTitle) fields.metaTitle = metaTitle
+      const metaDescription = cellText(row, 'metaDescription')
+      if (metaDescription) fields.metaDescription = metaDescription
+      const faqText = cellText(row, 'faq')
+      if (faqText) {
+        const faq = parseFaqText(faqText)
+        if (faq.length) fields.faq = faq
+        else warnings.push(`"${title}": cot "faq" khong tach duoc cap Q/A - moi cap cach nhau 1 dong trong`)
+      }
+      const pros = cellText(row, 'pros') ? linesToList(cellText(row, 'pros')) : []
+      const cons = cellText(row, 'cons') ? linesToList(cellText(row, 'cons')) : []
+      if (pros.length || cons.length) fields.prosAndCons = { pros, cons }
+
+      // Product image: same SSRF-safe uploader the store logos use.
+      const imageUrl = cellText(row, 'imageUrl')
+      if (imageUrl) {
+        const uploaded = await uploadImageFromUrl(imageUrl)
+        if ('image' in uploaded) fields.image = uploaded.image
+        else warnings.push(`"${title}": khong tai duoc anh - ${uploaded.error}`)
+      }
+
+      for (const message of warnings) results.warnings.push({ row: i + 2, message })
+
+      if (existingId) {
+        if (Object.keys(fields).length === 0) {
+          results.warnings.push({ row: i + 2, message: `"${title}": deal da ton tai nhung khong co o nao de cap nhat, bo qua` })
+          continue
+        }
+        await writeClient.patch(existingId).set(fields).commit()
+        results.imported++
+      } else {
+        // New deal — the fields the schema marks required must be present.
+        const missing: string[] = []
+        if (!store) missing.push('store')
+        if (!priceSale) missing.push('priceSale')
+        if (!priceOrig) missing.push('priceOrig')
+        if (discount === undefined) missing.push('discount')
+        if (missing.length) {
+          results.errors.push({ row: i + 2, message: `"${title}": deal moi thieu ${missing.join(', ')} (bat buoc khi tao moi)` })
+          continue
+        }
+        const created = await writeClient.create({
+          _type: 'deal',
+          title,
+          slug: { _type: 'slug', current: slug },
+          verified: true,
+          isExpiring: false,
+          aiReviewStatus: 'none',
+          ...fields,
+        })
+        // Guard against a second row with the same title creating a duplicate.
+        dealBySlug.set(slug, created._id)
+        results.imported++
+      }
+    } catch (err) {
+      results.errors.push({ row: i + 2, message: String(err) })
+    }
+  }
+
+  revalidatePath('/admin/deals')
+  revalidatePath('/deals')
+  revalidatePath('/deals/[slug]', 'page')
+  revalidatePath('/', 'page')
+  return results
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -534,6 +701,7 @@ export async function POST(request: Request) {
 
     let result
     if (type === 'stores') result = await importStoresAndOffers(rows)
+    else if (type === 'deals') result = await importDeals(rows)
     else if (type === 'posts') result = await importPosts(rows, schedule)
     else if (type === 'reviews') result = await importReviews(rows, schedule)
     else return Response.json({ error: `Type khong hop le: ${type}` }, { status: 400 })

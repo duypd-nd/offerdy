@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react'
 import type { CellValue, Worksheet } from 'exceljs'
 
-type SheetType = 'Stores' | 'Posts' | 'Reviews'
+type SheetType = 'Stores' | 'Deals' | 'Posts' | 'Reviews'
 type Row = Record<string, string | number | boolean | null>
 type ImportResult = {
   imported: number
@@ -44,6 +44,29 @@ const STORES_COLS = [
   { key: 'order',             required: false, note: 'Thứ tự hiển thị (số)' },
 ]
 
+const DEALS_COLS = [
+  { key: 'title',            required: true,  note: 'Tên deal — ĐỒNG THỜI là khoá khớp. Trùng tiêu đề deal đã có = cập nhật; tiêu đề mới = tạo deal mới' },
+  { key: 'store',            required: false, note: 'Tên cửa hàng hiển thị, VD: Apple · Best Buy — BẮT BUỘC khi tạo deal mới' },
+  { key: 'priceSale',        required: false, note: 'Giá sau giảm, VD: $189 — BẮT BUỘC khi tạo deal mới' },
+  { key: 'priceOrig',        required: false, note: 'Giá gốc, VD: $249 — BẮT BUỘC khi tạo deal mới' },
+  { key: 'discount',         required: false, note: '% giảm, số 1–99 — BẮT BUỘC khi tạo deal mới' },
+  { key: 'discountByAmount', required: false, note: 'TRUE = hiển thị "$100 OFF" thay vì %. Mặc định FALSE' },
+  { key: 'category',         required: false, note: 'Tên hoặc slug danh mục, VD: fashion, tech--gadgets. Không khớp = bỏ qua + cảnh báo' },
+  { key: 'imageUrl',         required: false, note: 'URL ảnh sản phẩm (tự tải về Sanity). Bỏ trống → dùng emoji' },
+  { key: 'emoji',            required: false, note: 'Emoji hiện khi không có ảnh, VD: 🎧 👟 📺' },
+  { key: 'imgClass',         required: false, note: 'Nền thẻ khi dùng emoji: di-tech | di-home | di-fashion | di-beauty' },
+  { key: 'dealUrl',          required: false, note: 'Link affiliate của deal' },
+  { key: 'expiresAt',        required: false, note: 'Ngày hết hạn, VD: 2026-12-31' },
+  { key: 'isExpiring',       required: false, note: 'TRUE = gắn nhãn "Sắp hết hạn"' },
+  { key: 'verified',         required: false, note: 'TRUE/FALSE (mặc định TRUE)' },
+  { key: 'summary',          required: false, note: 'Tóm tắt "vì sao đáng mua" — nội dung như AI tạo, hiện trên trang /deals/[slug]' },
+  { key: 'metaTitle',        required: false, note: 'SEO Meta Title' },
+  { key: 'metaDescription',  required: false, note: 'SEO Meta Description' },
+  { key: 'faq',              required: false, note: 'Câu hỏi + trả lời, mỗi cặp cách nhau 1 DÒNG TRỐNG (Alt+Enter để xuống dòng)' },
+  { key: 'pros',             required: false, note: 'Ưu điểm, mỗi ý 1 dòng trong ô (Alt+Enter)' },
+  { key: 'cons',             required: false, note: 'Nhược điểm, mỗi ý 1 dòng trong ô (Alt+Enter)' },
+]
+
 const POSTS_COLS = [
   { key: 'title',            required: true,  note: 'Tiêu đề bài viết' },
   { key: 'excerpt',          required: false, note: 'Tóm tắt ngắn, hiện ở danh sách' },
@@ -80,24 +103,28 @@ const REVIEWS_COLS = [
 type ColDef = { key: string; required: boolean; note?: string }
 const COLS_MAP: Record<SheetType, ColDef[]> = {
   Stores: STORES_COLS,
+  Deals: DEALS_COLS,
   Posts: POSTS_COLS,
   Reviews: REVIEWS_COLS,
 }
 
 const PREVIEW_COLS: Record<SheetType, string[]> = {
   Stores: ['store_name', 'link', 'offer_title', 'Offer', 'couponCode'],
+  Deals: ['title', 'store', 'priceSale', 'discount', 'summary'],
   Posts: ['title', 'category', 'author', 'publishedAt', 'excerpt'],
   Reviews: ['title', 'stars', 'tag', 'author', 'publishedAt', 'excerpt'],
 }
 
 const SHEET_ICON: Record<SheetType, string> = {
   Stores: '🏪',
+  Deals: '🏷️',
   Posts: '📝',
   Reviews: '⭐',
 }
 
 const SHEET_LABEL: Record<SheetType, string> = {
   Stores: 'Stores & Offers',
+  Deals: 'Deals',
   Posts: 'Posts',
   Reviews: 'Reviews',
 }
@@ -222,18 +249,39 @@ function makeStoresExample() {
   ]
 }
 
+function makeDealsExample() {
+  return [
+    {
+      title: EXAMPLE_STORE, store: 'Example Store',
+      priceSale: '$48', priceOrig: '$60', discount: 20, discountByAmount: 'FALSE',
+      category: 'fashion', imageUrl: '', emoji: '🕶️', imgClass: 'di-fashion',
+      dealUrl: 'https://example.com', expiresAt: '2026-12-31', isExpiring: 'FALSE', verified: 'TRUE',
+      summary: 'Example summary explaining why this deal is worth buying — delete this row before importing real data.',
+      metaTitle: 'Example Deal Meta Title', metaDescription: 'Example meta description kept under 160 characters.',
+      faq: 'Example question one?\nExample answer one.\n\nExample question two?\nExample answer two.',
+      pros: 'Example advantage one\nExample advantage two',
+      cons: 'Example drawback one\nExample drawback two',
+    },
+  ]
+}
+
+function exampleRows(type: SheetType): Record<string, string | number>[] {
+  if (type === 'Stores') return makeStoresExample()
+  if (type === 'Deals') return makeDealsExample()
+  return []
+}
+
 function generateTemplate(type: SheetType) {
   const headers = COLS_MAP[type].map((c) => c.key)
-  const rows = type === 'Stores' ? makeStoresExample() : []
-  return downloadWorkbook([{ name: type, headers, rows }], `template_${type.toLowerCase()}.xlsx`)
+  return downloadWorkbook([{ name: type, headers, rows: exampleRows(type) }], `template_${type.toLowerCase()}.xlsx`)
 }
 
 function generateFullTemplate() {
-  const types: SheetType[] = ['Stores', 'Posts', 'Reviews']
+  const types: SheetType[] = ['Stores', 'Deals', 'Posts', 'Reviews']
   const specs: SheetSpec[] = types.map((type) => ({
     name: type,
     headers: COLS_MAP[type].map((c) => c.key),
-    rows: type === 'Stores' ? makeStoresExample() : [],
+    rows: exampleRows(type),
   }))
   return downloadWorkbook(specs, 'offerdy_import_template.xlsx')
 }
@@ -252,7 +300,7 @@ export default function ImportClient() {
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [guideTab, setGuideTab] = useState<SheetType>('Stores')
 
-  const validSheets: SheetType[] = ['Stores', 'Posts', 'Reviews']
+  const validSheets: SheetType[] = ['Stores', 'Deals', 'Posts', 'Reviews']
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -385,7 +433,7 @@ export default function ImportClient() {
                 ? <span style={{ color: '#22c55e', fontWeight: 600 }}>✓ {fileName}</span>
                 : 'Click để chọn file .xlsx'}
             </div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Sheet: <b>Stores</b>, <b>Posts</b>, <b>Reviews</b></div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Sheet: <b>Stores</b>, <b>Deals</b>, <b>Posts</b>, <b>Reviews</b></div>
           </div>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ display: 'none' }} />
 
@@ -411,6 +459,11 @@ export default function ImportClient() {
             {guideTab === 'Stores' && (
               <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#92400e', marginBottom: 10 }}>
                 Nhiều dòng cùng <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>store_name</code> → tự gộp 1 store, mỗi dòng tạo 1 offer riêng
+              </div>
+            )}
+            {guideTab === 'Deals' && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#166534', marginBottom: 10 }}>
+                Khớp theo <code style={{ background: '#dcfce7', padding: '0 4px', borderRadius: 3 }}>title</code>: trùng deal đã có → cập nhật (ô trống không đụng tới), tiêu đề mới → tạo deal mới (cần store + giá + %)
               </div>
             )}
             {(guideTab === 'Posts' || guideTab === 'Reviews') && (
@@ -453,7 +506,7 @@ export default function ImportClient() {
               onClick={generateFullTemplate}
               style={{ background: '#0f1929', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}
             >
-              📋 Template đầy đủ (3 sheets)
+              📋 Template đầy đủ (4 sheets)
             </button>
             {validSheets.map((t) => (
               <button
@@ -668,7 +721,7 @@ export default function ImportClient() {
 
       {fileName && Object.keys(sheets).length === 0 && (
         <div style={{ background: '#fff7ed', border: '1.5px solid #fed7aa', borderRadius: 12, padding: 20, textAlign: 'center', color: '#c2410c', fontSize: 13 }}>
-          ⚠️ File không có sheet nào tên là <b>Stores</b>, <b>Posts</b>, hoặc <b>Reviews</b>.
+          ⚠️ File không có sheet nào tên là <b>Stores</b>, <b>Deals</b>, <b>Posts</b>, hoặc <b>Reviews</b>.
         </div>
       )}
     </div>
