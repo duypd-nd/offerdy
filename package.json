@@ -18,12 +18,12 @@
     "@sanity/vision": "^6.6.0",
     "@sentry/nextjs": "^10.67.0",
     "cheerio": "^1.2.0",
+    "exceljs": "^4.4.0",
     "next": "16.2.11",
     "next-sanity": "^13.1.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "sanity": "^6.6.0",
-    "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {

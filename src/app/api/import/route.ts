@@ -1,6 +1,7 @@
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
 import { generateStoreContent } from '@/lib/ai/generateStoreContent'
+import { renderAboutHtml, type AboutContent } from '@/lib/ai/aboutTemplate'
 import { normalize } from '@/lib/fuzzy'
 import { uploadImageFromUrl } from '@/lib/safeFetch'
 
@@ -25,6 +26,113 @@ function offerCodeKey(storeId: string, couponCode: string) {
 }
 function offerTitleKey(storeId: string, title: string) {
   return `${storeId}::title::${normalize(title)}`
+}
+
+// The 4 "About the Brand" cards. Only the card TEXT is importable — icon and
+// title are fixed here so hand-written stores match the AI-written ones (the AI
+// generates these too, but always to this same convention). Editable per-store
+// in /admin/stores afterwards if a brand needs something different.
+const ABOUT_CARDS = [
+  { column: 'about_product_range',       icon: '🛍️', title: 'Product Range' },
+  { column: 'about_customer_benefits',   icon: '✨', title: 'Customer Benefits' },
+  { column: 'about_shopping_experience', icon: '🚚', title: 'Shopping Experience' },
+  { column: 'about_why_choose',          icon: '⭐', title: null }, // -> `Why Choose {storeName}`
+] as const
+
+// Every column that writes store-level content. Basic fields (website, category,
+// maxOffer, logo, affiliateLink) are deliberately NOT here: an existing store's
+// affiliate link is live revenue and must never be touched by a content import.
+const STORE_CONTENT_COLUMNS = [
+  'store_description', 'store_about',
+  'about_tagline', 'about_badge', 'about_intro',
+  ...ABOUT_CARDS.map((c) => c.column),
+  'metaTitle', 'metaKeywords', 'metaDescription',
+  'faq', 'pros', 'cons',
+]
+
+function cellText(row: ImportRow, key: string): string {
+  return String(row[key] ?? '').trim()
+}
+
+function hasStoreContent(row: ImportRow): boolean {
+  return STORE_CONTENT_COLUMNS.some((k) => cellText(row, k) !== '')
+}
+
+// Build the store fields to write from a row's content columns.
+// A blank cell omits its key entirely, so a patch can never blank out content
+// that is already live — that is the agreed rule: filled cell overwrites, empty
+// cell is a no-op.
+function buildStoreContentPatch(
+  row: ImportRow,
+  storeName: string
+): { patch: Record<string, unknown>; warnings: string[] } {
+  const patch: Record<string, unknown> = {}
+  const warnings: string[] = []
+
+  const shortDescription = cellText(row, 'store_description')
+  if (shortDescription) patch.shortDescription = shortDescription
+
+  // About block — feeds the SAME renderAboutHtml() the AI approval path uses
+  // (see approveAiDraft in /admin/ai-review/actions.ts), so an imported store
+  // and an AI-generated store produce byte-identical markup.
+  const tagline = cellText(row, 'about_tagline')
+  const badge = cellText(row, 'about_badge')
+  const intro = cellText(row, 'about_intro')
+  const cardTexts = ABOUT_CARDS.map((c) => cellText(row, c.column))
+  const hasStructuredAbout = Boolean(tagline || badge || intro || cardTexts.some(Boolean))
+  const rawAbout = cellText(row, 'store_about')
+
+  if (hasStructuredAbout) {
+    if (rawAbout) {
+      warnings.push(
+        `"${storeName}": dien ca "store_about" (HTML tho) lan cac cot "about_*" - dung about_*, bo qua store_about`
+      )
+    }
+    const [productRange, customerBenefits, shoppingExperience, whyChoose] = ABOUT_CARDS.map((c, i) => ({
+      icon: c.icon,
+      title: c.title ?? `Why Choose ${storeName}`,
+      text: cardTexts[i],
+    }))
+    const about: AboutContent = {
+      tagline,
+      introBadgeEmoji: badge || '🛍️',
+      introText: intro,
+      productRange, customerBenefits, shoppingExperience, whyChoose,
+    }
+    patch.description = renderAboutHtml(storeName, about)
+
+    const emptyCards = cardTexts.filter((t) => !t).length
+    if (emptyCards) {
+      warnings.push(`"${storeName}": thieu noi dung ${emptyCards}/4 the About - the do se hien trong tren trang store`)
+    }
+    if (!intro) warnings.push(`"${storeName}": thieu "about_intro" - doan gioi thieu se chi con moi ten store`)
+  } else if (rawAbout) {
+    patch.description = rawAbout
+  }
+
+  const metaTitle = cellText(row, 'metaTitle')
+  if (metaTitle) patch.metaTitle = metaTitle
+  const metaKeywords = cellText(row, 'metaKeywords')
+  if (metaKeywords) patch.metaKeywords = metaKeywords
+  const metaDescription = cellText(row, 'metaDescription')
+  if (metaDescription) patch.metaDescription = metaDescription
+
+  // Same parsers/conventions as the Reviews sheet, so the input format an
+  // operator already learned there carries over unchanged.
+  const faqText = cellText(row, 'faq')
+  if (faqText) {
+    const faq = parseFaqText(faqText)
+    if (faq.length) patch.faq = faq
+    else warnings.push(`"${storeName}": cot "faq" co chu nhung khong tach duoc cap Q/A - moi cap can cach nhau 1 dong trong`)
+  }
+
+  const prosText = cellText(row, 'pros')
+  const consText = cellText(row, 'cons')
+  const pros = prosText ? linesToList(prosText) : []
+  const cons = consText ? linesToList(consText) : []
+  if (pros.length || cons.length) patch.prosAndCons = { pros, cons }
+
+  return { patch, warnings }
 }
 
 // Combined: each row = 1 offer; rows with same store_name share the same store
@@ -68,6 +176,11 @@ async function importStoresAndOffers(rows: ImportRow[]) {
   // in the plan: capped so we never risk a serverless timeout on a 50-row batch).
   const aiCandidates = new Map<string, { id: string; name: string; category?: string; website?: string; maxOffer?: number }>()
 
+  // Store-level content is read ONCE per store: this sheet repeats the store on
+  // every offer row, so the first row carrying content wins and any later row
+  // with content is reported instead of silently overwriting it.
+  const storeContentApplied = new Set<string>()
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
     const storeName = String(row.store_name ?? '').trim()
@@ -88,6 +201,22 @@ async function importStoresAndOffers(rows: ImportRow[]) {
       // Find or create store
       let storeId = storeCache.get(storeName.toLowerCase())
 
+      // Resolve this row's store-level content before touching Sanity, so the
+      // create path can inline it and the update path can patch it.
+      const rowHasContent = hasStoreContent(row)
+      const alreadyApplied = storeId ? storeContentApplied.has(storeId) : false
+      let contentPatch: Record<string, unknown> = {}
+      if (rowHasContent && alreadyApplied) {
+        results.warnings.push({
+          row: i + 2,
+          message: `"${storeName}": da lay noi dung store tu dong truoc, bo qua cot noi dung o dong nay`,
+        })
+      } else if (rowHasContent) {
+        const built = buildStoreContentPatch(row, storeName)
+        contentPatch = built.patch
+        for (const message of built.warnings) results.warnings.push({ row: i + 2, message })
+      }
+
       if (!storeId) {
         const slug = slugify(storeName)
         const storeDoc: SanityDoc = {
@@ -106,8 +235,7 @@ async function importStoresAndOffers(rows: ImportRow[]) {
         if (row.website) storeDoc.website = String(row.website)
         if (row.category) storeDoc.category = String(row.category)
         if (row.maxOffer) storeDoc.maxOffer = Number(row.maxOffer)
-        if (row.store_description) storeDoc.shortDescription = String(row.store_description)
-        if (row.store_about) storeDoc.description = String(row.store_about)
+        Object.assign(storeDoc, contentPatch)
 
         // Upload logo image if URL provided
         if (row.store_imageUrl) {
@@ -125,6 +253,7 @@ async function importStoresAndOffers(rows: ImportRow[]) {
         const created = await writeClient.create(storeDoc)
         storeId = created._id
         storeCache.set(storeName.toLowerCase(), storeId)
+        if (Object.keys(contentPatch).length > 0) storeContentApplied.add(storeId)
 
         if (!storeDoc.description) {
           aiCandidates.set(storeId, {
@@ -134,12 +263,26 @@ async function importStoresAndOffers(rows: ImportRow[]) {
             maxOffer: storeDoc.maxOffer as number | undefined,
           })
         }
-      } else if (!aiCandidates.has(storeId)) {
-        const info = storeInfo.get(storeId)
-        if (info && !info.description) {
-          aiCandidates.set(storeId, {
-            id: storeId, name: info.name, category: info.category, website: info.website, maxOffer: info.maxOffer,
-          })
+      } else {
+        // Existing store: content columns now update it (previously every store
+        // field on a repeat import was silently ignored). Scoped to the content
+        // patch only — basic fields and the affiliate link are never touched.
+        if (Object.keys(contentPatch).length > 0) {
+          await writeClient.patch(storeId).set(contentPatch).commit()
+          storeContentApplied.add(storeId)
+          const info = storeInfo.get(storeId)
+          if (info && typeof contentPatch.description === 'string') {
+            info.description = contentPatch.description
+          }
+        }
+
+        if (!aiCandidates.has(storeId)) {
+          const info = storeInfo.get(storeId)
+          if (info && !info.description) {
+            aiCandidates.set(storeId, {
+              id: storeId, name: info.name, category: info.category, website: info.website, maxOffer: info.maxOffer,
+            })
+          }
         }
       }
 

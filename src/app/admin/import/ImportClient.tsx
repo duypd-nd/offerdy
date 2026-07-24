@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import * as XLSX from 'xlsx'
+import type { CellValue, Worksheet } from 'exceljs'
 
 type SheetType = 'Stores' | 'Posts' | 'Reviews'
 type Row = Record<string, string | number | boolean | null>
@@ -15,13 +15,26 @@ type ImportResult = {
 const STORES_COLS = [
   { key: 'store_name', required: true,  note: 'Tên store' },
   { key: 'abbr',       required: true,  note: 'Viết tắt, tối đa 3 ký tự, VD: AMZ' },
-  { key: 'website',    required: false, note: 'Website chính thức, VD: amazon.com' },
+  { key: 'website',    required: false, note: 'Website chính thức, VD: example.com' },
   { key: 'link',       required: true,  note: 'Link affiliate — dùng cho cả store lẫn offer' },
   { key: 'category',   required: false, note: 'electronics|fashion|beauty|home|sports|food|travel|books|gaming|general' },
   { key: 'maxOffer',   required: false, note: 'Giảm tối đa (%), VD: 70' },
   { key: 'store_imageUrl',    required: false, note: 'URL ảnh logo store (link trực tiếp tới file ảnh, VD: https://example.com/logo.png) — lưu ý dịch vụ logo.clearbit.com đã ngừng hoạt động' },
-  { key: 'store_description', required: false, note: 'Mô tả ngắn / tagline' },
-  { key: 'store_about',       required: false, note: 'Mô tả dài, hỗ trợ HTML' },
+  { key: 'store_description', required: false, note: 'Mô tả ngắn / tagline — hiện dưới tên store' },
+  { key: 'store_about',       required: false, note: 'HTML thô cho khối About. Bỏ trống nếu dùng 7 cột about_* bên dưới (about_* được ưu tiên)' },
+  { key: 'about_tagline',              required: false, note: '1 câu hiện ngay dưới tiêu đề "About {Store}"' },
+  { key: 'about_badge',                required: false, note: '1 emoji đại diện thương hiệu, VD: 👜 (mặc định 🛍️)' },
+  { key: 'about_intro',                required: false, note: '⚠️ 2-4 câu, PHẢI bắt đầu bằng CHỮ THƯỜNG + động từ, VD: "specializes in..." — vì hệ thống ghép ngay sau tên store thành 1 câu liền. Đừng lặp lại tên store' },
+  { key: 'about_product_range',        required: false, note: 'Thẻ 1 — Bán những gì (chỉ nhập nội dung, tiêu đề "Product Range" tự có)' },
+  { key: 'about_customer_benefits',    required: false, note: 'Thẻ 2 — Vì sao mua ở đây tốt (chất lượng/bảo hành/hỗ trợ, KHÔNG nói giảm giá)' },
+  { key: 'about_shopping_experience',  required: false, note: 'Thẻ 3 — Thanh toán, giao hàng, dễ dùng' },
+  { key: 'about_why_choose',           required: false, note: 'Thẻ 4 — Điểm khác biệt / lý do tin tưởng' },
+  { key: 'metaTitle',                  required: false, note: 'SEO Meta Title, nên ≤60 ký tự' },
+  { key: 'metaKeywords',               required: false, note: 'SEO Keywords, 5-8 từ khoá cách nhau dấu phẩy' },
+  { key: 'metaDescription',            required: false, note: 'SEO Meta Description, nên ≤160 ký tự' },
+  { key: 'faq',                        required: false, note: 'Câu hỏi + trả lời, mỗi cặp cách nhau 1 DÒNG TRỐNG. VD trong 1 ô: "Câu hỏi 1?\\nTrả lời 1\\n\\nCâu hỏi 2?\\nTrả lời 2" (Alt+Enter để xuống dòng)' },
+  { key: 'pros',                       required: false, note: 'Ưu điểm, mỗi ý 1 dòng trong ô (Alt+Enter)' },
+  { key: 'cons',                       required: false, note: 'Nhược điểm, mỗi ý 1 dòng trong ô (Alt+Enter)' },
   { key: 'offer_title',       required: true,  note: 'Câu mô tả ĐẦY ĐỦ của offer, VD: "Giảm 30% toàn bộ sản phẩm"' },
   { key: 'Offer',             required: true,  note: 'Nhãn NGẮN dạng badge (khác offer_title), VD: "30% Off", "Free Shipping"' },
   { key: 'couponCode',        required: false, note: 'Mã giảm giá (nếu có)' },
@@ -89,34 +102,122 @@ const SHEET_LABEL: Record<SheetType, string> = {
   Reviews: 'Reviews',
 }
 
+// --- exceljs helpers (replaces SheetJS/xlsx — see route.ts normalizePublishedAt) ---
+// exceljs is dynamically imported inside the handlers so its ~912KB browser bundle
+// stays out of the initial admin page load and only loads on first read/download.
+
+// Flatten an exceljs cell value to the primitive the import API expects.
+// Date cells come back as JS Date objects (xlsx used to return Excel serial
+// numbers) — emit an ISO `yyyy-mm-dd` string so both `expiresAt`
+// (new Date(...)) and `publishedAt` (normalizePublishedAt) parse correctly.
+function cellToPrimitive(v: CellValue): string | number | boolean {
+  if (v === null || v === undefined) return ''
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  if (typeof v === 'object') {
+    if ('result' in v) return cellToPrimitive(v.result as CellValue)
+    if ('richText' in v) return v.richText.map((t) => t.text).join('')
+    if ('hyperlink' in v) return typeof v.text === 'string' ? v.text : ''
+    if ('text' in v) return String(v.text)
+    return '' // formula without cached result, or error cell
+  }
+  return v
+}
+
+// Convert a worksheet to an array of header-keyed row objects (row 1 = headers),
+// mirroring XLSX.utils.sheet_to_json({ defval: '' }) — empty cells become '',
+// fully-empty rows are skipped.
+function worksheetToRows(ws: Worksheet): Row[] {
+  const headers: string[] = []
+  ws.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => {
+    headers[col] = String(cellToPrimitive(cell.value)).trim()
+  })
+  const lastCol = headers.length - 1
+  const rows: Row[] = []
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const wsRow = ws.getRow(r)
+    const obj: Row = {}
+    let hasValue = false
+    for (let c = 1; c <= lastCol; c++) {
+      const key = headers[c]
+      if (!key) continue
+      const value = cellToPrimitive(wsRow.getCell(c).value)
+      obj[key] = value
+      if (value !== '') hasValue = true
+    }
+    if (hasValue) rows.push(obj)
+  }
+  return rows
+}
+
+type SheetSpec = { name: string; headers: string[]; rows: Record<string, string | number>[] }
+
+// Build an .xlsx workbook in the browser and trigger a download.
+async function downloadWorkbook(specs: SheetSpec[], fileName: string) {
+  const { Workbook } = await import('exceljs')
+  const wb = new Workbook()
+  for (const spec of specs) {
+    const ws = wb.addWorksheet(spec.name)
+    ws.columns = spec.headers.map((h) => ({ header: h, key: h, width: Math.max(h.length + 2, 16) }))
+    for (const row of spec.rows) ws.addRow(row)
+  }
+  const buffer = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  // Revoking synchronously right after click() cancels the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+// Deliberately unmistakable placeholder data. An earlier version used realistic
+// "Amazon"/"Nike" rows with plausible codes, which got imported into the live
+// dataset by accident — fake merchants and dead coupon codes are exactly what
+// this project must never publish. Keep every value here obviously disposable.
+const EXAMPLE_STORE = 'VÍ DỤ — XOÁ DÒNG NÀY'
+
 function makeStoresExample() {
+  const storeCols = {
+    store_name: EXAMPLE_STORE, abbr: 'VD', website: 'example.com',
+    link: 'https://example.com', category: 'general', maxOffer: 30,
+    store_imageUrl: '',
+    store_description: 'Dòng ví dụ minh hoạ định dạng import — xoá trước khi dùng thật',
+    store_about: '',
+    about_tagline: 'Example tagline shown under the About heading',
+    about_badge: '🛍️',
+    // Starts lowercase with a verb on purpose — it is rendered straight after
+    // "<strong>{Store}</strong> " to form one sentence.
+    about_intro: 'is an example row used only to demonstrate the import format. Delete it before importing real data.',
+    about_product_range: 'Describe here what the store actually sells.',
+    about_customer_benefits: 'Describe quality, guarantees or support — not discounts.',
+    about_shopping_experience: 'Describe checkout, delivery and site usability.',
+    about_why_choose: 'Describe what genuinely sets this store apart.',
+    metaTitle: 'Example Meta Title (≤60 characters)',
+    metaKeywords: 'example, keywords, comma, separated',
+    metaDescription: 'Example meta description, kept under 160 characters.',
+    faq: 'Example question one?\nExample answer one.\n\nExample question two?\nExample answer two.',
+    pros: 'Example advantage one\nExample advantage two',
+    cons: 'Example drawback one\nExample drawback two',
+  }
   return [
+    // Row 1 carries the store content...
     {
-      store_name: 'Amazon', abbr: 'AMZ', website: 'amazon.com',
-      link: 'https://amzn.to/xxx', category: 'electronics', maxOffer: 70,
-      store_imageUrl: 'https://logo.clearbit.com/amazon.com',
-      store_description: 'Shop millions of products',
-      store_about: '<p>Amazon la nen tang thuong mai dien tu hang dau the gioi.</p>',
-      offer_title: 'Save 20% on All Electronics Store-wide', Offer: '20% Off',
-      couponCode: 'TECH20', expiresAt: '2026-12-31', verified: 'TRUE', active: 'TRUE', order: 1,
+      ...storeCols,
+      offer_title: 'Example offer description written in full', Offer: 'Example Badge',
+      couponCode: 'EXAMPLECODE', expiresAt: '2026-12-31', verified: 'TRUE', active: 'TRUE', order: 1,
     },
+    // ...row 2 is the SAME store with a second offer. Content columns are left
+    // blank on purpose: store content is read once, from the first row that has it.
     {
-      store_name: 'Amazon', abbr: 'AMZ', website: 'amazon.com',
-      link: 'https://amzn.to/xxx', category: 'electronics', maxOffer: 70,
-      store_imageUrl: 'https://logo.clearbit.com/amazon.com',
-      store_description: 'Shop millions of products',
-      store_about: '<p>Amazon la nen tang thuong mai dien tu hang dau the gioi.</p>',
-      offer_title: 'Free Shipping on Orders $35+', Offer: 'Free Shipping',
+      store_name: EXAMPLE_STORE, abbr: 'VD', website: 'example.com',
+      link: 'https://example.com', category: 'general', maxOffer: 30,
+      offer_title: 'Second offer for the same store', Offer: 'Example Badge 2',
       couponCode: '', expiresAt: '', verified: 'TRUE', active: 'TRUE', order: 2,
-    },
-    {
-      store_name: 'Nike', abbr: 'NIKE', website: 'nike.com',
-      link: 'https://nike.com/aff', category: 'sports', maxOffer: 50,
-      store_imageUrl: 'https://logo.clearbit.com/nike.com',
-      store_description: 'The world\'s leading sports brand',
-      store_about: '<p>Nike la thuong hieu the thao hang dau the gioi.</p>',
-      offer_title: 'Extra 25% Off All Sale Items', Offer: '25% Off',
-      couponCode: 'EXTRA25', expiresAt: '2026-08-31', verified: 'TRUE', active: 'TRUE', order: 1,
     },
   ]
 }
@@ -124,24 +225,17 @@ function makeStoresExample() {
 function generateTemplate(type: SheetType) {
   const headers = COLS_MAP[type].map((c) => c.key)
   const rows = type === 'Stores' ? makeStoresExample() : []
-  const ws = XLSX.utils.json_to_sheet(rows, { header: headers })
-  ws['!cols'] = headers.map((h) => ({ wch: Math.max(h.length + 2, 16) }))
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, type)
-  XLSX.writeFile(wb, `template_${type.toLowerCase()}.xlsx`)
+  return downloadWorkbook([{ name: type, headers, rows }], `template_${type.toLowerCase()}.xlsx`)
 }
 
 function generateFullTemplate() {
-  const wb = XLSX.utils.book_new()
   const types: SheetType[] = ['Stores', 'Posts', 'Reviews']
-  for (const type of types) {
-    const headers = COLS_MAP[type].map((c) => c.key)
-    const rows = type === 'Stores' ? makeStoresExample() : []
-    const ws = XLSX.utils.json_to_sheet(rows, { header: headers })
-    ws['!cols'] = headers.map((h) => ({ wch: Math.max(h.length + 2, 16) }))
-    XLSX.utils.book_append_sheet(wb, ws, type)
-  }
-  XLSX.writeFile(wb, 'offerdy_import_template.xlsx')
+  const specs: SheetSpec[] = types.map((type) => ({
+    name: type,
+    headers: COLS_MAP[type].map((c) => c.key),
+    rows: type === 'Stores' ? makeStoresExample() : [],
+  }))
+  return downloadWorkbook(specs, 'offerdy_import_template.xlsx')
 }
 
 export default function ImportClient() {
@@ -170,25 +264,33 @@ export default function ImportClient() {
     setImportedTabs(new Set())
 
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const data = ev.target?.result
-      if (!data) return
-      const wb = XLSX.read(data, { type: 'array' })
-      const parsed: Partial<Record<SheetType, Row[]>> = {}
-      let firstSheet: SheetType | null = null
+      if (!data || typeof data === 'string') return
+      try {
+        const { Workbook } = await import('exceljs')
+        const wb = new Workbook()
+        await wb.xlsx.load(data)
+        const parsed: Partial<Record<SheetType, Row[]>> = {}
+        let firstSheet: SheetType | null = null
 
-      for (const sheetName of wb.SheetNames) {
-        if (!validSheets.includes(sheetName as SheetType)) continue
-        const ws = wb.Sheets[sheetName]
-        const rows = XLSX.utils.sheet_to_json<Row>(ws, { defval: '' })
-        if (rows.length > 0) {
-          parsed[sheetName as SheetType] = rows
-          if (!firstSheet) firstSheet = sheetName as SheetType
+        for (const ws of wb.worksheets) {
+          const sheetName = ws.name as SheetType
+          if (!validSheets.includes(sheetName)) continue
+          const rows = worksheetToRows(ws)
+          if (rows.length > 0) {
+            parsed[sheetName] = rows
+            if (!firstSheet) firstSheet = sheetName
+          }
         }
-      }
 
-      setSheets(parsed)
-      setActiveTab(firstSheet)
+        setSheets(parsed)
+        setActiveTab(firstSheet)
+      } catch (err) {
+        console.error('Không đọc được file Excel', err)
+        setSheets({})
+        setActiveTab(null)
+      }
     }
     reader.readAsArrayBuffer(file)
   }
@@ -364,9 +466,8 @@ export default function ImportClient() {
             ))}
           </div>
 
-          <div style={{ marginTop: 16, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#166534' }}>
-            <b>store_imageUrl:</b> Dùng Clearbit logo:<br />
-            <code style={{ fontSize: 11, wordBreak: 'break-all' }}>https://logo.clearbit.com/amazon.com</code>
+          <div style={{ marginTop: 16, background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '10px 12px', fontSize: 12, color: '#c2410c' }}>
+            ⚠️ <b>Xoá dòng ví dụ</b> trong template trước khi import — nếu không, store <code style={{ fontSize: 11 }}>VÍ DỤ</code> và mã <code style={{ fontSize: 11 }}>EXAMPLECODE</code> sẽ lên website thật.
           </div>
         </div>
       </div>
