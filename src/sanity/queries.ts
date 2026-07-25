@@ -787,6 +787,7 @@ const CLICK_ANALYTICS_QUERY = `{
     "id": _id, "directClicks": coalesce(clicks, 0)
   },
   "recentClicks": *[_type == "click" && kind != "shortlink" && _createdAt >= $thirtyDaysAgo]._createdAt,
+  "allTimeClicks": count(*[_type == "click" && kind != "shortlink"]),
   "shortLinkClicks": *[_type == "click" && kind == "shortlink" && _createdAt >= $thirtyDaysAgo]{ source },
   "attributedClicks": *[_type == "click" && kind != "shortlink" && defined(source) && _createdAt >= $thirtyDaysAgo]{ source },
   "shortLinkDeals": *[_type == "deal" && (shortLinkClicks > 0 || dealClicks > 0)] | order(coalesce(shortLinkClicks, 0) desc) {
@@ -812,6 +813,7 @@ export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary>
       offers: { title: string; clicks: number; verified?: boolean; expiresAt?: string; storeId?: string; storeName?: string }[]
       stores: { id: string; directClicks: number }[]
       recentClicks: string[]
+      allTimeClicks: number
       shortLinkClicks: { source?: string }[]
       attributedClicks: { source?: string }[]
       shortLinkDeals: { code?: number; title: string; opens: number; merchantClicks: number }[]
@@ -820,7 +822,10 @@ export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary>
     const todayCount = data.recentClicks.filter(c => c >= startOfToday).length
     const sevenDayCount = data.recentClicks.filter(c => c >= sevenDaysAgo).length
     const thirtyDayCount = data.recentClicks.length
-    const allTimeCount = data.offers.reduce((sum, o) => sum + o.clicks, 0) + data.stores.reduce((sum, s) => sum + s.directClicks, 0)
+    // Dem tu click log, KHONG cong bo dem tren offer/store: bo dem bi xoa cung
+    // document, nen sau khi don store cu thi "tat ca thoi gian" tut xuong duoi ca
+    // "30 ngay qua". Xem giai thich day du o src/app/admin/reports/page.tsx.
+    const allTimeCount = data.allTimeClicks ?? 0
 
     const topOffers = [...data.offers]
       .filter(o => o.clicks > 0)

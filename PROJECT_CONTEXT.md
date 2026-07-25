@@ -72,7 +72,7 @@
 - **`/admin/ai-review`** — approval queue for AI-generated drafts, 3 tabs: Stores / Offers / Deals. Preview via iframe `srcDoc`, Approve/Reject/Regenerate.
 - **`/admin/merchant-health`** — 0-100 health score per store (Content 40% / SEO 20% / Affiliate 25% / Freshness 15%), sorted worst-first, links back to `/admin/stores`
 - **`/admin/seo-audit`** — deterministic (non-AI) audit: missing/duplicate meta title/description, missing FAQ, missing images, short excerpts
-- **`/admin/reports`** — "Platform Health" (avg score, broken links, stores needing attention) + AI Daily Report (Vietnamese summary + action items from Merchant Health + Sentry) + click analytics (top stores/offers, time-windowed) + Sentry unresolved issues
+- **`/admin/reports`** — "Platform Health" (avg score, broken links, stores needing attention) + AI Daily Report (Vietnamese summary + action items from Merchant Health + Sentry) + click analytics (top stores/offers, time-windowed) + Sentry unresolved issues + short-link/source breakdown. Has a **staleness banner** and a **"Tạo lại ngay"** button — see "Daily report staleness" below
 - 9 list pages (stores/offers/coupon-codes/deals/flash-sales/comparisons/posts/reviews/tips-guides) + merchant-health use real URL pagination (`?page=N`; stores/offers/coupon-codes also put filters in the URL) via shared `src/lib/adminPagination.ts` + `src/app/admin/_components/{AdminPagination,useAdminUrlState,useUrlPage}` — do not reintroduce "load all then slice client-side"
 
 ## AI Engines (Anthropic Claude Sonnet 5 + Vercel Cron)
@@ -165,6 +165,21 @@ Turns "compose a post" from retyping into picking a product. Caption + short lin
 - The caption textarea is **derived state with an override** (`captionOverride ?? generated`), not a `useEffect` that syncs — the repo's ESLint rejects `setState` in an effect body, and the derived form is simpler anyway.
 - QR uses **`qrcode` (added 2026-07-25), dynamically imported** so its ~30KB stays a lazy admin chunk — same reason `exceljs` is dynamically imported in `/admin/import`. Error-correction level `M`: survives a poorly printed or off-angle scan without the modules getting so dense that a small story-sized QR fails. SVG download for print, 1024px PNG for a 1080×1920 story.
 - QR encodes the **`www.` absolute URL**, not the caption's short display form — `offerdy.com` 308-redirects to `www`, and a QR that costs an extra round trip is worse for the person scanning.
+
+## Daily report staleness + manual regenerate
+A cron-written report that silently stops updating is worse than no report: it keeps rendering in a confident voice while describing a platform that no longer exists.
+
+- **This actually happened.** `dailyReport-singleton` sat unchanged from **2026-07-07 to 2026-07-25** and the card gave no hint. Its figures — 637 stores, 633 missing content, 93 broken links, 1556 SEO issues — described the dataset from *before* the old stores were cleared; the site had **28 stores and 4 broken links**. Every one of its five AI recommendations pointed at things that no longer existed.
+- **Why it stopped**: the report is written only by the Vercel cron, which authenticates with `CRON_SECRET`. `/api/cron/daily-report` returns **401 both when the secret is missing and when it mismatches**, and a cron that 401s fails silently — nothing surfaces anywhere. Evidence that no cron has ever fired: the only report ever written is timestamped 12:35 UTC while the schedule is 01:00 UTC, and neither of the other two crons has a Sanity write matching its schedule either (`link-check-nightly` last wrote 07-23 19:01 UTC, AI drafts 07-23 19:17 / 07-24 03:50 — all during working sessions). The Anthropic key was tested and is **alive with credit**, so cost was not the cause. Unconfirmed beyond that: the Vercel project lives on team `team_vFv3nz4DRjccZjLH3rfvUhtP`, which the connected Vercel MCP account cannot read (403) — check **Settings → Cron Jobs** and the Production `CRON_SECRET` in the dashboard.
+- **Staleness banner** at **48h**, not 24h: Vercel triggers a daily cron within an approximate window, so 24h would cry wolf whenever it ran a few hours late.
+- **"Tạo lại ngay"** (`src/app/admin/reports/actions.ts`) calls `generateDailyReport()` through a server action, so it is authorised by the admin Basic Auth in `proxy.ts` and needs no `CRON_SECRET` — an escape hatch that works even while the cron is broken. Errors are returned to the UI rather than swallowed, because the failure worth seeing here (missing key, exhausted credit) is exactly the kind that otherwise disappears. Each press is a real, billable Anthropic call, hence the `confirm()`.
+
+## Click totals: log vs counters
+The four stat cards on `/admin/reports` all read from the **click log**. Do not compute "all time" by summing `offer.clicks` / `store.clicks`.
+
+- Counters live on the document, so deleting a store deletes its click count, while the `click` log docs survive (the references are `_weak`). After ~609 old stores were removed, the counter total read **5** while the 30-day log read **21** — a table contradicting itself, with "all time" smaller than "last 30 days".
+- Counters are still correct for *"how many clicks has **this** offer/store had"* — the ranking tables below keep using them. They are wrong for *"how many clicks did the site get"*.
+- Same fix applied in `getClickAnalyticsSummary()` (`allTimeClicks`), which feeds the AI daily report — it had the identical flaw.
 
 **Sanity reference gotcha**: strong references (default) block deletion of the referenced doc. `offer.store` is intentionally strong (real data integrity) but store deletion now cascades to delete its offers in one transaction rather than failing silently — see `src/app/admin/stores/actions.ts`. Analytics/log-only references (e.g. `click.offer`/`click.store`) use `_weak: true` (exact field name — `weak` is rejected by Sanity) since referential integrity doesn't matter there. When adding a new reference field, decide which case it is up front instead of defaulting to strong and discovering a deletion deadlock later.
 

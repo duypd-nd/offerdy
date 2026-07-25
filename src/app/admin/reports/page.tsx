@@ -4,6 +4,7 @@ import { getRecentSentryIssues } from '@/lib/sentryApi'
 import { getMerchantHealthData, getLatestDailyReport } from '@/sanity/queries'
 import { computeStoreHealth, HEALTH_LEVEL_COLOR, HEALTH_LEVEL_LABEL as LEVEL_LABEL } from '@/lib/merchantHealth'
 import { SOURCE_LABEL, type ShortLinkSource } from '@/lib/shortLinkSource'
+import RegenerateButton from './RegenerateButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,7 +69,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport] = await Promise.all([
+  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport] = await Promise.all([
     writeClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -88,6 +89,7 @@ export default async function ReportsPage() {
       }`,
       { thirtyDaysAgo }
     ),
+    writeClient.fetch<number>(`count(*[_type == "click" && kind != "shortlink"])`),
     writeClient.fetch<ShortLinkClickRow[]>(
       `*[_type == "click" && kind == "shortlink" && _createdAt >= $thirtyDaysAgo] | order(_createdAt desc) {
         _createdAt, code, source, campaign,
@@ -112,6 +114,17 @@ export default async function ReportsPage() {
     getLatestDailyReport(),
   ])
 
+  // Bao cao AI qua han. 48h chu khong phai 24h: cron chay 1 lan/ngay va Vercel
+  // kich hoat trong khoang gio chu khong dung phut, nen 24h se bao dong gia moi
+  // khi cron chay tre vai tieng.
+  // Dung lai `now` da co o dau ham thay vi Date.now() — trang nay force-dynamic nen
+  // no van la thoi diem cua request, va ESLint chan goi ham khong thuan trong render.
+  const reportAgeMs = dailyReport?.generatedAt
+    ? now.getTime() - new Date(dailyReport.generatedAt).getTime()
+    : Infinity
+  const reportAgeDays = Math.floor(reportAgeMs / 86400000)
+  const reportStale = reportAgeMs > 48 * 3600 * 1000
+
   const healthScores = healthData.map(computeStoreHealth)
   const avgHealth = healthScores.length ? Math.round(healthScores.reduce((sum, h) => sum + h.overall, 0) / healthScores.length) : 0
   const criticalStores = healthData
@@ -129,11 +142,16 @@ export default async function ReportsPage() {
   const todayCount = recentClicks.filter(c => c._createdAt >= startOfToday).length
   const sevenDayCount = recentClicks.filter(c => c._createdAt >= sevenDaysAgo).length
   const thirtyDayCount = recentClicks.length
-  // Cong ca click ra merchant tu trang deal (`dealClicks`) — day cung la click
-  // affiliate, chi la khong gan vao offer/store nao (deal khong co reference).
-  const allTimeCount = offers.reduce((sum, o) => sum + o.clicks, 0)
-    + stores.reduce((sum, s) => sum + s.directClicks, 0)
-    + dealsWithShortLink.reduce((sum, d) => sum + d.dealClicks, 0)
+  // "Tat ca thoi gian" phai dem tu CUNG MOT NGUON voi 3 cot kia (click log), khong
+  // phai cong bo dem tren offer/store.
+  //
+  // Bo dem song cung document: xoa mot store la xoa luon so click cua no, trong khi
+  // ban ghi `click` van con (reference _weak). Sau dot don ~609 store cu, tong bo
+  // dem tut xuong 5 trong khi log 30 ngay van la 21 — bang so lieu tu mau thuan
+  // voi chinh no ("tat ca thoi gian" nho hon "30 ngay"). Log la nguon dung cho cau
+  // hoi "site nhan bao nhieu click", bo dem chi dung cho "offer/store NAY bao nhieu
+  // click" (cac bang xep hang ben duoi).
+  const allTimeCount = allTimeClicks
 
   const topOffers = [...offers].sort((a, b) => b.clicks - a.clicks).slice(0, 100)
 
@@ -234,17 +252,46 @@ export default async function ReportsPage() {
       </div>
 
       {/* ── AI Daily Report — tom tat + de xuat hanh dong, sinh tu dong moi ngay ── */}
-      {dailyReport?.summary && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid #bbf7d0', fontSize: 13, fontWeight: 700, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>🤖 AI Daily Report</span>
-              {dailyReport.generatedAt && (
-                <span style={{ fontSize: 11, fontWeight: 500, color: '#4d7c5f' }}>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{
+          background: reportStale ? '#fffbeb' : '#f0fdf4',
+          border: `1px solid ${reportStale ? '#fcd34d' : '#86efac'}`,
+          borderRadius: 12, overflow: 'hidden',
+        }}>
+          <div style={{
+            padding: '12px 16px', borderBottom: `1px solid ${reportStale ? '#fde68a' : '#bbf7d0'}`,
+            fontSize: 13, fontWeight: 700, color: reportStale ? '#92400e' : '#166534',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          }}>
+            <span>{reportStale ? '⚠️' : '🤖'} AI Daily Report</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {dailyReport?.generatedAt && (
+                <span style={{ fontSize: 11, fontWeight: 500, color: reportStale ? '#b45309' : '#4d7c5f' }}>
                   Cập nhật {new Date(dailyReport.generatedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </span>
               )}
+              <RegenerateButton stale={reportStale} />
+            </span>
+          </div>
+
+          {/* Bao cao qua han: canh bao TRUOC khi doc noi dung. Bao cao AI viet bang
+              giong xac quyet, doc ma khong biet no cu se hanh dong tren so lieu
+              cua mot dataset khong con ton tai (da tung: bao cao noi 637 store
+              trong khi site chi con 28). */}
+          {reportStale && (
+            <div style={{ padding: '12px 16px', background: '#fef3c7', borderBottom: '1px solid #fde68a', fontSize: 12.5, color: '#92400e', lineHeight: 1.7 }}>
+              <strong>Báo cáo này đã {reportAgeDays} ngày tuổi</strong> — số liệu bên dưới là của thời điểm đó, không phải hôm nay.
+              Cron <code>/api/cron/daily-report</code> đáng lẽ chạy mỗi ngày lúc 08:00 (giờ VN); nếu ngày càng cũ thì cron đang không chạy —
+              kiểm tra <strong>Vercel → Settings → Cron Jobs</strong> và biến <code>CRON_SECRET</code> ở môi trường Production.
+              Bấm <strong>Tạo lại ngay</strong> để có báo cáo đúng hiện tại.
             </div>
+          )}
+
+          {!dailyReport?.summary ? (
+            <div style={{ padding: 16, fontSize: 13, color: '#6b7280', lineHeight: 1.7 }}>
+              Chưa có báo cáo nào. Bấm <strong>Tạo lại ngay</strong> để sinh báo cáo đầu tiên.
+            </div>
+          ) : (
             <div style={{ padding: 16 }}>
               <p style={{ fontSize: 14, color: '#14532d', lineHeight: 1.6, margin: '0 0 12px' }}>{dailyReport.summary}</p>
               {dailyReport.recommendations && dailyReport.recommendations.length > 0 && (
@@ -255,16 +302,16 @@ export default async function ReportsPage() {
                 </ul>
               )}
               {typeof dailyReport.seoIssueCount === 'number' && (
-                <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #bbf7d0', fontSize: 12 }}>
-                  <Link href="/admin/seo-audit" style={{ color: '#166534', fontWeight: 600 }}>
+                <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${reportStale ? '#fde68a' : '#bbf7d0'}`, fontSize: 12 }}>
+                  <Link href="/admin/seo-audit" style={{ color: reportStale ? '#92400e' : '#166534', fontWeight: 600 }}>
                     🔎 {dailyReport.seoIssueCount} vấn đề SEO Audit — Xem chi tiết →
                   </Link>
                 </div>
               )}
             </div>
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* ── Thống kê theo thời gian (số liệu chính của báo cáo) ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
