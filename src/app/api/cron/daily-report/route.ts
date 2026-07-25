@@ -1,10 +1,9 @@
 import { generateDailyReport } from '@/lib/ai/generateDailyReport'
+import { verifyCronRequest } from '@/lib/cronAuth'
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = verifyCronRequest(request, 'daily-report')
+  if (!auth.ok) return auth.response
 
   try {
     const report = await generateDailyReport()

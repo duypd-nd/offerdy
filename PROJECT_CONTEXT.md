@@ -166,6 +166,14 @@ Turns "compose a post" from retyping into picking a product. Caption + short lin
 - QR uses **`qrcode` (added 2026-07-25), dynamically imported** so its ~30KB stays a lazy admin chunk — same reason `exceljs` is dynamically imported in `/admin/import`. Error-correction level `M`: survives a poorly printed or off-angle scan without the modules getting so dense that a small story-sized QR fails. SVG download for print, 1024px PNG for a 1080×1920 story.
 - QR encodes the **`www.` absolute URL**, not the caption's short display form — `offerdy.com` 308-redirects to `www`, and a QR that costs an extra round trip is worse for the person scanning.
 
+## Cron auth (`src/lib/cronAuth.ts`)
+All three cron routes share `verifyCronRequest()`. Vercel attaches `Authorization: Bearer <CRON_SECRET>` to cron requests when that variable exists.
+
+- **Both sides are `trim()`ed.** A value pasted into Vercel's input very easily carries a trailing space or newline, and the resulting mismatch is invisible.
+- **A failed check logs a redacted diagnostic** (`hasSecret`, `secretLength`, `hasAuthHeader`, `authHeaderLength`, `authHeaderPrefix`, `userAgent`, `lengthMatches`) via `console.error`, so it lands in Vercel Logs — which are private — while the HTTP response still says nothing but `401`. Never log the values themselves.
+- **Why this exists**: all three crons were silently dead from 2026-07-07 to 07-25. The dashboard showed *Enabled* with correct schedules, `CRON_SECRET` was present for Production, the Anthropic key had credit, and Vercel Logs showed only a bare `GET 401` with no message. There was no way to tell "Vercel never sent the header" from "the value differs" from "the env var isn't reaching the runtime". The lengths in the log separate those cases: `hasAuthHeader: false` means Vercel isn't attaching it, `lengthMatches: true` with a failed compare means a genuinely different value, and a 1–2 character difference means stray whitespace.
+- ⚠️ A cron that 401s **fails completely silently** — no Sentry event (401 is a response, not an exception), no admin warning. That is why `/admin/reports` also carries a staleness banner: the alarm has to live where the output is read.
+
 ## Daily report staleness + manual regenerate
 A cron-written report that silently stops updating is worse than no report: it keeps rendering in a confident voice while describing a platform that no longer exists.
 

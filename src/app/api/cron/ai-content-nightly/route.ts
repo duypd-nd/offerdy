@@ -1,4 +1,5 @@
 import { writeClient } from '@/sanity/writeClient'
+import { verifyCronRequest } from '@/lib/cronAuth'
 import { generateStoreContent } from '@/lib/ai/generateStoreContent'
 import { generateOfferContent, type OfferContentInput } from '@/lib/ai/generateOfferContent'
 import { generateDealContent, type DealContentInput } from '@/lib/ai/generateDealContent'
@@ -22,10 +23,8 @@ const DEAL_CANDIDATES_QUERY = `*[_type == "deal" && !defined(summary) && aiRevie
 }`
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = verifyCronRequest(request, 'ai-content-nightly')
+  if (!auth.ok) return auth.response
 
   const [stores, offers, deals] = await Promise.all([
     writeClient.fetch(STORE_CANDIDATES_QUERY, { limit: STORE_BATCH_SIZE }),

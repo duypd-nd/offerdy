@@ -1,4 +1,5 @@
 import { writeClient } from '@/sanity/writeClient'
+import { verifyCronRequest } from '@/lib/cronAuth'
 import { checkUrl } from '@/lib/checkOfferLink'
 
 const BATCH_SIZE = Number(process.env.LINK_CHECK_BATCH_SIZE) || 50
@@ -8,10 +9,8 @@ const CANDIDATES_QUERY = `*[_type == "offer" && active == true && defined(link) 
 }`
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = verifyCronRequest(request, 'link-check-nightly')
+  if (!auth.ok) return auth.response
 
   const offers = await writeClient.fetch(CANDIDATES_QUERY, { limit: BATCH_SIZE })
 
