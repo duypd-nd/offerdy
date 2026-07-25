@@ -20,7 +20,7 @@ import { generateDailyReport } from '@/lib/ai/generateDailyReport'
  */
 export async function regenerateDailyReport(): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    await generateDailyReport()
+    await generateDailyReport('admin')
     revalidatePath('/admin/reports')
     return { ok: true }
   } catch (e) {

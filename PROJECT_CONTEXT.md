@@ -166,6 +166,15 @@ Turns "compose a post" from retyping into picking a product. Caption + short lin
 - QR uses **`qrcode` (added 2026-07-25), dynamically imported** so its ~30KB stays a lazy admin chunk — same reason `exceljs` is dynamically imported in `/admin/import`. Error-correction level `M`: survives a poorly printed or off-angle scan without the modules getting so dense that a small story-sized QR fails. SVG download for print, 1024px PNG for a 1080×1920 story.
 - QR encodes the **`www.` absolute URL**, not the caption's short display form — `offerdy.com` 308-redirects to `www`, and a QR that costs an extra round trip is worse for the person scanning.
 
+## Cron postmortem: `CRON_SECRET` had a key but an empty value
+All three crons were dead from 2026-07-07 to 07-26. Root cause, and the debugging lesson, are both worth keeping.
+
+- **The bug**: on Vercel, `CRON_SECRET` existed as a key but its **value was an empty string**. Vercel therefore had nothing to put in the `Authorization` header, and the route's `!process.env.CRON_SECRET` was true → `401`. Because the variable was marked **Sensitive**, the dashboard never shows the value, so nothing on screen revealed it was blank.
+- **The lesson**: `!process.env.X` collapses **three** different states — key absent, key present with empty value, key present with a value. Not separating the first two cost several diagnostic rounds: the check reported "not readable" while the env-key listing showed `« CRON_SECRET »` at exactly 11 characters. When debugging an env var, test `'X' in process.env` **separately** from `!!process.env.X`.
+- **The technique that broke the deadlock**: instead of asking the user to screenshot Vercel logs (which truncate lines, costing a round trip each time), add a **read-only page under `/admin/`** — already covered by the Basic Auth in `proxy.ts` — and `fetch` it directly using the credentials in `.env.local`. `/admin/cron-check` does this: it reports key presence, value length, whitespace, which other env vars reach the runtime, `VERCEL_ENV` and the running commit. **It never prints a value.**
+- ⚠️ Env var changes take effect only on a **new deployment**. Pushing an empty commit is the fastest way to force one — no dashboard needed.
+- `dailyReport.triggeredBy` (`'cron'` | `'admin'`) records which path wrote the report, shown on the card as *tự động* / *tạo tay*. Without it, a changed timestamp cannot distinguish "the cron is alive again" from "someone pressed the button" — exactly the ambiguity hit while fixing this.
+
 ## Cron auth (`src/lib/cronAuth.ts`)
 All three cron routes share `verifyCronRequest()`. Vercel attaches `Authorization: Bearer <CRON_SECRET>` to cron requests when that variable exists.
 

@@ -78,7 +78,13 @@ Write a short summary and 3-5 prioritized recommendations for the team based onl
 About the social data: a source with many opens but few merchant clicks means the audience is curious but not buying — the posts pull attention while the product page does not convert. A source with few opens but a high share converting is worth posting to more. Only draw that conclusion when the numbers are large enough to mean something; with fewer than 20 opens for a source, say plainly that there is not enough data yet rather than ranking channels. If there is no social data at all, say so in one clause and do not speculate about it.`
 }
 
-export async function generateDailyReport() {
+/**
+ * @param triggeredBy duong nao da tao ban bao cao nay. Co hai duong ghi vao cung
+ *   mot document (`dailyReport-singleton`): cron dem, va nut "Tao lai ngay" trong
+ *   admin. Khong ghi lai nguon thi khi bao cao doi moc gio khong the biet cron da
+ *   song chua hay chi la ai do bam tay — dung tinh huong da gap khi go loi cron.
+ */
+export async function generateDailyReport(triggeredBy: 'cron' | 'admin' = 'cron') {
   const healthData = await getMerchantHealthData()
   const scored = healthData.map(s => ({ store: s, health: computeStoreHealth(s) }))
   const avgHealthScore = scored.length ? Math.round(scored.reduce((sum, s) => sum + s.health.overall, 0) / scored.length) : 0
@@ -146,6 +152,7 @@ export async function generateDailyReport() {
     _id: DAILY_REPORT_ID,
     _type: 'dailyReport',
     generatedAt: new Date().toISOString(),
+    triggeredBy,
     summary: parsed.summary,
     recommendations: parsed.recommendations,
     avgHealthScore,

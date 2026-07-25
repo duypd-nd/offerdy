@@ -268,6 +268,10 @@ export default async function ReportsPage() {
               {dailyReport?.generatedAt && (
                 <span style={{ fontSize: 11, fontWeight: 500, color: reportStale ? '#b45309' : '#4d7c5f' }}>
                   Cập nhật {new Date(dailyReport.generatedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                  {/* Nguon tao: phan biet "cron da song" voi "chi la ai do bam tay" */}
+                  {dailyReport.triggeredBy && (
+                    <> · {dailyReport.triggeredBy === 'cron' ? 'tự động' : 'tạo tay'}</>
+                  )}
                 </span>
               )}
               <RegenerateButton stale={reportStale} />

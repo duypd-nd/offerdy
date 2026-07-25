@@ -745,12 +745,14 @@ export type DailyReport = {
   needsAttentionCount?: number
   zeroClickStoreCount?: number
   model?: string
+  /** 'cron' = chay tu dong theo lich; 'admin' = bam nut "Tao lai ngay". */
+  triggeredBy?: string
 }
 
 const DAILY_REPORT_QUERY = `*[_type == "dailyReport"][0] {
   generatedAt, summary, recommendations, avgHealthScore,
   criticalStoreCount, brokenLinkCount, missingContentCount, openErrorCount, seoIssueCount,
-  todayClicks, sevenDayClicks, needsAttentionCount, zeroClickStoreCount, model
+  todayClicks, sevenDayClicks, needsAttentionCount, zeroClickStoreCount, model, triggeredBy
 }`
 
 export async function getLatestDailyReport(): Promise<DailyReport | null> {
