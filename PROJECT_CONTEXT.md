@@ -166,6 +166,22 @@ Turns "compose a post" from retyping into picking a product. Caption + short lin
 - QR uses **`qrcode` (added 2026-07-25), dynamically imported** so its ~30KB stays a lazy admin chunk — same reason `exceljs` is dynamically imported in `/admin/import`. Error-correction level `M`: survives a poorly printed or off-angle scan without the modules getting so dense that a small story-sized QR fails. SVG download for print, 1024px PNG for a 1080×1920 story.
 - QR encodes the **`www.` absolute URL**, not the caption's short display form — `offerdy.com` 308-redirects to `www`, and a QR that costs an extra round trip is worse for the person scanning.
 
+## Dates in admin: always go through `src/lib/adminDateTime.ts`
+Sanity stores `expiresAt` as ISO UTC. `<input type="datetime-local">` has **no timezone** — it shows exactly the string you hand it and returns exactly what the operator typed. Every conversion between the two must be explicit, and the admin is pinned to **Vietnam time** (`ADMIN_TIMEZONE`), labelled `(giờ VN)` on the field.
+
+- `isoToAdminInput(iso)` — UTC → `YYYY-MM-DDTHH:mm` in VN time, for the input's `value`.
+- `adminInputToIso(local)` — what the operator typed (VN) → UTC ISO, for Sanity.
+- `formatAdminDateTime(iso)` — read-only display in VN time.
+- **The bug this replaced**, present in all four admin screens (coupon-codes, deals, flash-sales, offers): reading did `expiresAt.slice(0, 16)` (raw **UTC** wall clock into the input) while writing did `new Date(form.expiresAt).toISOString()` (parsed as **browser-local**). The two directions disagreed by the machine's offset, so an operator setting 21:00 saw 14:00 on reopening, and **every edit-and-save round trip shifted the time back another 7 hours** — with no visible sign, and the public countdown silently wrong. Deals and offers were worse still: they wrote `form.expiresAt` **raw**, storing a zone-less string.
+- Pinned to a fixed zone rather than the browser's on purpose: the operator thinks in Vietnam time, and a fixed zone means a value entered from a different machine or while travelling still reads and saves identically. The `(giờ VN)` label is not optional — a datetime field without a stated zone is ambiguous by construction.
+- ⚠️ `adminInputToIso` validates the string with a regex **before** parsing: V8's date parser is lenient enough that `new Date("rac:00Z")` returns the year 2000 rather than `Invalid Date`, so a malformed field would silently become a wrong date instead of being rejected. (Found by testing, not by reading.)
+
+## Flash sales countdown across timezones
+- The countdown itself was always correct — `new Date(expiresAt).getTime() - Date.now()` is a duration between absolute instants, identical for every viewer.
+- What was wrong was the **"Expires …" line**: `toLocaleDateString` ran during SSR too, so the server (UTC) and the browser (local) produced different strings → hydration mismatch. It now renders client-side only via `useIsServer()` (`useSyncExternalStore`), which is also why it doesn't use `useEffect` + `setState` — the repo's ESLint rejects that pattern.
+- It now prints `timeZoneName: 'short'` (`Expires Jul 27, 09:00 PM GMT+7`). Without it the line is ambiguous: viewers in Hanoi and New York read the same words 11 hours apart with no way to tell which zone is meant.
+- **"Ends Today"** now means *before midnight tonight in the viewer's timezone*, not "within 24 hours" — a deal expiring 23:00 **tomorrow** used to appear under that label.
+
 ## Sentry: never report from local dev
 All three `Sentry.init` sites (`sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation-client.ts`) carry `enabled: process.env.NODE_ENV === 'production'` and an `environment` tag.
 

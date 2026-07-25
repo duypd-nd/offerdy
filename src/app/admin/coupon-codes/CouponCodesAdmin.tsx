@@ -6,6 +6,7 @@ import { updateCouponOffer, deleteCouponOffer, createCouponOffer } from './actio
 import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
+import { isoToAdminInput, adminInputToIso, ADMIN_TIMEZONE_LABEL } from '@/lib/adminDateTime'
 
 type AdminOffer = {
   _id: string
@@ -198,7 +199,7 @@ function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
     link: initial?.link ?? '',
     description: initial?.description ?? '',
     storeId: initial?.store._id ?? stores[0]?._id ?? '',
-    expiresAt: initial?.expiresAt ? initial.expiresAt.slice(0, 16) : '',
+    expiresAt: isoToAdminInput(initial?.expiresAt),
     active: initial?.active ?? true,
     verified: initial?.verified ?? true,
   })
@@ -212,7 +213,7 @@ function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
       const payload = {
         title: form.title, offerText: form.offerText, couponCode: form.couponCode,
         link: form.link, description: form.description || undefined,
-        expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : undefined,
+        expiresAt: adminInputToIso(form.expiresAt),
         active: form.active, verified: form.verified,
       }
       if (mode === 'add') {
@@ -257,7 +258,7 @@ function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
             <label className="oa-label">Link *
               <input className="oa-input" type="url" value={form.link} onChange={e => set('link', e.target.value)} placeholder="https://..." required />
             </label>
-            <label className="oa-label">Hết hạn
+            <label className="oa-label">Hết hạn <span style={{ fontWeight: 400, color: '#9CA3AF' }}>({ADMIN_TIMEZONE_LABEL})</span>
               <input className="oa-input" type="datetime-local" value={form.expiresAt} onChange={e => set('expiresAt', e.target.value)} />
             </label>
           </div>

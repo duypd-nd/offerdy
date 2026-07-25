@@ -6,6 +6,7 @@ import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
+import { isoToAdminInput, adminInputToIso, ADMIN_TIMEZONE_LABEL } from '@/lib/adminDateTime'
 
 type AdminOffer = {
   _id: string
@@ -193,7 +194,7 @@ function FlashSaleModal({ mode, initial, stores, onClose, onSaved, onDeleted }: 
     couponCode: initial?.couponCode ?? '',
     link: initial?.link ?? '',
     storeId: initial?.store._id ?? stores[0]?._id ?? '',
-    expiresAt: initial?.expiresAt ? initial.expiresAt.slice(0, 16) : '',
+    expiresAt: isoToAdminInput(initial?.expiresAt),
     active: initial?.active ?? true,
     verified: initial?.verified ?? true,
   })
@@ -203,6 +204,10 @@ function FlashSaleModal({ mode, initial, stores, onClose, onSaved, onDeleted }: 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.title || !form.offerText || !form.storeId || !form.expiresAt) return
+    // Gio admin go la GIO VN; adminInputToIso doi sang UTC de luu. Tra ve undefined
+    // khi chuoi khong dung dinh dang -> chan luu thay vi ghi mot ngay sai.
+    const expiresAtIso = adminInputToIso(form.expiresAt)
+    if (!expiresAtIso) return
     startTransition(async () => {
       const store = stores.find(s => s._id === form.storeId)!
       if (mode === 'add') {
@@ -210,21 +215,21 @@ function FlashSaleModal({ mode, initial, stores, onClose, onSaved, onDeleted }: 
           title: form.title, offerText: form.offerText,
           couponCode: form.couponCode || undefined,
           storeId: form.storeId,
-          expiresAt: new Date(form.expiresAt).toISOString(),
+          expiresAt: expiresAtIso,
           link: form.link,
           active: form.active, verified: form.verified,
         })
-        onSaved({ _id: Date.now().toString(), ...form, expiresAt: new Date(form.expiresAt).toISOString(), store: { _id: store._id, name: store.name }, _createdAt: new Date().toISOString() })
+        onSaved({ _id: Date.now().toString(), ...form, expiresAt: expiresAtIso, store: { _id: store._id, name: store.name }, _createdAt: new Date().toISOString() })
       } else if (initial) {
         await updateOfferExpiry(initial._id, {
           title: form.title, offerText: form.offerText,
           couponCode: form.couponCode || undefined,
           link: form.link,
-          expiresAt: new Date(form.expiresAt).toISOString(),
+          expiresAt: expiresAtIso,
           active: form.active, verified: form.verified,
           store: { _type: 'reference', _ref: form.storeId },
         })
-        onSaved({ ...initial, ...form, expiresAt: new Date(form.expiresAt).toISOString(), store: { _id: store._id, name: store.name } })
+        onSaved({ ...initial, ...form, expiresAt: expiresAtIso, store: { _id: store._id, name: store.name } })
       }
     })
   }
@@ -255,7 +260,7 @@ function FlashSaleModal({ mode, initial, stores, onClose, onSaved, onDeleted }: 
                 {stores.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
               </select>
             </label>
-            <label className="oa-label">Hết hạn *
+            <label className="oa-label">Hết hạn * <span style={{ fontWeight: 400, color: '#9CA3AF' }}>({ADMIN_TIMEZONE_LABEL})</span>
               <input className="oa-input" type="datetime-local" value={form.expiresAt} onChange={e => set('expiresAt', e.target.value)} required />
             </label>
           </div>

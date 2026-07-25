@@ -6,6 +6,7 @@ import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
+import { isoToAdminInput, adminInputToIso, ADMIN_TIMEZONE_LABEL } from '@/lib/adminDateTime'
 
 function ReviewSearchInput({ reviews, value, onChange }: {
   reviews: ReviewOption[]; value: string; onChange: (id: string) => void
@@ -370,7 +371,7 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], onClose
     discountByAmount: initial?.discountByAmount ?? false,
     verified: initial?.verified ?? true,
     isExpiring: initial?.isExpiring ?? false,
-    expiresAt: initial?.expiresAt ? initial.expiresAt.slice(0, 16) : '',
+    expiresAt: isoToAdminInput(initial?.expiresAt),
     dealUrl: initial?.dealUrl ?? '',
     relatedReviewId: initial?.relatedReview?._id ?? '',
     categoryId: initial?.category?._id ?? '',
@@ -414,7 +415,7 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], onClose
         discountByAmount: form.discountByAmount,
         verified: form.verified,
         isExpiring: form.isExpiring,
-        expiresAt: form.expiresAt || undefined,
+        expiresAt: adminInputToIso(form.expiresAt),
         dealUrl: form.dealUrl || undefined,
         ...(image ? { image } : {}),
         ...(relatedReviewRef ? { relatedReview: relatedReviewRef } : {}),
@@ -519,7 +520,7 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], onClose
           </div>
 
           <div className="oa-modal-row">
-            <label className="oa-label">Hết hạn
+            <label className="oa-label">Hết hạn <span style={{ fontWeight: 400, color: '#9CA3AF' }}>({ADMIN_TIMEZONE_LABEL})</span>
               <input className="oa-input" type="datetime-local" value={form.expiresAt} onChange={e => set('expiresAt', e.target.value)} />
             </label>
           </div>

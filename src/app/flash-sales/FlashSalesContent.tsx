@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useSyncExternalStore } from 'react'
 import type { Offer } from '@/sanity/queries'
 import AffiliateLink from '@/components/AffiliateLink'
 
@@ -28,6 +28,42 @@ function useCountdown(expiresAt: string) {
 }
 
 function pad(n: number) { return String(n).padStart(2, '0') }
+
+const noopSubscribe = () => () => {}
+
+/**
+ * true khi dang render tren server (hoac trong luot hydrate dau tien).
+ *
+ * Dung cho nhung gi phu thuoc MUI GIO CUA MAY KHACH: server chay o UTC con trinh
+ * duyet chay o gio dia phuong, nen cung mot moc thoi gian se cho ra hai chuoi khac
+ * nhau va React bao hydration mismatch. useSyncExternalStore la cach chinh thuc de
+ * biet dang o phia nao — khac voi useEffect + setState, no khong vi pham quy tac
+ * set-state-in-effect ma ESLint cua repo dang bat.
+ */
+function useIsServer() {
+  return useSyncExternalStore(noopSubscribe, () => false, () => true)
+}
+
+/**
+ * Thoi diem het han, theo mui gio CUA NGUOI XEM va co ghi ro ten mui gio.
+ *
+ * Khong co `timeZoneName` thi "Jul 30, 09:00 PM" la mot chuoi mo ho: khach o Ha Noi
+ * va khach o New York doc cung dong chu nhung hieu lech nhau 11 tieng, va khong ai
+ * biet no dang tinh theo gio nao.
+ */
+function ExpiryAt({ expiresAt }: { expiresAt: string }) {
+  const isServer = useIsServer()
+  if (isServer) return null
+  return (
+    <span className="offer-expiry">
+      Expires {new Date(expiresAt).toLocaleString('en-US', {
+        month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+        timeZoneName: 'short',
+      })}
+    </span>
+  )
+}
 
 function CountdownDisplay({ expiresAt }: { expiresAt: string }) {
   const t = useCountdown(expiresAt)
@@ -153,11 +189,7 @@ function FlashCard({ offer }: { offer: Offer }) {
         <AffiliateLink href={offer.link} storeName={offer.store?.name} offerId={offer.id} className="offer-get-btn">
           Get Deal <ExternalIcon />
         </AffiliateLink>
-        {offer.expiresAt && (
-          <span className="offer-expiry">
-            Expires {new Date(offer.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-          </span>
-        )}
+        {offer.expiresAt && <ExpiryAt expiresAt={offer.expiresAt} />}
       </div>
     </div>
   )
@@ -175,12 +207,26 @@ function withinSecs(expiresAt: string, secs: number) {
   return diff > 0 && diff <= secs * 1000
 }
 
+/**
+ * "Ends Today" = truoc nua dem DEM NAY theo mui gio cua nguoi xem, chu khong phai
+ * "trong 24 tieng toi". Truoc day dung 86400 giay nen mot deal het han 23:00 NGAY
+ * MAI van hien duoi nhan "Ends Today" — sai voi cai nguoi doc hieu.
+ */
+function endsToday(expiresAt: string) {
+  const end = new Date(expiresAt).getTime()
+  const now = Date.now()
+  if (end <= now) return false
+  const midnight = new Date(now)
+  midnight.setHours(24, 0, 0, 0)   // 24:00 hom nay = 00:00 ngay mai, gio may khach
+  return end <= midnight.getTime()
+}
+
 export default function FlashSalesContent({ offers }: { offers: Offer[] }) {
   const [filter, setFilter] = useState('all')
 
   const filtered = offers.filter(o => {
     if (!o.expiresAt) return false
-    if (filter === 'today') return withinSecs(o.expiresAt, 86400)
+    if (filter === 'today') return endsToday(o.expiresAt)
     if (filter === '3d') return withinSecs(o.expiresAt, 86400 * 3)
     if (filter === '7d') return withinSecs(o.expiresAt, 86400 * 7)
     return true

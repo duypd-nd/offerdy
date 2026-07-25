@@ -6,6 +6,7 @@ import { updateOffer, deleteOffer, bulkDelete, createOffer } from './actions'
 import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
+import { isoToAdminInput, adminInputToIso, ADMIN_TIMEZONE_LABEL } from '@/lib/adminDateTime'
 
 type AdminOffer = {
   _id: string; title: string; active: boolean; verified: boolean
@@ -275,7 +276,7 @@ function EditModal({ offer, stores, onClose, onSaved, onDeleted }: {
 }) {
   const [form, setForm] = useState({
     title: offer.title, offerText: offer.offerText, couponCode: offer.couponCode ?? '',
-    description: offer.description ?? '', expiresAt: offer.expiresAt ? offer.expiresAt.slice(0, 16) : '',
+    description: offer.description ?? '', expiresAt: isoToAdminInput(offer.expiresAt),
     storeId: offer.store._id, order: offer.order, active: offer.active, verified: offer.verified,
   })
   const [isPending, startTransition] = useTransition()
@@ -287,7 +288,7 @@ function EditModal({ offer, stores, onClose, onSaved, onDeleted }: {
       await updateOffer(offer._id, {
         title: form.title, offerText: form.offerText,
         couponCode: form.couponCode || undefined, description: form.description || undefined,
-        expiresAt: form.expiresAt || undefined,
+        expiresAt: adminInputToIso(form.expiresAt),
         store: { _type: 'reference', _ref: form.storeId },
         order: form.order, active: form.active, verified: form.verified,
       })
@@ -321,7 +322,7 @@ function EditModal({ offer, stores, onClose, onSaved, onDeleted }: {
             <label className="oa-label">Store *
               <StoreSearchInput stores={stores} value={form.storeId} onChange={id => set('storeId', id)} />
             </label>
-            <label className="oa-label">Hết hạn
+            <label className="oa-label">Hết hạn <span style={{ fontWeight: 400, color: '#9CA3AF' }}>({ADMIN_TIMEZONE_LABEL})</span>
               <input className="oa-input" type="datetime-local" value={form.expiresAt} onChange={e => set('expiresAt', e.target.value)} />
             </label>
           </div>
