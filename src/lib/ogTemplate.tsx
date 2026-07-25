@@ -55,10 +55,14 @@ function OgBottomBar() {
 }
 
 function OgWordmark() {
+  // Satori chen mot khoang trang giua hai flex item chua chu, nen ten thuong hieu
+  // hien ra la "Offer dy". Loi nay da co tren MOI anh OG cua site tu truoc (kiem
+  // chung tren anh deal that), chi lo ra khi lam anh dang mang xa hoi. Dat hai span
+  // cung dong JSX KHONG sua duoc — phai bu bang le am. -7px o co chu 28px.
   return (
     <div style={{ display: 'flex', alignItems: 'baseline' }}>
       <span style={{ fontSize: 28, fontWeight: 800, color: '#fff' }}>Offer</span>
-      <span style={{ fontSize: 28, fontWeight: 800, color: GREEN }}>dy</span>
+      <span style={{ fontSize: 28, fontWeight: 800, color: GREEN, marginLeft: -7 }}>dy</span>
     </div>
   )
 }
@@ -132,6 +136,109 @@ export function DealOgImage({ title, store, priceSale, priceOrig, badgeMain, bad
           <img src={imageUrl} width={400} height={400} style={{ objectFit: 'contain' }} alt="" />
         </div>
       )}
+
+      <OgBottomBar />
+    </div>
+  )
+}
+
+// ── Anh de DANG bai (khac anh preview khi dan link) ──────────────
+// Feed 4:5 va story 9:16 la hai khung Instagram/TikTok thuc su dung. Khong dung
+// 1200x630 cua OG: ti le ngang do bi cat hai ben tren feed dien thoai va chiem
+// chua toi mot phan ba man hinh doc.
+export const SOCIAL_FORMATS = {
+  feed: { width: 1080, height: 1350, label: 'Feed 4:5' },
+  story: { width: 1080, height: 1920, label: 'Story/Reel 9:16' },
+} as const
+
+export type SocialFormat = keyof typeof SOCIAL_FORMATS
+
+export function SocialPostImage({ format, title, priceSale, priceOrig, badgeMain, badgeSub, imageUrl, code }: {
+  format: SocialFormat
+  title: string
+  priceSale?: string
+  priceOrig?: string
+  badgeMain: string
+  badgeSub?: string | null
+  imageUrl?: string
+  code?: number
+}) {
+  const { width, height } = SOCIAL_FORMATS[format]
+  const isStory = format === 'story'
+
+  // Story: Instagram/TikTok phu giao dien cua ho len ~250px tren va ~380px duoi.
+  // Doi noi dung vao giua de gia va ma khong bi nut/avatar de len.
+  const padTop = isStory ? 260 : 72
+  const padBottom = isStory ? 400 : 72
+  const media = isStory ? 880 : 840
+
+  return (
+    <div style={{
+      width, height,
+      background: `linear-gradient(150deg, ${NAVY} 0%, #0F1929 50%, #14243B 100%)`,
+      position: 'relative', overflow: 'hidden', fontFamily: 'sans-serif',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      // Can giua theo chieu doc trong vung an toan: khong co dong nay thi noi dung
+      // dinh len tren va bo trong mot mang lon o duoi, nhin nhu bi loi cat.
+      justifyContent: 'center',
+      padding: `${padTop}px 72px ${padBottom}px`,
+    }}>
+      <OgGlows />
+
+      {imageUrl && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: media, height: media, flexShrink: 0,
+          borderRadius: 36, background: '#fff', overflow: 'hidden',
+          boxShadow: '0 26px 70px rgba(0,0,0,0.5)', position: 'relative',
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imageUrl} width={media} height={media} style={{ objectFit: 'contain' }} alt="" />
+          <div style={{
+            position: 'absolute', top: 26, left: 26, display: 'flex', alignItems: 'baseline', gap: 10,
+            padding: '14px 30px', borderRadius: 999,
+            background: `linear-gradient(135deg, ${GREEN} 0%, ${GREEN_DARK} 100%)`,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.35)',
+          }}>
+            <span style={{ fontSize: 46, fontWeight: 800, color: NAVY, letterSpacing: '-1px' }}>{badgeMain}</span>
+            {badgeSub && <span style={{ fontSize: 26, fontWeight: 800, color: NAVY, letterSpacing: 1 }}>{badgeSub}</span>}
+          </div>
+          {code != null && (
+            <div style={{
+              position: 'absolute', top: 26, right: 26, display: 'flex',
+              padding: '12px 24px', borderRadius: 999, background: 'rgba(11,20,32,0.86)',
+            }}>
+              <span style={{ fontSize: 32, fontWeight: 800, color: '#fff', letterSpacing: 1 }}>#{code}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22, marginTop: 46, width: '100%' }}>
+        <div style={{
+          fontSize: 52, fontWeight: 800, color: '#fff', lineHeight: 1.16, letterSpacing: '-1.2px',
+          textAlign: 'center', display: 'flex', textShadow: '0 6px 28px rgba(0,0,0,0.5)',
+        }}>
+          {truncate(title, 64)}
+        </div>
+
+        {(priceSale || priceOrig) && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 22 }}>
+            {priceSale && (
+              <span style={{ fontSize: 82, fontWeight: 800, color: GREEN, letterSpacing: '-3px', display: 'flex' }}>
+                {priceSale}
+              </span>
+            )}
+            {priceOrig && (
+              <span style={{ fontSize: 38, color: 'rgba(255,255,255,0.45)', textDecoration: 'line-through', display: 'flex' }}>
+                {priceOrig}
+              </span>
+            )}
+          </div>
+        )}
+
+        <OgWordmark />
+      </div>
 
       <OgBottomBar />
     </div>

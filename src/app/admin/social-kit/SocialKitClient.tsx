@@ -393,6 +393,33 @@ export default function SocialKitClient({ deals, missingCode }: {
               <button className="oa-btn" onClick={downloadQr} disabled={!qrSvg}>Tải SVG</button>
               <button className="oa-btn" onClick={downloadQrPng}>Tải PNG</button>
             </div>
+
+            {/* ── Ảnh đăng ────────────────────────────────────
+                Dung lai next/og cua thẻ OG (src/lib/ogTemplate.tsx) — khong goi
+                AI, khong ton phi, chi khac ti le va layout. */}
+            {deal && (
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #F1F5F9', textAlign: 'left' }}>
+                <span style={label}>Ảnh đăng</span>
+                {/* eslint-disable-next-line @next/next/no-img-element -- next/og tra PNG dong, khong qua image optimizer */}
+                <img
+                  src={`/admin/social-kit/image/${deal.code}?format=feed`}
+                  alt=""
+                  style={{ width: '100%', borderRadius: 8, border: '1px solid #F1F5F9', display: 'block', marginBottom: 8 }}
+                />
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <a className="oa-btn" style={{ textDecoration: 'none' }}
+                    href={`/admin/social-kit/image/${deal.code}?format=feed`}
+                    download={`offerdy-${deal.code}-feed.png`}>Feed 4:5</a>
+                  <a className="oa-btn" style={{ textDecoration: 'none' }}
+                    href={`/admin/social-kit/image/${deal.code}?format=story`}
+                    download={`offerdy-${deal.code}-story.png`}>Story 9:16</a>
+                </div>
+                <div style={{ fontSize: 11, color: '#9CA3AF', lineHeight: 1.6, marginTop: 8 }}>
+                  Đã có sẵn giá, % giảm và mã <strong>#{deal.code}</strong>. Bản Story chừa lề trên/dưới
+                  để nút và avatar của Instagram/TikTok không đè lên chữ.
+                </div>
+              </div>
+            )}
             <div style={{ fontSize: 11, color: '#9CA3AF', lineHeight: 1.6, marginTop: 12, textAlign: 'left' }}>
               Dán vào ảnh/video, story, hoặc in ra. Người xem quét là vào đúng sản phẩm —
               không phải gõ mã. QR đổi theo cả nhãn <code>?s=</code> nên vẫn tách được số liệu.
