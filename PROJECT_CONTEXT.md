@@ -166,6 +166,15 @@ Turns "compose a post" from retyping into picking a product. Caption + short lin
 - QR uses **`qrcode` (added 2026-07-25), dynamically imported** so its ~30KB stays a lazy admin chunk — same reason `exceljs` is dynamically imported in `/admin/import`. Error-correction level `M`: survives a poorly printed or off-angle scan without the modules getting so dense that a small story-sized QR fails. SVG download for print, 1024px PNG for a 1080×1920 story.
 - QR encodes the **`www.` absolute URL**, not the caption's short display form — `offerdy.com` 308-redirects to `www`, and a QR that costs an extra round trip is worse for the person scanning.
 
+## Sentry: never report from local dev
+All three `Sentry.init` sites (`sentry.server.config.ts`, `sentry.edge.config.ts`, `src/instrumentation-client.ts`) carry `enabled: process.env.NODE_ENV === 'production'` and an `environment` tag.
+
+- **Why it matters more than noise**: `generateDailyReport` reads Sentry via `getRecentSentryIssues()`, so an error thrown while editing a file on `npm run dev` becomes a line in the operator's morning report and an action item telling them to fix something that never happened on the live site. This occurred on 2026-07-25 — most of that day's "5 unresolved production errors" were transient dev-server states.
+- `NODE_ENV` is the right switch: `npm run dev` → `development` (off); any Vercel build, production or preview → `production` (on). Running `npm start` locally would still report — rare enough to accept.
+- `environment` is `VERCEL_ENV` server-side and `NEXT_PUBLIC_VERCEL_ENV` client-side — the browser bundle only receives `NEXT_PUBLIC_*` variables.
+- ⚠️ `getRecentSentryIssues()` deliberately does **not** filter `environment=production` yet. Every issue recorded before 2026-07-26 is untagged, so the filter returns **zero** and would hide real production errors — the report would drop from "5 errors" to "0" and read as if everything were fixed. Add the filter once tagged issues dominate and the legacy ones are cleared.
+- The `SENTRY_AUTH_TOKEN` in `.env.local` is **read-only** (`403` on write), so issues cannot be resolved programmatically from here.
+
 ## Cron postmortem: `CRON_SECRET` had a key but an empty value
 All three crons were dead from 2026-07-07 to 07-26. Root cause, and the debugging lesson, are both worth keeping.
 
