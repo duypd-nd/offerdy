@@ -7,6 +7,7 @@ import { categories as staticCategories } from '@/data/categories'
 import { reviews as staticReviews } from '@/data/reviews'
 import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
+import { DEAL_CODE_START } from '@/lib/dealCode'
 import type { StoreHealthInput } from '@/lib/merchantHealth'
 
 // ── Site Settings (from configGeneral + configSocial) ──────────
@@ -76,7 +77,7 @@ const dealsQuery = (limit: number) => `*[_type == "deal"] | order(_createdAt des
 }`
 
 const ALL_DEALS_QUERY = `*[_type == "deal"] | order(_createdAt desc) {
-  "id": _id, title, store, emoji, imgClass, "imageUrl": image.asset->url,
+  "id": _id, code, title, store, emoji, imgClass, "imageUrl": image.asset->url,
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl, "slug": slug.current,
   "category": category->{ name, emoji, "slug": slug.current }
 }`
@@ -121,7 +122,7 @@ export async function getDealsByStore(storeName: string) {
 }
 
 const DEAL_BY_SLUG_QUERY = `*[_type == "deal" && slug.current == $slug][0] {
-  "id": _id, title, store, emoji, imgClass, "imageUrl": image.asset->url,
+  "id": _id, code, title, store, emoji, imgClass, "imageUrl": image.asset->url,
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl,
   "slug": slug.current,
   summary, prosAndCons{ pros, cons }, faq[]{ question, answer },
@@ -134,6 +135,40 @@ export async function getDealBySlug(slug: string) {
   try {
     return await writeClient.fetch(DEAL_BY_SLUG_QUERY, { slug })
   } catch { return null }
+}
+
+// ── Ma san pham (#1000+) ───────────────────────────────────────
+// Short link /d/1000 chi can slug de redirect va _id de ghi tracking — khong can
+// ca document.
+export async function getDealRefByCode(
+  code: number
+): Promise<{ id: string; slug: string } | null> {
+  if (!isConfigured()) return null
+  try {
+    const ref = await writeClient.fetch<{ id: string; slug?: string } | null>(
+      `*[_type == "deal" && code == $code][0]{ "id": _id, "slug": slug.current }`,
+      { code }
+    )
+    return ref?.slug ? { id: ref.id, slug: ref.slug } : null
+  } catch { return null }
+}
+
+/**
+ * Ma ke tiep chua dung = max(code hien co) + 1.
+ *
+ * Co y KHONG dem so deal (count + START): deal bi xoa se lam ma tut lai va cap
+ * trung cho deal khac — trong khi ma cu da nam trong caption bai dang mang xa hoi.
+ * Ma chi tang, khong tai su dung.
+ *
+ * Ghi chu: hai lan tao deal chay that song song co the nhan cung mot ma (Sanity
+ * khong co sequence). Chap nhan duoc vi admin la mot nguoi va importer chay tuan
+ * tu; neu tuong lai co nhieu writer thi doi sang counter document + patch inc().
+ */
+export async function nextDealCode(): Promise<number> {
+  const max = await writeClient.fetch<number | null>(
+    `*[_type == "deal" && defined(code)] | order(code desc)[0].code`
+  )
+  return typeof max === 'number' ? max + 1 : DEAL_CODE_START
 }
 
 export async function getExpiringDeals() {

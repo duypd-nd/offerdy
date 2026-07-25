@@ -1,16 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import Image from 'next/image'
 import { getAllDeals, getSiteSettings } from '@/sanity/queries'
-import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
+import LinkInBioDeals from '@/components/LinkInBioDeals'
 import type { Deal } from '@/data/deals'
 
 export const revalidate = 60
-
-// So deal hien tren trang. Link-in-bio la de luot nhanh tren dien thoai, khong
-// phai trang danh muc — nhieu qua thi loang, nut "View all deals" o cuoi lo phan
-// con lai.
-const MAX_DEALS = 12
 
 export const metadata: Metadata = {
   title: 'Offerdy — Today’s Best Deals',
@@ -27,7 +21,9 @@ export default async function LinksPage() {
     getSiteSettings(),
   ])
 
-  const deals = (allDeals as Deal[]).slice(0, MAX_DEALS)
+  // Ca danh sach di xuong client (khong slice o day) de o tim kiem loc duoc TOAN BO
+  // deal ma khong phai goi API — xem LinkInBioDeals.
+  const deals = allDeals as Deal[]
 
   return (
     <div className="lb-page">
@@ -49,52 +45,7 @@ export default async function LinksPage() {
           <Link href="/stores" className="lb-chip">Stores</Link>
         </div>
 
-        {deals.length > 0 && (
-          <>
-            <div className="lb-sec">
-              <span className="lb-sec-t">Latest deals</span>
-              <span className="lb-sec-line" />
-            </div>
-
-            <div className="lb-list">
-              {deals.map((deal, i) => {
-                const badge = dealDiscountBadge(deal)
-                return (
-                  <Link key={deal.id} href={`/deals/${deal.slug}`} className="lb-card">
-                    <div className="lb-thumb">
-                      {deal.imageUrl && (
-                        <Image
-                          src={deal.imageUrl}
-                          alt={deal.title}
-                          fill
-                          // 2 cot: moi anh chiem ~nua chieu rong man hinh, tru
-                          // padding trang va khe giua 2 cot.
-                          sizes="(max-width: 520px) 45vw, 230px"
-                          style={{ objectFit: 'cover' }}
-                          // Anh dau tien la LCP cua trang (hero chi co chu).
-                          // Trang nay nhan traffic tu bio Instagram/TikTok — gan nhu
-                          // 100% la 4G tren dien thoai, nen uu tien tai no truoc.
-                          priority={i === 0}
-                        />
-                      )}
-                      <span className="lb-badge">
-                        {badge.main}{badge.sub && <i>{badge.sub}</i>}
-                      </span>
-                    </div>
-
-                    <div className="lb-body">
-                      <div className="lb-title">{deal.title}</div>
-                      <div className="lb-price">
-                        <span className="lb-now">{deal.priceSale}</span>
-                        {deal.priceOrig && <span className="lb-was">{deal.priceOrig}</span>}
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          </>
-        )}
+        {deals.length > 0 && <LinkInBioDeals deals={deals} />}
 
         <Link href="/deals" className="lb-all">View all deals →</Link>
 

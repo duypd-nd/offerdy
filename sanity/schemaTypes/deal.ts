@@ -7,6 +7,23 @@ export const dealType = defineType({
   fields: [
     defineField({ name: 'title', title: 'Title', type: 'string', validation: r => r.required() }),
     defineField({ name: 'slug', title: 'Slug', type: 'slug', options: { source: 'title' }, validation: r => r.required() }),
+    defineField({
+      name: 'code',
+      title: 'Mã sản phẩm (#)',
+      type: 'number',
+      readOnly: true,
+      description:
+        'Hệ thống tự cấp, bắt đầu từ 1000 và tăng dần — dùng để nhắc sản phẩm trong caption Instagram/TikTok (VD: "#1000"), tìm trên /links, và short link offerdy.com/d/1000. KHÔNG sửa tay: mã đã đăng lên mạng xã hội thì phải giữ nguyên vĩnh viễn, đổi mã = link cũ chết. Deal thiếu mã: chạy /admin/migrate/deal-codes.',
+      validation: r => r.integer().positive(),
+    }),
+    defineField({
+      name: 'shortLinkClicks',
+      title: 'Lượt mở short link /d/<mã>',
+      type: 'number',
+      readOnly: true,
+      description:
+        'Số lần short link offerdy.com/d/<mã> được mở (đã lọc bot/trình đọc link preview). Đây KHÔNG phải click ra merchant — click affiliate đếm riêng trên offer/store. Xem chi tiết theo nguồn (Instagram/TikTok…) tại /admin/reports.',
+    }),
     defineField({ name: 'store', title: 'Store (e.g. Apple · Best Buy)', type: 'string', validation: r => r.required() }),
     defineField({ name: 'emoji', title: 'Emoji', type: 'string', description: 'e.g. 🎧 📺 👟' }),
     defineField({

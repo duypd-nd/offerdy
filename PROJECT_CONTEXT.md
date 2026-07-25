@@ -31,7 +31,8 @@
 |-------|--------|-------|
 | `/` | ✅ Live | Homepage |
 | `/deals` | ✅ Live | All deals — filter by category via `?category=<slug>` |
-| `/links` | ✅ Live | **Link-in-bio** for Instagram/TikTok (neither allows clickable links in captions, so the bio points here permanently instead of being re-edited per post). Mobile-first, no header/footer, 12 latest deals. `noindex` + kept out of `sitemap.ts` on purpose — it duplicates `/deals` and would compete with it in search. Styles are the `.lb-*` block in `globals.css`; the wordmark is **text, not the Sanity logo** (that logo is dark-on-transparent and vanishes on this dark background) |
+| `/links` | ✅ Live | **Link-in-bio** for Instagram/TikTok (neither allows clickable links in captions, so the bio points here permanently instead of being re-edited per post). Mobile-first, no header/footer, 12 latest deals + **search box** (see "Product codes" below). `noindex` + kept out of `sitemap.ts` on purpose — it duplicates `/deals` and would compete with it in search. Styles are the `.lb-*` block in `globals.css`; the wordmark is **text, not the Sanity logo** (that logo is dark-on-transparent and vanishes on this dark background). The grid + search live in the client component `src/components/LinkInBioDeals.tsx`; the page passes it **all** deals (not a slice) so search covers the whole catalogue with zero API calls — the page stays `○ Static` |
+| `/d/[code]` | ✅ Live | **Short link by product code** — `offerdy.com/d/1000` → 302 to `/deals/<slug>`, **click-tracked** (see "Short-link tracking" below). Route handler (`route.ts`), not a page: the result is always a redirect, so there's nothing to render and no duplicate of `/deals/<slug>`. Unknown/malformed code → `/links` (not 404 — a visitor from a social post who mistyped a digit is worth keeping). 302 not 301 for two reasons: a deal's slug changes when its title is edited (a cached 301 would pin the short link to a dead slug), **and** a cached 301 stops sending later visits through this route, freezing the click count while people are still clicking |
 | `/deals/[slug]` | ✅ Live | Deal detail — Summary/Pros&Cons/FAQ, AI-generated via `generateDealContent.ts`, JSON-LD Product+FAQPage+Breadcrumb |
 | `/stores` | ✅ Live | Store directory |
 | `/stores/[slug]` | ✅ Live | Store detail + offers |
@@ -65,7 +66,7 @@
 - Config: General, SEO, Social, Ads, Author, Content
 - Import (`/admin/import`)
 - Flash Sales, Coupon Codes, Comparisons, Tips & Guides admin sections
-- Migration util: `/admin/migrate/footer` (one-time footer link patch)
+- Migration utils: `/admin/migrate/footer` (one-time footer link patch — ⚠️ it calls `revalidatePath` **during render**, which Next 16 now rejects at runtime; if it's ever needed again it must move to a server action like `deal-codes` did), `/admin/migrate/deal-codes` (assigns missing product codes; read-only page + `assignDealCodes()` server action behind a button, idempotent)
 - **`/admin/ai-review`** — approval queue for AI-generated drafts, 3 tabs: Stores / Offers / Deals. Preview via iframe `srcDoc`, Approve/Reject/Regenerate.
 - **`/admin/merchant-health`** — 0-100 health score per store (Content 40% / SEO 20% / Affiliate 25% / Freshness 15%), sorted worst-first, links back to `/admin/stores`
 - **`/admin/seo-audit`** — deterministic (non-AI) audit: missing/duplicate meta title/description, missing FAQ, missing images, short excerpts
@@ -89,6 +90,29 @@
 - **Analytics** — folded into AI Daily Report rather than a parallel system (click/conversion data feeds the same AI summary)
 - **Daily Report** — `/api/cron/daily-report` → Sanity singleton `dailyReport` → shown atop `/admin/reports`
 - Reviewer role is covered by the `/code-review` skill, not a dedicated engine.
+
+## Product codes (`deal.code`, #1000+)
+Short human identifier per deal, so a social post can say "product #1005" and the viewer has two ways in: type it into the `/links` search box, or open `offerdy.com/d/1005`.
+
+- Helpers: `src/lib/dealCode.ts` — `DEAL_CODE_START` (1000), `formatDealCode()`, `parseDealCode()`. Dependency-free on purpose (imported by a client component).
+- **Starts at 1000** so every code is 4 digits and can never be misread as the `#` column in `/admin/deals` — that column is a display position that shifts with sort/filter/pagination, *not* a code.
+- **Codes only ever increase and are never reused.** `nextDealCode()` (`src/sanity/queries.ts`) = `max(code) + 1`, deliberately not `count + START`: deleting a deal would otherwise pull the counter back and hand a live code to a different product, while the old number is still sitting in a published caption.
+- **`code` is `readOnly` in the Studio and must never be edited.** A code that has been posted is a permanent public address.
+- Assigned at creation on **every** write path — `createDeal()` (`src/app/admin/deals/actions.ts`) and `importDeals()` (`src/app/api/import/route.ts`). Sanity's `initialValue` does **not** apply to API-created docs, so a new path that forgets this silently produces a deal that no code can reach. The importer takes one code before the loop and increments in-memory: re-querying per row can miss a just-created doc (eventual consistency) and hand out a duplicate.
+- Displayed on `/links` cards (`.lb-code`), the deal detail page (`.dd-code`, in the `.dd-store` line), and the `Mã` column in `/admin/deals` (whose search box matches code as well as title).
+- Backfill: `/admin/migrate/deal-codes`. Run after any import that predates this feature. The 21 deals live on 2026-07-25 got #1000–#1020, oldest first.
+- ⚠️ Concurrency: two truly simultaneous creates can collide (Sanity has no sequence). Fine for one operator + a sequential importer; if a second writer ever appears, switch to a counter document with `patch().inc()`.
+
+## Short-link tracking (`/d/<code>`)
+Answers "which post actually sends traffic". Written by `src/lib/trackShortLink.ts`, read in `/admin/reports` → "🔗 Short link".
+
+- **Two records per open**, mirroring the existing affiliate-click model (`src/actions/trackClick.ts`): a counter on the deal (`shortLinkClicks`, `readOnly`) plus a `click` document carrying `kind: 'shortlink'`, `deal` (`_weak`), `code`, `source`, optional `campaign`. There is deliberately **no `click` schema file** — these are log-only docs and a schema would dump thousands of them into the Studio.
+- **`kind: 'shortlink'` exists so the affiliate report can exclude them.** Opening a short link is not a click through to a merchant; mixing the two inflates the revenue numbers. Every affiliate-click query must keep the `kind != "shortlink"` filter. Historical click docs have no `kind` at all and GROQ evaluates `null != "shortlink"` as true, so that filter is safe on old data (verified against the live 21 docs).
+- **Tracking runs in `after()` (`next/server`), never inline** — two Sanity writes are 200–400ms and would be added straight onto the redirect the visitor is waiting for. Plain fire-and-forget is wrong on serverless: the runtime may end right after the response and kill the pending promise. `trackShortLinkClick` also never throws — telemetry must not break a redirect.
+- **Source detection is UA-first, referer-second** (`src/lib/shortLinkSource.ts`). This is backwards from normal analytics on purpose: Instagram/TikTok in-app webviews usually send **no `Referer`**, so a referer-only implementation would report nearly every visit as "direct". Those webviews do identify themselves in the User-Agent (`Instagram`, `BytedanceWebview`/`musical_ly`, `FBAN`/`FBAV`, `Barcelona` = Threads app), which is the more reliable signal here.
+- **Bots and link-preview fetchers are filtered** (`isLikelyBot`) — without it, posting a link makes the count jump purely from Facebook/WhatsApp/Slack unfurling the URL. An empty/very short UA also counts as a bot.
+- **`?s=<tag>`** → `campaign`, for splitting several posts that point at the same product (`/d/1005?s=reel-jul25`). Sanitised to `[a-z0-9_-]`, max 24 chars, because the value is attacker-supplied and gets rendered back in the admin.
+- `/admin/deals`: the `Mã` cell is a **click-to-copy** button (copies `https://www.offerdy.com/d/<code>`) with the open count beside it.
 
 **Sanity reference gotcha**: strong references (default) block deletion of the referenced doc. `offer.store` is intentionally strong (real data integrity) but store deletion now cascades to delete its offers in one transaction rather than failing silently — see `src/app/admin/stores/actions.ts`. Analytics/log-only references (e.g. `click.offer`/`click.store`) use `_weak: true` (exact field name — `weak` is rejected by Sanity) since referential integrity doesn't matter there. When adding a new reference field, decide which case it is up front instead of defaulting to strong and discovering a deletion deadlock later.
 

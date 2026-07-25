@@ -2,12 +2,14 @@
 
 import { revalidatePath } from 'next/cache'
 import { writeClient } from '@/sanity/writeClient'
+import { nextDealCode } from '@/sanity/queries'
 
 function revalidateDeals() {
   revalidatePath('/admin/deals')
   revalidatePath('/deals')
   revalidatePath('/deals/[slug]', 'page')
   revalidatePath('/')
+  revalidatePath('/links')
 }
 
 export async function updateDeal(id: string, patch: Record<string, unknown>, unset?: string[]) {
@@ -33,6 +35,9 @@ export async function createDeal(data: {
   const doc = await writeClient.create({
     _type: 'deal',
     ...data,
+    // Ma san pham cap ngay luc tao: initialValue cua Sanity chi ap dung trong Studio,
+    // deal tao qua API se thieu ma va bien mat khoi duong tim theo ma tren /links.
+    code: await nextDealCode(),
     slug: { _type: 'slug', current: slug },
     expiresAt: data.expiresAt || undefined,
     dealUrl: data.dealUrl || undefined,

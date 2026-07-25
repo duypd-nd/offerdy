@@ -61,6 +61,11 @@ function ReviewSearchInput({ reviews, value, onChange }: {
   )
 }
 
+// Ten mien production (hardcode giong moi noi khac trong repo — NEXT_PUBLIC_SITE_URL
+// co tren Vercel nhung khong duoc code nao doc, xem PROJECT_CONTEXT). Dang `www.`
+// la dang chinh: offerdy.com tran 308 sang no.
+const SHORT_LINK_BASE = 'https://www.offerdy.com'
+
 const calcDiscount = (orig: string, sale: string) => {
   const o = parseFloat(orig.replace(/[^0-9.]/g, ''))
   const s = parseFloat(sale.replace(/[^0-9.]/g, ''))
@@ -77,7 +82,7 @@ const calcAmountSaved = (orig: string, sale: string) => {
 }
 
 type AdminDeal = {
-  _id: string; title: string; slug: string
+  _id: string; code?: number; shortLinkClicks?: number; title: string; slug: string
   imageUrl?: string; priceSale: string; priceOrig: string
   discount: number; discountByAmount?: boolean; verified: boolean; isExpiring: boolean
   expiresAt?: string; dealUrl?: string; _createdAt: string; _updatedAt?: string; order?: number
@@ -105,6 +110,14 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
   const [orderDirty, setOrderDirty] = useState(false)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  const copyShortLink = (code: number) => {
+    const url = `${SHORT_LINK_BASE}/d/${code}`
+    navigator.clipboard.writeText(url)
+      .then(() => showToast(`Đã copy ${url}`))
+      // clipboard API can HTTPS hoac localhost; bao that thay vi im lang
+      .catch(() => showToast('Không copy được — hãy copy tay: ' + url))
+  }
 
   const handleDragStart = (e: React.DragEvent, idx: number) => {
     setDragSrcIdx(idx)
@@ -142,7 +155,11 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
   }
 
   const filtered = deals.filter(d => {
-    const matchSearch = d.title.toLowerCase().includes(search.toLowerCase())
+    // Tim theo ten HOAC ma (go "1005" / "#1005"), de doi chieu voi so trong caption
+    const q = search.trim().toLowerCase()
+    const matchSearch = !q
+      || d.title.toLowerCase().includes(q)
+      || (d.code != null && `#${d.code}`.includes(q.startsWith('#') ? q : `#${q}`))
     const matchStatus = statusFilter === 'all' || (statusFilter === 'verified' ? d.verified : !d.verified)
     return matchSearch && matchStatus
   })
@@ -227,6 +244,7 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
               <th style={{ width: 28 }}></th>
               <th className="oa-th-check"><input type="checkbox" checked={selected.size === paginated.length && paginated.length > 0} onChange={toggleAll} /></th>
               <th className="oa-th-num">#</th>
+              <th className="oa-th-num" title="Mã sản phẩm — dùng trong caption Instagram/TikTok và short link /d/&lt;mã&gt;">Mã</th>
               <th>Tên Deal</th>
               <th>Ảnh</th>
               <th>Giá gốc</th>
@@ -252,6 +270,24 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
                 <td style={{ cursor: 'grab', color: '#9ca3af', textAlign: 'center', fontSize: 16, userSelect: 'none' }} title="Kéo để sắp xếp">≡</td>
                 <td className="oa-td-check"><input type="checkbox" checked={selected.has(d._id)} onChange={() => toggleSelect(d._id)} /></td>
                 <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num" style={{ whiteSpace: 'nowrap' }}>
+                  {d.code ? (
+                    // Bam de copy san link day du — soan caption thi can chuoi dan
+                    // duoc ngay, khong phai tu go lai "offerdy.com/d/1005".
+                    <button
+                      onClick={() => copyShortLink(d.code!)}
+                      title={`Copy ${SHORT_LINK_BASE}/d/${d.code}`}
+                      style={{ background: 'none', padding: 0, fontWeight: 700, color: '#16a34a', fontVariantNumeric: 'tabular-nums', fontSize: 'inherit' }}
+                    >
+                      #{d.code}
+                    </button>
+                  ) : <span style={{ color: '#d1d5db' }}>—</span>}
+                  {!!d.shortLinkClicks && (
+                    <span title="Lượt mở short link (bot đã lọc)" style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#6b7694' }}>
+                      {d.shortLinkClicks}▸
+                    </span>
+                  )}
+                </td>
                 <td><button className="oa-name-btn" onClick={() => setEditingDeal(d)}>{d.title}</button></td>
                 <td>{d.imageUrl ? <img src={d.imageUrl} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }} /> : <span style={{ color: '#d1d5db' }}>—</span>}</td>
                 <td style={{ fontSize: 13, color: '#9ca3af', textDecoration: 'line-through' }}>{d.priceOrig}</td>
@@ -271,7 +307,7 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
                 </td>
               </tr>
             ))}
-            {paginated.length === 0 && <tr><td colSpan={12} className="oa-empty">Không tìm thấy deal nào</td></tr>}
+            {paginated.length === 0 && <tr><td colSpan={13} className="oa-empty">Không tìm thấy deal nào</td></tr>}
           </tbody>
         </table>
       </div>

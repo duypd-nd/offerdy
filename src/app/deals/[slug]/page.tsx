@@ -7,6 +7,7 @@ import AffiliateLink from '@/components/AffiliateLink'
 import FaqAccordion from '@/components/FaqAccordion'
 import { getDealBySlug, getConfigContent } from '@/sanity/queries'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
+import { formatDealCode } from '@/lib/dealCode'
 
 export const revalidate = 60
 
@@ -133,7 +134,16 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
               }
             </div>
             <div className="dd-info">
-              {deal.store && <div className="dd-store">{deal.store}</div>}
+              {/* Ma san pham: khach den tu caption "#1005" can thay dung so do de
+                  biet minh khong vao lam trang. `store` rong o toan bo 21 deal hien
+                  tai nen dong nay thuong chi con ma. */}
+              {(deal.store || deal.code) && (
+                <div className="dd-store">
+                  {deal.store}
+                  {deal.store && deal.code ? ' · ' : ''}
+                  {deal.code && <span className="dd-code">{formatDealCode(deal.code)}</span>}
+                </div>
+              )}
               <h1 className="dd-title">{deal.title}</h1>
               <div className="dd-prices">
                 <span className="dd-now">{deal.priceSale}</span>

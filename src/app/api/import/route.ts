@@ -1,4 +1,5 @@
 import { writeClient } from '@/sanity/writeClient'
+import { nextDealCode } from '@/sanity/queries'
 import { revalidatePath } from 'next/cache'
 import { generateStoreContent } from '@/lib/ai/generateStoreContent'
 import { renderAboutHtml, type AboutContent } from '@/lib/ai/aboutTemplate'
@@ -549,6 +550,11 @@ async function importDeals(rows: ImportRow[]) {
   )
   const dealBySlug = new Map(existingDeals.map((d) => [d.slug, d._id]))
 
+  // Ma san pham cho deal MOI. Lay mot lan roi tang tay trong vong lap: goi
+  // nextDealCode() moi hang se doc lai max tu Sanity, nhung ban ghi vua create
+  // chua chac da hien trong query ke tiep (eventual consistency) -> hai deal trung ma.
+  let nextCode = await nextDealCode()
+
   // Category is a reference; resolve by name OR slug (case-insensitive). A value
   // that matches neither is reported and dropped rather than failing the row.
   const cats = await writeClient.fetch<{ _id: string; name?: string; slug?: string }[]>(
@@ -669,11 +675,13 @@ async function importDeals(rows: ImportRow[]) {
           _type: 'deal',
           title,
           slug: { _type: 'slug', current: slug },
+          code: nextCode,
           verified: true,
           isExpiring: false,
           aiReviewStatus: 'none',
           ...fields,
         })
+        nextCode++
         // Guard against a second row with the same title creating a duplicate.
         dealBySlug.set(slug, created._id)
         results.imported++
@@ -687,6 +695,7 @@ async function importDeals(rows: ImportRow[]) {
   revalidatePath('/deals')
   revalidatePath('/deals/[slug]', 'page')
   revalidatePath('/', 'page')
+  revalidatePath('/links')
   return results
 }
 

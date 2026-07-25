@@ -1071,9 +1071,31 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .lb-chip{display:inline-flex;align-items:center;min-height:38px;padding:0 16px;border-radius:999px;font-size:13px;font-weight:700;color:rgba(255,255,255,.9);background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);transition:background .18s,border-color .18s,transform .12s}
 .lb-chip:active{transform:scale(.96);background:rgba(34,197,94,.2);border-color:rgba(34,197,94,.5)}
 
+/* O tim kiem: tim theo ten san pham hoac ma (#1000). Khong dung lai .search-bar
+   cua header vi bo style do la theme sang (nen var(--bg), chu var(--text)) —
+   dat len nen toi cua trang nay thi thanh o trang choi. Dung lai cong thuc be
+   mat cua .lb-chip/.lb-all: rgba trang mo + vien trang mo + focus xanh.
+   Khong dung position:sticky: .lb-page co overflow:hidden nen sticky khong dinh. */
+.lb-search{position:relative;margin-bottom:16px}
+.lb-search input{width:100%;height:48px;padding:0 46px 0 42px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:15px;font-family:inherit;outline:none;-webkit-appearance:none;appearance:none;transition:background .18s,border-color .18s,box-shadow .18s}
+.lb-search input::placeholder{color:rgba(255,255,255,.45)}
+.lb-search input:focus{background:rgba(255,255,255,.13);border-color:rgba(34,197,94,.55);box-shadow:0 0 0 3px rgba(34,197,94,.14)}
+/* type=search de ban phim dien thoai hien nut "Search"; nut xoa mac dinh cua
+   WebKit bi an vi da co .lb-search-clear (vung cham to hon, hop mau trang). */
+.lb-search input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+.lb-search-ico{position:absolute;left:15px;top:50%;transform:translateY(-50%);display:flex;color:rgba(255,255,255,.5);pointer-events:none}
+.lb-search-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);font-size:19px;line-height:1}
+.lb-search-clear:active{background:rgba(34,197,94,.24)}
+
 .lb-sec{display:flex;align-items:center;gap:10px;margin:0 2px 12px}
 .lb-sec-t{font-size:12px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--green)}
 .lb-sec-line{flex:1;height:1px;background:linear-gradient(90deg,rgba(34,197,94,.4),transparent)}
+.lb-count{flex-shrink:0;font-size:11.5px;font-weight:700;color:rgba(255,255,255,.5)}
+
+.lb-empty{text-align:center;padding:30px 12px 26px;font-size:14px;line-height:1.7;color:rgba(255,255,255,.55)}
+.lb-empty strong{color:#fff;word-break:break-word}
+.lb-empty-btn{display:inline-flex;align-items:center;min-height:42px;margin-top:16px;padding:0 20px;border-radius:999px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.45);color:#fff;font-size:13px;font-weight:700;transition:background .18s,transform .12s}
+.lb-empty-btn:active{transform:scale(.97);background:rgba(34,197,94,.3)}
 
 /* Luoi 2 cot: anh vuong to o tren, chu o duoi. Anh san pham la thu dung lai
    ngon tay khi luot, nen cho no chiem gan het chieu rong cot.               */
@@ -1083,6 +1105,8 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .lb-thumb{position:relative;width:100%;aspect-ratio:1/1;background:var(--bg)}
 .lb-badge{position:absolute;top:7px;left:7px;display:inline-flex;align-items:baseline;gap:3px;padding:4px 10px;border-radius:999px;background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%);font-size:13px;font-weight:800;color:var(--navy);box-shadow:0 3px 10px rgba(0,0,0,.3)}
 .lb-badge i{font-style:normal;font-size:9.5px;font-weight:800}
+/* Ma san pham — goc doi dien badge giam gia de hai nhan khong bao gio de nhau */
+.lb-code{position:absolute;top:7px;right:7px;padding:3px 8px;border-radius:999px;background:rgba(11,20,32,.8);color:#fff;font-size:10.5px;font-weight:800;letter-spacing:.3px}
 .lb-body{display:flex;flex-direction:column;gap:7px;padding:11px 12px 13px;min-width:0}
 .lb-title{font-size:13.5px;font-weight:700;color:var(--text);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.7em}
 /* Gia gap dong khi qua dai (vd Rp4.961.899) thay vi day vo cot ben canh */
@@ -1115,6 +1139,7 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .dd-media img{width:100%;height:100%;object-fit:cover}
 .dd-info{flex:1;min-width:0}
 .dd-store{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.dd-code{font-weight:800;color:var(--green-dark);font-variant-numeric:tabular-nums}
 .dd-title{font-size:27px;font-weight:800;line-height:1.24;letter-spacing:-.5px;margin:0 0 16px}
 .dd-prices{display:flex;align-items:center;gap:11px;flex-wrap:wrap;margin-bottom:6px}
 .dd-now{font-size:29px;font-weight:800;color:var(--green-dark);letter-spacing:-.6px}

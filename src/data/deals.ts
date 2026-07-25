@@ -2,6 +2,9 @@ import type { SearchItem } from './stores'
 
 export type Deal = {
   id: string
+  /** Ma san pham ngan (#1000+) — xem src/lib/dealCode.ts. Undefined = deal cu
+   *  chua backfill; moi cho hien thi ma phai chiu duoc gia tri thieu. */
+  code?: number
   title: string
   store?: string
   emoji?: string

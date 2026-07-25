@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getRecentSentryIssues } from '@/lib/sentryApi'
 import { getMerchantHealthData, getLatestDailyReport } from '@/sanity/queries'
 import { computeStoreHealth, HEALTH_LEVEL_COLOR, HEALTH_LEVEL_LABEL as LEVEL_LABEL } from '@/lib/merchantHealth'
+import { SOURCE_LABEL, type ShortLinkSource } from '@/lib/shortLinkSource'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,22 @@ type ClickLogRow = {
   storeId?: string
 }
 
+type ShortLinkClickRow = {
+  _createdAt: string
+  code?: number
+  source?: ShortLinkSource
+  campaign?: string
+  dealTitle?: string
+  dealSlug?: string
+}
+
+type DealShortLinkRow = {
+  code?: number
+  title: string
+  slug?: string
+  shortLinkClicks: number
+}
+
 function daysUntil(iso: string): number {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
 }
@@ -41,7 +58,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, sentryIssues, healthData, dailyReport] = await Promise.all([
+  const [offers, stores, recentClicks, shortLinkClicks, dealsWithShortLink, sentryIssues, healthData, dailyReport] = await Promise.all([
     writeClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -51,11 +68,27 @@ export default async function ReportsPage() {
     writeClient.fetch<StoreClickRow[]>(
       `*[_type == "store"] { "id": _id, name, "slug": slug.current, "directClicks": coalesce(clicks, 0) }`
     ),
+    // `kind != "shortlink"`: log mo short link /d/<ma> KHONG phai click affiliate.
+    // Gop chung se phong so lieu doanh thu (mo short link chi la vao xem san pham).
+    // Click affiliate cu khong co field `kind`, va trong GROQ `null != "shortlink"`
+    // la true, nen dieu kien nay giu nguyen toan bo du lieu lich su.
     writeClient.fetch<ClickLogRow[]>(
-      `*[_type == "click" && _createdAt >= $thirtyDaysAgo] {
+      `*[_type == "click" && _createdAt >= $thirtyDaysAgo && kind != "shortlink"] {
         _createdAt, "offerId": offer._ref, "storeId": coalesce(store._ref, offer->store._ref)
       }`,
       { thirtyDaysAgo }
+    ),
+    writeClient.fetch<ShortLinkClickRow[]>(
+      `*[_type == "click" && kind == "shortlink" && _createdAt >= $thirtyDaysAgo] | order(_createdAt desc) {
+        _createdAt, code, source, campaign,
+        "dealTitle": deal->title, "dealSlug": deal->slug.current
+      }`,
+      { thirtyDaysAgo }
+    ),
+    writeClient.fetch<DealShortLinkRow[]>(
+      `*[_type == "deal" && shortLinkClicks > 0] | order(shortLinkClicks desc) {
+        code, title, "slug": slug.current, "shortLinkClicks": coalesce(shortLinkClicks, 0)
+      }`
     ),
     getRecentSentryIssues(10),
     getMerchantHealthData(),
@@ -123,6 +156,30 @@ export default async function ReportsPage() {
     .sort((a, b) => b.clicks - a.clicks)
     .slice(0, 20)
 
+  // ── Short link /d/<ma> ──
+  // Bo dem tren deal la tong moi thoi gian; log `click` chi giu 30 ngay gan nhat
+  // (query o tren) nen cac moc theo thoi gian tinh tu log, con tong tinh tu bo dem.
+  const shortLinkToday = shortLinkClicks.filter(c => c._createdAt >= startOfToday).length
+  const shortLink7d = shortLinkClicks.filter(c => c._createdAt >= sevenDaysAgo).length
+  const shortLink30d = shortLinkClicks.length
+  const shortLinkAllTime = dealsWithShortLink.reduce((sum, d) => sum + d.shortLinkClicks, 0)
+
+  const sourceCounts = new Map<ShortLinkSource, number>()
+  for (const c of shortLinkClicks) {
+    const s = c.source ?? 'other'
+    sourceCounts.set(s, (sourceCounts.get(s) ?? 0) + 1)
+  }
+  const topSources = [...sourceCounts.entries()].sort((a, b) => b[1] - a[1])
+
+  const campaignCounts = new Map<string, number>()
+  for (const c of shortLinkClicks) {
+    if (!c.campaign) continue
+    campaignCounts.set(c.campaign, (campaignCounts.get(c.campaign) ?? 0) + 1)
+  }
+  const topCampaigns = [...campaignCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+
+  const topShortLinks = dealsWithShortLink.slice(0, 20)
+
   // ── Offer có click nhưng cần chú ý ──
   const needsAttention = offers
     .filter(o => o.verified === false || (o.expiresAt && daysUntil(o.expiresAt) <= 7))
@@ -176,6 +233,79 @@ export default async function ReportsPage() {
         <StatCard label="7 ngày qua" value={sevenDayCount} />
         <StatCard label="30 ngày qua" value={thirtyDayCount} />
         <StatCard label="Tất cả thời gian" value={allTimeCount} highlight />
+      </div>
+
+      {/* ── Short link /d/<mã> — đo bài đăng mạng xã hội, KHÔNG phải click affiliate ── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: 13, fontWeight: 700, color: '#374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🔗 Short link <code style={{ background: '#f6f8fb', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>/d/&lt;mã&gt;</code> — lượt mở từ bài đăng</span>
+            <Link href="/links" style={{ fontSize: 12, color: '#16a34a', textDecoration: 'underline' }}>Xem /links →</Link>
+          </div>
+
+          <div style={{ padding: 16 }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.7, marginBottom: 14 }}>
+              Đếm riêng, <strong>không cộng vào số click affiliate ở trên</strong> — mở short link chỉ là vào xem sản phẩm, chưa phải bấm sang merchant.
+              Bot và trình đọc link-preview (Facebook, WhatsApp, Slack…) đã bị lọc.
+              Thêm <code style={{ background: '#f6f8fb', padding: '1px 4px', borderRadius: 3 }}>?s=tên-bài</code> vào cuối link để tách số liệu từng bài đăng.
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: shortLinkAllTime > 0 ? 18 : 0 }}>
+              <StatCard label="Hôm nay" value={shortLinkToday} />
+              <StatCard label="7 ngày qua" value={shortLink7d} />
+              <StatCard label="30 ngày qua" value={shortLink30d} />
+              <StatCard label="Tất cả thời gian" value={shortLinkAllTime} highlight />
+            </div>
+
+            {shortLinkAllTime === 0 ? (
+              <div style={{ fontSize: 13, color: '#94a3b8', paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
+                Chưa có lượt mở nào. Dán <code style={{ background: '#f6f8fb', padding: '1px 5px', borderRadius: 4 }}>offerdy.com/d/1000</code> vào caption
+                hoặc comment bài đăng — mã của từng sản phẩm xem ở <Link href="/admin/deals" style={{ color: '#16a34a', fontWeight: 600 }}>Quản lý Deal</Link>.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: topCampaigns.length ? '1fr 220px 200px' : '1fr 240px', gap: 20, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 8 }}>Sản phẩm được mở nhiều nhất (tất cả thời gian)</div>
+                  {topShortLinks.map(d => (
+                    <div key={d.title} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12, marginBottom: 5 }}>
+                      <strong style={{ color: '#16a34a', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                        {d.code ? `#${d.code}` : '—'}
+                      </strong>
+                      <span style={{ color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                        {d.slug ? <a href={`/deals/${d.slug}`} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', textDecoration: 'none' }}>{d.title}</a> : d.title}
+                      </span>
+                      <strong style={{ color: '#0f172a', flexShrink: 0 }}>{d.shortLinkClicks}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 8 }}>Nguồn (30 ngày)</div>
+                  {topSources.length === 0 ? (
+                    <div style={{ fontSize: 12, color: '#94a3b8' }}>Chưa có lượt mở nào trong 30 ngày</div>
+                  ) : topSources.map(([source, count]) => (
+                    <div key={source} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 5 }}>
+                      <span style={{ color: '#1e293b' }}>{SOURCE_LABEL[source] ?? source}</span>
+                      <strong style={{ color: '#0f172a' }}>{count}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                {topCampaigns.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 8 }}>Bài đăng <code style={{ fontWeight: 600 }}>?s=</code> (30 ngày)</div>
+                    {topCampaigns.map(([campaign, count]) => (
+                      <div key={campaign} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12, marginBottom: 5 }}>
+                        <span style={{ color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{campaign}</span>
+                        <strong style={{ color: '#0f172a', flexShrink: 0 }}>{count}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ── Lỗi production (Sentry) — ưu tiên cao nhất, cần xử lý ngay ── */}
