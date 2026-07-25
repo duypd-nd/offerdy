@@ -170,6 +170,25 @@ function personaBlock(p: Persona): string {
 }
 
 function buildUserPrompt(
+  deal: CaptionDealInput, angle: CaptionAngle, count: number, persona: Persona, platform: CaptionPlatform,
+  provenCaptions?: { text: string; clicks: number }[]
+) {
+  // Vi du lay tu chinh kenh nay va tu nhung caption DA RA CLICK THAT — khong phai
+  // vi du chung chung. Chi dua vao khi thuc su co du lieu; ep model bat chuoc mot
+  // mau chua chung minh duoc gi thi con te hon la khong co vi du nao.
+  //
+  // Noi ro day la vi du ve GIONG DIEU va CAU TRUC, khong phai de sao chep con so:
+  // caption cu chua gia cua san pham CU, model ma bat chuoc nguyen van la sai gia.
+  const provenBlock = provenCaptions?.length
+    ? `\n\nWHAT HAS ACTUALLY WORKED ON THIS CHANNEL
+These captions were posted and led to real clicks through to the merchant. Study the rhythm, the sentence length and how each one opens — then write in that manner. They are about DIFFERENT products, so never copy their figures or product details.
+${provenCaptions.map((c, i) => `--- example ${i + 1} (${c.clicks} clicks) ---\n${c.text}`).join('\n')}`
+    : ''
+  return provenBlock ? _basePrompt(deal, angle, count, persona, platform) + provenBlock
+    : _basePrompt(deal, angle, count, persona, platform)
+}
+
+function _basePrompt(
   deal: CaptionDealInput, angle: CaptionAngle, count: number, persona: Persona, platform: CaptionPlatform
 ) {
   const a = CAPTION_ANGLES.find(x => x.id === angle) ?? CAPTION_ANGLES[0]
@@ -261,15 +280,17 @@ export async function generateCaptions(input: {
   count: number
   persona: Persona
   platform: CaptionPlatform
+  /** Caption cua chinh kenh nay da ra click that — dung lam vi du, xem buildUserPrompt. */
+  provenCaptions?: { text: string; clicks: number }[]
 }): Promise<{ variants: CaptionVariant[]; rejected: string[] }> {
-  const { deal, angle, count, persona, platform } = input
+  const { deal, angle, count, persona, platform, provenCaptions } = input
 
   const response = await getAnthropicClient().messages.parse({
     model: MODEL,
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     output_config: { format: zodOutputFormat(CaptionSchema) },
-    messages: [{ role: 'user', content: buildUserPrompt(deal, angle, count, persona, platform) }],
+    messages: [{ role: 'user', content: buildUserPrompt(deal, angle, count, persona, platform, provenCaptions) }],
   })
 
   const parsed = response.parsed_output

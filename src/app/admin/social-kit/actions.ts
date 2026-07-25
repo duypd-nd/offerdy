@@ -53,10 +53,12 @@ export async function generateCaptionsForDeal(input: {
     ])
     if (!deal) return { ok: false, error: `Không tìm thấy deal #${input.code}` }
 
+    const proven = await fetchProvenCaptions(input.platform)
     const { variants, rejected } = await generateCaptions({
       deal,
       angle: input.angle,
       platform: input.platform,
+      provenCaptions: proven,
       count: Math.min(Math.max(input.count, 1), 5),
       persona: persona ?? {},
     })
@@ -121,6 +123,7 @@ export async function generateWeekPlan(input: {
     ])
     if (!deals?.length) return { ok: false, error: 'Chưa có deal nào có mã' }
 
+    const proven = await fetchProvenCaptions(input.platform)
     const items: WeekItem[] = []
     const skipped: string[] = []
 
@@ -133,6 +136,7 @@ export async function generateWeekPlan(input: {
       try {
         const { variants } = await generateCaptions({
           deal, angle, count: 1, persona: persona ?? {}, platform: input.platform,
+          provenCaptions: proven,
         })
         const v = variants[0]
         if (!v) { skipped.push(`#${deal.code} — không có bản nào qua kiểm tra`); continue }
@@ -159,6 +163,73 @@ export async function generateWeekPlan(input: {
     return { ok: true, items, skipped }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/**
+ * Ghi lai caption admin THUC SU chon dung.
+ *
+ * Chi luu ban duoc chon, khong luu moi thu AI sinh ra: ban bi bo di khong noi len
+ * dieu gi, va luu het se lam loang du lieu doi chieu voi so click sau nay.
+ *
+ * Khong bao gio throw ra ngoai — day la ghi nhat ky, hong thi cung khong duoc chan
+ * viec admin copy caption di dang.
+ */
+export async function logCaptionUsed(input: {
+  campaign: string
+  dealCode: number
+  angle: CaptionAngle
+  platform: CaptionPlatform
+  text: string
+}): Promise<void> {
+  try {
+    await writeClient.create({
+      _type: 'captionLog',
+      campaign: input.campaign,
+      dealCode: input.dealCode,
+      angle: input.angle,
+      platform: input.platform,
+      text: input.text,
+      usedAt: new Date().toISOString(),
+    })
+  } catch {
+    // im lang co y — xem doc-comment
+  }
+}
+
+/**
+ * Caption da chung minh la an: doi chieu nhat ky voi luot bam sang merchant theo
+ * dung nhan `?s=`.
+ *
+ * Nguong `MIN_CLICKS`: mot caption co 1 luot bam khong noi len gi ngoai may man.
+ * Duoi nguong thi tra ve rong, va prompt se khong co phan vi du — dung hon la day
+ * cho model bat chuoc nhieu.
+ */
+const MIN_CLICKS_TO_LEARN = 3
+
+async function fetchProvenCaptions(platform: CaptionPlatform): Promise<{ text: string; clicks: number }[]> {
+  try {
+    const logs = await writeClient.fetch<{ campaign: string; text: string }[]>(
+      `*[_type == "captionLog" && platform == $platform && defined(campaign)] | order(usedAt desc)[0...60]{ campaign, text }`,
+      { platform }
+    )
+    if (!logs?.length) return []
+    const clicks = await writeClient.fetch<{ campaign: string; n: number }[]>(
+      `*[_type == "click" && kind == "affiliate" && defined(campaign)]
+       { campaign } | { "campaign": campaign }`
+    ).then((rows: { campaign: string }[]) => {
+      const m = new Map<string, number>()
+      for (const r of rows ?? []) m.set(r.campaign, (m.get(r.campaign) ?? 0) + 1)
+      return [...m].map(([campaign, n]) => ({ campaign, n }))
+    })
+    const byCampaign = new Map(clicks.map(c => [c.campaign, c.n]))
+    return logs
+      .map(l => ({ text: l.text, clicks: byCampaign.get(l.campaign) ?? 0 }))
+      .filter(l => l.clicks >= MIN_CLICKS_TO_LEARN)
+      .sort((a, b) => b.clicks - a.clicks)
+      .slice(0, 3)
+  } catch {
+    return []
   }
 }
 

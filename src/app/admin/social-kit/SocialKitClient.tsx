@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { buildCaption, shortLinkUrl, type LinkStyle } from '@/lib/socialCaption'
 import { parseCampaign } from '@/lib/shortLinkSource'
 import { CAPTION_ANGLES, CAPTION_PLATFORMS, platformById, type CaptionAngle, type CaptionPlatform } from '@/lib/ai/generateCaption'
-import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, type GeneratedCaption, type WeekItem } from './actions'
+import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, logCaptionUsed, type GeneratedCaption, type WeekItem } from './actions'
 
 type KitDeal = {
   code: number
@@ -104,6 +104,20 @@ export default function SocialKitClient({ deals, missingCode }: {
       setAiRejected(res.rejected)
       if (res.captions.length === 0 && res.rejected.length === 0) setAiError('AI không trả về bản nào — thử lại hoặc đổi góc.')
     })
+  }
+
+  /**
+   * Chon mot ban AI viet. Ghi vao nhat ky de sau nay doi chieu voi so click —
+   * chi ban DUOC CHON moi ghi, ban bo di khong noi len dieu gi.
+   */
+  const pickVariant = (c: GeneratedCaption, withTag: boolean) => {
+    setCaptionOverride(c.text)
+    if (withTag) setCampaignRaw(c.suggestedTag)
+    if (!deal) return
+    logCaptionUsed({
+      campaign: withTag ? c.suggestedTag : (campaign || c.suggestedTag),
+      dealCode: deal.code, angle, platform, text: c.text,
+    }).catch(() => {})
   }
 
   const runWeek = () => {
@@ -406,14 +420,14 @@ export default function SocialKitClient({ deals, missingCode }: {
                       <div key={i} style={{ background: '#fff', border: '1px solid #E4EAF2', borderRadius: 8, padding: '10px 12px' }}>
                         <div style={{ fontSize: 12.5, color: '#1E293B', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{c.text}</div>
                         <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <button className="oa-btn oa-btn-green" style={{ minHeight: 30, fontSize: 11.5 }} onClick={() => setCaptionOverride(c.text)}>
+                          <button className="oa-btn oa-btn-green" style={{ minHeight: 30, fontSize: 11.5 }} onClick={() => pickVariant(c, false)}>
                             Dùng bản này
                           </button>
                           <button
                             className="oa-btn"
                             style={{ minHeight: 30, fontSize: 11.5 }}
                             title="Đặt nhãn riêng cho bản này để báo cáo tách được góc nào ra click"
-                            onClick={() => { setCampaignRaw(c.suggestedTag); setCaptionOverride(c.text) }}
+                            onClick={() => pickVariant(c, true)}
                           >
                             Dùng + gắn nhãn <code>{c.suggestedTag}</code>
                           </button>

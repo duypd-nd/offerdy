@@ -18,6 +18,7 @@ import { configPersonaType } from './configPersona'
 
 // AI-generated singletons
 import { dailyReportType } from './dailyReport'
+import { captionLogType } from './captionLog'
 
 export const schemaTypes = [
   // Content
@@ -26,5 +27,5 @@ export const schemaTypes = [
   configGeneralType, configAuthorType, configSocialType,
   configSEOType, configContentType, configAdsType, configPersonaType,
   // AI-generated
-  dailyReportType,
+  dailyReportType, captionLogType,
 ]
