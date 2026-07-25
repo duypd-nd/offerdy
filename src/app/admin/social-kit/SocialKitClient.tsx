@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { buildCaption, shortLinkUrl, type LinkStyle } from '@/lib/socialCaption'
 import { parseCampaign } from '@/lib/shortLinkSource'
-import { CAPTION_ANGLES, type CaptionAngle } from '@/lib/ai/generateCaption'
+import { CAPTION_ANGLES, CAPTION_PLATFORMS, platformById, type CaptionAngle, type CaptionPlatform } from '@/lib/ai/generateCaption'
 import { generateCaptionsForDeal, type GeneratedCaption } from './actions'
 
 type KitDeal = {
@@ -40,6 +40,7 @@ export default function SocialKitClient({ deals, missingCode }: {
   const [qr, setQr] = useState<{ url: string; svg: string } | null>(null)
   const [toast, setToast] = useState('')
   const [angle, setAngle] = useState<CaptionAngle>('price')
+  const [platform, setPlatform] = useState<CaptionPlatform>('instagram')
   const [aiCaptions, setAiCaptions] = useState<GeneratedCaption[]>([])
   const [aiRejected, setAiRejected] = useState<string[]>([])
   const [aiError, setAiError] = useState('')
@@ -83,12 +84,14 @@ export default function SocialKitClient({ deals, missingCode }: {
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2200) }
 
+  const currentPlatform = platformById(platform)
+
   const runAi = () => {
     if (!deal) return
     setAiError(''); setAiRejected([]); setAiCaptions([])
     startAi(async () => {
       const res = await generateCaptionsForDeal({
-        code: deal.code, angle, count: 3, style, campaign,
+        code: deal.code, angle, platform, count: 3, style, campaign,
       })
       if (!res.ok) { setAiError(res.error); return }
       setAiCaptions(res.captions)
@@ -236,8 +239,35 @@ export default function SocialKitClient({ deals, missingCode }: {
                   qua kiem tra an toan (xem src/lib/ai/generateCaption.ts). */}
               <div style={{ background: '#F8FAFC', border: '1px solid #E4EAF2', borderRadius: 10, padding: 12, marginBottom: 14 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 100%' }}>
+                    <span style={label}>Đăng ở đâu</span>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {CAPTION_PLATFORMS.map(pf => (
+                        <button
+                          key={pf.id}
+                          onClick={() => setPlatform(pf.id)}
+                          title={pf.linkInCaption
+                            ? 'Link trong caption bấm được — CTA sẽ dùng link đầy đủ'
+                            : 'Link trong caption KHÔNG bấm được — CTA sẽ nhắc mã sản phẩm và chỉ về bio'}
+                          style={{
+                            minHeight: 32, padding: '0 11px', borderRadius: 7, fontSize: 12, fontWeight: 700,
+                            border: `1.5px solid ${platform === pf.id ? '#2563EB' : '#E4EAF2'}`,
+                            background: platform === pf.id ? '#EFF6FF' : '#fff',
+                            color: platform === pf.id ? '#2563EB' : '#6B7694',
+                          }}
+                        >
+                          {pf.label}{!pf.linkInCaption && <span style={{ opacity: .6, fontWeight: 400 }}> · mã</span>}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 5, lineHeight: 1.6 }}>
+                      {currentPlatform.linkInCaption
+                        ? 'Caption sẽ chứa link đầy đủ — ở đây URL bấm được.'
+                        : <>Instagram/TikTok <strong>không</strong> biến URL trong caption thành link bấm được. Caption sẽ nhắc <strong>mã #{deal?.code ?? '…'}</strong> và chỉ về link ở bio.</>}
+                    </div>
+                  </div>
                   <div style={{ flex: '1 1 260px' }}>
-                    <span style={label}>Viết bằng AI — chọn góc</span>
+                    <span style={label}>Góc tiếp cận</span>
                     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                       {CAPTION_ANGLES.map(a => (
                         <button

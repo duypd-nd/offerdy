@@ -31,7 +31,11 @@ export const CAPTION_ANGLES = [
     id: 'compare',
     label: 'So sánh',
     hint: 'Hợp khi có đối thủ rõ',
-    brief: 'Set the price against what the reader expects to pay for this category, without naming or disparaging any specific competing brand. Say plainly what the difference is and is not.',
+    // Brief cu bao "set the price against what the reader expects to pay for this
+    // category" — moi model dua ra nhan dinh ve mat bang gia thi truong ("many
+    // sunglasses cost more than..."), thu no khong co du lieu de noi. So sanh duy
+    // nhat co that trong tay la GIA CU voi GIA MOI.
+    brief: 'Compare the two numbers that are actually known: the original price and the current one. Make the size of the drop concrete and easy to picture. Do not reference what the category "usually" costs, what other shops charge, or any competing product — you have no data on any of that.',
   },
   {
     id: 'whofor',
@@ -53,13 +57,61 @@ export type CaptionAngle = typeof CAPTION_ANGLES[number]['id']
 // AI KHONG BAO GIO tu viet con so. No dat cho trong, code thay bang gia tri that
 // tu database. Nho vay khong the co chuyen caption noi sai gia, sai % giam, hay bia
 // ra ma coupon — la nhung khang dinh ma nguoi dang affiliate phai chiu trach nhiem.
-const PLACEHOLDERS = ['{price}', '{was}', '{discount}', '{link}', '{title}'] as const
+const PLACEHOLDERS = ['{price}', '{was}', '{discount}', '{link}', '{title}', '{code}'] as const
+
+// ── Nen tang ──────────────────────────────────────────────────
+// Khac biet quan trong nhat KHONG phai do dai caption ma la: URL trong caption co
+// bam duoc khong.
+//
+// Instagram va TikTok KHONG bien URL trong caption thanh link — no chi la chu, nguoi
+// xem phai tu go lai. Caption viet "See the listing at offerdy.com/d/1020" o hai noi
+// do la mot cau CTA hong: no bao nguoi ta lam mot viec ho khong lam duoc bang mot
+// cu cham. Dung cach la nhac MA (`{code}`) va chi ve link o bio — dung duong ma
+// /links + o tim kiem theo ma da dung san cho viec nay.
+export const CAPTION_PLATFORMS = [
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    linkInCaption: false,
+    brief: 'Instagram caption. The first line is what shows before "more" — it must work alone. Line breaks between short blocks. 4-6 hashtags at the end.',
+  },
+  {
+    id: 'tiktok',
+    label: 'TikTok',
+    linkInCaption: false,
+    brief: 'TikTok caption. Very short — two or three lines at most, the video carries the rest. 3-4 hashtags. Plain, spoken rhythm, no formal marketing sentences.',
+  },
+  {
+    id: 'pinterest',
+    label: 'Pinterest',
+    linkInCaption: true,
+    brief: 'Pinterest description. Written for search, not for a feed: lead with what the product is in plain descriptive words someone would type into the search box. Calm and factual, no hook-and-tease. 3-5 hashtags.',
+  },
+  {
+    id: 'threads',
+    label: 'Threads / X',
+    linkInCaption: true,
+    brief: 'Short post for Threads or X. Under about 250 characters total. Conversational, one idea. At most 2 hashtags — more looks like spam on these platforms.',
+  },
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    linkInCaption: true,
+    brief: 'Facebook post. Slightly longer and more explanatory than Instagram; readers there scroll less and read more. 2-3 hashtags at most.',
+  },
+] as const
+
+export type CaptionPlatform = typeof CAPTION_PLATFORMS[number]['id']
+
+export function platformById(id: CaptionPlatform) {
+  return CAPTION_PLATFORMS.find(p => p.id === id) ?? CAPTION_PLATFORMS[0]
+}
 
 const CaptionSchema = z.object({
   variants: z.array(z.object({
     hook: z.string().describe('First line. This alone decides whether anyone reads on.'),
     body: z.string().describe('1-3 short lines. May span multiple lines separated by \\n.'),
-    cta: z.string().describe('One short line telling the reader what to do. Must contain the {link} placeholder.'),
+    cta: z.string().describe('One short line telling the reader what to do. Must contain {link} or {code}, whichever the platform section requires.'),
     hashtags: z.array(z.string()).min(3).max(6).describe('Lowercase, no # prefix, no spaces. Derived from the product and the channel topic.'),
   })).min(1).max(5),
 })
@@ -76,6 +128,7 @@ ABSOLUTE RULES — these are not style preferences:
 3. NEVER claim personal experience. You did not use, test, wear, or own this. No "I've had mine for months", no "my favourite".
 4. NEVER manufacture urgency or scarcity — no "selling out", "only a few left", "today only", "hurry". If the deal has a real deadline the system adds it; you do not.
 5. NEVER promise an outcome ("you will look", "this will fix"). Describe, don't guarantee.
+6. NEVER write about what you are not claiming. Sentences like "without any claim about matching a brand" or "this says nothing about build quality" are you narrating your own instructions into the post. A reader finds that baffling. Simply leave out what you cannot support — say nothing about it at all.
 
 WHAT MAKES THESE WORK: specificity plus an information gap. A concrete figure sitting next to something the reader wants explained. Exclamation marks, all-caps and emoji walls do the opposite — they signal an ad and readers skip them. At most one emoji per caption, and only if the channel's own voice uses them.
 
@@ -116,9 +169,19 @@ function personaBlock(p: Persona): string {
     : 'No channel voice has been configured. Write plainly and neutrally — do not invent a personality.'
 }
 
-function buildUserPrompt(deal: CaptionDealInput, angle: CaptionAngle, count: number, persona: Persona) {
+function buildUserPrompt(
+  deal: CaptionDealInput, angle: CaptionAngle, count: number, persona: Persona, platform: CaptionPlatform
+) {
   const a = CAPTION_ANGLES.find(x => x.id === angle) ?? CAPTION_ANGLES[0]
-  return `CHANNEL VOICE
+  const p = platformById(platform)
+  const ctaRule = p.linkInCaption
+    ? 'The cta must contain {link}. On this platform a URL in the caption is clickable.'
+    : `The cta must contain {code} and must NOT contain {link}. On this platform a URL written in the caption is NOT clickable — it is plain text the reader would have to retype, so pointing them at a URL is a dead end. Instead tell them the link is in the bio and give them the product code ({code}) to find it with. Phrase it in the channel's own voice; do not copy a stock phrase.`
+  return `PLATFORM — ${p.label}
+${p.brief}
+${ctaRule}
+
+CHANNEL VOICE
 ${personaBlock(persona)}
 
 PRODUCT (this is everything that is known — do not add to it)
@@ -131,8 +194,8 @@ Discount: use {discount}
 ANGLE — ${a.label}
 ${a.brief}
 
-Write ${count} caption variant${count > 1 ? 's' : ''} from this angle. Each must open in a genuinely different way.
-The cta must contain {link}. Use {price}${deal.priceOrig ? ', {was}' : ''} and {discount} where the numbers belong — never write the figures yourself.`
+Write ${count} caption variant${count > 1 ? 's' : ''} from this angle, for ${p.label}. Each must open in a genuinely different way.
+Use {price}${deal.priceOrig ? ', {was}' : ''} and {discount} where the numbers belong — never write the figures yourself.`
 }
 
 // ── Kiem tra dau ra ────────────────────────────────────────────
@@ -141,13 +204,18 @@ The cta must contain {link}. Use {price}${deal.priceOrig ? ', {was}' : ''} and {
 const MONEY_RE = /(?:[$£€₫]|USD|VND)\s?\d|(?<!\{)\b\d+(?:[.,]\d+)?\s?%/i
 const UNKNOWN_PLACEHOLDER_RE = /\{([a-z_]+)\}/gi
 
-export function findUnsafeText(text: string): string | null {
+export function findUnsafeText(text: string, platform?: CaptionPlatform): string | null {
   const money = text.match(MONEY_RE)
   if (money) return `tự viết số tiền/phần trăm: "${money[0].trim()}"`
   for (const m of text.matchAll(UNKNOWN_PLACEHOLDER_RE)) {
     if (!PLACEHOLDERS.includes(`{${m[1]}}` as typeof PLACEHOLDERS[number])) {
       return `dùng chỗ trống không hợp lệ: "{${m[1]}}"`
     }
+  }
+  // URL trong caption Instagram/TikTok khong bam duoc — de lot mot cai la giao cho
+  // nguoi xem mot viec ho khong lam duoc bang mot cu cham.
+  if (platform && !platformById(platform).linkInCaption && text.includes('{link}')) {
+    return `đặt link vào caption ${platformById(platform).label} (link ở đó không bấm được)`
   }
   return null
 }
@@ -164,15 +232,21 @@ export function fillPlaceholders(
     .replaceAll('{was}', deal.priceOrig ?? deal.priceSale)
     .replaceAll('{discount}', `${badge.main}${badge.sub ? ` ${badge.sub}` : ''}`)
     .replaceAll('{title}', deal.title)
+    .replaceAll('{code}', `#${deal.code}`)
     .replaceAll('{link}', shortLink(deal.code, deal.slug, opts.style, opts.campaign))
 
   // Don cho dinh nhau. Prompt da dan ky nhung model van co xu huong viet "${price}"
   // va "{discount} off" theo phan xa — ra "$$1,297.79" va "45% OFF off". Prompt la
   // loi khuyen, buoc chuan hoa nay moi la thu chac chan.
   //
-  // `\1+` chu khong phai `\1`: model co khi viet "$${price}", sau khi dien thanh
-  // BA dau $. Mot regex chi gom mot cap se bien "$$$" thanh "$$" roi di tiep —
-  // dung loi da gap, va no trong y het nhu chua sua gi.
+  // `\1+` chu khong phai `\1` de gom duoc chuoi dai bat ky ("$$${price}"), khong
+  // chi mot cap.
+  //
+  // CANH BAO KHI DEBUG: dung tin chuoi doc thang tu payload cua server action.
+  // React Flight NHAN DOI dau $ o DAU chuoi (de phan biet voi ky hieu tham chieu),
+  // client tu go lai. Doc payload tho se thay "$$1,297.79" o nhung caption bat dau
+  // bang gia — trong y het mot loi chuan hoa, nhung la escape. Dau hieu phan biet:
+  // dau $ o GIUA cau khong bi nhan doi. Da mat kha nhieu thoi gian vi cho nay.
   return filled
     .replace(/([$£€₫])[\s]*\1+/g, '$1')        // $$$1,297 -> $1,297 (moi do dai)
     .replace(/\bOFF\s+off\b/gi, 'OFF')         // 45% OFF off -> 45% OFF
@@ -186,15 +260,16 @@ export async function generateCaptions(input: {
   angle: CaptionAngle
   count: number
   persona: Persona
+  platform: CaptionPlatform
 }): Promise<{ variants: CaptionVariant[]; rejected: string[] }> {
-  const { deal, angle, count, persona } = input
+  const { deal, angle, count, persona, platform } = input
 
   const response = await getAnthropicClient().messages.parse({
     model: MODEL,
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     output_config: { format: zodOutputFormat(CaptionSchema) },
-    messages: [{ role: 'user', content: buildUserPrompt(deal, angle, count, persona) }],
+    messages: [{ role: 'user', content: buildUserPrompt(deal, angle, count, persona, platform) }],
   })
 
   const parsed = response.parsed_output
@@ -207,7 +282,7 @@ export async function generateCaptions(input: {
   const variants: CaptionVariant[] = []
   const rejected: string[] = []
   for (const v of parsed.variants) {
-    const problem = findUnsafeText([v.hook, v.body, v.cta].join('\n'))
+    const problem = findUnsafeText([v.hook, v.body, v.cta].join('\n'), platform)
     if (problem) rejected.push(problem)
     else variants.push(v)
   }

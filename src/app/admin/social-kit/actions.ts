@@ -3,7 +3,7 @@
 import { writeClient } from '@/sanity/writeClient'
 import {
   generateCaptions, fillPlaceholders,
-  type CaptionAngle, type CaptionDealInput, type Persona,
+  type CaptionAngle, type CaptionPlatform, type CaptionDealInput, type Persona,
 } from '@/lib/ai/generateCaption'
 import type { LinkStyle } from '@/lib/socialCaption'
 
@@ -22,6 +22,7 @@ export type GeneratedCaption = { text: string; hashtags: string[]; suggestedTag:
 export async function generateCaptionsForDeal(input: {
   code: number
   angle: CaptionAngle
+  platform: CaptionPlatform
   count: number
   style: LinkStyle
   campaign?: string
@@ -44,6 +45,7 @@ export async function generateCaptionsForDeal(input: {
     const { variants, rejected } = await generateCaptions({
       deal,
       angle: input.angle,
+      platform: input.platform,
       count: Math.min(Math.max(input.count, 1), 5),
       persona: persona ?? {},
     })
@@ -58,7 +60,7 @@ export async function generateCaptionsForDeal(input: {
       hashtags: v.hashtags,
       // Nhan goi y de moi bien the do duoc rieng: dat vao o "Nhãn bài đăng" thi bao
       // cao se tach duoc goc nao ra click. Xem muc "Chuyen doi theo nguon".
-      suggestedTag: `${input.code}-${input.angle}${i > 0 ? String.fromCharCode(97 + i) : ''}`,
+      suggestedTag: `${input.code}-${input.platform.slice(0,2)}${input.angle}${i > 0 ? String.fromCharCode(97 + i) : ''}`,
     }))
 
     return { ok: true, captions, rejected }
