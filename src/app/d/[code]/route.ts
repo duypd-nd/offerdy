@@ -1,8 +1,9 @@
-import { after } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { getDealRefByCode } from '@/sanity/queries'
 import { parseDealCode } from '@/lib/dealCode'
 import { detectShortLinkSource, isLikelyBot, parseCampaign } from '@/lib/shortLinkSource'
 import { trackShortLinkClick } from '@/lib/trackShortLink'
+import { ATTRIBUTION_COOKIE, attributionCookieOptions, serializeAttribution } from '@/lib/attribution'
 
 // Short link theo ma san pham: offerdy.com/d/1000 -> /deals/<slug>.
 //
@@ -29,22 +30,36 @@ export async function GET(
   // doc searchParams se thanh dynamic rendering moi luot xem, mat cache 60s.
   const target = deal ? `/deals/${deal.slug}` : '/links'
 
-  // Tracking chay SAU khi response da gui (after()), nen no khong cong them do tre
-  // vao redirect — 2 luot ghi Sanity ~200-400ms la thay ro tren 4G. Fire-and-forget
-  // thuong khong dung o serverless: runtime co the ket thuc ngay sau response va
-  // giet promise chua xong; after() la co che chinh chu de giu no song.
-  if (deal && parsed !== null) {
-    const ua = request.headers.get('user-agent')
-    if (!isLikelyBot(ua)) {
-      const source = detectShortLinkSource(ua, request.headers.get('referer'))
-      const campaign = parseCampaign(new URL(request.url).searchParams.get('s'))
-      after(() => trackShortLinkClick({ dealId: deal.id, code: parsed, source, campaign }))
-    }
-  }
-
   // 302 chu khong phai 301: slug deal doi khi title duoc sua, ma 301 bi trinh
   // duyet/CDN cache vinh vien se ghim short link vao mot slug da chet. Rieng voi
   // tracking con mot ly do nua: 301 duoc cache thi luot sau khong con di qua route
   // nay, va so click ngung tang du nguoi van bam.
-  return Response.redirect(new URL(target, request.url), 302)
+  const response = NextResponse.redirect(new URL(target, request.url), 302)
+
+  if (!deal || parsed === null) return response
+
+  const ua = request.headers.get('user-agent')
+  // Trinh thu thap/doc link preview khong phai nguoi — khong dem, cung khong gan
+  // nguon (cookie cho bot la vo nghia).
+  if (isLikelyBot(ua)) return response
+
+  const source = detectShortLinkSource(ua, request.headers.get('referer'), request.headers.get('host'))
+  const campaign = parseCampaign(new URL(request.url).searchParams.get('s'))
+
+  // Gan nguon cho ca phien: click "Get Deal" o request sau se doc cookie nay, nho
+  // do moi biet Instagram/TikTok cho bao nhieu luot BAM SANG MERCHANT chu khong
+  // chi bao nhieu luot xem. Xem src/lib/attribution.ts.
+  response.cookies.set(
+    ATTRIBUTION_COOKIE,
+    serializeAttribution({ source, campaign, entryCode: parsed }),
+    attributionCookieOptions
+  )
+
+  // Tracking chay SAU khi response da gui (after()), nen no khong cong them do tre
+  // vao redirect — 2 luot ghi Sanity ~200-400ms la thay ro tren 4G. Fire-and-forget
+  // thuong khong dung o serverless: runtime co the ket thuc ngay sau response va
+  // giet promise chua xong; after() la co che chinh chu de giu no song.
+  after(() => trackShortLinkClick({ dealId: deal.id, code: parsed, source, campaign }))
+
+  return response
 }

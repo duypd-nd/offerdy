@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { updateDeal, deleteDeal, createDeal, uploadDealImage, uploadDealImageFromUrl, bulkUpdateOrder } from './actions'
+import { updateDeal, deleteDeal, createDeal, uploadDealImage, uploadDealImageFromUrl, bulkUpdateOrder, toggleDealPin } from './actions'
 import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
@@ -82,7 +82,9 @@ const calcAmountSaved = (orig: string, sale: string) => {
 }
 
 type AdminDeal = {
-  _id: string; code?: number; shortLinkClicks?: number; title: string; slug: string
+  _id: string; code?: number; pinnedAt?: string
+  shortLinkClicks?: number; dealClicks?: number
+  title: string; slug: string
   imageUrl?: string; priceSale: string; priceOrig: string
   discount: number; discountByAmount?: boolean; verified: boolean; isExpiring: boolean
   expiresAt?: string; dealUrl?: string; _createdAt: string; _updatedAt?: string; order?: number
@@ -110,6 +112,15 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
   const [orderDirty, setOrderDirty] = useState(false)
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
+
+  const handleTogglePin = (d: AdminDeal) => {
+    const next = d.pinnedAt ? undefined : new Date().toISOString()
+    startTransition(async () => {
+      await toggleDealPin(d._id, !d.pinnedAt)
+      setDeals(prev => prev.map(x => x._id === d._id ? { ...x, pinnedAt: next } : x))
+      showToast(next ? 'Đã ghim lên đầu /links' : 'Đã bỏ ghim')
+    })
+  }
 
   const copyShortLink = (code: number) => {
     const url = `${SHORT_LINK_BASE}/d/${code}`
@@ -244,6 +255,7 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
               <th style={{ width: 28 }}></th>
               <th className="oa-th-check"><input type="checkbox" checked={selected.size === paginated.length && paginated.length > 0} onChange={toggleAll} /></th>
               <th className="oa-th-num">#</th>
+              <th className="oa-th-num" title="Ghim lên đầu trang /links">★</th>
               <th className="oa-th-num" title="Mã sản phẩm — dùng trong caption Instagram/TikTok và short link /d/&lt;mã&gt;">Mã</th>
               <th>Tên Deal</th>
               <th>Ảnh</th>
@@ -270,6 +282,16 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
                 <td style={{ cursor: 'grab', color: '#9ca3af', textAlign: 'center', fontSize: 16, userSelect: 'none' }} title="Kéo để sắp xếp">≡</td>
                 <td className="oa-td-check"><input type="checkbox" checked={selected.has(d._id)} onChange={() => toggleSelect(d._id)} /></td>
                 <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num">
+                  <button
+                    onClick={() => handleTogglePin(d)}
+                    disabled={isPending}
+                    title={d.pinnedAt ? `Đang ghim (${new Date(d.pinnedAt).toLocaleString('vi-VN')}) — bấm để bỏ ghim` : 'Ghim lên đầu /links'}
+                    style={{ background: 'none', padding: 0, fontSize: 15, lineHeight: 1, color: d.pinnedAt ? '#f59e0b' : '#d1d5db' }}
+                  >
+                    {d.pinnedAt ? '★' : '☆'}
+                  </button>
+                </td>
                 <td className="oa-td-num" style={{ whiteSpace: 'nowrap' }}>
                   {d.code ? (
                     // Bam de copy san link day du — soan caption thi can chuoi dan
@@ -282,9 +304,12 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
                       #{d.code}
                     </button>
                   ) : <span style={{ color: '#d1d5db' }}>—</span>}
-                  {!!d.shortLinkClicks && (
-                    <span title="Lượt mở short link (bot đã lọc)" style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#6b7694' }}>
-                      {d.shortLinkClicks}▸
+                  {(!!d.shortLinkClicks || !!d.dealClicks) && (
+                    <span
+                      title={`${d.shortLinkClicks ?? 0} lượt mở short link → ${d.dealClicks ?? 0} lượt bấm sang merchant (bot đã lọc)`}
+                      style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#6b7694', whiteSpace: 'nowrap' }}
+                    >
+                      {d.shortLinkClicks ?? 0}▸{d.dealClicks ?? 0}
                     </span>
                   )}
                 </td>
@@ -307,7 +332,7 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
                 </td>
               </tr>
             ))}
-            {paginated.length === 0 && <tr><td colSpan={13} className="oa-empty">Không tìm thấy deal nào</td></tr>}
+            {paginated.length === 0 && <tr><td colSpan={14} className="oa-empty">Không tìm thấy deal nào</td></tr>}
           </tbody>
         </table>
       </div>

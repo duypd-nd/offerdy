@@ -51,9 +51,16 @@ const REFERER_SOURCES: [RegExp, ShortLinkSource][] = [
   [/(^|\.)offerdy\.com$/, 'internal'],
 ]
 
+/**
+ * @param selfHost host cua chinh request (header `Host`) — de nhan ra dieu huong
+ *   TRONG SITE. Bat buoc phai so voi host that chu khong chi voi `offerdy.com`
+ *   hardcode: tren localhost / domain preview cua Vercel, referer noi bo se roi
+ *   vao 'other' va lam mat phep gan nguon tu cookie (bug da gap khi test).
+ */
 export function detectShortLinkSource(
   userAgent: string | null,
-  referer: string | null
+  referer: string | null,
+  selfHost?: string | null
 ): ShortLinkSource {
   const ua = userAgent ?? ''
   for (const [re, source] of UA_SOURCES) if (re.test(ua)) return source
@@ -65,6 +72,9 @@ export function detectShortLinkSource(
   } catch {
     return 'other'
   }
+  // Host header co the kem port (localhost:3000) — bo di truoc khi so sanh.
+  const self = selfHost?.toLowerCase().replace(/^www\./, '').split(':')[0]
+  if (self && host === self) return 'internal'
   for (const [re, source] of REFERER_SOURCES) if (re.test(host)) return source
   return 'other'
 }

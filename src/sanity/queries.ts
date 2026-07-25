@@ -76,8 +76,10 @@ const dealsQuery = (limit: number) => `*[_type == "deal"] | order(_createdAt des
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, dealUrl, "slug": slug.current
 }`
 
+// `pinnedAt` chi duoc /links dung de dua deal vua dang bai len dau (sort o
+// links/page.tsx, khong sort o day) — /deals co y giu nguyen thu tu moi-nhat-truoc.
 const ALL_DEALS_QUERY = `*[_type == "deal"] | order(_createdAt desc) {
-  "id": _id, code, title, store, emoji, imgClass, "imageUrl": image.asset->url,
+  "id": _id, code, pinnedAt, title, store, emoji, imgClass, "imageUrl": image.asset->url,
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl, "slug": slug.current,
   "category": category->{ name, emoji, "slug": slug.current }
 }`
@@ -138,18 +140,18 @@ export async function getDealBySlug(slug: string) {
 }
 
 // ── Ma san pham (#1000+) ───────────────────────────────────────
-// Short link /d/1000 chi can slug de redirect va _id de ghi tracking — khong can
-// ca document.
+// Dung cho ca hai short link: /d/1000 (-> trang deal) va /g/1000 (-> thang
+// merchant). Chi lay 3 field can thiet, khong keo ca document.
 export async function getDealRefByCode(
   code: number
-): Promise<{ id: string; slug: string } | null> {
+): Promise<{ id: string; slug: string; dealUrl?: string } | null> {
   if (!isConfigured()) return null
   try {
-    const ref = await writeClient.fetch<{ id: string; slug?: string } | null>(
-      `*[_type == "deal" && code == $code][0]{ "id": _id, "slug": slug.current }`,
+    const ref = await writeClient.fetch<{ id: string; slug?: string; dealUrl?: string } | null>(
+      `*[_type == "deal" && code == $code][0]{ "id": _id, "slug": slug.current, dealUrl }`,
       { code }
     )
-    return ref?.slug ? { id: ref.id, slug: ref.slug } : null
+    return ref?.slug ? { id: ref.id, slug: ref.slug, dealUrl: ref.dealUrl } : null
   } catch { return null }
 }
 

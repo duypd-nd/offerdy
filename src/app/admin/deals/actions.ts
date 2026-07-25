@@ -46,6 +46,19 @@ export async function createDeal(data: {
   return doc
 }
 
+/**
+ * Ghim / bo ghim deal len dau trang /links.
+ *
+ * Luu MOC THOI GIAN chu khong phai boolean: ghim nhieu san pham thi cai ghim sau
+ * phai nam tren cai ghim truoc, va boolean khong mang thong tin do. `defined(pinnedAt)`
+ * chinh la trang thai "dang ghim".
+ */
+export async function toggleDealPin(id: string, pinned: boolean) {
+  const p = writeClient.patch(id)
+  await (pinned ? p.set({ pinnedAt: new Date().toISOString() }) : p.unset(['pinnedAt'])).commit()
+  revalidateDeals()
+}
+
 export async function bulkUpdateOrder(items: { id: string; order: number }[]) {
   await Promise.all(items.map(({ id, order }) => writeClient.patch(id).set({ order }).commit()))
   revalidateDeals()

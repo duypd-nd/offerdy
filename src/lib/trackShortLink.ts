@@ -38,3 +38,32 @@ export async function trackShortLinkClick(input: {
     // im lang co y — xem doc-comment
   }
 }
+
+/**
+ * Click ra merchant qua /g/<ma>. Ghi giong `trackDealClick` (server action dung
+ * cho nut "Get Deal" tren trang deal) de hai duong cung do vao mot bo dem va mot
+ * loai ban ghi — bao cao khong phai cong hai nguon so lieu khac nhau.
+ */
+export async function trackDealMerchantClick(input: {
+  dealId: string
+  code: number
+  source: ShortLinkSource
+  campaign?: string
+}): Promise<void> {
+  const { dealId, code, source, campaign } = input
+  try {
+    await Promise.all([
+      writeClient.patch(dealId).setIfMissing({ dealClicks: 0 }).inc({ dealClicks: 1 }).commit(),
+      writeClient.create({
+        _type: 'click',
+        kind: 'affiliate',
+        deal: { _type: 'reference', _ref: dealId, _weak: true },
+        entryCode: code,
+        source,
+        ...(campaign ? { campaign } : {}),
+      }),
+    ])
+  } catch {
+    // im lang co y — xem doc-comment
+  }
+}

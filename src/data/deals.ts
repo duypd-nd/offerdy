@@ -5,6 +5,8 @@ export type Deal = {
   /** Ma san pham ngan (#1000+) — xem src/lib/dealCode.ts. Undefined = deal cu
    *  chua backfill; moi cho hien thi ma phai chiu duoc gia tri thieu. */
   code?: number
+  /** Co gia tri = dang ghim len dau /links (ghim sau nam tren ghim truoc). */
+  pinnedAt?: string
   title: string
   store?: string
   emoji?: string

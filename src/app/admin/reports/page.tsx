@@ -46,6 +46,16 @@ type DealShortLinkRow = {
   title: string
   slug?: string
   shortLinkClicks: number
+  dealClicks: number
+}
+
+// Click affiliate CO gan nguon (cookie do /d/ hoac /g/ dat) — de tinh chuyen doi
+// theo tung nguon. Click khong co `source` la khach vao truc tiep bang duong khac
+// (Google, go URL), khong thuoc phep tinh nay.
+type AttributedClickRow = {
+  _createdAt: string
+  source: ShortLinkSource
+  campaign?: string
 }
 
 function daysUntil(iso: string): number {
@@ -58,7 +68,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, shortLinkClicks, dealsWithShortLink, sentryIssues, healthData, dailyReport] = await Promise.all([
+  const [offers, stores, recentClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport] = await Promise.all([
     writeClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -86,9 +96,16 @@ export default async function ReportsPage() {
       { thirtyDaysAgo }
     ),
     writeClient.fetch<DealShortLinkRow[]>(
-      `*[_type == "deal" && shortLinkClicks > 0] | order(shortLinkClicks desc) {
-        code, title, "slug": slug.current, "shortLinkClicks": coalesce(shortLinkClicks, 0)
+      `*[_type == "deal" && (shortLinkClicks > 0 || dealClicks > 0)] | order(coalesce(shortLinkClicks, 0) desc) {
+        code, title, "slug": slug.current,
+        "shortLinkClicks": coalesce(shortLinkClicks, 0), "dealClicks": coalesce(dealClicks, 0)
       }`
+    ),
+    writeClient.fetch<AttributedClickRow[]>(
+      `*[_type == "click" && kind != "shortlink" && defined(source) && _createdAt >= $thirtyDaysAgo] {
+        _createdAt, source, campaign
+      }`,
+      { thirtyDaysAgo }
     ),
     getRecentSentryIssues(10),
     getMerchantHealthData(),
@@ -112,7 +129,11 @@ export default async function ReportsPage() {
   const todayCount = recentClicks.filter(c => c._createdAt >= startOfToday).length
   const sevenDayCount = recentClicks.filter(c => c._createdAt >= sevenDaysAgo).length
   const thirtyDayCount = recentClicks.length
-  const allTimeCount = offers.reduce((sum, o) => sum + o.clicks, 0) + stores.reduce((sum, s) => sum + s.directClicks, 0)
+  // Cong ca click ra merchant tu trang deal (`dealClicks`) — day cung la click
+  // affiliate, chi la khong gan vao offer/store nao (deal khong co reference).
+  const allTimeCount = offers.reduce((sum, o) => sum + o.clicks, 0)
+    + stores.reduce((sum, s) => sum + s.directClicks, 0)
+    + dealsWithShortLink.reduce((sum, d) => sum + d.dealClicks, 0)
 
   const topOffers = [...offers].sort((a, b) => b.clicks - a.clicks).slice(0, 100)
 
@@ -179,6 +200,24 @@ export default async function ReportsPage() {
   const topCampaigns = [...campaignCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
 
   const topShortLinks = dealsWithShortLink.slice(0, 20)
+  const dealMerchantAllTime = dealsWithShortLink.reduce((sum, d) => sum + d.dealClicks, 0)
+
+  // ── Chuyen doi theo nguon (30 ngay) ──
+  // Cot XEM = mo short link, cot BAM = click affiliate cua khach den tu nguon do
+  // (doc tu cookie gan nguon). Ty le = BAM / XEM: tra loi "Instagram hay TikTok ra
+  // don", khong chi "cai nao nhieu luot xem".
+  const clicksBySource = new Map<ShortLinkSource, number>()
+  for (const c of attributedClicks) {
+    clicksBySource.set(c.source, (clicksBySource.get(c.source) ?? 0) + 1)
+  }
+  const conversionRows = [...new Set([...sourceCounts.keys(), ...clicksBySource.keys()])]
+    .map(source => {
+      const views = sourceCounts.get(source) ?? 0
+      const clicks = clicksBySource.get(source) ?? 0
+      return { source, views, clicks, rate: views > 0 ? clicks / views : null }
+    })
+    // Sap theo so click truoc: nguon RA CLICK dang quan tam hon nguon nhieu luot xem
+    .sort((a, b) => b.clicks - a.clicks || b.views - a.views)
 
   // ── Offer có click nhưng cần chú ý ──
   const needsAttention = offers
@@ -250,11 +289,12 @@ export default async function ReportsPage() {
               Thêm <code style={{ background: '#f6f8fb', padding: '1px 4px', borderRadius: 3 }}>?s=tên-bài</code> vào cuối link để tách số liệu từng bài đăng.
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: shortLinkAllTime > 0 ? 18 : 0 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: shortLinkAllTime > 0 ? 18 : 0 }}>
               <StatCard label="Hôm nay" value={shortLinkToday} />
               <StatCard label="7 ngày qua" value={shortLink7d} />
               <StatCard label="30 ngày qua" value={shortLink30d} />
               <StatCard label="Tất cả thời gian" value={shortLinkAllTime} highlight />
+              <StatCard label="Bấm sang merchant" value={dealMerchantAllTime} />
             </div>
 
             {shortLinkAllTime === 0 ? (
@@ -265,7 +305,10 @@ export default async function ReportsPage() {
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: topCampaigns.length ? '1fr 220px 200px' : '1fr 240px', gap: 20, paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 8 }}>Sản phẩm được mở nhiều nhất (tất cả thời gian)</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 8 }}>
+                    <span>Sản phẩm được mở nhiều nhất (tất cả thời gian)</span>
+                    <span style={{ color: '#94a3b8', fontWeight: 600 }}>xem ▸ bấm merchant</span>
+                  </div>
                   {topShortLinks.map(d => (
                     <div key={d.title} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12, marginBottom: 5 }}>
                       <strong style={{ color: '#16a34a', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
@@ -274,7 +317,11 @@ export default async function ReportsPage() {
                       <span style={{ color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                         {d.slug ? <a href={`/deals/${d.slug}`} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', textDecoration: 'none' }}>{d.title}</a> : d.title}
                       </span>
-                      <strong style={{ color: '#0f172a', flexShrink: 0 }}>{d.shortLinkClicks}</strong>
+                      <strong style={{ color: '#0f172a', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                        {d.shortLinkClicks}
+                        <span style={{ color: '#cbd5e1', fontWeight: 400 }}>▸</span>
+                        <span style={{ color: d.dealClicks > 0 ? '#16a34a' : '#cbd5e1' }}>{d.dealClicks}</span>
+                      </strong>
                     </div>
                   ))}
                 </div>
@@ -307,6 +354,46 @@ export default async function ReportsPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Chuyển đổi theo nguồn — nguồn nào RA CLICK, không chỉ ra lượt xem ── */}
+      {conversionRows.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: 13, fontWeight: 700, color: '#374151' }}>
+              📊 Chuyển đổi theo nguồn (30 ngày)
+            </div>
+            <div style={{ padding: '12px 16px 4px', fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }}>
+              <strong>Xem</strong> = mở short link. <strong>Bấm merchant</strong> = click affiliate của khách đến từ nguồn đó
+              (gán qua cookie first-party, cửa sổ 7 ngày). Tỷ lệ trả lời &ldquo;Instagram hay TikTok ra đơn&rdquo; — chứ không chỉ cái nào nhiều lượt xem.
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '.04em' }}>Nguồn</th>
+                  <th style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '.04em' }}>Xem</th>
+                  <th style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '.04em' }}>Bấm merchant</th>
+                  <th style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '.04em' }}>Tỷ lệ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conversionRows.map(r => (
+                  <tr key={r.source} style={{ borderTop: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '9px 16px', fontSize: 13, color: '#1e293b', fontWeight: 500 }}>{SOURCE_LABEL[r.source] ?? r.source}</td>
+                    <td style={{ padding: '9px 16px', fontSize: 13, color: '#6b7280', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.views}</td>
+                    <td style={{ padding: '9px 16px', fontSize: 13, fontWeight: 700, color: r.clicks > 0 ? '#16a34a' : '#cbd5e1', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.clicks}</td>
+                    <td style={{ padding: '9px 16px', fontSize: 13, fontWeight: 700, color: '#0f172a', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {/* Khong co luot xem nhung co click = khach vao /g/ truc tiep
+                          (bo qua trang deal) — ty le se vo nghia, hien "—" thay vi
+                          mot con so tram phan tram gia. */}
+                      {r.rate === null ? '—' : `${Math.round(r.rate * 100)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ── Lỗi production (Sentry) — ưu tiên cao nhất, cần xử lý ngay ── */}
       {sentryIssues.length > 0 && (

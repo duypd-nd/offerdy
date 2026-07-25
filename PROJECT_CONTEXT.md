@@ -6,6 +6,7 @@
 - **Hosting**: Vercel — live at offerdy.com
 - **Node**: pinned to `24.x` via `engines.node` in `package.json` — this **overrides** the Vercel dashboard setting, so bump it here (together with `@types/node`) rather than in Project Settings
 - **Forms**: Formspree (with mailto fallback)
+- **QR codes**: `qrcode` (admin only, dynamically imported — see "Social kit")
 
 ## Key Conventions
 - Singleton Sanity docs: `_id == _type` (e.g. `configAbout`, `configGeneral`, `configContact`)
@@ -33,7 +34,7 @@
 | `/deals` | ✅ Live | All deals — filter by category via `?category=<slug>` |
 | `/links` | ✅ Live | **Link-in-bio** for Instagram/TikTok (neither allows clickable links in captions, so the bio points here permanently instead of being re-edited per post). Mobile-first, no header/footer, 12 latest deals + **search box** (see "Product codes" below). `noindex` + kept out of `sitemap.ts` on purpose — it duplicates `/deals` and would compete with it in search. Styles are the `.lb-*` block in `globals.css`; the wordmark is **text, not the Sanity logo** (that logo is dark-on-transparent and vanishes on this dark background). The grid + search live in the client component `src/components/LinkInBioDeals.tsx`; the page passes it **all** deals (not a slice) so search covers the whole catalogue with zero API calls — the page stays `○ Static` |
 | `/d/[code]` | ✅ Live | **Short link by product code** — `offerdy.com/d/1000` → 302 to `/deals/<slug>`, **click-tracked** (see "Short-link tracking" below). Route handler (`route.ts`), not a page: the result is always a redirect, so there's nothing to render and no duplicate of `/deals/<slug>`. Unknown/malformed code → `/links` (not 404 — a visitor from a social post who mistyped a digit is worth keeping). 302 not 301 for two reasons: a deal's slug changes when its title is edited (a cached 301 would pin the short link to a dead slug), **and** a cached 301 stops sending later visits through this route, freezing the click count while people are still clicking |
-| `/deals/[slug]` | ✅ Live | Deal detail — Summary/Pros&Cons/FAQ, AI-generated via `generateDealContent.ts`, JSON-LD Product+FAQPage+Breadcrumb |
+| `/deals/[slug]` | ✅ Live | Deal detail — Summary/Pros&Cons/FAQ, AI-generated via `generateDealContent.ts`, JSON-LD Product+FAQPage+Breadcrumb. Shows the product code, and a **Share / Copy link** pair (`ShareDeal.tsx`) that shares the tracked `/d/<code>` short link rather than the long slug URL — so a visitor forwarding a deal to a friend becomes a measurable number instead of an invisible one |
 | `/stores` | ✅ Live | Store directory |
 | `/stores/[slug]` | ✅ Live | Store detail + offers |
 | `/categories` | ✅ Live | Category list |
@@ -66,6 +67,7 @@
 - Config: General, SEO, Social, Ads, Author, Content
 - Import (`/admin/import`)
 - Flash Sales, Coupon Codes, Comparisons, Tips & Guides admin sections
+- **`/admin/social-kit`** — pick a deal → generated caption (editable) + `/d/` vs `/g/` link toggle + `?s=` post tag + QR code (SVG/PNG download). See "Social kit" below.
 - Migration utils: `/admin/migrate/footer` (one-time footer link patch — ⚠️ it calls `revalidatePath` **during render**, which Next 16 now rejects at runtime; if it's ever needed again it must move to a server action like `deal-codes` did), `/admin/migrate/deal-codes` (assigns missing product codes; read-only page + `assignDealCodes()` server action behind a button, idempotent)
 - **`/admin/ai-review`** — approval queue for AI-generated drafts, 3 tabs: Stores / Offers / Deals. Preview via iframe `srcDoc`, Approve/Reject/Regenerate.
 - **`/admin/merchant-health`** — 0-100 health score per store (Content 40% / SEO 20% / Affiliate 25% / Freshness 15%), sorted worst-first, links back to `/admin/stores`
@@ -103,6 +105,23 @@ Short human identifier per deal, so a social post can say "product #1005" and th
 - Backfill: `/admin/migrate/deal-codes`. Run after any import that predates this feature. The 21 deals live on 2026-07-25 got #1000–#1020, oldest first.
 - ⚠️ Concurrency: two truly simultaneous creates can collide (Sanity has no sequence). Fine for one operator + a sequential importer; if a second writer ever appears, switch to a counter document with `patch().inc()`.
 
+## Attribution (`ofd_src` cookie)
+The only reason the platform can say *which social account earns money* rather than just *which gets views*.
+
+- The problem it solves: `/d/1005` knows the visitor came from Instagram, but the "Get Deal" click happens on a **different request** with no usable signal left (an in-app webview sends no referer, and the internal referer is only our own deal page). Without joining the two steps you can only ever measure views per source, never clicks-to-merchant per source.
+- `/d/` and `/g/` write a first-party cookie (`src/lib/attribution.ts`, `source|campaign|entryCode`, 7 days, `httpOnly`, `SameSite=Lax`). `SameSite` must be **Lax, not Strict** — Strict withholds the cookie on the very first cross-site navigation, which is exactly the hop being measured. Every `trackClick` server action reads it and stamps `source`/`campaign`/`entryCode` onto the click doc.
+- **Last-touch, with a deliberate exception**: `/g/` re-detects the source per request; if that yields `direct` or `internal` it falls back to the stored cookie, so a `/g/` link clicked on our own page still credits Instagram. An *identified* external referer (`other`, Google, …) is **not** overwritten by the cookie — a new external source is real information.
+- ⚠️ Same-origin detection compares the referer host to the **request's own `Host` header**, not to a hardcoded `offerdy.com`. Comparing against the constant is what made an internal referer fall through to `other` on localhost and silently break the cookie fallback (caught in testing). Any preview/staging domain would have hit the same bug.
+- ⚠️ **Not mentioned in the cookie policy yet.** `/cookies` content is Sanity-editable (`configCookies`) and is the operator's to write — the analytics cookie should be described there.
+
+## Short link straight to merchant (`/g/<code>`)
+`offerdy.com/g/1005` → 302 to `deal.dealUrl`, skipping our own deal page. One less step than `/d/`, and every intermediate step loses people — use it when the post itself already says everything and only the buy-click is missing. `/d/` stays the better choice when the deal page needs to do the persuading (summary, pros/cons, FAQ, related review) or when you want to measure interest before pushing traffic out. Per-post choice, not a site-wide one — `/admin/social-kit` has a toggle.
+
+- Missing `dealUrl` → falls back to `/deals/<slug>` rather than dead-ending.
+- Counts as an **affiliate** click, not a short-link open: increments `deal.dealClicks` and writes a `click` doc with `kind: 'affiliate'`. The same counter is used by the "Get Deal" button on the deal page (`trackDealClick`), so the two paths never need to be added together.
+- ⚠️ **`Disallow: /g/` in `robots.ts` + `X-Robots-Tag: noindex, nofollow` on the response.** A server-side redirect cannot carry `rel="sponsored"` the way `AffiliateLink.tsx` does, and a 302 still passes signals — leaving `/g/` crawlable would be an uncontrolled affiliate link path. `/d/` is deliberately *not* blocked: it points at our own deal page.
+- The deal page "Get Deal" button was **previously untracked entirely** — a deal has no reference to a store or offer, so `AffiliateLink` had no id to pass and every click out to a merchant from a deal page was lost. It now passes `dealId`.
+
 ## Short-link tracking (`/d/<code>`)
 Answers "which post actually sends traffic". Written by `src/lib/trackShortLink.ts`, read in `/admin/reports` → "🔗 Short link".
 
@@ -112,7 +131,22 @@ Answers "which post actually sends traffic". Written by `src/lib/trackShortLink.
 - **Source detection is UA-first, referer-second** (`src/lib/shortLinkSource.ts`). This is backwards from normal analytics on purpose: Instagram/TikTok in-app webviews usually send **no `Referer`**, so a referer-only implementation would report nearly every visit as "direct". Those webviews do identify themselves in the User-Agent (`Instagram`, `BytedanceWebview`/`musical_ly`, `FBAN`/`FBAV`, `Barcelona` = Threads app), which is the more reliable signal here.
 - **Bots and link-preview fetchers are filtered** (`isLikelyBot`) — without it, posting a link makes the count jump purely from Facebook/WhatsApp/Slack unfurling the URL. An empty/very short UA also counts as a bot.
 - **`?s=<tag>`** → `campaign`, for splitting several posts that point at the same product (`/d/1005?s=reel-jul25`). Sanitised to `[a-z0-9_-]`, max 24 chars, because the value is attacker-supplied and gets rendered back in the admin.
-- `/admin/deals`: the `Mã` cell is a **click-to-copy** button (copies `https://www.offerdy.com/d/<code>`) with the open count beside it.
+- `/admin/deals`: the `Mã` cell is a **click-to-copy** button (copies `https://www.offerdy.com/d/<code>`) with `opens ▸ merchant-clicks` beside it, and a `★` column toggles the `/links` pin.
+- `/admin/reports` also shows **conversion by source** — opens vs merchant clicks vs rate, per source, 30 days. A source with clicks but no opens shows `—` rather than a fake percentage (someone hit `/g/` directly and never had an "open").
+
+## `/links` pinning (`deal.pinnedAt`)
+The bio link is permanent, so the product from **today's** post has to sit at the top — not whichever deal was imported into Sanity most recently. `★` in `/admin/deals` toggles it; most-recently-pinned ranks first.
+
+- Stores a **timestamp, not a boolean**: pinning several products needs an order among them, which a boolean cannot express. `defined(pinnedAt)` *is* the pinned state.
+- Sorted in `src/app/links/page.tsx`, **not in `ALL_DEALS_QUERY`** — `/deals` shares that query and is deliberately left in newest-first order. The sort relies on `Array.prototype.sort` being stable to preserve the query's ordering within each group.
+
+## Social kit (`/admin/social-kit`)
+Turns "compose a post" from retyping into picking a product. Caption + short link + QR in one place.
+
+- **Caption is assembly, not authoring** — `src/lib/socialCaption.ts` only concatenates real fields (title, prices, discount badge via the shared `dealDiscountBadge`, code, link). Hashtags derive from the category name and words in the title, filtered to ≥4 letters with no digits (model numbers are not search terms). No invented marketing lines: that is the `feedback_real_content_only` rule, and a wrong-topic hashtag also pushes a post out of the right audience pool.
+- The caption textarea is **derived state with an override** (`captionOverride ?? generated`), not a `useEffect` that syncs — the repo's ESLint rejects `setState` in an effect body, and the derived form is simpler anyway.
+- QR uses **`qrcode` (added 2026-07-25), dynamically imported** so its ~30KB stays a lazy admin chunk — same reason `exceljs` is dynamically imported in `/admin/import`. Error-correction level `M`: survives a poorly printed or off-angle scan without the modules getting so dense that a small story-sized QR fails. SVG download for print, 1024px PNG for a 1080×1920 story.
+- QR encodes the **`www.` absolute URL**, not the caption's short display form — `offerdy.com` 308-redirects to `www`, and a QR that costs an extra round trip is worse for the person scanning.
 
 **Sanity reference gotcha**: strong references (default) block deletion of the referenced doc. `offer.store` is intentionally strong (real data integrity) but store deletion now cascades to delete its offers in one transaction rather than failing silently — see `src/app/admin/stores/actions.ts`. Analytics/log-only references (e.g. `click.offer`/`click.store`) use `_weak: true` (exact field name — `weak` is rejected by Sanity) since referential integrity doesn't matter there. When adding a new reference field, decide which case it is up front instead of defaulting to strong and discovering a deletion deadlock later.
 

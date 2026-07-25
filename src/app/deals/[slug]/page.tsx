@@ -5,6 +5,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import AffiliateLink from '@/components/AffiliateLink'
 import FaqAccordion from '@/components/FaqAccordion'
+import ShareDeal from '@/components/ShareDeal'
 import { getDealBySlug, getConfigContent } from '@/sanity/queries'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 import { formatDealCode } from '@/lib/dealCode'
@@ -155,9 +156,13 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
                   ⏰ {daysLeft === 0 ? 'Expires today' : `${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`}
                 </div>
               )}
-              <AffiliateLink href={deal.dealUrl ?? '/deals'} storeName={deal.store} className="dd-cta">
+              {/* dealId: truoc day nut nay khong duoc dem gi ca (deal khong co
+                  reference toi store/offer nen khong co id nao de truyen) — moi
+                  luot bam ra merchant tu trang deal bi mat trang. */}
+              <AffiliateLink href={deal.dealUrl ?? '/deals'} storeName={deal.store} dealId={deal.id} className="dd-cta">
                 Get Deal →
               </AffiliateLink>
+              <ShareDeal code={deal.code} slug={slug} title={deal.title} />
             </div>
           </div>
 

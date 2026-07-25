@@ -22,7 +22,23 @@ export const dealType = defineType({
       type: 'number',
       readOnly: true,
       description:
-        'Số lần short link offerdy.com/d/<mã> được mở (đã lọc bot/trình đọc link preview). Đây KHÔNG phải click ra merchant — click affiliate đếm riêng trên offer/store. Xem chi tiết theo nguồn (Instagram/TikTok…) tại /admin/reports.',
+        'Số lần short link offerdy.com/d/<mã> được mở (đã lọc bot/trình đọc link preview). Đây KHÔNG phải click ra merchant — xem dealClicks. Chi tiết theo nguồn (Instagram/TikTok…) tại /admin/reports.',
+    }),
+    defineField({
+      name: 'dealClicks',
+      title: 'Lượt bấm sang merchant',
+      type: 'number',
+      readOnly: true,
+      description:
+        'Số lần khách bấm "Get Deal" trên trang deal, hoặc mở /g/<mã> (link tắt đi thẳng ra merchant). So với shortLinkClicks ra tỷ lệ chuyển đổi của từng sản phẩm — xem /admin/reports.',
+    }),
+    defineField({
+      name: 'pinnedAt',
+      title: 'Ghim lên đầu /links',
+      type: 'datetime',
+      readOnly: true,
+      description:
+        'Có giá trị = đang được ghim lên đầu trang /links (ghim sau nằm trên ghim trước). Bật/tắt bằng nút ★ ở /admin/deals — dùng khi vừa đăng bài mạng xã hội về sản phẩm này. Không ảnh hưởng trang /deals.',
     }),
     defineField({ name: 'store', title: 'Store (e.g. Apple · Best Buy)', type: 'string', validation: r => r.required() }),
     defineField({ name: 'emoji', title: 'Emoji', type: 'string', description: 'e.g. 🎧 📺 👟' }),
