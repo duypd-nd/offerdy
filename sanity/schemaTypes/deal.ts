@@ -33,6 +33,14 @@ export const dealType = defineType({
         'Số lần khách bấm "Get Deal" trên trang deal, hoặc mở /g/<mã> (link tắt đi thẳng ra merchant). So với shortLinkClicks ra tỷ lệ chuyển đổi của từng sản phẩm — xem /admin/reports.',
     }),
     defineField({
+      name: 'lastPostedAt',
+      title: 'Lần cuối soạn bài đăng',
+      type: 'datetime',
+      readOnly: true,
+      description:
+        'Đánh dấu khi bấm "Đã lên lịch" ở /admin/social-kit. Chỉ để nhắc khỏi đăng lặp một sản phẩm quá gần nhau — không ảnh hưởng gì tới trang công khai.',
+    }),
+    defineField({
       name: 'pinnedAt',
       title: 'Ghim lên đầu /links',
       type: 'datetime',

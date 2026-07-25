@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { buildCaption, shortLinkUrl, type LinkStyle } from '@/lib/socialCaption'
 import { parseCampaign } from '@/lib/shortLinkSource'
 import { CAPTION_ANGLES, CAPTION_PLATFORMS, platformById, type CaptionAngle, type CaptionPlatform } from '@/lib/ai/generateCaption'
-import { generateCaptionsForDeal, type GeneratedCaption } from './actions'
+import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, type GeneratedCaption, type WeekItem } from './actions'
 
 type KitDeal = {
   code: number
@@ -45,6 +45,12 @@ export default function SocialKitClient({ deals, missingCode }: {
   const [aiRejected, setAiRejected] = useState<string[]>([])
   const [aiError, setAiError] = useState('')
   const [aiPending, startAi] = useTransition()
+  const [weekMode, setWeekMode] = useState(false)
+  const [weekCount, setWeekCount] = useState(5)
+  const [weekItems, setWeekItems] = useState<WeekItem[]>([])
+  const [weekSkipped, setWeekSkipped] = useState<string[]>([])
+  const [weekError, setWeekError] = useState('')
+  const [weekPending, startWeek] = useTransition()
 
   const campaign = parseCampaign(campaignRaw)
   const deal = deals.find(d => d.code === selectedCode) ?? null
@@ -100,6 +106,23 @@ export default function SocialKitClient({ deals, missingCode }: {
     })
   }
 
+  const runWeek = () => {
+    setWeekError(''); setWeekSkipped([]); setWeekItems([])
+    startWeek(async () => {
+      const res = await generateWeekPlan({ count: weekCount, platform, style })
+      if (!res.ok) { setWeekError(res.error); return }
+      setWeekItems(res.items)
+      setWeekSkipped(res.skipped)
+    })
+  }
+
+  const markPosted = () => {
+    startWeek(async () => {
+      const res = await markDealsPosted(weekItems.map(i => i.code))
+      showToast(res.ok ? `Đã đánh dấu ${weekItems.length} deal` : 'Không đánh dấu được')
+    })
+  }
+
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
       .then(() => showToast(`Đã copy ${label}`))
@@ -144,8 +167,80 @@ export default function SocialKitClient({ deals, missingCode }: {
           <h1 className="oa-title">Bộ soạn bài đăng</h1>
           <div className="oa-breadcrumb">Home / Social Kit</div>
         </div>
-        <Link href="/admin/reports" className="oa-btn" style={{ textDecoration: 'none' }}>Xem báo cáo click →</Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            className={weekMode ? 'oa-btn oa-btn-green' : 'oa-btn'}
+            onClick={() => setWeekMode(m => !m)}
+          >
+            {weekMode ? '← Soạn từng bài' : '📅 Soạn cả tuần'}
+          </button>
+          <Link href="/admin/reports" className="oa-btn" style={{ textDecoration: 'none' }}>Xem báo cáo click →</Link>
+        </div>
       </div>
+
+      {weekMode && (
+        <div style={{ background: '#fff', border: '1px solid #E4EAF2', borderRadius: 12, padding: 18 }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 14 }}>
+            <div>
+              <span style={label}>Số bài</span>
+              <select className="oa-select" value={weekCount} onChange={e => setWeekCount(Number(e.target.value))}>
+                {[3, 5, 7].map(n => <option key={n} value={n}>{n} bài</option>)}
+              </select>
+            </div>
+            <div>
+              <span style={label}>Đăng ở đâu</span>
+              <select className="oa-select" value={platform} onChange={e => setPlatform(e.target.value as CaptionPlatform)}>
+                {CAPTION_PLATFORMS.map(pf => <option key={pf.id} value={pf.id}>{pf.label}</option>)}
+              </select>
+            </div>
+            <button className="oa-btn oa-btn-green" onClick={runWeek} disabled={weekPending}>
+              {weekPending ? `Đang soạn… (${weekItems.length}/${weekCount})` : '✨ Soạn cả tuần'}
+            </button>
+            {weekItems.length > 0 && (
+              <button className="oa-btn" onClick={markPosted} disabled={weekPending}>
+                Đã lên lịch — đánh dấu {weekItems.length} deal
+              </button>
+            )}
+          </div>
+
+          <div style={{ fontSize: 12, color: '#6B7694', lineHeight: 1.7, marginBottom: weekItems.length ? 16 : 0 }}>
+            Ưu tiên deal <strong>lâu chưa đăng nhất</strong>, mỗi bài một góc khác nhau (xoay vòng 5 góc)
+            nên cả tuần không bị đơn điệu và so sánh được góc nào ra click.
+            Bấm <strong>Đã lên lịch</strong> sau khi đăng để lần sau hệ thống ưu tiên sản phẩm khác.
+          </div>
+
+          {weekError && (
+            <div style={{ padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12, color: '#B91C1C', marginBottom: 12 }}>{weekError}</div>
+          )}
+          {weekSkipped.length > 0 && (
+            <div style={{ padding: '8px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, fontSize: 12, color: '#92400E', marginBottom: 12, lineHeight: 1.6 }}>
+              Bỏ qua {weekSkipped.length}: {weekSkipped.join(' · ')}
+            </div>
+          )}
+
+          {weekItems.map((it, i) => (
+            <div key={it.code} style={{ display: 'flex', gap: 14, padding: '14px 0', borderTop: i > 0 ? '1px solid #F1F5F9' : '1px solid #E4EAF2' }}>
+              <div style={{ flexShrink: 0, width: 30, fontSize: 12, fontWeight: 800, color: '#9CA3AF', paddingTop: 2 }}>{i + 1}</div>
+              {/* eslint-disable-next-line @next/next/no-img-element -- thumbnail admin */}
+              <img src={it.imageUrlFeed} alt="" style={{ width: 88, height: 110, objectFit: 'cover', borderRadius: 8, flexShrink: 0, border: '1px solid #F1F5F9' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: '#6B7694', marginBottom: 6 }}>
+                  <strong style={{ color: '#16A34A' }}>#{it.code}</strong> · {it.title.slice(0, 46)}
+                  {' · '}<span style={{ color: '#2563EB', fontWeight: 700 }}>{CAPTION_ANGLES.find(a => a.id === it.angle)?.label}</span>
+                  {' · nhãn '}<code>{it.suggestedTag}</code>
+                </div>
+                <div style={{ fontSize: 12.5, color: '#1E293B', lineHeight: 1.7, whiteSpace: 'pre-wrap', background: '#F8FAFC', borderRadius: 8, padding: '10px 12px' }}>{it.caption}</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  <button className="oa-btn" style={{ minHeight: 30, fontSize: 11.5 }} onClick={() => copy(it.caption, `caption #${it.code}`)}>Copy caption</button>
+                  <a className="oa-btn" style={{ minHeight: 30, fontSize: 11.5, textDecoration: 'none' }} href={it.imageUrlFeed} download={`offerdy-${it.code}-feed.png`}>Tải ảnh</a>
+                  <button className="oa-btn" style={{ minHeight: 30, fontSize: 11.5 }} onClick={() => copy(it.shortUrl, 'link')}>Copy link</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
 
       {missingCode > 0 && (
         <div style={{ background: '#FFFBEB', border: '1.5px solid #FDE68A', borderRadius: 10, padding: '12px 16px', marginBottom: 18, fontSize: 13, color: '#92400E' }}>
@@ -158,7 +253,7 @@ export default function SocialKitClient({ deals, missingCode }: {
         <div style={{ ...card, color: '#6B7694', fontSize: 14 }}>
           Chưa có deal nào có mã. Chạy <Link href="/admin/migrate/deal-codes" style={{ color: '#16A34A', fontWeight: 700 }}>/admin/migrate/deal-codes</Link> trước.
         </div>
-      ) : (
+      ) : weekMode ? null : (
         <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 260px', gap: 18, alignItems: 'start' }}>
 
           {/* ── Chọn sản phẩm ── */}
