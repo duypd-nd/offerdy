@@ -31,6 +31,9 @@ export function verifyCronRequest(request: Request, routeName: string): CronAuth
   console.error('[cron] auth failed', JSON.stringify({
     route: routeName,
     hasSecret: !!secret,
+    // Khoa co ton tai nhung gia tri rong la mot trang thai RIENG — `!secret` gop
+    // no chung voi "khong co bien" va lam mat mot vong chan doan.
+    secretKeyExists: 'CRON_SECRET' in process.env,
     secretLength: secret?.length ?? 0,
     hasAuthHeader: !!authHeader,
     authHeaderLength: authHeader?.length ?? 0,

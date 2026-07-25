@@ -16,8 +16,21 @@ export default async function CronCheckPage() {
   const secret = process.env.CRON_SECRET
   const cronNames = Object.keys(process.env).filter(k => /cron/i.test(k))
 
+  // Ba trang thai KHAC NHAU ma mot phep `!process.env.X` gop het lam mot:
+  //  - khoa khong ton tai  -> bien chua bao gio den runtime
+  //  - khoa ton tai, gia tri rong -> bien CO den nhung o Vercel dang de trong
+  //  - co gia tri
+  // Da mat vai vong chan doan vi khong tach duoc hai truong hop dau: bang bao
+  // "KHONG" trong khi danh sach ten bien lai liet ke dung CRON_SECRET.
+  const keyExists = 'CRON_SECRET' in process.env
+  const secretState = !keyExists
+    ? 'KHÔNG có biến này ở runtime'
+    : !secret
+      ? 'CÓ biến nhưng GIÁ TRỊ RỖNG — đây là lỗi'
+      : `có (${secret.trim().length} ký tự)`
+
   const rows: [string, string, boolean | null][] = [
-    ['CRON_SECRET đọc được ở runtime', secret ? `có (${secret.trim().length} ký tự)` : 'KHÔNG', !!secret],
+    ['CRON_SECRET đọc được ở runtime', secretState, !!secret],
     ['Có khoảng trắng thừa ở đầu/cuối', secret ? (secret !== secret.trim() ? 'CÓ — đây là lỗi' : 'không') : '—', secret ? secret === secret.trim() : null],
     ['ANTHROPIC_API_KEY', process.env.ANTHROPIC_API_KEY ? 'có' : 'KHÔNG', !!process.env.ANTHROPIC_API_KEY],
     ['SANITY_API_TOKEN', process.env.SANITY_API_TOKEN ? 'có' : 'KHÔNG', !!process.env.SANITY_API_TOKEN],
