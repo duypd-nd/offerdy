@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getAllDeals, getSiteSettings } from '@/sanity/queries'
 import LinkInBioDeals from '@/components/LinkInBioDeals'
+import { rankDealsForLinks } from '@/lib/dealRanking'
 import type { Deal } from '@/data/deals'
 
 export const revalidate = 60
@@ -24,17 +25,9 @@ export default async function LinksPage() {
   // Ca danh sach di xuong client (khong slice o day) de o tim kiem loc duoc TOAN BO
   // deal ma khong phai goi API — xem LinkInBioDeals.
   //
-  // Deal ghim (`pinnedAt`) len dau, ghim sau nam tren ghim truoc; phan con lai giu
-  // thu tu moi-nhat-truoc tu ALL_DEALS_QUERY. Ly do can ghim: bio Instagram/TikTok
-  // tro co dinh vao day, nen san pham cua bai dang HOM NAY phai o tren cung — chu
-  // khong phai deal moi nhap vao Sanity gan nhat. Sort o day chu khong sort trong
-  // GROQ vi /deals dung chung query do va co y khong bi ghim.
-  const deals = [...(allDeals as Deal[])].sort((a, b) => {
-    if (a.pinnedAt && b.pinnedAt) return b.pinnedAt.localeCompare(a.pinnedAt)
-    if (a.pinnedAt) return -1
-    if (b.pinnedAt) return 1
-    return 0   // giu nguyen thu tu goc (Array.prototype.sort on dinh)
-  })
+  // Ghim truoc, roi den hieu qua that (xem -> bam sang merchant). Xem
+  // src/lib/dealRanking.ts — 12 o dau cua trang nay la vi tri dat nhat cua site.
+  const deals = rankDealsForLinks(allDeals as Deal[])
 
   return (
     <div className="lb-page">

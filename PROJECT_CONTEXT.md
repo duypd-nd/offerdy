@@ -90,7 +90,8 @@
 - **SEO** — `/admin/seo-audit` (deterministic, no AI needed)
 - **GEO** — Offer `usageTips`/`eligibilityNotes` + full Deal detail content (`/deals/[slug]`)
 - **Analytics** — folded into AI Daily Report rather than a parallel system (click/conversion data feeds the same AI summary)
-- **Daily Report** — `/api/cron/daily-report` → Sanity singleton `dailyReport` → shown atop `/admin/reports`
+- **Daily Report** — `/api/cron/daily-report` → Sanity singleton `dailyReport` → shown atop `/admin/reports`. Also receives the **social short-link data** (opens, merchant clicks, per-source opens→clicks, most-opened products) so the morning summary can say which channel converts, not just which gets views. The prompt tells the model to state plainly that there is not enough data below ~20 opens for a source rather than ranking channels on noise — small numbers are exactly where a confident-sounding channel recommendation would be invented.
+  - ⚠️ `CLICK_ANALYTICS_QUERY` must keep `kind != "shortlink"` on `recentClicks`. It was **missing** when short-link tracking shipped, so the daily report's affiliate click counts would have silently included short-link opens (fixed 2026-07-25; the `/admin/reports` copy of the filter was correct from the start).
 - Reviewer role is covered by the `/code-review` skill, not a dedicated engine.
 
 ## Product codes (`deal.code`, #1000+)
@@ -134,11 +135,28 @@ Answers "which post actually sends traffic". Written by `src/lib/trackShortLink.
 - `/admin/deals`: the `Mã` cell is a **click-to-copy** button (copies `https://www.offerdy.com/d/<code>`) with `opens ▸ merchant-clicks` beside it, and a `★` column toggles the `/links` pin.
 - `/admin/reports` also shows **conversion by source** — opens vs merchant clicks vs rate, per source, 30 days. A source with clicks but no opens shows `—` rather than a fake percentage (someone hit `/g/` directly and never had an "open").
 
-## `/links` pinning (`deal.pinnedAt`)
-The bio link is permanent, so the product from **today's** post has to sit at the top — not whichever deal was imported into Sanity most recently. `★` in `/admin/deals` toggles it; most-recently-pinned ranks first.
+## `/links` ordering — pin, then measured performance (`src/lib/dealRanking.ts`)
+The 12 visible slots on `/links` are the most valuable placement on the site (the Instagram/TikTok bio points here permanently), so what fills them matters.
 
-- Stores a **timestamp, not a boolean**: pinning several products needs an order among them, which a boolean cannot express. `defined(pinnedAt)` *is* the pinned state.
-- Sorted in `src/app/links/page.tsx`, **not in `ALL_DEALS_QUERY`** — `/deals` shares that query and is deliberately left in newest-first order. The sort relies on `Array.prototype.sort` being stable to preserve the query's ordering within each group.
+**Pinned first** (`deal.pinnedAt`, `★` in `/admin/deals`, most-recently-pinned on top) — a manual pin always beats the score, because "today I posted about this one" is knowledge the data cannot have. Stores a **timestamp, not a boolean**: pinning several products needs an order among them. `defined(pinnedAt)` *is* the pinned state.
+
+**Then a smoothed conversion score.** Ranking on the raw rate is wrong — one open and one click reads as 100% and outranks a genuinely good 200/40. So each deal's rate is pulled toward the site average, hard when the sample is small and less as it grows:
+
+    score = (merchantClicks + siteAvgRate × K) / (exposures + K)      // K = 10
+
+- A deal with **no data scores exactly the site average** — it sits in the middle, not penalised for being new. Proven-good rises above it, proven-bad (many opens, no clicks) sinks below.
+- When the whole site has no data, every deal ties and the stable sort preserves newest-first — so this is a no-op until real numbers exist.
+- ⚠️ **`exposures = max(opens, merchantClicks)`, not `opens`.** Some paths produce a click with no recorded open (`/g/` goes straight out; the deal-page CTA can be clicked by someone who arrived from Google), and dividing by zero opens inflated the score — caught in testing when a 1-click/0-open deal outranked a 1-click/1-open one. A click always implies at least one view, so `max` is the correct lower bound and it also keeps the rate from exceeding 100%.
+- Sorted in `src/app/links/page.tsx`, **not in `ALL_DEALS_QUERY`** — `/deals` shares that query and is deliberately left newest-first.
+
+## Link previews for `/d/` and `/g/` (`src/lib/dealPreviewHtml.ts`)
+Link-preview bots get a small HTML page with our OG tags; humans and search crawlers still get the redirect.
+
+- **Why `/g/` needs it**: it redirects straight to the merchant, and preview bots follow — pasting `offerdy.com/g/1005` into Messenger showed **HOVSCO's** card, not ours (verified: `facebookexternalhit` followed 2 hops to `hovsco.com`). Now it renders our product title, discount and OG image.
+- **`/d/` already worked** — `facebookexternalhit` follows the 302 to the real deal page, which has proper OG. Serving the HTML directly just removes a hop and covers messaging clients that don't follow redirects.
+- **Preview bots are matched separately from crawlers** (`isLinkPreviewBot` vs `isLikelyBot`). Googlebot on `/d/` deliberately keeps getting the 302 — a redirect consolidates signals onto the real deal page, which is better than serving it a `noindex` stand-in.
+- `og:image` points at `/deals/<slug>/opengraph-image` — the existing per-deal OG card (product shot + price + discount, `src/lib/ogTemplate.tsx`). Next emits that URL with a cache-busting query hash, but **the bare path returns the same image** (verified: 200 `image/png`), so no hash guessing is needed.
+- **No `<meta http-equiv="refresh">`** on the page: some preview bots follow it, which would land them back on the merchant — the exact problem being fixed. A plain link is enough for the rare human whose UA matches a preview bot.
 
 ## Social kit (`/admin/social-kit`)
 Turns "compose a post" from retyping into picking a product. Caption + short link + QR in one place.

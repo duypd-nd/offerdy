@@ -37,7 +37,15 @@ function buildUserPrompt(data: {
   topOffers: { title: string; storeName?: string; clicks: number }[]
   needsAttentionCount: number
   zeroClickStoreCount: number
+  shortLinkThirtyDay: number
+  shortLinkAllTime: number
+  dealMerchantAllTime: number
+  sourceBreakdown: { source: string; views: number; clicks: number }[]
+  topShortLinkDeals: { code?: number; title: string; opens: number; merchantClicks: number }[]
 }) {
+  // Chi dua nguon CO du lieu vao prompt. Liet ke ca cac nguon 0/0 chi lam AI binh
+  // luan ve kenh chua bao gio dung den — nhieu chu khong them thong tin.
+  const sources = data.sourceBreakdown.filter(s => s.views > 0 || s.clicks > 0)
   return `Platform snapshot for today:
 - Total stores: ${data.storeCount}
 - Average merchant health score: ${data.avgHealthScore}/100
@@ -51,7 +59,23 @@ function buildUserPrompt(data: {
 - Offers getting clicks but need attention (unverified or expiring within 7 days): ${data.needsAttentionCount}
 - Stores with zero affiliate clicks ever (missed opportunity — may need better placement/content): ${data.zeroClickStoreCount}
 
-Write a short summary and 3-5 prioritized recommendations for the team based only on this data. Include at least one recommendation about click/conversion performance (e.g. protecting top performers, fixing offers that need attention, or investigating zero-click stores) if the data supports it.`
+Social short links (offerdy.com/d/<code> opens a product page, offerdy.com/g/<code> goes straight to the merchant). These are posted in Instagram/TikTok captions:
+- Short-link opens: last 30 days ${data.shortLinkThirtyDay}, all-time ${data.shortLinkAllTime}
+- Clicks through to a merchant from a product page, all-time: ${data.dealMerchantAllTime}
+- By traffic source, last 30 days (opens -> clicks through to merchant): ${
+    sources.length
+      ? sources.map(s => `${s.source} ${s.views} opens -> ${s.clicks} merchant clicks`).join('; ')
+      : 'no attributed traffic yet'
+  }
+- Most-opened products (all-time): ${
+    data.topShortLinkDeals.length
+      ? data.topShortLinkDeals.map(d => `${d.code ? `#${d.code} ` : ''}${d.title} (${d.opens} opens, ${d.merchantClicks} merchant clicks)`).join('; ')
+      : 'none yet'
+  }
+
+Write a short summary and 3-5 prioritized recommendations for the team based only on this data. Include at least one recommendation about click/conversion performance (e.g. protecting top performers, fixing offers that need attention, or investigating zero-click stores) if the data supports it.
+
+About the social data: a source with many opens but few merchant clicks means the audience is curious but not buying — the posts pull attention while the product page does not convert. A source with few opens but a high share converting is worth posting to more. Only draw that conclusion when the numbers are large enough to mean something; with fewer than 20 opens for a source, say plainly that there is not enough data yet rather than ranking channels. If there is no social data at all, say so in one clause and do not speculate about it.`
 }
 
 export async function generateDailyReport() {
@@ -98,6 +122,11 @@ export async function generateDailyReport() {
     topOffers: clickAnalytics.topOffers,
     needsAttentionCount: clickAnalytics.needsAttentionCount,
     zeroClickStoreCount: clickAnalytics.zeroClickStoreCount,
+    shortLinkThirtyDay: clickAnalytics.shortLinkThirtyDay,
+    shortLinkAllTime: clickAnalytics.shortLinkAllTime,
+    dealMerchantAllTime: clickAnalytics.dealMerchantAllTime,
+    sourceBreakdown: clickAnalytics.sourceBreakdown,
+    topShortLinkDeals: clickAnalytics.topShortLinkDeals,
   }
 
   const response = await getAnthropicClient().messages.parse({
@@ -129,6 +158,8 @@ export async function generateDailyReport() {
     sevenDayClicks: clickAnalytics.sevenDayCount,
     needsAttentionCount: clickAnalytics.needsAttentionCount,
     zeroClickStoreCount: clickAnalytics.zeroClickStoreCount,
+    shortLinkThirtyDay: clickAnalytics.shortLinkThirtyDay,
+    dealMerchantAllTime: clickAnalytics.dealMerchantAllTime,
     model: MODEL,
   })
 

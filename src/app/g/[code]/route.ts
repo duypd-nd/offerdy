@@ -1,7 +1,8 @@
 import { after, NextResponse } from 'next/server'
-import { getDealRefByCode } from '@/sanity/queries'
+import { getDealRefByCode, getDealPreviewByCode } from '@/sanity/queries'
 import { parseDealCode } from '@/lib/dealCode'
-import { detectShortLinkSource, isLikelyBot, parseCampaign } from '@/lib/shortLinkSource'
+import { dealPreviewHtml } from '@/lib/dealPreviewHtml'
+import { detectShortLinkSource, isLikelyBot, isLinkPreviewBot, parseCampaign } from '@/lib/shortLinkSource'
 import { trackDealMerchantClick } from '@/lib/trackShortLink'
 import {
   ATTRIBUTION_COOKIE, attributionCookieOptions, readAttribution, serializeAttribution,
@@ -46,9 +47,23 @@ export async function GET(
   // affiliate khong kiem soat duoc ve mat SEO.
   response.headers.set('X-Robots-Tag', 'noindex, nofollow')
 
-  if (!deal || parsed === null) return response
-
   const ua = request.headers.get('user-agent')
+
+  // Bot doc link preview: tra the OG cua CHINH MINH thay vi day no ra merchant.
+  // Khong lam viec nay thi dan offerdy.com/g/<ma> vao Messenger/Zalo se hien
+  // thuong hieu cua merchant — da kiem chung: bot di theo 2 redirect toi
+  // hovsco.com. Xem src/lib/dealPreviewHtml.ts.
+  if (deal && parsed !== null && isLinkPreviewBot(ua)) {
+    const preview = await getDealPreviewByCode(parsed)
+    if (preview) {
+      return new Response(dealPreviewHtml(preview, { target }), {
+        status: 200,
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Robots-Tag': 'noindex, nofollow' },
+      })
+    }
+  }
+
+  if (!deal || parsed === null) return response
   if (isLikelyBot(ua)) return response
 
   // Uu tien nhan dien tuoi tu request nay. Neu no ra 'direct'/'internal' (khach

@@ -79,7 +79,9 @@ const dealsQuery = (limit: number) => `*[_type == "deal"] | order(_createdAt des
 // `pinnedAt` chi duoc /links dung de dua deal vua dang bai len dau (sort o
 // links/page.tsx, khong sort o day) — /deals co y giu nguyen thu tu moi-nhat-truoc.
 const ALL_DEALS_QUERY = `*[_type == "deal"] | order(_createdAt desc) {
-  "id": _id, code, pinnedAt, title, store, emoji, imgClass, "imageUrl": image.asset->url,
+  "id": _id, code, pinnedAt,
+  "shortLinkClicks": coalesce(shortLinkClicks, 0), "dealClicks": coalesce(dealClicks, 0),
+  title, store, emoji, imgClass, "imageUrl": image.asset->url,
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl, "slug": slug.current,
   "category": category->{ name, emoji, "slug": slug.current }
 }`
@@ -152,6 +154,28 @@ export async function getDealRefByCode(
       { code }
     )
     return ref?.slug ? { id: ref.id, slug: ref.slug, dealUrl: ref.dealUrl } : null
+  } catch { return null }
+}
+
+/**
+ * Du lieu de dung the OG cho bot doc link preview. Query rieng, KHONG gop vao
+ * getDealRefByCode: duong cua nguoi that (redirect) chay moi luot bam, khong nen
+ * keo them field chi bot moi can.
+ */
+export async function getDealPreviewByCode(code: number) {
+  if (!isConfigured()) return null
+  try {
+    return await writeClient.fetch<{
+      code: number; title: string; slug: string
+      priceSale: string; priceOrig?: string; discount: number; discountByAmount?: boolean
+      summary?: string; metaDescription?: string
+    } | null>(
+      `*[_type == "deal" && code == $code][0]{
+        code, title, "slug": slug.current,
+        priceSale, priceOrig, discount, discountByAmount, summary, metaDescription
+      }`,
+      { code }
+    )
   } catch { return null }
 }
 
@@ -745,6 +769,13 @@ export type ClickAnalyticsSummary = {
   topOffers: { title: string; storeName?: string; clicks: number }[]
   needsAttentionCount: number
   zeroClickStoreCount: number
+  // ── Short link /d/ + /g/ (phat hanh mang xa hoi) ──
+  shortLinkThirtyDay: number
+  shortLinkAllTime: number
+  dealMerchantAllTime: number
+  /** Xem vs bam-sang-merchant theo tung nguon, 30 ngay. Cot tra loi "kenh nao ra don". */
+  sourceBreakdown: { source: string; views: number; clicks: number }[]
+  topShortLinkDeals: { code?: number; title: string; opens: number; merchantClicks: number }[]
 }
 
 const CLICK_ANALYTICS_QUERY = `{
@@ -755,13 +786,20 @@ const CLICK_ANALYTICS_QUERY = `{
   "stores": *[_type == "store" && published != false] {
     "id": _id, "directClicks": coalesce(clicks, 0)
   },
-  "recentClicks": *[_type == "click" && _createdAt >= $thirtyDaysAgo]._createdAt
+  "recentClicks": *[_type == "click" && kind != "shortlink" && _createdAt >= $thirtyDaysAgo]._createdAt,
+  "shortLinkClicks": *[_type == "click" && kind == "shortlink" && _createdAt >= $thirtyDaysAgo]{ source },
+  "attributedClicks": *[_type == "click" && kind != "shortlink" && defined(source) && _createdAt >= $thirtyDaysAgo]{ source },
+  "shortLinkDeals": *[_type == "deal" && (shortLinkClicks > 0 || dealClicks > 0)] | order(coalesce(shortLinkClicks, 0) desc) {
+    code, title, "opens": coalesce(shortLinkClicks, 0), "merchantClicks": coalesce(dealClicks, 0)
+  }
 }`
 
 export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary> {
   const empty: ClickAnalyticsSummary = {
     todayCount: 0, sevenDayCount: 0, thirtyDayCount: 0, allTimeCount: 0,
     topOffers: [], needsAttentionCount: 0, zeroClickStoreCount: 0,
+    shortLinkThirtyDay: 0, shortLinkAllTime: 0, dealMerchantAllTime: 0,
+    sourceBreakdown: [], topShortLinkDeals: [],
   }
   if (!isConfigured()) return empty
   try {
@@ -774,6 +812,9 @@ export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary>
       offers: { title: string; clicks: number; verified?: boolean; expiresAt?: string; storeId?: string; storeName?: string }[]
       stores: { id: string; directClicks: number }[]
       recentClicks: string[]
+      shortLinkClicks: { source?: string }[]
+      attributedClicks: { source?: string }[]
+      shortLinkDeals: { code?: number; title: string; opens: number; merchantClicks: number }[]
     }>(CLICK_ANALYTICS_QUERY, { thirtyDaysAgo })
 
     const todayCount = data.recentClicks.filter(c => c >= startOfToday).length
@@ -800,7 +841,33 @@ export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary>
     }
     const zeroClickStoreCount = [...storeClickTotals.values()].filter(c => c === 0).length
 
-    return { todayCount, sevenDayCount, thirtyDayCount, allTimeCount, topOffers, needsAttentionCount, zeroClickStoreCount }
+    // ── Short link ──
+    const shortLinkAllTime = data.shortLinkDeals.reduce((sum, d) => sum + d.opens, 0)
+    const dealMerchantAllTime = data.shortLinkDeals.reduce((sum, d) => sum + d.merchantClicks, 0)
+
+    const views = new Map<string, number>()
+    for (const c of data.shortLinkClicks) {
+      const s = c.source ?? 'other'
+      views.set(s, (views.get(s) ?? 0) + 1)
+    }
+    const attributed = new Map<string, number>()
+    for (const c of data.attributedClicks) {
+      const s = c.source ?? 'other'
+      attributed.set(s, (attributed.get(s) ?? 0) + 1)
+    }
+    const sourceBreakdown = [...new Set([...views.keys(), ...attributed.keys()])]
+      .map(source => ({ source, views: views.get(source) ?? 0, clicks: attributed.get(source) ?? 0 }))
+      .sort((a, b) => b.clicks - a.clicks || b.views - a.views)
+
+    return {
+      todayCount, sevenDayCount, thirtyDayCount, allTimeCount, topOffers,
+      needsAttentionCount, zeroClickStoreCount,
+      shortLinkThirtyDay: data.shortLinkClicks.length,
+      shortLinkAllTime,
+      dealMerchantAllTime,
+      sourceBreakdown,
+      topShortLinkDeals: data.shortLinkDeals.slice(0, 5),
+    }
   } catch { return empty }
 }
 

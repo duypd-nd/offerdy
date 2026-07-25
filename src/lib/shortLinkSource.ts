@@ -90,6 +90,16 @@ export function isLikelyBot(userAgent: string | null): boolean {
   return BOT_RE.test(userAgent)
 }
 
+// Rieng nhom BOT DOC LINK PREVIEW (dung thanh the trong Messenger/Zalo/Slack...).
+// Tach khoi BOT_RE vi chung can duoc doi xu KHAC voi crawler tim kiem: preview bot
+// phai nhan duoc HTML co the OG, con crawler tim kiem thi cu de redirect binh
+// thuong (redirect tot hon cho SEO — no gop tin hieu ve trang deal that).
+const PREVIEW_BOT_RE = /facebookexternalhit|facebookcatalog|whatsapp|twitterbot|slackbot|slack-imgproxy|discordbot|telegrambot|linkedinbot|pinterest|skypeuripreview|embedly|quora link preview|redditbot|vkshare|zalo|viber|line-poker|snapchat|bitlybot|nuzzel|outbrain|iframely|developers\.google\.com\/\+\/web\/snippet/i
+
+export function isLinkPreviewBot(userAgent: string | null): boolean {
+  return !!userAgent && PREVIEW_BOT_RE.test(userAgent)
+}
+
 /**
  * Nhan chien dich tu `?s=` — de phan biet cac bai dang khac nhau cung tro ve mot
  * san pham (VD /d/1005?s=reel-jul25 vs ?s=story-jul26). Lam sach chat che vi gia

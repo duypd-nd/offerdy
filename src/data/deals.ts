@@ -7,6 +7,10 @@ export type Deal = {
   code?: number
   /** Co gia tri = dang ghim len dau /links (ghim sau nam tren ghim truoc). */
   pinnedAt?: string
+  /** Luot mo short link /d/<ma>. */
+  shortLinkClicks?: number
+  /** Luot bam sang merchant (nut "Get Deal" hoac /g/<ma>). */
+  dealClicks?: number
   title: string
   store?: string
   emoji?: string

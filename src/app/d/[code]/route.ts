@@ -1,7 +1,8 @@
 import { after, NextResponse } from 'next/server'
-import { getDealRefByCode } from '@/sanity/queries'
+import { getDealRefByCode, getDealPreviewByCode } from '@/sanity/queries'
 import { parseDealCode } from '@/lib/dealCode'
-import { detectShortLinkSource, isLikelyBot, parseCampaign } from '@/lib/shortLinkSource'
+import { dealPreviewHtml } from '@/lib/dealPreviewHtml'
+import { detectShortLinkSource, isLikelyBot, isLinkPreviewBot, parseCampaign } from '@/lib/shortLinkSource'
 import { trackShortLinkClick } from '@/lib/trackShortLink'
 import { ATTRIBUTION_COOKIE, attributionCookieOptions, serializeAttribution } from '@/lib/attribution'
 
@@ -36,9 +37,24 @@ export async function GET(
   // nay, va so click ngung tang du nguoi van bam.
   const response = NextResponse.redirect(new URL(target, request.url), 302)
 
-  if (!deal || parsed === null) return response
-
   const ua = request.headers.get('user-agent')
+
+  // Bot doc link preview: tra the OG ngay thay vi bat no di them mot vong
+  // redirect. /d/ von da hoat dong (bot cua Facebook co di theo 302 ve trang deal
+  // that), nhung khong phai client nhan tin nao cung di theo — tra thang thi the
+  // preview chac chan hien. Crawler tim kiem (Googlebot...) KHONG di vao nhanh
+  // nay: voi ho redirect tot hon, no gop tin hieu ve trang deal that.
+  if (deal && parsed !== null && isLinkPreviewBot(ua)) {
+    const preview = await getDealPreviewByCode(parsed)
+    if (preview) {
+      return new Response(dealPreviewHtml(preview, { target }), {
+        status: 200,
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      })
+    }
+  }
+
+  if (!deal || parsed === null) return response
   // Trinh thu thap/doc link preview khong phai nguoi — khong dem, cung khong gan
   // nguon (cookie cho bot la vo nghia).
   if (isLikelyBot(ua)) return response

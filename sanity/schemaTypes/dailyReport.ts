@@ -20,6 +20,8 @@ export const dailyReportType = defineType({
     defineField({ name: 'sevenDayClicks', title: 'Click 7 ngày qua', type: 'number' }),
     defineField({ name: 'needsAttentionCount', title: 'Offer có click cần chú ý', type: 'number' }),
     defineField({ name: 'zeroClickStoreCount', title: 'Số store chưa từng có click', type: 'number' }),
+    defineField({ name: 'shortLinkThirtyDay', title: 'Lượt mở short link (30 ngày)', type: 'number' }),
+    defineField({ name: 'dealMerchantAllTime', title: 'Lượt bấm sang merchant từ trang deal', type: 'number' }),
     defineField({ name: 'model', title: 'Model', type: 'string' }),
   ],
   preview: {
