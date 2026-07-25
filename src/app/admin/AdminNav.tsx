@@ -82,6 +82,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/config/seo',     label: 'SEO',               icon: '🔍' },
       { href: '/admin/config/ads',     label: 'Quảng cáo',         icon: '📢' },
       { href: '/admin/config/author',  label: 'Tác giả',           icon: '👤' },
+      { href: '/admin/config/persona', label: 'Giọng kênh (AI)',   icon: '🗣️' },
       { href: '/admin/config/social',  label: 'Mạng xã hội',       icon: '🌐' },
       { href: '/admin/import',         label: 'Import Excel',      icon: '📥' },
     ],

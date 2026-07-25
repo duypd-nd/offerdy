@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { buildCaption, shortLinkUrl, type LinkStyle } from '@/lib/socialCaption'
 import { parseCampaign } from '@/lib/shortLinkSource'
+import { CAPTION_ANGLES, type CaptionAngle } from '@/lib/ai/generateCaption'
+import { generateCaptionsForDeal, type GeneratedCaption } from './actions'
 
 type KitDeal = {
   code: number
@@ -37,6 +39,11 @@ export default function SocialKitClient({ deals, missingCode }: {
   // nho vay effect khong phai setState dong bo de "xoa QR cu".
   const [qr, setQr] = useState<{ url: string; svg: string } | null>(null)
   const [toast, setToast] = useState('')
+  const [angle, setAngle] = useState<CaptionAngle>('price')
+  const [aiCaptions, setAiCaptions] = useState<GeneratedCaption[]>([])
+  const [aiRejected, setAiRejected] = useState<string[]>([])
+  const [aiError, setAiError] = useState('')
+  const [aiPending, startAi] = useTransition()
 
   const campaign = parseCampaign(campaignRaw)
   const deal = deals.find(d => d.code === selectedCode) ?? null
@@ -75,6 +82,20 @@ export default function SocialKitClient({ deals, missingCode }: {
   }, [url])
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2200) }
+
+  const runAi = () => {
+    if (!deal) return
+    setAiError(''); setAiRejected([]); setAiCaptions([])
+    startAi(async () => {
+      const res = await generateCaptionsForDeal({
+        code: deal.code, angle, count: 3, style, campaign,
+      })
+      if (!res.ok) { setAiError(res.error); return }
+      setAiCaptions(res.captions)
+      setAiRejected(res.rejected)
+      if (res.captions.length === 0 && res.rejected.length === 0) setAiError('AI không trả về bản nào — thử lại hoặc đổi góc.')
+    })
+  }
 
   const copy = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
@@ -208,6 +229,77 @@ export default function SocialKitClient({ deals, missingCode }: {
                       : 'Để trống cũng được. Điền để biết bài nào ra click.'}
                   </div>
                 </div>
+              </div>
+
+              {/* ── Viết bằng AI ────────────────────────────────
+                  AI chi viet CHU; gia, % giam va link do code dien vao sau khi da
+                  qua kiem tra an toan (xem src/lib/ai/generateCaption.ts). */}
+              <div style={{ background: '#F8FAFC', border: '1px solid #E4EAF2', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 260px' }}>
+                    <span style={label}>Viết bằng AI — chọn góc</span>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {CAPTION_ANGLES.map(a => (
+                        <button
+                          key={a.id}
+                          onClick={() => setAngle(a.id)}
+                          title={a.hint}
+                          style={{
+                            minHeight: 32, padding: '0 11px', borderRadius: 7, fontSize: 12, fontWeight: 700,
+                            border: `1.5px solid ${angle === a.id ? '#16A34A' : '#E4EAF2'}`,
+                            background: angle === a.id ? '#F0FDF4' : '#fff',
+                            color: angle === a.id ? '#16A34A' : '#6B7694',
+                          }}
+                        >
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button className="oa-btn oa-btn-green" onClick={runAi} disabled={aiPending || !deal} style={{ flexShrink: 0 }}>
+                    {aiPending ? 'Đang viết…' : '✨ Viết 3 bản'}
+                  </button>
+                </div>
+
+                {aiError && (
+                  <div style={{ marginTop: 10, padding: '8px 12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 12, color: '#B91C1C' }}>
+                    {aiError}
+                  </div>
+                )}
+
+                {aiRejected.length > 0 && (
+                  // Hien ra thay vi giau: neu AI lien tuc bi loai thi persona hoac
+                  // goc dang co van de, va nguoi dung can biet dieu do.
+                  <div style={{ marginTop: 10, padding: '8px 12px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, fontSize: 11.5, color: '#92400E', lineHeight: 1.6 }}>
+                    Đã loại {aiRejected.length} bản vì {aiRejected.join('; ')}. Số liệu chỉ được lấy từ dữ liệu thật, AI không được tự viết.
+                  </div>
+                )}
+
+                {aiCaptions.length > 0 && (
+                  <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {aiCaptions.map((c, i) => (
+                      <div key={i} style={{ background: '#fff', border: '1px solid #E4EAF2', borderRadius: 8, padding: '10px 12px' }}>
+                        <div style={{ fontSize: 12.5, color: '#1E293B', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{c.text}</div>
+                        <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <button className="oa-btn oa-btn-green" style={{ minHeight: 30, fontSize: 11.5 }} onClick={() => setCaptionOverride(c.text)}>
+                            Dùng bản này
+                          </button>
+                          <button
+                            className="oa-btn"
+                            style={{ minHeight: 30, fontSize: 11.5 }}
+                            title="Đặt nhãn riêng cho bản này để báo cáo tách được góc nào ra click"
+                            onClick={() => { setCampaignRaw(c.suggestedTag); setCaptionOverride(c.text) }}
+                          >
+                            Dùng + gắn nhãn <code>{c.suggestedTag}</code>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ fontSize: 11, color: '#9CA3AF', lineHeight: 1.6 }}>
+                      Đăng cả 3 với 3 nhãn khác nhau rồi xem <strong>Báo cáo Click</strong> — sau vài bài là biết góc nào thật sự ra click, không phải đoán.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <span style={label}>Caption — sửa thoải mái trước khi đăng</span>

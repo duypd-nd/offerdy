@@ -4,6 +4,7 @@ const CONFIGS = [
   { href: '/admin/config/seo', icon: '🔍', label: 'Cấu hình SEO', desc: 'Meta title, description, OG image, keywords' },
   { href: '/admin/config/ads', icon: '📢', label: 'Cấu hình Ads', desc: 'Google AdSense, GTM, Facebook Pixel' },
   { href: '/admin/config/author', icon: '👤', label: 'Cấu hình tác giả', desc: 'Tên, chức danh, bio, email' },
+  { href: '/admin/config/persona', icon: '🗣️', label: 'Giọng kênh (AI)', desc: 'Bio, khán giả, content pillars, giọng viết — để AI viết caption nghe giống bạn' },
   { href: '/admin/config/social', icon: '🌐', label: 'Mạng xã hội', desc: 'Facebook, Twitter, Instagram, YouTube...' },
 ]
 

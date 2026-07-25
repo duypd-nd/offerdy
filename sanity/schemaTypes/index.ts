@@ -14,6 +14,7 @@ import { configSocialType } from './configSocial'
 import { configSEOType } from './configSEO'
 import { configContentType } from './configContent'
 import { configAdsType } from './configAds'
+import { configPersonaType } from './configPersona'
 
 // AI-generated singletons
 import { dailyReportType } from './dailyReport'
@@ -23,7 +24,7 @@ export const schemaTypes = [
   dealType, storeType, categoryType, reviewType, postType, offerType, pageType,
   // Config
   configGeneralType, configAuthorType, configSocialType,
-  configSEOType, configContentType, configAdsType,
+  configSEOType, configContentType, configAdsType, configPersonaType,
   // AI-generated
   dailyReportType,
 ]
