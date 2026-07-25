@@ -40,6 +40,18 @@ export function verifyCronRequest(request: Request, routeName: string): CronAuth
     userAgent: request.headers.get('user-agent')?.slice(0, 60) ?? null,
     // Do dai lech dung 1-2 ky tu = gan nhu chac chan thua khoang trang/xuong dong
     lengthMatches: !!secret && !!authHeader && authHeader.length === (secret.length + 7),
+    // ── Chan doan khi hasSecret = false ──
+    // Ten bien (KHONG phai gia tri) chua "cron" — lo ra ngay neu ten bi go sai
+    // hoac dinh ky tu la: dashboard nhin van dung ma process.env doc ra undefined.
+    cronEnvNames: Object.keys(process.env).filter(k => /cron/i.test(k)),
+    // Cac bien khac co den runtime khong -> phan biet "rieng bien nay hong" voi
+    // "ca co che env khong den duoc function".
+    otherEnvReaching: {
+      anthropic: !!process.env.ANTHROPIC_API_KEY,
+      sanity: !!process.env.SANITY_API_TOKEN,
+      adminUser: !!process.env.ADMIN_USERNAME,
+    },
+    vercelEnv: process.env.VERCEL_ENV ?? null,
   }))
 
   return {
