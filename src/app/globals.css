@@ -431,6 +431,21 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .store-deals-wrap{padding:36px 0 80px}
 .store-deals-bar{display:flex;align-items:center;gap:8px;margin-bottom:28px;flex-wrap:wrap}
 .store-deals-count{font-size:13px;color:var(--muted);margin-left:auto;flex-shrink:0;font-weight:500}
+/* "Deals at {store}" tren trang store. Link NOI BO sang trang deal cua site — o day
+   khong dat nut affiliate vi trang store da co day du CTA ra ngoai o phia tren. */
+.store-deals{margin-top:36px}
+.store-deals-h{font-size:19px;font-weight:800;color:var(--navy);margin:0 0 14px}
+.store-deals-list{display:flex;flex-direction:column;gap:10px}
+.store-deal-row{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;transition:border-color .16s,box-shadow .16s,transform .12s}
+.store-deal-row:hover{border-color:var(--green);box-shadow:0 6px 18px rgba(15,25,41,.08);transform:translateY(-1px)}
+.store-deal-img{flex-shrink:0;width:56px;height:56px;object-fit:contain;border-radius:9px;background:#fff}
+.store-deal-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.store-deal-title{font-size:14px;font-weight:700;color:var(--navy);line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.store-deal-prices{font-size:13px;color:var(--muted);display:flex;align-items:baseline;gap:8px}
+.store-deal-prices b{font-size:15px;color:var(--green);font-weight:800}
+.store-deal-prices s{opacity:.65}
+.store-deal-arrow{flex-shrink:0;color:var(--green);font-size:18px;font-weight:700}
+@media(max-width:520px){.store-deal-img{width:46px;height:46px}.store-deals-h{font-size:17px}}
 .store-empty{text-align:center;padding:80px 24px;color:var(--muted)}
 .store-empty-icon{font-size:52px;margin-bottom:16px}
 .store-empty-title{font-family:var(--font-d),system-ui,sans-serif;font-size:18px;font-weight:800;color:var(--text);margin-bottom:8px}
@@ -1154,6 +1169,8 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .dd-media img{width:100%;height:100%;object-fit:cover}
 .dd-info{flex:1;min-width:0}
 .dd-store{font-size:13px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.dd-store-link{color:var(--green);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.dd-store-link:hover{text-decoration-thickness:2px}
 .dd-code{font-weight:800;color:var(--green-dark);font-variant-numeric:tabular-nums}
 /* Share: nut phu, co y nho hon .dd-cta de khong tranh su chu y voi "Get Deal" */
 .dd-share{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}

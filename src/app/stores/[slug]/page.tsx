@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import StoreOfferList from '@/components/StoreOfferList'
-import { getStoreBySlug, getOffersByStore, getConfigContent, type HowToStep, type FaqItem } from '@/sanity/queries'
+import { getStoreBySlug, getOffersByStore, getDealsByStore, getConfigContent, type HowToStep, type FaqItem } from '@/sanity/queries'
 import FaqAccordion from '@/components/FaqAccordion'
 import AffiliateLink from '@/components/AffiliateLink'
 
@@ -33,6 +34,16 @@ const FALLBACK_ABOUT: Record<string, string> = {
 }
 
 const BASE = 'https://www.offerdy.com'
+
+/** Deal cua store, chi cac field khoi "Deals at {store}" dung toi. */
+type StoreDealRow = {
+  id: string
+  slug: string
+  title: string
+  priceSale: string
+  priceOrig?: string
+  imageUrl?: string
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -91,9 +102,12 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
   const store = await getStoreBySlug(slug)
   if (!store) notFound()
 
-  const [offers, globalContent] = await Promise.all([
+  const [offers, globalContent, storeDeals] = await Promise.all([
     getOffersByStore(slug),
     getConfigContent(),
+    // Deal cua chinh shop nay. Khop theo TEN store — chi hoat dong duoc tu khi
+    // `deal.store` tu dien tu domain cua dealUrl (truoc do 22/22 deal de trong).
+    getDealsByStore(store.name),
   ])
 
   const shortDesc = store.shortDescription ?? 'Deals & coupons verified daily — tested before going live.'
@@ -242,6 +256,34 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
                 <div className="store-empty-icon">🏷️</div>
                 <div className="store-empty-title">No offers yet for {store.name}</div>
                 <div className="store-empty-sub">Check back soon — we add new offers daily.</div>
+              </div>
+            )}
+
+            {/* Deal cua chinh shop nay. Link NOI BO sang trang deal cua site, khong
+                dat them nut affiliate: trang nay da co day du CTA affiliate o tren,
+                va them mot duong ra ngoai nua chi lam loang phep do.
+                Khop duoc nho `deal.store` gio tu dien tu domain cua dealUrl — truoc
+                do 22/22 deal de trong ten shop nen quan he nay khong the ton tai. */}
+            {storeDeals.length > 0 && (
+              <div className="store-deals">
+                <h2 className="store-deals-h">Deals at {store.name}</h2>
+                <div className="store-deals-list">
+                  {storeDeals.map((deal: StoreDealRow) => (
+                    <Link key={deal.id} href={`/deals/${deal.slug}`} className="store-deal-row">
+                      {deal.imageUrl && (
+                        <Image src={deal.imageUrl} alt="" width={56} height={56} className="store-deal-img" />
+                      )}
+                      <span className="store-deal-body">
+                        <span className="store-deal-title">{deal.title}</span>
+                        <span className="store-deal-prices">
+                          <b>{deal.priceSale}</b>
+                          {deal.priceOrig && <s>{deal.priceOrig}</s>}
+                        </span>
+                      </span>
+                      <span className="store-deal-arrow" aria-hidden>→</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
 

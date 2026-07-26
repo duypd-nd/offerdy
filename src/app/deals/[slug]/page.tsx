@@ -145,7 +145,13 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
                   tai nen dong nay thuong chi con ma. */}
               {(deal.store || deal.code) && (
                 <div className="dd-store">
-                  {deal.store}
+                  {/* Ten shop thanh LINK khi khop duoc store (suy tu domain cua
+                      dealUrl). Khach dang xem mot san pham thi trang store la noi
+                      co TAT CA ma cua shop do — truoc day day chi la chu thuong,
+                      va hai nhom noi dung nay khong he noi voi nhau. */}
+                  {deal.store && deal.storeSlug
+                    ? <Link href={`/stores/${deal.storeSlug}`} className="dd-store-link">{deal.store}</Link>
+                    : deal.store}
                   {deal.store && deal.code ? ' · ' : ''}
                   {deal.code && <span className="dd-code">{formatDealCode(deal.code)}</span>}
                 </div>

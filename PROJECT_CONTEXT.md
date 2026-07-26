@@ -161,6 +161,14 @@ Paste the product link, press **⤓ Lấy từ link**, and the form fills itself
 - The deals list has a **Tiếp thị** column (`✓ StoreName 🏷` / `⚠ không khớp`). The modal's warning only appears while typing, so a saved deal earning no commission had nothing to reveal it; this shows the whole list at a glance.
 - Each row with a code has a **📣** button to `/admin/social-kit?code=<code>`. Adding a deal and posting it are one continuous task; before this the operator had to navigate there and search the code again. An unknown or missing code falls back to the newest deal rather than an empty state.
 
+## Deal ↔ store cross-links, and coupon codes on `/links`
+Two content groups that never referenced each other now do, both riding the domain match from `dealStoreMatch.ts`.
+
+- **Deal page → store page**: the shop name was plain text; it is now a link to `/stores/<slug>` (`resolveDealLink` also returns `storeSlug`). A visitor looking at one product reaches the page holding *all* of that shop's codes.
+- **Store page → its deals**: a "Deals at {store}" section, matched by `getDealsByStore(store.name)`. ⚠️ This only became possible today — that helper matches on the deal's **store name**, which was blank on all 22 deals until it started auto-filling from the domain. The helper and `StoreDealsFilter.tsx` had been **dead code** all along.
+- ⚠️ **`StoreDealsFilter.tsx` was deleted rather than revived.** It was stale: no `dealId` passed to `AffiliateLink` (the untracked-click bug fixed elsewhere) and emoji instead of images. The new section deliberately uses **internal links to our own deal pages** and adds no second affiliate CTA — the store page already carries them above.
+- **`/links` shows working coupon codes** directly (`LinkInBioCodes`), 6 rows, **one per shop**: real data has one shop with two codes (Frizzlife), and repeating a shop on a 6-row page costs another brand its slot. Codes render **exactly as stored** — production has both `OFFERDY` and `offerdy`, and some checkouts are case-sensitive, so normalising could break a code. Not sorted by clicks: at current volume that would be sorting by noise.
+
 ## Tests (`npm test`)
 47 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, and the AI caption guardrails. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it.
 

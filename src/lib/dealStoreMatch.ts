@@ -91,11 +91,17 @@ export function applyStoreRefToDealUrl(
 export function resolveDealLink(
   dealUrl: string | undefined,
   stores: StoreHostRow[]
-): { dealUrl?: string; storeName?: string } {
+): { dealUrl?: string; storeName?: string; storeSlug?: string } {
   if (!dealUrl) return { dealUrl }
   const store = matchStoreByUrl(dealUrl, stores)
   if (!store) return { dealUrl }
-  return { dealUrl: applyTrackingParams(dealUrl, store), storeName: store.name }
+  return {
+    dealUrl: applyTrackingParams(dealUrl, store),
+    storeName: store.name,
+    // Slug de trang deal link duoc sang /stores/<slug>: khach dang xem mot san pham
+    // thi trang store la noi co TAT CA ma cua shop do.
+    storeSlug: store.slug,
+  }
 }
 
 export type DealCoupon = {

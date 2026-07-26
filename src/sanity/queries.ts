@@ -300,7 +300,7 @@ export async function getDealCoupon(dealUrl?: string): Promise<DealCoupon | null
 // khong dung mot type chung nao ca (moi projection mot hinh), nen rang buoc
 // `T extends { dealUrl?: string }` se lam TypeScript thu hep ket qua xuong con
 // dung mot field dealUrl va lam vo moi noi tieu thu.
-type DealRow = { dealUrl?: string; store?: string }
+type DealRow = { dealUrl?: string; store?: string; storeSlug?: string }
 
 /** Gan ref + dien ten shop (chi khi `store` dang trong). */
 function applyDealResolution<T>(row: T, stores: StoreHostRow[]): T {
@@ -313,6 +313,8 @@ function applyDealResolution<T>(row: T, stores: StoreHostRow[]): T {
     // `||` chu khong phai `??`: chuoi rong cung tinh la trong. Va khong bao gio
     // ghi de ten shop nguoi van hanh da go.
     store: d.store || r.storeName,
+    // Chi de link noi bo sang trang store — deal khong luu field nay.
+    storeSlug: r.storeSlug,
   } as T
 }
 
