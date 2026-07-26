@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import StoreAdmin from './StoreAdmin'
 import { pageRange, parsePage, paramStr, totalPagesFor } from '@/lib/adminPagination'
 
@@ -54,9 +54,9 @@ export default async function AdminStoresPage({
   const COUNT_QUERY = `count(*[${filter}])`
 
   const [stores, total, categories] = await Promise.all([
-    writeClient.fetch(LIST_QUERY, params),
-    writeClient.fetch<number>(COUNT_QUERY, params),
-    writeClient.fetch(CATEGORIES_QUERY).catch(() => []),
+    readClient.fetch(LIST_QUERY, params),
+    readClient.fetch<number>(COUNT_QUERY, params),
+    readClient.fetch(CATEGORIES_QUERY).catch(() => []),
   ])
 
   return (

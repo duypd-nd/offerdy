@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import Link from 'next/link'
 import { getRecentSentryIssues } from '@/lib/sentryApi'
 import { getMerchantHealthData, getLatestDailyReport } from '@/sanity/queries'
@@ -77,40 +77,40 @@ export default async function ReportsPage() {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
   const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport, deepLinkStats] = await Promise.all([
-    writeClient.fetch<OfferClickRow[]>(
+    readClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
         "storeId": store._ref, "storeName": store->name, "storeSlug": store->slug.current
       }`
     ),
-    writeClient.fetch<StoreClickRow[]>(
+    readClient.fetch<StoreClickRow[]>(
       `*[_type == "store"] { "id": _id, name, "slug": slug.current, "directClicks": coalesce(clicks, 0) }`
     ),
     // `kind != "shortlink"`: log mo short link /d/<ma> KHONG phai click affiliate.
     // Gop chung se phong so lieu doanh thu (mo short link chi la vao xem san pham).
     // Click affiliate cu khong co field `kind`, va trong GROQ `null != "shortlink"`
     // la true, nen dieu kien nay giu nguyen toan bo du lieu lich su.
-    writeClient.fetch<ClickLogRow[]>(
+    readClient.fetch<ClickLogRow[]>(
       `*[_type == "click" && _createdAt >= $thirtyDaysAgo && kind != "shortlink"] {
         _createdAt, "offerId": offer._ref, "storeId": coalesce(store._ref, offer->store._ref)
       }`,
       { thirtyDaysAgo }
     ),
-    writeClient.fetch<number>(`count(*[_type == "click" && kind != "shortlink"])`),
-    writeClient.fetch<ShortLinkClickRow[]>(
+    readClient.fetch<number>(`count(*[_type == "click" && kind != "shortlink"])`),
+    readClient.fetch<ShortLinkClickRow[]>(
       `*[_type == "click" && kind == "shortlink" && _createdAt >= $thirtyDaysAgo] | order(_createdAt desc) {
         _createdAt, code, source, campaign,
         "dealTitle": deal->title, "dealSlug": deal->slug.current
       }`,
       { thirtyDaysAgo }
     ),
-    writeClient.fetch<DealShortLinkRow[]>(
+    readClient.fetch<DealShortLinkRow[]>(
       `*[_type == "deal" && (shortLinkClicks > 0 || dealClicks > 0)] | order(coalesce(shortLinkClicks, 0) desc) {
         code, title, "slug": slug.current,
         "shortLinkClicks": coalesce(shortLinkClicks, 0), "dealClicks": coalesce(dealClicks, 0)
       }`
     ),
-    writeClient.fetch<AttributedClickRow[]>(
+    readClient.fetch<AttributedClickRow[]>(
       `*[_type == "click" && kind != "shortlink" && defined(source) && _createdAt >= $thirtyDaysAgo] {
         _createdAt, source, campaign
       }`,
@@ -122,7 +122,7 @@ export default async function ReportsPage() {
     // Deep link: do phu hien tai + click da phan tach. `deepLink` duoc dong dau
     // luc click (xem trackOfferClick), nen click cu — truoc khi co tinh nang —
     // khong co field nay va khong bi tinh vao ve nao.
-    writeClient.fetch<DeepLinkStats>(
+    readClient.fetch<DeepLinkStats>(
       `{
         "offersTotal": count(*[_type == "offer" && active == true]),
         "offersWithUrl": count(*[_type == "offer" && active == true && defined(productUrl)]),

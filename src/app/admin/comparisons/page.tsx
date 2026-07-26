@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import ComparisonsAdmin from './ComparisonsAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -8,6 +8,6 @@ const QUERY = `*[_type == "post" && category == "Comparison"] | order(publishedA
 }`
 
 export default async function AdminComparisonsPage() {
-  const posts = await writeClient.fetch(QUERY)
+  const posts = await readClient.fetch(QUERY)
   return <ComparisonsAdmin initialPosts={posts ?? []} />
 }

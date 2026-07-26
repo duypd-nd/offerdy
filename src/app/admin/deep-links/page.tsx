@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import DeepLinksClient from './DeepLinksClient'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +13,7 @@ export type StoreRow = {
 }
 
 export default async function DeepLinksPage() {
-  const stores = await writeClient.fetch<StoreRow[]>(
+  const stores = await readClient.fetch<StoreRow[]>(
     `*[_type == "store" && count(*[_type == "offer" && store._ref == ^._id && active == true]) > 0] {
       "id": _id,
       name,

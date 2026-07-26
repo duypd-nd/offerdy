@@ -1,4 +1,4 @@
-﻿import { writeClient } from '@/sanity/writeClient'
+﻿import { client as readClient } from '@/sanity/client'
 import ReviewAdmin from './ReviewAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -20,8 +20,8 @@ const STORE_HOSTS_QUERY = `*[_type == "store"]{
 
 export default async function AdminReviewsPage() {
   const [reviews, storeHosts] = await Promise.all([
-    writeClient.fetch(QUERY),
-    writeClient.fetch(STORE_HOSTS_QUERY),
+    readClient.fetch(QUERY),
+    readClient.fetch(STORE_HOSTS_QUERY),
   ])
   return <ReviewAdmin initialReviews={reviews ?? []} storeHosts={storeHosts ?? []} />
 }

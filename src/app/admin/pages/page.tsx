@@ -1,4 +1,4 @@
-﻿import { writeClient } from '@/sanity/writeClient'
+﻿import { client as readClient } from '@/sanity/client'
 import PageAdmin from './PageAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -9,6 +9,6 @@ const QUERY = `*[_type == "page"] | order(_createdAt desc) {
 }`
 
 export default async function AdminPagesPage() {
-  const pages = await writeClient.fetch(QUERY)
+  const pages = await readClient.fetch(QUERY)
   return <PageAdmin initialPages={pages ?? []} />
 }

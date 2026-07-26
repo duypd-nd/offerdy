@@ -1,4 +1,4 @@
-﻿import { writeClient } from '@/sanity/writeClient'
+﻿import { client as readClient } from '@/sanity/client'
 import PostAdmin from './PostAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -8,6 +8,6 @@ const QUERY = `*[_type == "post"] | order(publishedAt desc, _createdAt desc) {
 }`
 
 export default async function AdminPostsPage() {
-  const posts = await writeClient.fetch(QUERY)
+  const posts = await readClient.fetch(QUERY)
   return <PostAdmin initialPosts={posts ?? []} />
 }

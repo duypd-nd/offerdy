@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import SocialKitClient from './SocialKitClient'
 
 export const dynamic = 'force-dynamic'
@@ -19,8 +19,8 @@ export default async function SocialKitPage({ searchParams }: {
   searchParams: Promise<{ code?: string }>
 }) {
   const [deals, missingCode, params] = await Promise.all([
-    writeClient.fetch(QUERY),
-    writeClient.fetch<number>(MISSING_CODE_QUERY),
+    readClient.fetch(QUERY),
+    readClient.fetch<number>(MISSING_CODE_QUERY),
     searchParams,
   ])
   // `?code=` de nut 📣 tren /admin/deals nhay thang sang day voi deal da chon san —

@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import LinkCheckerClient from './LinkCheckerClient'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +12,7 @@ export type LinkItem = {
 }
 
 export default async function LinkCheckerPage() {
-  const items = await writeClient.fetch<LinkItem[]>(
+  const items = await readClient.fetch<LinkItem[]>(
     // Cung quy tac voi cron link-check-nightly: quet URL khach thuc su den,
     // tuc trang san pham neu offer co productUrl.
     `*[_type == "offer" && active == true && coalesce(productUrl, link) != ""] {

@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import TipsGuidesAdmin from './TipsGuidesAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -8,6 +8,6 @@ const QUERY = `*[_type == "post" && category == "Tips & Guides"] | order(publish
 }`
 
 export default async function AdminTipsGuidesPage() {
-  const posts = await writeClient.fetch(QUERY)
+  const posts = await readClient.fetch(QUERY)
   return <TipsGuidesAdmin initialPosts={posts ?? []} />
 }

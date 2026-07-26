@@ -1,4 +1,4 @@
-﻿import { writeClient } from '@/sanity/writeClient'
+﻿import { client as readClient } from '@/sanity/client'
 import DealAdmin from './DealAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -27,10 +27,10 @@ const STORE_HOSTS_QUERY = `*[_type == "store"]{
 
 export default async function AdminDealsPage() {
   const [deals, reviews, categories, storeHosts] = await Promise.all([
-    writeClient.fetch(QUERY),
-    writeClient.fetch(REVIEWS_QUERY),
-    writeClient.fetch(CATEGORIES_QUERY),
-    writeClient.fetch(STORE_HOSTS_QUERY),
+    readClient.fetch(QUERY),
+    readClient.fetch(REVIEWS_QUERY),
+    readClient.fetch(CATEGORIES_QUERY),
+    readClient.fetch(STORE_HOSTS_QUERY),
   ])
   return (
     <DealAdmin

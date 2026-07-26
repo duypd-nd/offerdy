@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -110,18 +110,18 @@ export default async function AdminDashboard() {
     stores, offers, flashSales, couponCodes, deals, categories,
     allPosts, comparisons, tipsGuides, reviews, pages, recent,
   ] = await Promise.all([
-    writeClient.fetch<number>(`count(*[_type == "store" && published != false])`),
-    writeClient.fetch<number>(`count(*[_type == "offer" && active == true])`),
-    writeClient.fetch<number>(`count(*[_type == "offer" && active == true && defined(expiresAt) && expiresAt > now()])`),
-    writeClient.fetch<number>(`count(*[_type == "offer" && active == true && defined(couponCode) && couponCode != ""])`),
-    writeClient.fetch<number>(`count(*[_type == "deal"])`),
-    writeClient.fetch<number>(`count(*[_type == "category"])`),
-    writeClient.fetch<number>(`count(*[_type == "post"])`),
-    writeClient.fetch<number>(`count(*[_type == "post" && category == "Comparison"])`),
-    writeClient.fetch<number>(`count(*[_type == "post" && category == "Tips & Guides"])`),
-    writeClient.fetch<number>(`count(*[_type == "review"])`),
-    writeClient.fetch<number>(`count(*[_type == "page"])`),
-    writeClient.fetch<{ _type: string; _updatedAt: string; name: string; slug?: string }[]>(
+    readClient.fetch<number>(`count(*[_type == "store" && published != false])`),
+    readClient.fetch<number>(`count(*[_type == "offer" && active == true])`),
+    readClient.fetch<number>(`count(*[_type == "offer" && active == true && defined(expiresAt) && expiresAt > now()])`),
+    readClient.fetch<number>(`count(*[_type == "offer" && active == true && defined(couponCode) && couponCode != ""])`),
+    readClient.fetch<number>(`count(*[_type == "deal"])`),
+    readClient.fetch<number>(`count(*[_type == "category"])`),
+    readClient.fetch<number>(`count(*[_type == "post"])`),
+    readClient.fetch<number>(`count(*[_type == "post" && category == "Comparison"])`),
+    readClient.fetch<number>(`count(*[_type == "post" && category == "Tips & Guides"])`),
+    readClient.fetch<number>(`count(*[_type == "review"])`),
+    readClient.fetch<number>(`count(*[_type == "page"])`),
+    readClient.fetch<{ _type: string; _updatedAt: string; name: string; slug?: string }[]>(
       `*[_type in ["store","deal","post","review","offer","page"]] | order(_updatedAt desc)[0...10] {
         _type, _updatedAt, "name": coalesce(title, name), "slug": slug.current
       }`

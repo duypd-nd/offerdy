@@ -1,4 +1,4 @@
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import AiReviewAdmin from './AiReviewAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -17,9 +17,9 @@ const PENDING_DEALS_QUERY = `*[_type == "deal" && aiReviewStatus == "pending"] |
 
 export default async function AiReviewPage() {
   const [stores, offers, deals] = await Promise.all([
-    writeClient.fetch(PENDING_STORES_QUERY),
-    writeClient.fetch(PENDING_OFFERS_QUERY),
-    writeClient.fetch(PENDING_DEALS_QUERY),
+    readClient.fetch(PENDING_STORES_QUERY),
+    readClient.fetch(PENDING_OFFERS_QUERY),
+    readClient.fetch(PENDING_DEALS_QUERY),
   ])
   return <AiReviewAdmin initialStores={stores ?? []} initialOffers={offers ?? []} initialDeals={deals ?? []} />
 }
