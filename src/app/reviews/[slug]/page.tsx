@@ -6,7 +6,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import FaqAccordion from '@/components/FaqAccordion'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
-import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor } from '@/sanity/queries'
+import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor, getStoreRefForUrl, getDealCoupon } from '@/sanity/queries'
 import { reviews as staticReviews } from '@/data/reviews'
 
 export const revalidate = 60
@@ -116,7 +116,17 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
     ],
   }
 
-  const buyUrl = review.affiliateUrl || review.productUrl
+  // Gan ma tiep thi theo domain, giong deal va offer. Bat buoc phai lam o day:
+  // review nhap qua Excel khong di qua form admin nen affiliateUrl la link TRAN,
+  // va truoc day nut CTA trong bai review khong mang tracking gi ca — click khong
+  // ra hoa hong ma khong co dau hieu nao.
+  const rawBuyUrl = review.affiliateUrl || review.productUrl
+  const [buyUrl, shopCoupon] = await Promise.all([
+    getStoreRefForUrl(rawBuyUrl),
+    // Ma coupon cua shop: review nhap qua Excel khong co cot couponCode, nhung ma
+    // suy ra duoc tu domain nen khong can nguoi nhap tay.
+    getDealCoupon(rawBuyUrl),
+  ])
 
   return (
     <>
@@ -162,7 +172,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
               </a>
             )}
 
-            {review.couponCode && <ReviewCouponBox code={review.couponCode} link={buyUrl} />}
+            {(review.couponCode || shopCoupon?.code) && <ReviewCouponBox code={(review.couponCode || shopCoupon?.code) as string} link={buyUrl} />}
 
             <div className="article-hero-img" style={{ background: review.imageUrl ? undefined : review.imgBg }}>
               {review.imageUrl

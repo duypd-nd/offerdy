@@ -307,6 +307,20 @@ export async function getDealCoupon(dealUrl?: string): Promise<DealCoupon | null
 }
 
 /**
+ * Gan tham so tiep thi cua shop vao MOT URL bat ky (khop theo domain).
+ *
+ * Dung cho trang review: `affiliateUrl` cua review nhap qua Excel la link TRAN, va
+ * trang review truoc day dung thang no lam nut CTA — click khong mang tracking.
+ * Tra ve dung URL da nhan neu khong khop store nao.
+ */
+export async function getStoreRefForUrl(url?: string): Promise<string | undefined> {
+  if (!isConfigured() || !url) return url
+  try {
+    return resolveDealLink(url, await getCachedStoreHosts() ?? []).dealUrl
+  } catch { return url }
+}
+
+/**
  * Gan tham so tiep thi cua shop vao `dealUrl` cua MOT deal.
  *
  * Lam o tang query nen moi duong ra merchant deu di qua day: nut Get Deal tren

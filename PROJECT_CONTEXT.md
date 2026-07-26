@@ -151,6 +151,22 @@ The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro insert
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
+## Sanity: two clients, two quotas
+See the comment block atop `src/sanity/queries.ts`. Short version: **public reads go through `readClient` (CDN)**, and `writeClient` (direct API) is reserved for writes and the few reads that must be fresh.
+
+- The dashboard numbers that forced this (2026-07-26): **API Requests 251.5k / 250k — exceeded**, while **API CDN Requests sat at 89 / 1,000,000**. Every public page read had been going to the small bucket and none to the large one.
+- Symptom it produced: `api.sanity.io` returned 402 for everything, `getStoreBySlug` caught the error and returned `null`, so **new store pages became 404 on production** while `/deals` still looked fine off cache. A quota problem presented itself as a routing problem.
+- Only three call sites keep the direct API: `nextDealCode` (a stale `max(code)` would hand out a **duplicate product code**, and a code already posted to social cannot be corrected), plus the daily-report and click-analytics reads where the operator presses "Tạo lại ngay" and must see the result immediately.
+- ⚠️ **Free plan has no pay-as-you-go** (Growth does). On Free, hitting the cap stops service outright, exactly as it did here. The project auto-downgrades to Free when the Growth trial ends.
+- Headroom after the fix: ~251k/month of reads against the 1M CDN allowance ≈ 25%. Raising `revalidate` above 60s was considered and **rejected as premature** — it trades content freshness for capacity that is not scarce. Revisit only if CDN usage approaches ~700k/month.
+- Writes still need the API but never break the user journey: `trackShortLink` and `AffiliateLink` swallow their own errors by design, so during the outage `/d/`, `/g/` and every Get Deal button kept working — only the click statistics were lost.
+
+## Reviews: affiliate ref and coupon resolved at render
+`/reviews/[slug]` attaches the shop's tracking params to the CTA by domain (`getStoreRefForUrl`) and falls back to that shop's coupon code when the review has none.
+
+- ⚠️ Why it was needed: `buyUrl` used to be plain `affiliateUrl || productUrl`. A review created through `/admin/reviews` gets a ref'd URL from the form, but one created through **Excel import** carries a bare link — so the CTA inside a published review earned **nothing**, with nothing on screen to reveal it.
+- The coupon fallback also means the Reviews import sheet needs no coupon column at all. Verified live: the Katyayani review has an empty `couponCode` and the page still renders that shop's real code (`duy`).
+
 ## Store page: offers with a code come first
 `OFFERS_BY_STORE_QUERY` sorts by `select(defined(couponCode) && couponCode != "" => 0, 1) asc`, then `order desc`, then newest.
 
