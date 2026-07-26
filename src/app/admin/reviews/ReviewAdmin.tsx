@@ -10,6 +10,7 @@ import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
+import { applyStoreRefToDealUrl, couponForDealUrl, type StoreHostRow } from '@/lib/dealStoreMatch'
 
 type FaqItem = { question: string; answer: string }
 type ProsAndCons = { pros: string[]; cons: string[] }
@@ -48,7 +49,11 @@ const GRADIENT_PRESETS: { label: string; value: string }[] = [
   { label: 'Cam', value: 'linear-gradient(135deg,#FFF7ED,#FED7AA)' },
 ]
 
-export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminReview[] }) {
+export default function ReviewAdmin({ initialReviews, storeHosts = [] }: {
+  initialReviews: AdminReview[]
+  /** Host + ma coupon cua cac store, de tu gan ma tiep thi theo domain. */
+  storeHosts?: StoreHostRow[]
+}) {
   const [reviews, setReviews] = useState(initialReviews)
   const [search, setSearch] = useState('')
   const [tagFilter, setTagFilter] = useState('all')
@@ -174,11 +179,11 @@ export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminR
       </div>
 
       {showModal && (
-        <ReviewModal mode="add" onClose={() => setShowModal(false)}
+        <ReviewModal mode="add" storeHosts={storeHosts} onClose={() => setShowModal(false)}
           onSaved={r => { setReviews(prev => [r, ...prev]); setShowModal(false); showToast('Đã thêm review') }} />
       )}
       {editingReview && (
-        <ReviewModal mode="edit" initial={editingReview} onClose={() => setEditingReview(null)}
+        <ReviewModal mode="edit" initial={editingReview} storeHosts={storeHosts} onClose={() => setEditingReview(null)}
           onSaved={updated => { setReviews(prev => prev.map(r => r._id === updated._id ? updated : r)); setEditingReview(null); showToast('Đã lưu') }}
           onDeleted={id => { setReviews(prev => prev.filter(r => r._id !== id)); setEditingReview(null); showToast('Đã xóa') }} />
       )}
@@ -186,8 +191,9 @@ export default function ReviewAdmin({ initialReviews }: { initialReviews: AdminR
   )
 }
 
-function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
+function ReviewModal({ mode, initial, storeHosts = [], onClose, onSaved, onDeleted }: {
   mode: 'add' | 'edit'; initial?: AdminReview
+  storeHosts?: StoreHostRow[]
   onClose: () => void; onSaved: (r: AdminReview) => void; onDeleted?: (id: string) => void
 }) {
   const [form, setForm] = useState({
@@ -216,7 +222,11 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
   // Link Affiliate mac dinh = Link san pham cho den khi admin tu go sua rieng
   const [affiliateTouched, setAffiliateTouched] = useState(!!initial?.affiliateUrl)
   const handleProductUrlChange = (url: string) => {
-    setForm(f => ({ ...f, productUrl: url, affiliateUrl: affiliateTouched ? f.affiliateUrl : url }))
+    // Truoc day copy Y NGUYEN link san pham sang o Link Affiliate — tuc link trong
+    // bai review khong mang ma tiep thi, va click khong ra hoa hong. Gio gan ma ref
+    // cua dung shop (khop theo domain). Khong khop shop nao -> giu nguyen link.
+    const withRef = applyStoreRefToDealUrl(url, storeHosts) ?? url
+    setForm(f => ({ ...f, productUrl: url, affiliateUrl: affiliateTouched ? f.affiliateUrl : withRef }))
   }
   const handleAffiliateUrlChange = (url: string) => {
     set('affiliateUrl', url)
@@ -257,6 +267,12 @@ function ReviewModal({ mode, initial, onClose, onSaved, onDeleted }: {
       }
       setScraped(res)
       setSelectedImages(new Set(res.images.map((_, i) => i)))
+      // Tu gan ma tiep thi + dien ma giam gia cua chinh shop do (khop theo domain
+      // cua link san pham). Chi dien khi o dang TRONG / chua ai sua tay.
+      const withRef = applyStoreRefToDealUrl(aiProductUrl, storeHosts)
+      if (!aiAffiliateTouched && withRef) setAiAffiliateUrl(withRef)
+      const coupon = couponForDealUrl(aiProductUrl, storeHosts)
+      if (coupon) setForm(f => (f.couponCode ? f : { ...f, couponCode: coupon.code }))
       setAiStage('scraped')
     })
   }

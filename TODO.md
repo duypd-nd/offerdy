@@ -1,6 +1,13 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **Real product galleries, duplicate images killed, reviews auto-attach ref + coupon (2026-07-26)** — user reported the Add-Review form showing three identical image checkboxes. Details in `PROJECT_CONTEXT.md` → "Product images".
+  - ⚠️ **Three URLs, one photo.** cycleaddons.com returned the direct URL, the same file via the Jetpack CDN (`i0.wp.com/<host>/…`), and that again with `?fit=1024,1024&ssl=1`. `new Set()` can't see it. `imageIdentity.ts` keys on filename with CDN prefix, query and CMS size suffix stripped — and only cuts the suffix immediately before the extension so `iphone_2x_case.jpg` survives.
+  - ⚠️ **The gallery is not in the DOM.** Themes lazy-load: that page has 16 image files and **zero** `<img src>`. Fixed by reading Shopify `/products/<handle>.js` and the WooCommerce Store API instead — both return clean ordered lists. **1 → 8 distinct images** for the scooter, 6 for Tennail, 1 for Tarujskincare (all it has).
+  - **Deal modal now shows the gallery as pickable thumbnails** (a deal uses one image); reviews already had checkboxes.
+  - ⚠️ **Reviews earned nothing on clicks**: the Link Affiliate field was a byte-for-byte copy of the product URL, so links inside published reviews carried no tracking. It now gets the shop's ref via the same domain match as deals, and `couponCode` auto-fills from that store's live code — both only when untouched.
+  - ⚠️ Fixed a pre-existing gap found on the way: `/admin/reviews`'s query never selected `couponCode`, so editing a review showed it blank and saving wiped it.
+  - Verified: 8 new assertions on image identity incl. the exact three real URLs (72/72 total), measured distinct-image counts on all three of the user's products, store data confirmed present in the review page payload, `tsc` + lint clean.
 - **Coupon codes on `/links` + deal ↔ store cross-links (2026-07-26)** — details in `PROJECT_CONTEXT.md` → "Deal ↔ store cross-links".
   1. **`/links` now shows working codes** instead of hiding them behind a chip to `/coupon-codes`. That page is the only landing spot for Instagram/TikTok traffic, and a code is the one asset those platforms can carry — it is text, and GoAffPro credits the order **through the code**, so a shopper who never taps a link still counts. 6 rows, **one per shop** (real data has Frizzlife with two codes, and repeating a shop costs another brand its slot). Codes render exactly as stored — production has both `OFFERDY` and `offerdy` and some checkouts are case-sensitive.
   2. **Deal page → store page**: shop name was plain text, now links to `/stores/<slug>`.

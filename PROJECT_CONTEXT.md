@@ -151,6 +151,16 @@ The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro insert
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
+## Product images: the real gallery, and no duplicates
+- ⚠️ **Three image URLs can be one photo.** Measured on cycleaddons.com (2026-07-26) the scraper returned three "images" that were the same picture: the direct URL, the same file via the Jetpack CDN (`i0.wp.com/<host>/…`), and that again with `?fit=1024,1024&ssl=1`. `new Set(urls)` cannot see this, so the operator got three identical checkboxes. `src/lib/imageIdentity.ts` keys images by **filename with CDN prefix, query string and CMS size suffix stripped** (`-1024x1024`, `_500x`, `_grande`). The size suffix is only cut immediately before the extension, so a real name like `iphone_2x_case.jpg` survives.
+- ⚠️ **Read the gallery from the platform API, not the DOM.** Shop themes lazy-load, so `<img src>` is empty — cycleaddons.com has 16 image files on the page and **not one** `<img>` carrying `src`. `galleryImages()` uses Shopify `/products/<handle>.js` and the WooCommerce Store API `/wp-json/wc/store/v1/products?slug=<slug>`, both of which return a clean ordered list. Result: **1 → 8 distinct images** for that scooter, 6 for Tennail, 1 for Tarujskincare (all that shop has).
+- Gallery images go **first**, then JSON-LD/`og:image` as fallback, then dedupe — so the survivor of a duplicate group is the real product photo, not the social card.
+- The deal modal shows the gallery as thumbnails to pick from, since a deal uses one image; reviews already had checkboxes.
+
+## Reviews auto-attach the affiliate ref and coupon code
+- The **Link Affiliate** field used to be a byte-for-byte copy of the product URL, so links inside a published review carried **no tracking at all** — clicks earned nothing. It now gets the shop's params via the same domain match as deals (`applyStoreRefToDealUrl`), and `couponCode` is filled from that store's live code. Both only when the field is untouched/empty.
+- ⚠️ Fixed a pre-existing gap found here: `/admin/reviews`'s query did **not** select `couponCode`, so editing an existing review showed the field blank and saving would wipe a code that was already set.
+
 ## Adding a deal from a pasted URL (`fetchDealFromUrl`)
 Paste the product link, press **⤓ Lấy từ link**, and the form fills itself. Reuses `scrapeProductPage` (already serving `/admin/reviews`), so it shares the same SSRF-safe fetch and the same JSON-LD/OpenGraph reading.
 

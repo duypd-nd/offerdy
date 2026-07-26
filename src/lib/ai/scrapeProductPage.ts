@@ -1,6 +1,10 @@
 import * as cheerio from 'cheerio'
 import { fetchSafely } from '@/lib/safeFetch'
 import { bestDescription } from '@/lib/productText'
+import { dedupeImageUrls } from '@/lib/imageIdentity'
+
+// Cung gioi han voi productCatalog: du cho mot trang san pham, khong de treo lau.
+const FETCH_OPTS = { timeoutMs: 15_000, maxBytes: 8_000_000 }
 
 export type ScrapedProduct = {
   title: string
@@ -31,6 +35,58 @@ function bodyDescription($: cheerio.CheerioAPI): string | undefined {
   return undefined
 }
 
+/**
+ * Anh tu THU VIEN SAN PHAM, doc qua API cong khai cua nen tang.
+ *
+ * Vi sao khong quet DOM: theme cua shop lazy-load nen the <img> khong mang `src`,
+ * anh nam trong `data-src`/`data-srcset` va moi theme dat mot kieu. Do that
+ * (2026-07-26): cycleaddons.com co 16 file anh tren trang nhung KHONG the <img> nao
+ * mang src. Trong khi API tra ve danh sach sach va dung thu tu shop xep:
+ *   Shopify      /products/<handle>.js                    -> 6 anh (tennail)
+ *   WooCommerce  /wp-json/wc/store/v1/products?slug=<slug> -> 9 anh (cycleaddons)
+ *
+ * Truoc day chi lay JSON-LD/og:image nen ra DUNG MOT tam, lap lai 3 lan qua 3 URL
+ * khac nhau — nguoi van hanh nhan 3 o tick trong y het nhau.
+ */
+async function galleryImages(pageUrl: string): Promise<string[]> {
+  let u: URL
+  try { u = new URL(pageUrl) } catch { return [] }
+  const seg = u.pathname.replace(/\/+$/, '').split('/').filter(Boolean)
+  const handle = seg[seg.length - 1]
+  if (!handle) return []
+
+  // Shopify: duong dan san pham luon la /products/<handle>
+  if (seg.includes('products')) {
+    const shopify = await fetchSafely(u.origin + '/products/' + handle + '.js', {
+      ...FETCH_OPTS, accept: 'application/json',
+    })
+    if (!('error' in shopify) && shopify.res.ok) {
+      try {
+        const data = await shopify.res.json() as { images?: unknown }
+        if (Array.isArray(data.images)) {
+          const list = data.images.filter((x): x is string => typeof x === 'string')
+          if (list.length) return list
+        }
+      } catch { /* khong phai JSON -> thu Woo ben duoi */ }
+    }
+  }
+
+  // WooCommerce Store API (co san cung WooCommerce Blocks)
+  const woo = await fetchSafely(
+    u.origin + '/wp-json/wc/store/v1/products?slug=' + encodeURIComponent(handle),
+    { ...FETCH_OPTS, accept: 'application/json' }
+  )
+  if ('error' in woo || !woo.res.ok) return []
+  try {
+    const data = await woo.res.json() as unknown
+    const product = Array.isArray(data) ? data[0] : data
+    const imgs = (product as { images?: unknown })?.images
+    if (!Array.isArray(imgs)) return []
+    return imgs
+      .map(x => (typeof x === 'string' ? x : (x as { src?: unknown })?.src))
+      .filter((x): x is string => typeof x === 'string')
+  } catch { return [] }
+}
 function absolutize(url: string, base: string): string | null {
   try {
     return new URL(url, base).toString()
@@ -126,11 +182,20 @@ export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
   const ogImages = $('meta[property="og:image"]').map((_, el) => $(el).attr('content')).get().filter(Boolean) as string[]
   const twitterImage = metaContent('twitter:image')
 
-  const allImages = [...productImages, ...ogImages, ...(twitterImage ? [twitterImage] : [])]
+  // Thu vien san pham dat TRUOC: day la anh that cua san pham, dung thu tu shop
+  // xep. og:image/JSON-LD thuong chi la mot anh dai dien, de sau lam du phong.
+  const allImages = [
+    ...(await galleryImages(url)),
+    ...productImages,
+    ...ogImages,
+    ...(twitterImage ? [twitterImage] : []),
+  ]
     .map(u => absolutize(u, url))
     .filter((u): u is string => !!u)
 
-  const images = Array.from(new Set(allImages)).slice(0, 6)
+  // Bo trung theo DINH DANH anh, khong theo chuoi URL: cung mot tam co the den qua
+  // 3 URL khac nhau (CDN Jetpack + tham so kich thuoc) — xem src/lib/imageIdentity.ts
+  const images = dedupeImageUrls(allImages)
 
   const price = typeof offersObj?.price === 'string' || typeof offersObj?.price === 'number'
     ? String(offersObj.price)

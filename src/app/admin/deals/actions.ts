@@ -101,7 +101,7 @@ export async function uploadDealImageFromUrl(url: string) {
  * gia goc: do la con so quyet dinh "giam bao nhieu" hien tren moi bai dang.
  */
 export async function fetchDealFromUrl(url: string): Promise<
-  | { ok: true; title: string; priceSale?: string; imageUrl?: string; siteName?: string }
+  | { ok: true; title: string; priceSale?: string; imageUrl?: string; images: string[]; siteName?: string }
   | { ok: false; error: string }
 > {
   const trimmed = url.trim()
@@ -115,6 +115,9 @@ export async function fetchDealFromUrl(url: string): Promise<
     title: scraped.title,
     priceSale: formatScrapedPrice(scraped.price, scraped.currency),
     imageUrl: scraped.images[0],
+    // Tra ve CA danh sach de nguoi van hanh chon anh nao lam anh deal — bo doc
+    // gio lay duoc ca thu vien san pham va da bo trung (xem imageIdentity.ts).
+    images: scraped.images,
     siteName: scraped.siteName,
   }
 }

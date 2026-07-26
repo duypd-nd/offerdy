@@ -444,6 +444,7 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
   const [imagePreview, setImagePreview] = useState(initial?.imageUrl ?? '')
   const [fetching, setFetching] = useState(false)
   const [fetchNote, setFetchNote] = useState('')
+  const [fetchedImages, setFetchedImages] = useState<string[]>([])
   const [imageUrlInput, setImageUrlInput] = useState('')
   const [imageError, setImageError] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -620,6 +621,7 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
                     }
                     return next
                   })
+                  setFetchedImages(r.images ?? [])
                   if (r.imageUrl && !imagePreview) { setImageUrlInput(r.imageUrl); setImagePreview(r.imageUrl); filled.push('ảnh') }
                   else if (r.imageUrl) skipped.push('ảnh')
 
@@ -638,6 +640,33 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
           {fetchNote && (
             <div style={{ margin: '-6px 0 12px', padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 12, color: '#1e40af' }}>
               {fetchNote}
+            </div>
+          )}
+          {/* Deal chi dung MOT anh, nen cho chon trong thu vien san pham thay vi mac
+              dinh lay tam dau. Bo doc gio lay ca thu vien va da bo trung theo dinh
+              danh anh — truoc day 3 "anh" co the la cung mot tam qua 3 URL khac. */}
+          {fetchedImages.length > 1 && (
+            <div style={{ margin: '-6px 0 14px' }}>
+              <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>
+                Chọn ảnh cho deal ({fetchedImages.length} ảnh khác nhau đọc được):
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {fetchedImages.map(url => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => { setImageUrlInput(url); setImagePreview(url) }}
+                    title="Dùng ảnh này"
+                    style={{
+                      padding: 0, border: imagePreview === url ? '2.5px solid #16a34a' : '1.5px solid #e5e7eb',
+                      borderRadius: 8, background: '#fff', cursor: 'pointer', lineHeight: 0,
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" style={{ width: 64, height: 64, objectFit: 'contain', borderRadius: 6, display: 'block' }} />
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {/* Cho biet NGAY luc go rang link nay se duoc gan ma ref cua shop nao.
