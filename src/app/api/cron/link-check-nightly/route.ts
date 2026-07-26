@@ -21,11 +21,14 @@ export async function GET(request: Request) {
     offers.map(async (offer: { id: string; link: string }) => {
       const check = await checkUrl(offer.link)
       try {
-        await writeClient.patch(offer.id).set({
-          linkStatus: check.ok ? 'ok' : 'broken',
-          linkCheckedAt: new Date().toISOString(),
-        }).commit()
-        return { id: offer.id, ok: check.ok }
+        // Khong ket luan duoc thi CHI cap nhat moc thoi gian, giu nguyen verdict cu.
+        // Ghi de bang 'broken' se bien "shop tra loi cham" thanh "link chet" — xem
+        // giai thich day du trong src/lib/checkOfferLink.ts. Van bump linkCheckedAt
+        // de hang doi (order theo linkCheckedAt asc) di tiep, khong ket o mot shop.
+        const patch: Record<string, string> = { linkCheckedAt: new Date().toISOString() }
+        if (!check.indeterminate) patch.linkStatus = check.ok ? 'ok' : 'broken'
+        await writeClient.patch(offer.id).set(patch).commit()
+        return { id: offer.id, ok: check.ok, indeterminate: check.indeterminate ?? false }
       } catch (err) {
         return { id: offer.id, ok: false, error: String(err) }
       }

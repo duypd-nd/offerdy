@@ -125,6 +125,7 @@ Finding 86 product URLs by hand was the real bottleneck, so `src/lib/productCata
 - ⚠️ **Tell a child sitemap from a product page by the `.xml` suffix, not by the word "product" in the URL.** Filtering on the word alone made `https://fulcrumsurf.com/product/employment/` look like a sitemap; fetching it returned HTML with no `<loc>`, so two perfectly readable shops were reported as unreadable.
 - ⚠️ **Exclude `product_cat` / `product-tag` / `product-brand` sitemaps.** They contain the word "product" but list **category** pages — without this, "50% Off Pet Food" was suggested `/product-category/pet-food/`, which looks right and isn't a product page.
 - ⚠️ **35 of 86 offers are store-wide** ("10% Off On Your Order at X", "Free Shipping") and have no product to point at. `meaningfulTokens()` strips promotional vocabulary and treats fewer than 2 remaining words as store-wide, suggesting nothing. Full coverage is therefore neither reachable nor desirable — a suggestion for these would necessarily be wrong.
+- ⚠️ **A model code in the offer title is a requirement, not one token among many.** `MODEL_CODE` matches mixed letter+digit tokens (`pd1200`, `m800`, `t2596m`); if the offer has one, a product must carry it or it is disqualified outright. Found the hard way: "PD1200 RO Water Filter – Save $219" was suggested — and accepted — `/products/fcr100`, the *FCR100+ Replacement RO Membrane Cartridge*, on 75% agreement from the generic words "ro/water/filter". A shopper expecting $219 off a filter system lands on a cheap spare part. Frizzlife has PD1000-N/PD800-N/PD600-N but no PD1200 at all, so the correct output was **no suggestion**.
 - **Matching is per-token, deliberately not `src/lib/fuzzy.ts`** — that helper only matches a single word (a whole phrase matches only as a literal substring). Score = matched meaningful tokens ÷ total meaningful tokens, floor 0.5, ties broken toward the shorter product name.
 - **Only a 100% match is pre-selected**; anything less must be chosen by hand. A convenient default is the fastest way to get a wrong link saved without anyone reading it.
 - Repeated scanning can trip a shop's WAF — `minerkuber.com` answered 200 and then 403 to *any* user agent during testing. Transient, not a code fault; scan again later.
@@ -134,6 +135,18 @@ Finding 86 product URLs by hand was the real bottleneck, so `src/lib/productCata
 - Every offer click is stamped `deepLink: true|false` **at click time**, inside `trackOfferClick` (`src/actions/trackClick.ts`). It cannot be derived later: `productUrl` is filled in gradually, so asking "does this offer have a deep link?" tomorrow would mislabel every click that happened before the link existed. Read server-side rather than passed as a prop because the Get Deal/Get Code button lives in four places and one forgotten prop would corrupt the data invisibly.
 - ⚠️ **This is click share, not conversion rate, and the reports card says so on the page.** The purchase happens inside GoAffPro and is invisible here, and offers have no impression count to serve as a denominator. Two honest limits stated in the UI: the split only means anything once both groups have real volume, and clicks recorded before the field existed belong to neither group.
 - Coverage (`X / Y offers linked`) is shown on the same card in `/admin/reports`, so the work doesn't quietly stall after the first session.
+
+### ⚠️ Link checking: "no answer" is not "dead"
+`checkUrl()` returns `indeterminate: true` on timeout or network error, and **only an HTTP status ≥ 400 is ever written as `linkStatus: 'broken'`**. An indeterminate result updates `linkCheckedAt` only, so the queue advances while the previous verdict stands.
+
+This was a live bug found on 2026-07-26, and the numbers say it best:
+
+```
+https://cycleaddons.com/             -> 200 in 559ms
+https://cycleaddons.com/?ref=offerdy -> 200 in 8861ms   (old timeout: 8s)
+```
+
+The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro inserts a tracking hop. Yet three offers on Cycleaddons — **the store with the most clicks on the site** — were labelled broken, along with one on Pupino (which answers 200 to every method). Consequences: Merchant Health docked the store, `/admin/reports` reported dead links that weren't, and worst of all the new safety valve below would have **switched off deep links on exactly that store**. Timeout raised 8s → 15s at the same time: an affiliate link travels through a redirect chain and is inherently slower than a normal link. `/admin/link-checker` now shows indeterminate results in a separate amber block instead of listing them as broken.
 
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.

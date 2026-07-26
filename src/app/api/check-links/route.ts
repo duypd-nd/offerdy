@@ -2,7 +2,7 @@ import { writeClient } from '@/sanity/writeClient'
 import { checkUrl } from '@/lib/checkOfferLink'
 
 type CheckRequest = { offerId: string; url: string }
-type CheckResult = { offerId: string; url: string; ok: boolean; status?: number; error?: string }
+type CheckResult = { offerId: string; url: string; ok: boolean; status?: number; error?: string; indeterminate?: boolean }
 
 export async function POST(request: Request) {
   try {
@@ -20,10 +20,12 @@ export async function POST(request: Request) {
       items.map(async ({ offerId, url }) => {
         const check = await checkUrl(url)
         try {
-          await writeClient.patch(offerId).set({
-            linkStatus: check.ok ? 'ok' : 'broken',
-            linkCheckedAt: new Date().toISOString(),
-          }).commit()
+          // Cung quy tac voi cron: timeout/loi mang KHONG duoc ghi thanh 'broken'
+          // (xem src/lib/checkOfferLink.ts). Nguoi dung van thay ket qua "khong ket
+          // luan duoc" tra ve trong response, chi la khong dong dau len du lieu.
+          const patch: Record<string, string> = { linkCheckedAt: new Date().toISOString() }
+          if (!check.indeterminate) patch.linkStatus = check.ok ? 'ok' : 'broken'
+          await writeClient.patch(offerId).set(patch).commit()
         } catch (err) {
           // Van tra ket qua check ngay ca khi luu that bai, nhung phai log de khong
           // am tham mat du lieu - du an da co Sentry, console.error se duoc bat lai.

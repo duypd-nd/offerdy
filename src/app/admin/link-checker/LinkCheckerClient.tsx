@@ -5,7 +5,7 @@ import type { LinkItem } from './page'
 
 const BATCH_SIZE = 15
 
-type CheckResult = { offerId: string; url: string; ok: boolean; status?: number; error?: string }
+type CheckResult = { offerId: string; url: string; ok: boolean; status?: number; error?: string; indeterminate?: boolean }
 
 export default function LinkCheckerClient({ items }: { items: LinkItem[] }) {
   const [running, setRunning] = useState(false)
@@ -42,9 +42,16 @@ export default function LinkCheckerClient({ items }: { items: LinkItem[] }) {
     setRunning(false)
   }
 
-  const broken = items
+  const failed = items
     .map(item => ({ item, result: results.get(item.offerId) }))
     .filter((r): r is { item: LinkItem; result: CheckResult } => !!r.result && !r.result.ok)
+
+  // Tach "chet that" (co HTTP status >= 400) khoi "khong ket luan duoc"
+  // (timeout/loi mang). Gop chung lam nguoi van hanh di sua nhung link van song:
+  // link affiliate qua chang ghi nhan cua GoAffPro co the mat gan 9 giay. Chi
+  // nhom dau moi duoc ghi 'broken' vao Sanity — xem src/lib/checkOfferLink.ts.
+  const broken = failed.filter(r => !r.result.indeterminate)
+  const unknown = failed.filter(r => r.result.indeterminate)
 
   const checkedCount = results.size
 
@@ -84,6 +91,19 @@ export default function LinkCheckerClient({ items }: { items: LinkItem[] }) {
           color: broken.length > 0 ? '#dc2626' : '#16a34a',
         }}>
           {broken.length > 0 ? `❌ Tìm thấy ${broken.length} link hỏng` : '✅ Tất cả link đã quét đều hoạt động tốt'}
+        </div>
+      )}
+
+      {unknown.length > 0 && (
+        <div style={{
+          background: '#fffbeb', border: '1.5px solid #fde68a', borderRadius: 8,
+          padding: '12px 16px', marginBottom: 16, fontSize: 13, color: '#92400e',
+        }}>
+          <b>⏳ {unknown.length} link không kết luận được</b> (quá chậm hoặc lỗi mạng) — <b>chưa</b> bị đánh dấu hỏng,
+          trạng thái cũ giữ nguyên và sẽ kiểm lại. Link affiliate đi qua chặng ghi nhận của mạng affiliate có thể mất gần 10 giây.
+          <div style={{ marginTop: 6, fontSize: 12 }}>
+            {unknown.map(({ item }) => item.title).join(' · ')}
+          </div>
         </div>
       )}
 
