@@ -13,6 +13,8 @@
  * khach dung ma la don ve minh ke ca khi ho khong bam link nao.
  */
 
+import { applyTrackingParams } from '@/lib/affiliateUrl'
+
 export type StoreHostRow = {
   slug: string
   name: string
@@ -56,6 +58,28 @@ export function matchStoreByUrl(url: string | undefined, stores: StoreHostRow[])
     if (hostKey(store.affiliateLink) === target) return store
   }
   return null
+}
+
+/**
+ * Gan tham so tiep thi cua shop vao URL cua deal.
+ *
+ * Nguoi van hanh dan link san pham TRAN (copy thang tu shop); code tim store theo
+ * domain roi chep tham so ref tu `store.affiliateLink` sang. Khong khop store nao
+ * -> tra ve nguyen ban, khong bia ra ma.
+ *
+ * ⚠️ Gan luc RENDER, khong ghi nguoc vao Sanity. Ly do giong ben offer
+ * (`offer.productUrl`): `dealUrl` giu sach thi khi shop doi ma ref, sua MOT cho o
+ * store la moi deal cua shop do dung theo — con neu nuong ma vao tung dealUrl thi
+ * phai sua tay tung deal, va nhung deal bo sot se am tham mat hoa hong.
+ */
+export function applyStoreRefToDealUrl(
+  dealUrl: string | undefined,
+  stores: StoreHostRow[]
+): string | undefined {
+  if (!dealUrl) return dealUrl
+  const store = matchStoreByUrl(dealUrl, stores)
+  if (!store) return dealUrl
+  return applyTrackingParams(dealUrl, store)
 }
 
 export type DealCoupon = {

@@ -9,7 +9,7 @@ import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
 import { DEAL_CODE_START } from '@/lib/dealCode'
 import { resolveOfferUrl } from '@/lib/affiliateUrl'
-import { couponForDealUrl, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
+import { couponForDealUrl, applyStoreRefToDealUrl, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
 import type { StoreHealthInput } from '@/lib/merchantHealth'
 
 // ── Site Settings (from configGeneral + configSocial) ──────────
@@ -97,7 +97,9 @@ export async function getDeals(limit = 10) {
   if (!isConfigured()) return staticDeals
   try {
     const data = await writeClient.fetch(dealsQuery(limit))
-    return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
+    // `?? []` phai giu NGUYEN vi tri cu: da cau hinh Sanity thi tra ket qua that
+    // ke ca rong, khong bao gio roi ve du lieu demo (xem getStores).
+    return await withDealRefs(data ?? [])
   } catch { return [] }
 }
 
@@ -115,8 +117,10 @@ const getCachedAllDeals = unstable_cache(
 export async function getAllDeals() {
   if (!isConfigured()) return staticDeals
   try {
-    const data = await getCachedAllDeals()
-    return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
+    // Gan ref SAU cache: cache giu ban ghi tho tu Sanity, con viec ghep tham so
+    // la thuan tuy va re — va nho vay doi ma ref o store co hieu luc ngay ma
+    // khong phai cho cache deal het han.
+    return await withDealRefs(await getCachedAllDeals() ?? [])
   } catch { return [] }
 }
 
@@ -139,7 +143,7 @@ const DEAL_BY_SLUG_QUERY = `*[_type == "deal" && slug.current == $slug][0] {
 export async function getDealBySlug(slug: string) {
   if (!isConfigured()) return null
   try {
-    return await writeClient.fetch(DEAL_BY_SLUG_QUERY, { slug })
+    return await withDealRef(await writeClient.fetch(DEAL_BY_SLUG_QUERY, { slug }))
   } catch { return null }
 }
 
@@ -155,7 +159,11 @@ export async function getDealRefByCode(
       `*[_type == "deal" && code == $code][0]{ "id": _id, "slug": slug.current, dealUrl }`,
       { code }
     )
-    return ref?.slug ? { id: ref.id, slug: ref.slug, dealUrl: ref.dealUrl } : null
+    if (!ref?.slug) return null
+    // `/g/<ma>` la duong dung trong bai dang mang xa hoi — thieu ref o day la mat
+    // hoa hong o dung cho nhieu nguoi bam nhat.
+    const withRef = await withDealRef({ dealUrl: ref.dealUrl })
+    return { id: ref.id, slug: ref.slug, dealUrl: withRef?.dealUrl }
   } catch { return null }
 }
 
@@ -278,6 +286,36 @@ export async function getDealCoupon(dealUrl?: string): Promise<DealCoupon | null
   try {
     return couponForDealUrl(dealUrl, await getCachedStoreHosts() ?? [])
   } catch { return null }
+}
+
+/**
+ * Gan tham so tiep thi cua shop vao `dealUrl` cua MOT deal.
+ *
+ * Lam o tang query nen moi duong ra merchant deu di qua day: nut Get Deal tren
+ * trang deal, the deal o /deals va trang chu, JSON-LD, va quan trong nhat la
+ * redirect `/g/<ma>` (duong dung trong bai dang mang xa hoi). Neu gan o tung
+ * component thi mot noi quen la mot duong mat hoa hong ma khong ai thay.
+ */
+// Generic "trong suot": tra ve dung kieu da nhan vao. Cac query deal o file nay
+// khong dung mot type chung nao ca (moi projection mot hinh), nen rang buoc
+// `T extends { dealUrl?: string }` se lam TypeScript thu hep ket qua xuong con
+// dung mot field dealUrl va lam vo moi noi tieu thu.
+async function withDealRef<T>(deal: T): Promise<T> {
+  const d = deal as { dealUrl?: string } | null
+  if (!d?.dealUrl) return deal
+  try {
+    const stores = await getCachedStoreHosts() ?? []
+    return { ...d, dealUrl: applyStoreRefToDealUrl(d.dealUrl, stores) } as T
+  } catch { return deal }
+}
+
+async function withDealRefs<T>(deals: T): Promise<T> {
+  const arr = deals as unknown as { dealUrl?: string }[] | null
+  if (!Array.isArray(arr) || arr.length === 0) return deals
+  try {
+    const stores = await getCachedStoreHosts() ?? []
+    return arr.map(d => (d?.dealUrl ? { ...d, dealUrl: applyStoreRefToDealUrl(d.dealUrl, stores) } : d)) as unknown as T
+  } catch { return deals }
 }
 
 /** Ma coupon noi bat cua mot store — cho the OG chia se mang xa hoi hien "CODE: X".

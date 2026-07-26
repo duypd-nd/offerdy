@@ -7,6 +7,7 @@ import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 import { isoToAdminInput, adminInputToIso, ADMIN_TIMEZONE_LABEL } from '@/lib/adminDateTime'
+import { matchStoreByUrl, applyStoreRefToDealUrl, type StoreHostRow } from '@/lib/dealStoreMatch'
 
 function ReviewSearchInput({ reviews, value, onChange }: {
   reviews: ReviewOption[]; value: string; onChange: (id: string) => void
@@ -96,8 +97,9 @@ type AdminDeal = {
 type ReviewOption = { _id: string; title: string }
 type CategoryOption = { _id: string; name: string; emoji?: string }
 
-export default function DealAdmin({ initialDeals, allReviews = [], allCategories = [] }: {
+export default function DealAdmin({ initialDeals, allReviews = [], allCategories = [], storeHosts = [] }: {
   initialDeals: AdminDeal[]; allReviews?: ReviewOption[]; allCategories?: CategoryOption[]
+  storeHosts?: StoreHostRow[]
 }) {
   const [deals, setDeals] = useState(initialDeals)
   const [search, setSearch] = useState('')
@@ -220,20 +222,52 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
             <button className="oa-btn oa-btn-green" onClick={handleSaveOrder} disabled={isPending}>💾 Lưu thứ tự</button>
           )}
           <button className="oa-btn oa-btn-green" onClick={() => setShowModal(true)}>＋ Thêm mới</button>
-          <button className="oa-btn" onClick={() => {
-            if (selected.size === 0) return
+          <button
+            className="oa-btn"
+            // Nut bi chan khi chua chon deal nao. Truoc day khong co gi giai thich
+            // dieu do: bam vao thi khong co phan hoi nao ca, trong y het nhu tinh
+            // nang bi hong.
+            title={selected.size === 0 ? 'Tích chọn ít nhất 1 deal ở cột đầu tiên trước' : 'Sinh draft nội dung AI cho các deal đã chọn'}
+            onClick={() => {
+            if (selected.size === 0) {
+              showToast('Hãy tích chọn deal ở cột đầu tiên trước, rồi bấm lại')
+              return
+            }
+            const count = selected.size
             startTransition(async () => {
-              const res = await fetch('/api/ai/content/generate-deal', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dealIds: Array.from(selected) }),
-              })
-              const data = await res.json()
-              const ok = Array.isArray(data.results) ? data.results.filter((r: { ok: boolean }) => r.ok).length : 0
-              showToast(`Đã tạo draft AI cho ${ok}/${selected.size} deal — xem tại AI Review Queue`)
-              setSelected(new Set())
+              // Truoc day khong he kiem tra loi: request that bai van hien thong bao
+              // "Da tao draft AI cho 0/1 deal" — doc nhu thanh cong, va nguyen nhan
+              // that bi che hoan toan. Day la dung lop bug "nuot loi im lang" ma du
+              // an da gap o cac nut xoa admin.
+              try {
+                const res = await fetch('/api/ai/content/generate-deal', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ dealIds: Array.from(selected) }),
+                })
+                const data = await res.json().catch(() => ({}))
+                if (!res.ok) {
+                  showToast(`Lỗi ${res.status}: ${data.error ?? 'không tạo được draft AI'}`)
+                  return
+                }
+                const results: { ok: boolean; error?: string }[] = Array.isArray(data.results) ? data.results : []
+                const ok = results.filter(r => r.ok).length
+                if (ok === 0) {
+                  const reason = results.find(r => !r.ok)?.error ?? 'API không trả về kết quả nào'
+                  showToast(`Không tạo được draft nào — ${reason}`)
+                  return
+                }
+                const failed = results.length - ok
+                showToast(
+                  `Đã tạo draft AI cho ${ok}/${count} deal — duyệt tại /admin/ai-review` +
+                  (failed ? ` · ${failed} deal lỗi` : '')
+                )
+                setSelected(new Set())
+              } catch (err) {
+                showToast(`Lỗi gọi API: ${err instanceof Error ? err.message : String(err)}`)
+              }
             })
-          }} disabled={selected.size === 0 || isPending}>
+          }} disabled={isPending}>
             🤖 Tạo nội dung AI ({selected.size})
           </button>
           <button className="oa-btn oa-btn-red" onClick={() => {
@@ -347,11 +381,11 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
       </div>
 
       {showModal && (
-        <DealModal mode="add" allReviews={allReviews} allCategories={allCategories} onClose={() => setShowModal(false)}
+        <DealModal mode="add" allReviews={allReviews} allCategories={allCategories} storeHosts={storeHosts} onClose={() => setShowModal(false)}
           onSaved={d => { setDeals(prev => [d, ...prev]); setShowModal(false); showToast('Đã thêm deal mới') }} />
       )}
       {editingDeal && (
-        <DealModal mode="edit" initial={editingDeal} allReviews={allReviews} allCategories={allCategories} onClose={() => setEditingDeal(null)}
+        <DealModal mode="edit" initial={editingDeal} allReviews={allReviews} allCategories={allCategories} storeHosts={storeHosts} onClose={() => setEditingDeal(null)}
           onSaved={updated => { setDeals(prev => prev.map(d => d._id === updated._id ? updated : d)); setEditingDeal(null); showToast('Đã lưu') }}
           onDeleted={id => { setDeals(prev => prev.filter(d => d._id !== id)); setEditingDeal(null); showToast('Đã xóa') }} />
       )}
@@ -359,8 +393,9 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
   )
 }
 
-function DealModal({ mode, initial, allReviews = [], allCategories = [], onClose, onSaved, onDeleted }: {
+function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHosts = [], onClose, onSaved, onDeleted }: {
   mode: 'add' | 'edit'; initial?: AdminDeal; allReviews?: ReviewOption[]; allCategories?: CategoryOption[]
+  storeHosts?: StoreHostRow[]
   onClose: () => void; onSaved: (d: AdminDeal) => void; onDeleted?: (id: string) => void
 }) {
   const [form, setForm] = useState({
@@ -526,8 +561,37 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], onClose
           </div>
 
           <label className="oa-label">Deal URL
-            <input className="oa-input" value={form.dealUrl} onChange={e => set('dealUrl', e.target.value)} placeholder="https://..." />
+            <input className="oa-input" value={form.dealUrl} onChange={e => set('dealUrl', e.target.value)} placeholder="https://... (dán link trần, không cần ?ref=)" />
           </label>
+          {/* Cho biet NGAY luc go rang link nay se duoc gan ma ref cua shop nao.
+              Ma khong duoc luu vao dealUrl (giu link sach de doi ma o store la moi
+              deal cua shop do dung theo), nen neu khong hien gi o day thi nguoi
+              van hanh khong co cach nao biet viec gan ref co xay ra hay khong. */}
+          {form.dealUrl.trim() && (() => {
+            const matched = matchStoreByUrl(form.dealUrl, storeHosts)
+            const withRef = applyStoreRefToDealUrl(form.dealUrl, storeHosts)
+            const changed = withRef !== form.dealUrl.trim() && withRef !== form.dealUrl
+            if (matched && changed) {
+              return (
+                <div style={{ margin: '-6px 0 12px', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 12, color: '#166534', wordBreak: 'break-all' }}>
+                  ✓ Khớp shop <b>{matched.name}</b> — link ra ngoài sẽ tự thành:<br />
+                  <code>{withRef}</code>
+                </div>
+              )
+            }
+            if (matched) {
+              return (
+                <div style={{ margin: '-6px 0 12px', padding: '8px 12px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 12, color: '#166534' }}>
+                  ✓ Khớp shop <b>{matched.name}</b> — link đã có sẵn tham số tiếp thị, giữ nguyên.
+                </div>
+              )
+            }
+            return (
+              <div style={{ margin: '-6px 0 12px', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, fontSize: 12, color: '#92400e' }}>
+                ⚠️ Domain này không khớp store nào trong hệ thống — <b>không gắn được mã tiếp thị</b>, click sẽ không ra hoa hồng. Kiểm tra lại link, hoặc thêm store cho shop này trước.
+              </div>
+            )
+          })()}
 
           <label className="oa-label">Danh mục
             <select className="oa-input" value={form.categoryId} onChange={e => set('categoryId', e.target.value)}>

@@ -151,6 +151,14 @@ The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro insert
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
+## Deal URLs get the shop's ref automatically (`applyStoreRefToDealUrl`)
+The operator pastes a **bare** product link into a deal; the shop's tracking params are attached from the matched store's `affiliateLink`. Same host-matching as the coupon feature above, same reasoning as `offer.productUrl`: no match → returned untouched, never a fabricated ref.
+
+- **Applied in the query layer** (`withDealRef` / `withDealRefs` over `getDeals`, `getAllDeals`, `getDealBySlug`, `getDealRefByCode`), so every outbound path inherits it: the Get Deal button, deal cards on `/deals` and the homepage, JSON-LD, and above all the **`/g/<code>` redirect** — the link used in social posts, where a missing ref would cost commission at the busiest click point.
+- **`dealUrl` is stored bare, not rewritten in Sanity.** Change a shop's ref once on the store and every deal for that shop follows; bake it into each `dealUrl` and you must edit each deal by hand, with the ones you miss silently losing commission.
+- ⚠️ The two helpers are **deliberately transparent generics** (`<T>(x: T) => Promise<T>`). Constraining them to `{ dealUrl?: string }` makes TypeScript narrow the query result down to that single field and breaks every consumer. Also keep `?? []` where it already was — `withDealRefs(null)` returns `null` unchanged, which would quietly reintroduce the demo-data fallback bug the project fixed earlier.
+- The deal modal in `/admin/deals` previews the result live under the URL field: green with the exact final URL when a store matches, green "already has tracking params" when the pasted link brought its own, **amber warning when the domain matches no store** — that case earns no commission at all, and without the hint nothing on screen would reveal it, since the ref is never stored.
+
 ## Shop coupon on a deal (`getDealCoupon`)
 A deal links out to a shop; if that shop has a live coupon code, showing it makes the deal materially more attractive — and on Instagram/TikTok a **code** is the only offer that survives, because captions there cannot carry a clickable link while a code is just text the reader can retype. GoAffPro also attributes orders through the code itself, so a shopper who uses it credits us even without clicking a link.
 
