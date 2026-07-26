@@ -106,6 +106,38 @@ Short human identifier per deal, so a social post can say "product #1005" and th
 - Backfill: `/admin/migrate/deal-codes`. Run after any import that predates this feature. The 21 deals live on 2026-07-25 got #1000–#1020, oldest first.
 - ⚠️ Concurrency: two truly simultaneous creates can collide (Sanity has no sequence). Fine for one operator + a sequential importer; if a second writer ever appears, switch to a counter document with `patch().inc()`.
 
+## Offer deep links (`offer.productUrl`)
+Sends a shopper to the **product** the offer is actually about, instead of the shop's front page. Until 2026-07-26 all 86 offers pointed at the store homepage — an offer titled "27.5 Inch Full Suspension Mountain Bike – 74% Off" dropped the visitor on the front page to go find it themselves. GoAffPro still attributes the sale via cookie, so nothing was *lost*; conversion was.
+
+- `src/lib/affiliateUrl.ts` — `resolveOfferUrl()` (priority: product URL → offer `link` → store `affiliateLink` → store `website` → `#`), `applyTrackingParams()`, `validateProductUrl()`.
+- ⚠️ **The ref code is never hardcoded.** Each GoAffPro shop is its own programme and the codes differ — `?ref=offerdy` at Consistentderma, but `?ref=xyupasuk` at Paws at Peace and `?ref=exheowpy` at 8Belle. The params are read from that store's own `affiliateLink` and copied onto the product URL, so `productUrl` is stored **bare** and stays correct if a shop ever reissues its code.
+- ⚠️ **Params are only copied when the hosts match** (`www.` ignored). Shop A's ref on shop B's domain earns nothing; silently attaching it would look like tracking while tracking nothing. A cross-domain paste keeps the URL untouched and the importer warns — it usually means the wrong shop's link was pasted.
+- A product URL that already carries a param keeps its own value; existing query strings and fragments survive (`?variant=42` → `?variant=42&ref=offerdy`).
+- **Resolved once, in the query layer** (`resolveOfferLinks()` over all four offer projections in `src/sanity/queries.ts`), so `offer.link` handed to any component is already final. Store page, `/coupon-codes`, `/flash-sales` and the JSON-LD in `dealSchema.ts` all inherit it — no call site can forget to attach the ref. For `/coupon-codes` the resolution runs **after** `unstable_cache`: the cache holds raw Sanity rows, and joining a ref is cheap and pure.
+- `StoreOfferList` previously computed **one** `destinationUrl` for the whole store and ignored `offer.link` entirely; it now takes each offer's own resolved link and keeps the store link only as a fallback.
+- Filled via the `product_url` column on the Stores sheet at `/admin/import`. ⚠️ The importer had to gain an **update** path for this: a duplicate offer used to be reported "already exists, skipped", which would have made the column useless for every offer already in the dataset. It now patches `productUrl` on the matched offer (matched by `store+couponCode`, or `store+title` when there is no code). Filled cell overwrites, empty cell is a no-op — same rule as the store content columns.
+- Link checking follows the destination: the nightly cron and `/admin/link-checker` both check `coalesce(productUrl, link)`. Product pages 404 far more often than homepages (SKU pulled, sold out), and a deep link to a dead page is worse than no deep link.
+
+### Suggesting the URLs — `/admin/deep-links`
+Finding 86 product URLs by hand was the real bottleneck, so `src/lib/productCatalog.ts` reads each shop's **own public catalogue** and matches it against the offer titles. The URLs are published by the merchant, not invented — but the page still only ever **suggests**: writing is a button the operator presses.
+
+- **Two strategies, both needed.** Shopify `/products.json?limit=250` works for 9 of the 28 shops; the rest are WooCommerce/WordPress and are read from their product sitemap. Measured 2026-07-26: **21/28 shops readable**. The failures are the shops' own limits, not bugs — `venatos.com` is a frozen Shopify store ("Store unavailable", 402), `buypetplr`/`buytrustly`/`seeandbuy12` simply don't list products in their sitemaps, `graywhaletechnology`/`geekkeyboard` have no usable sitemap. The manual paste box covers them.
+- ⚠️ **Tell a child sitemap from a product page by the `.xml` suffix, not by the word "product" in the URL.** Filtering on the word alone made `https://fulcrumsurf.com/product/employment/` look like a sitemap; fetching it returned HTML with no `<loc>`, so two perfectly readable shops were reported as unreadable.
+- ⚠️ **Exclude `product_cat` / `product-tag` / `product-brand` sitemaps.** They contain the word "product" but list **category** pages — without this, "50% Off Pet Food" was suggested `/product-category/pet-food/`, which looks right and isn't a product page.
+- ⚠️ **35 of 86 offers are store-wide** ("10% Off On Your Order at X", "Free Shipping") and have no product to point at. `meaningfulTokens()` strips promotional vocabulary and treats fewer than 2 remaining words as store-wide, suggesting nothing. Full coverage is therefore neither reachable nor desirable — a suggestion for these would necessarily be wrong.
+- **Matching is per-token, deliberately not `src/lib/fuzzy.ts`** — that helper only matches a single word (a whole phrase matches only as a literal substring). Score = matched meaningful tokens ÷ total meaningful tokens, floor 0.5, ties broken toward the shorter product name.
+- **Only a 100% match is pre-selected**; anything less must be chosen by hand. A convenient default is the fastest way to get a wrong link saved without anyone reading it.
+- Repeated scanning can trip a shop's WAF — `minerkuber.com` answered 200 and then 403 to *any* user agent during testing. Transient, not a code fault; scan again later.
+- `/admin/deep-links` also lists offers that already have a link with a **Gỡ** button, because an empty Excel cell is a no-op and Sanity Studio would otherwise be the only way to remove a bad URL.
+
+### Measuring it — and what cannot be measured
+- Every offer click is stamped `deepLink: true|false` **at click time**, inside `trackOfferClick` (`src/actions/trackClick.ts`). It cannot be derived later: `productUrl` is filled in gradually, so asking "does this offer have a deep link?" tomorrow would mislabel every click that happened before the link existed. Read server-side rather than passed as a prop because the Get Deal/Get Code button lives in four places and one forgotten prop would corrupt the data invisibly.
+- ⚠️ **This is click share, not conversion rate, and the reports card says so on the page.** The purchase happens inside GoAffPro and is invisible here, and offers have no impression count to serve as a denominator. Two honest limits stated in the UI: the split only means anything once both groups have real volume, and clicks recorded before the field existed belong to neither group.
+- Coverage (`X / Y offers linked`) is shown on the same card in `/admin/reports`, so the work doesn't quietly stall after the first session.
+
+### Safety valve for dead product pages
+`resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
+
 ## Attribution (`ofd_src` cookie)
 The only reason the platform can say *which social account earns money* rather than just *which gets views*.
 

@@ -16,14 +16,37 @@ async function attributionFields(): Promise<Record<string, unknown>> {
   }
 }
 
+/**
+ * Luc bam, offer nay dan toi trang san pham hay trang chu shop?
+ *
+ * Phai dong dau NGAY TAI THOI DIEM CLICK, khong the suy lai sau: `productUrl`
+ * duoc them dan dan cho tung offer, nen hoi "offer nay co deep-link khong" vao
+ * ngay mai se gan nhan sai cho moi click xay ra truoc khi link duoc them.
+ *
+ * Doc o server thay vi truyen tu component: nut Get Deal/Get Code nam o 4 noi
+ * (trang store, /coupon-codes, /flash-sales, OfferCard) va mot noi quen truyen
+ * prop se lam hong so lieu ma khong ai thay.
+ */
+async function isDeepLinked(offerId: string): Promise<boolean> {
+  try {
+    return await writeClient.fetch<boolean>(
+      `defined(*[_type == "offer" && _id == $offerId][0].productUrl)`,
+      { offerId }
+    )
+  } catch {
+    return false
+  }
+}
+
 export async function trackOfferClick(offerId: string): Promise<void> {
-  const attribution = await attributionFields()
+  const [attribution, deepLink] = await Promise.all([attributionFields(), isDeepLinked(offerId)])
   await Promise.all([
     writeClient.patch(offerId).setIfMissing({ clicks: 0 }).inc({ clicks: 1 }).commit(),
     // _weak: true - click logs should never block deleting the offer/store they reference
     writeClient.create({
       _type: 'click',
       offer: { _type: 'reference', _ref: offerId, _weak: true },
+      deepLink,
       ...attribution,
     }),
   ])

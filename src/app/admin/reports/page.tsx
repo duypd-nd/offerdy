@@ -63,13 +63,20 @@ function daysUntil(iso: string): number {
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
 }
 
+type DeepLinkStats = {
+  offersTotal: number
+  offersWithUrl: number
+  deepClicks: number
+  shallowClicks: number
+}
+
 export default async function ReportsPage() {
   const now = new Date()
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport] = await Promise.all([
+  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport, deepLinkStats] = await Promise.all([
     writeClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -112,6 +119,17 @@ export default async function ReportsPage() {
     getRecentSentryIssues(10),
     getMerchantHealthData(),
     getLatestDailyReport(),
+    // Deep link: do phu hien tai + click da phan tach. `deepLink` duoc dong dau
+    // luc click (xem trackOfferClick), nen click cu — truoc khi co tinh nang —
+    // khong co field nay va khong bi tinh vao ve nao.
+    writeClient.fetch<DeepLinkStats>(
+      `{
+        "offersTotal": count(*[_type == "offer" && active == true]),
+        "offersWithUrl": count(*[_type == "offer" && active == true && defined(productUrl)]),
+        "deepClicks": count(*[_type == "click" && kind != "shortlink" && deepLink == true]),
+        "shallowClicks": count(*[_type == "click" && kind != "shortlink" && deepLink == false])
+      }`
+    ),
   ])
 
   // Bao cao AI qua han. 48h chu khong phai 24h: cron chay 1 lan/ngay va Vercel
@@ -323,6 +341,47 @@ export default async function ReportsPage() {
         <StatCard label="7 ngày qua" value={sevenDayCount} />
         <StatCard label="30 ngày qua" value={thirtyDayCount} />
         <StatCard label="Tất cả thời gian" value={allTimeCount} highlight />
+      </div>
+
+      {/* ── Deep link: độ phủ + tỷ trọng click. KHÔNG phải tỷ lệ chuyển đổi ── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: 13, fontWeight: 700, color: '#374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🎯 Link sản phẩm (deep link)</span>
+            <Link href="/admin/deep-links" style={{ fontSize: 12, color: '#16a34a', textDecoration: 'underline' }}>Gán link →</Link>
+          </div>
+          <div style={{ padding: 16 }}>
+            <div style={{ fontSize: 13, color: '#374151' }}>
+              <b style={{ fontSize: 17, color: '#0f172a' }}>{deepLinkStats.offersWithUrl}</b>
+              <span style={{ color: '#94a3b8' }}> / {deepLinkStats.offersTotal} offer đang có link tới trang sản phẩm</span>
+            </div>
+            <div style={{ height: 6, background: '#f1f5f9', borderRadius: 3, margin: '8px 0 14px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${deepLinkStats.offersTotal ? (deepLinkStats.offersWithUrl / deepLinkStats.offersTotal) * 100 : 0}%`,
+                height: '100%', background: '#16a34a',
+              }} />
+            </div>
+
+            {deepLinkStats.deepClicks + deepLinkStats.shallowClicks === 0 ? (
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                Chưa có lượt bấm nào kể từ khi bật đo. Số liệu sẽ xuất hiện sau khi có khách bấm Get Deal / Get Code.
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.7 }}>
+                Kể từ khi bật đo: <b>{deepLinkStats.deepClicks}</b> lượt bấm đi thẳng tới trang sản phẩm,
+                {' '}<b>{deepLinkStats.shallowClicks}</b> lượt về trang chủ shop.
+              </div>
+            )}
+
+            {/* Noi ro gioi han thay vi de nguoi doc tu suy ra sai. Cung tinh than voi
+                nguong "khong xep hang kenh duoi ~20 luot" cua AI Daily Report. */}
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f8fafc', fontSize: 11, color: '#94a3b8', lineHeight: 1.6 }}>
+              ⚠️ Đây là <b>tỷ trọng lượt bấm</b>, không phải tỷ lệ chuyển đổi: đơn hàng thật được ghi nhận bên GoAffPro và site không nhìn thấy, offer cũng không có số lượt hiển thị để làm mẫu số.
+              Chỉ so sánh được khi hai nhóm cùng có đủ lượt bấm — vài lượt đầu là ngẫu nhiên, không phải xu hướng.
+              Lượt bấm trước khi bật đo không nằm ở nhóm nào.
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Short link /d/<mã> — đo bài đăng mạng xã hội, KHÔNG phải click affiliate ── */}
