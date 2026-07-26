@@ -1,5 +1,23 @@
 import { unstable_cache } from 'next/cache'
-import { isConfigured } from './client'
+// ⚠️ HAI CLIENT, HAI HAN MUC KHAC NHAU — chon dung cai.
+//
+// `readClient` (useCdn: true) di qua CDN cua Sanity: re, cache ~60s, va KHONG tinh
+// vao han muc "API Requests". `writeClient` (useCdn: false) goi thang API va tinh vao
+// han muc do.
+//
+// Truoc 2026-07-26, MOI query trong file nay dung writeClient — ke ca nhung lenh doc
+// cua trang cong khai chay moi luot xem va moi lan Google thu thap. Ket qua: han muc
+// API can, Sanity tra 402 cho moi request, va vi `getStoreBySlug` bat loi roi tra null
+// nen trang store MOI bi bien thanh 404 tren production. CDN luc do van 200 binh
+// thuong — tuc chon sai client la nguyen nhan duy nhat.
+//
+// Quy tac: doc cho trang cong khai -> readClient. Chi dung writeClient khi BAT BUOC
+// phai co du lieu vua ghi xong:
+//   - nextDealCode: doc max(code) tu ban cache cu se cap TRUNG ma san pham, ma ma da
+//     dang len mang xa hoi thi khong sua duoc.
+//   - bao cao admin (daily report, click analytics): vua bam "Tao lai ngay" phai thay
+//     ngay, cho 60s se tuong la hong.
+import { client as readClient, isConfigured } from './client'
 import { writeClient } from './writeClient'
 import { deals as staticDeals, expiringDeals as staticExpiring } from '@/data/deals'
 import { stores as staticStores } from '@/data/stores'
@@ -27,7 +45,7 @@ const CONFIG_QUERY = `{
 export async function getFaviconUrl(): Promise<string | null> {
   if (!isConfigured()) return null
   try {
-    const data = await writeClient.fetch(`*[_type == "configGeneral" && _id == "configGeneral"][0]{ "faviconUrl": favicon.asset->url }`)
+    const data = await readClient.fetch(`*[_type == "configGeneral" && _id == "configGeneral"][0]{ "faviconUrl": favicon.asset->url }`)
     return data?.faviconUrl ?? null
   } catch { return null }
 }
@@ -45,7 +63,7 @@ const SOCIAL_LABEL: Record<string, string> = {
 export async function getSiteSettings() {
   if (!isConfigured()) return defaultSiteSettings
   try {
-    const { general, social } = await writeClient.fetch(CONFIG_QUERY)
+    const { general, social } = await readClient.fetch(CONFIG_QUERY)
     if (!general) return defaultSiteSettings
 
     const socialEntries = social
@@ -96,7 +114,7 @@ const EXPIRING_QUERY = `*[_type == "deal" && isExpiring == true && expiresAt > n
 export async function getDeals(limit = 10) {
   if (!isConfigured()) return staticDeals
   try {
-    const data = await writeClient.fetch(dealsQuery(limit))
+    const data = await readClient.fetch(dealsQuery(limit))
     // `?? []` phai giu NGUYEN vi tri cu: da cau hinh Sanity thi tra ket qua that
     // ke ca rong, khong bao gio roi ve du lieu demo (xem getStores).
     return await withDealRefs(data ?? [])
@@ -109,7 +127,7 @@ export async function getDeals(limit = 10) {
 // route dynamic. revalidatePath('/deals') trong admin/deals/actions.ts van invalidate
 // dung cache nay (theo doc Next.js unstable_cache).
 const getCachedAllDeals = unstable_cache(
-  async () => writeClient.fetch(ALL_DEALS_QUERY),
+  async () => readClient.fetch(ALL_DEALS_QUERY),
   ['all-deals'],
   { revalidate: 60 }
 )
@@ -143,7 +161,7 @@ const DEAL_BY_SLUG_QUERY = `*[_type == "deal" && slug.current == $slug][0] {
 export async function getDealBySlug(slug: string) {
   if (!isConfigured()) return null
   try {
-    return await withDealRef(await writeClient.fetch(DEAL_BY_SLUG_QUERY, { slug }))
+    return await withDealRef(await readClient.fetch(DEAL_BY_SLUG_QUERY, { slug }))
   } catch { return null }
 }
 
@@ -155,7 +173,7 @@ export async function getDealRefByCode(
 ): Promise<{ id: string; slug: string; dealUrl?: string } | null> {
   if (!isConfigured()) return null
   try {
-    const ref = await writeClient.fetch<{ id: string; slug?: string; dealUrl?: string } | null>(
+    const ref = await readClient.fetch<{ id: string; slug?: string; dealUrl?: string } | null>(
       `*[_type == "deal" && code == $code][0]{ "id": _id, "slug": slug.current, dealUrl }`,
       { code }
     )
@@ -175,7 +193,7 @@ export async function getDealRefByCode(
 export async function getDealPreviewByCode(code: number) {
   if (!isConfigured()) return null
   try {
-    return await writeClient.fetch<{
+    return await readClient.fetch<{
       code: number; title: string; slug: string
       priceSale: string; priceOrig?: string; discount: number; discountByAmount?: boolean
       summary?: string; metaDescription?: string
@@ -210,7 +228,7 @@ export async function nextDealCode(): Promise<number> {
 export async function getExpiringDeals() {
   if (!isConfigured()) return staticExpiring
   try {
-    return await writeClient.fetch(EXPIRING_QUERY)
+    return await readClient.fetch(EXPIRING_QUERY)
   } catch { return [] }
 }
 
@@ -236,7 +254,7 @@ const STORE_BY_SLUG_QUERY = `*[_type == "store" && slug.current == $slug && publ
 export async function getStores() {
   if (!isConfigured()) return staticStores
   try {
-    const data = await writeClient.fetch(STORES_QUERY)
+    const data = await readClient.fetch(STORES_QUERY)
     // QUAN TRONG: khi Sanity DA cau hinh (production), tra dung ket qua ke ca RONG.
     // Truoc day 'data.length ? data : staticStores' khien site live hien 12 store
     // demo bia (Amazon/Nike/Apple...) moi khi du lieu that bi xoa/chua co — vi pham
@@ -252,7 +270,7 @@ export async function getStoreBySlug(slug: string) {
   // chi tiet store gia neu con fallback.
   if (!isConfigured()) return staticStores.find(s => s.slug === slug) ?? null
   try {
-    return await writeClient.fetch(STORE_BY_SLUG_QUERY, { slug }) ?? null
+    return await readClient.fetch(STORE_BY_SLUG_QUERY, { slug }) ?? null
   } catch { return null }
 }
 
@@ -268,7 +286,7 @@ const STORE_HOSTS_QUERY = `*[_type == "store"]{
 }`
 
 const getCachedStoreHosts = unstable_cache(
-  async () => writeClient.fetch<StoreHostRow[]>(STORE_HOSTS_QUERY),
+  async () => readClient.fetch<StoreHostRow[]>(STORE_HOSTS_QUERY),
   ['store-hosts'],
   { revalidate: 300 }
 )
@@ -340,7 +358,7 @@ async function withDealRefs<T>(deals: T): Promise<T> {
 export async function getStoreTopCoupon(slug: string): Promise<{ code: string; offerText?: string } | null> {
   if (!isConfigured()) return null
   try {
-    const data = await writeClient.fetch(
+    const data = await readClient.fetch(
       `*[_type == "offer" && store->slug.current == $slug && active != false && defined(couponCode)]
         | order(coalesce(order, 9999) asc)[0]{ "code": couponCode, offerText }`,
       { slug }
@@ -358,7 +376,7 @@ const CATEGORIES_QUERY = `*[_type == "category"] | order(order asc) {
 export async function getCategories() {
   if (!isConfigured()) return staticCategories
   try {
-    const data = await writeClient.fetch(CATEGORIES_QUERY)
+    const data = await readClient.fetch(CATEGORIES_QUERY)
     return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
   } catch { return [] }
 }
@@ -393,7 +411,7 @@ export async function getCategoryBySlug(slug: string) {
   // demo). Truoc day sau try van fall-through ve staticCategories ke ca khi configured.
   if (!isConfigured()) return staticCategories.find(c => c.slug === slug || c.id === slug) ?? null
   try {
-    return await writeClient.fetch(
+    return await readClient.fetch(
       `*[_type == "category" && slug.current == $slug][0]{ "id": _id, name, emoji, "count": dealCount, colorClass, "slug": slug.current, description }`,
       { slug }
     ) ?? null
@@ -404,7 +422,7 @@ export async function getStoresByCategory(slug: string) {
   const legacyValue = SLUG_TO_STORE_CAT[slug] ?? slug
   if (!isConfigured()) return []
   try {
-    return await writeClient.fetch(
+    return await readClient.fetch(
       `*[_type == "store" && (category == $slug || category == $legacy) && published != false] | order(name asc) {
         "id": _id, name, abbr, colorClass, "slug": slug.current,
         website, maxOffer, "imageUrl": image.asset->url, category
@@ -422,7 +440,7 @@ export async function getStoresByCategory(slug: string) {
 export async function getCategorySlugsWithStores(): Promise<Set<string>> {
   if (!isConfigured()) return new Set()
   try {
-    const data = await writeClient.fetch<{
+    const data = await readClient.fetch<{
       cats: { slug: string | null }[]
       used: (string | null)[]
     }>(`{
@@ -453,7 +471,7 @@ const REVIEWS_QUERY = `*[_type == "review" && ${PUBLISHED_FILTER}] | order(publi
 export async function getReviews() {
   if (!isConfigured()) return staticReviews
   try {
-    const data = await writeClient.fetch(REVIEWS_QUERY)
+    const data = await readClient.fetch(REVIEWS_QUERY)
     return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
   } catch { return [] }
 }
@@ -480,7 +498,7 @@ const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${PUBL
 export async function getPosts() {
   if (!isConfigured()) return staticPosts
   try {
-    const data = await writeClient.fetch(POSTS_QUERY)
+    const data = await readClient.fetch(POSTS_QUERY)
     return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
   } catch { return [] }
 }
@@ -488,14 +506,14 @@ export async function getPosts() {
 export async function getPostBySlug(slug: string) {
   if (!isConfigured()) return staticPosts.find(p => p.slug === slug) ?? null
   try {
-    return await writeClient.fetch(POST_BY_SLUG_QUERY, { slug }) ?? null
+    return await readClient.fetch(POST_BY_SLUG_QUERY, { slug }) ?? null
   } catch { return null }
 }
 
 export async function getReviewBySlug(slug: string) {
   if (!isConfigured()) return staticReviews.find(r => r.slug === slug) ?? null
   try {
-    return await writeClient.fetch(REVIEW_BY_SLUG_QUERY, { slug }) ?? null
+    return await readClient.fetch(REVIEW_BY_SLUG_QUERY, { slug }) ?? null
   } catch { return null }
 }
 
@@ -600,14 +618,14 @@ const OFFERS_BY_STORE_QUERY = `*[_type == "offer" && active == true && store->sl
 export async function getOffers(): Promise<Offer[]> {
   if (!isConfigured()) return []
   try {
-    return resolveOfferLinks(await writeClient.fetch(OFFERS_QUERY))
+    return resolveOfferLinks(await readClient.fetch(OFFERS_QUERY))
   } catch { return [] }
 }
 
 export async function getOffersByStore(storeSlug: string): Promise<Offer[]> {
   if (!isConfigured()) return []
   try {
-    return resolveOfferLinks(await writeClient.fetch(OFFERS_BY_STORE_QUERY, { storeSlug }))
+    return resolveOfferLinks(await readClient.fetch(OFFERS_BY_STORE_QUERY, { storeSlug }))
   } catch { return [] }
 }
 
@@ -645,7 +663,7 @@ export type ContentConfig = {
 export async function getConfigContent(): Promise<ContentConfig> {
   if (!isConfigured()) return {}
   try {
-    const data = await writeClient.fetch(CONFIG_CONTENT_QUERY)
+    const data = await readClient.fetch(CONFIG_CONTENT_QUERY)
     return data ?? {}
   } catch { return {} }
 }
@@ -671,7 +689,7 @@ export type SeoConfig = {
 export async function getConfigSeo(): Promise<SeoConfig> {
   if (!isConfigured()) return {}
   try {
-    const data = await writeClient.fetch(CONFIG_SEO_QUERY)
+    const data = await readClient.fetch(CONFIG_SEO_QUERY)
     return data ?? {}
   } catch { return {} }
 }
@@ -695,7 +713,7 @@ export type AuthorConfig = {
 export async function getConfigAuthor(): Promise<AuthorConfig> {
   if (!isConfigured()) return {}
   try {
-    const data = await writeClient.fetch(CONFIG_AUTHOR_QUERY)
+    const data = await readClient.fetch(CONFIG_AUTHOR_QUERY)
     return data ?? {}
   } catch { return {} }
 }
@@ -723,7 +741,7 @@ const FLASH_SALES_QUERY = `*[_type == "offer" && active == true && defined(expir
 export async function getFlashSaleOffers(): Promise<Offer[]> {
   if (!isConfigured()) return []
   try {
-    return resolveOfferLinks(await writeClient.fetch(FLASH_SALES_QUERY))
+    return resolveOfferLinks(await readClient.fetch(FLASH_SALES_QUERY))
   } catch { return [] }
 }
 
@@ -755,7 +773,7 @@ const COUPON_OFFERS_QUERY = `*[_type == "offer" && active == true && defined(cou
 // Cung ly do voi getAllDeals o tren: /coupon-codes cung dung ?page=N nen ca trang
 // van dynamic, unstable_cache o day chi tranh goi Sanity lai moi luot xem.
 const getCachedCouponOffers = unstable_cache(
-  async () => writeClient.fetch(COUPON_OFFERS_QUERY),
+  async () => readClient.fetch(COUPON_OFFERS_QUERY),
   ['coupon-offers'],
   { revalidate: 60 }
 )
@@ -779,7 +797,7 @@ const COMPARISON_POSTS_QUERY = `*[_type == "post" && category == "Comparison" &&
 export async function getComparisonPosts() {
   if (!isConfigured()) return []
   try {
-    const data = await writeClient.fetch(COMPARISON_POSTS_QUERY)
+    const data = await readClient.fetch(COMPARISON_POSTS_QUERY)
     return data ?? []
   } catch { return [] }
 }
@@ -794,7 +812,7 @@ const TIPS_GUIDES_QUERY = `*[_type == "post" && category == "Tips & Guides" && $
 export async function getTipsGuidePosts() {
   if (!isConfigured()) return staticPosts.filter(p => p.category === 'Tips & Guides')
   try {
-    const data = await writeClient.fetch(TIPS_GUIDES_QUERY)
+    const data = await readClient.fetch(TIPS_GUIDES_QUERY)
     return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
   } catch { return [] }
 }
@@ -802,7 +820,7 @@ export async function getTipsGuidePosts() {
 export async function getPageBySlug(slug: string) {
   if (!isConfigured()) return null
   try {
-    return await writeClient.fetch(
+    return await readClient.fetch(
       `*[_type == "page" && slug.current == $slug && published == true][0] {
         title, "slug": slug.current, excerpt, content,
         "imageUrl": image.asset->url, _updatedAt
@@ -837,7 +855,7 @@ const MERCHANT_HEALTH_QUERY = `*[_type == "store"] {
 // scans per page load with no cache. Same unstable_cache pattern as getAllDeals/
 // getCouponOffers above; admin-only pages, 60s staleness is a non-issue here.
 const getCachedMerchantHealthData = unstable_cache(
-  async () => writeClient.fetch<StoreHealthInput[]>(MERCHANT_HEALTH_QUERY),
+  async () => readClient.fetch<StoreHealthInput[]>(MERCHANT_HEALTH_QUERY),
   ['merchant-health'],
   { revalidate: 60 }
 )
@@ -1051,7 +1069,7 @@ export type SeoAuditData = {
 }
 
 const getCachedSeoAuditData = unstable_cache(
-  async () => writeClient.fetch<SeoAuditData>(SEO_AUDIT_QUERY),
+  async () => readClient.fetch<SeoAuditData>(SEO_AUDIT_QUERY),
   ['seo-audit'],
   { revalidate: 60 }
 )
