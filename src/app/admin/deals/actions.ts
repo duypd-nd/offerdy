@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { writeClient } from '@/sanity/writeClient'
 import { nextDealCode } from '@/sanity/queries'
+import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
+import { formatScrapedPrice } from '@/lib/scrapedPrice'
 
 function revalidateDeals() {
   revalidatePath('/admin/deals')
@@ -85,4 +87,34 @@ export async function uploadDealImageFromUrl(url: string) {
     contentType: blob.type || 'image/jpeg',
   })
   return { _type: 'image', asset: { _type: 'reference', _ref: asset._id } }
+}
+
+/**
+ * Doc trang san pham roi tra ve nhung gi dien duoc vao form Deal.
+ *
+ * Dung lai `scrapeProductPage` da co (đang phục vụ /admin/reviews) — cung nghia la
+ * cung mot duong fetch chan SSRF, cung mot cach doc JSON-LD/OpenGraph.
+ *
+ * Do that tren 3 shop cua du an (2026-07-26): tieu de 3/3, anh 3/3, gia ban 2/3
+ * (WooCommerce khong phat JSON-LD offers thi khong co gia). GIA GOC gan nhu khong
+ * shop nao cong bo — nguoi van hanh tu go, va % giam tu tinh tu hai gia. Khong doan
+ * gia goc: do la con so quyet dinh "giam bao nhieu" hien tren moi bai dang.
+ */
+export async function fetchDealFromUrl(url: string): Promise<
+  | { ok: true; title: string; priceSale?: string; imageUrl?: string; siteName?: string }
+  | { ok: false; error: string }
+> {
+  const trimmed = url.trim()
+  if (!trimmed) return { ok: false, error: 'Chưa có link sản phẩm' }
+
+  const scraped = await scrapeProductPage(trimmed)
+  if ('error' in scraped) return { ok: false, error: scraped.error }
+
+  return {
+    ok: true,
+    title: scraped.title,
+    priceSale: formatScrapedPrice(scraped.price, scraped.currency),
+    imageUrl: scraped.images[0],
+    siteName: scraped.siteName,
+  }
 }

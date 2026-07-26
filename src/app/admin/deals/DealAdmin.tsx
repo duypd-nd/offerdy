@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState, useTransition, useRef, useEffect } from 'react'
-import { updateDeal, deleteDeal, createDeal, uploadDealImage, uploadDealImageFromUrl, bulkUpdateOrder, toggleDealPin } from './actions'
+import { updateDeal, deleteDeal, createDeal, uploadDealImage, uploadDealImageFromUrl, bulkUpdateOrder, toggleDealPin, fetchDealFromUrl } from './actions'
 import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
@@ -298,6 +298,7 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
               <th>Giá sale</th>
               <th>Giảm%</th>
               <th>Verified</th>
+              <th title="Deal có khớp store nào để gắn mã tiếp thị không">Tiếp thị</th>
               <th>Ngày đăng</th>
               <th>Cập nhật</th>
               <th></th>
@@ -354,6 +355,27 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
                 <td style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>{d.priceSale}</td>
                 <td><span style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 8px', borderRadius: 99, fontSize: 12, fontWeight: 700 }}>{d.discount}%</span></td>
                 <td><span style={{ color: d.verified ? '#16a34a' : '#9ca3af', fontSize: 13 }}>{d.verified ? '✓' : '—'}</span></td>
+                {/* Trang thai tiep thi. Canh bao trong modal chi hien luc DANG GO —
+                    voi deal da luu thi khong con dau hieu nao. Cot nay de thay ca
+                    danh sach mot luot thay vi mo tung deal. */}
+                <td style={{ whiteSpace: 'nowrap' }}>{(() => {
+                  if (!d.dealUrl) return <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>
+                  const store = matchStoreByUrl(d.dealUrl, storeHosts)
+                  if (!store) {
+                    return (
+                      <span title="Domain không khớp store nào — click sẽ không ra hoa hồng"
+                        style={{ background: '#fef2f2', color: '#dc2626', padding: '2px 7px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>
+                        ⚠ không khớp
+                      </span>
+                    )
+                  }
+                  return (
+                    <span title={`Khớp ${store.name}${store.couponCode ? ` · mã ${store.couponCode} sẽ hiện trên deal` : ' · shop chưa có mã coupon'}`}
+                      style={{ background: '#f0fdf4', color: '#166534', padding: '2px 7px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>
+                      ✓ {store.name}{store.couponCode ? ' 🏷' : ''}
+                    </span>
+                  )
+                })()}</td>
                 <td className="oa-td-date">{new Date(d._createdAt).toLocaleDateString('vi-VN')}</td>
                 <td className="oa-td-date">{d._updatedAt ? new Date(d._updatedAt).toLocaleDateString('vi-VN') : '—'}</td>
                 <td>
@@ -361,13 +383,20 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
                     <a href={d.dealUrl ?? '/deals'} target="_blank" rel="noopener noreferrer" className="oa-row-link" title={d.dealUrl ? 'Xem deal' : 'Xem trang deals'}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     </a>
+                    {/* Them deal roi dang bai la mot chuoi lam lien nhau; truoc day
+                        phai sang /admin/social-kit roi tim lai ma. */}
+                    {d.code && (
+                      <a href={`/admin/social-kit?code=${d.code}`} className="oa-row-link" title={`Soạn bài đăng cho #${d.code}`}>
+                        📣
+                      </a>
+                    )}
                     <button className="oa-row-save" onClick={() => setEditingDeal(d)} title="Sửa">✎</button>
                     <button className="oa-row-del" onClick={() => handleDelete(d._id)}>🗑</button>
                   </div>
                 </td>
               </tr>
             ))}
-            {paginated.length === 0 && <tr><td colSpan={14} className="oa-empty">Không tìm thấy deal nào</td></tr>}
+            {paginated.length === 0 && <tr><td colSpan={15} className="oa-empty">Không tìm thấy deal nào</td></tr>}
           </tbody>
         </table>
       </div>
@@ -413,6 +442,8 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
   })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState(initial?.imageUrl ?? '')
+  const [fetching, setFetching] = useState(false)
+  const [fetchNote, setFetchNote] = useState('')
   const [imageUrlInput, setImageUrlInput] = useState('')
   const [imageError, setImageError] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -561,8 +592,54 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
           </div>
 
           <label className="oa-label">Deal URL
-            <input className="oa-input" value={form.dealUrl} onChange={e => set('dealUrl', e.target.value)} placeholder="https://... (dán link trần, không cần ?ref=)" />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="oa-input" value={form.dealUrl} onChange={e => set('dealUrl', e.target.value)} placeholder="https://... (dán link trần, không cần ?ref=)" style={{ flex: 1 }} />
+              <button
+                type="button"
+                className="oa-btn"
+                disabled={!form.dealUrl.trim() || fetching}
+                title="Đọc trang sản phẩm và điền tên, giá, ảnh vào các ô còn trống"
+                onClick={async () => {
+                  setFetching(true)
+                  setFetchNote('')
+                  const r = await fetchDealFromUrl(form.dealUrl)
+                  setFetching(false)
+                  if (!r.ok) { setFetchNote(`⚠️ ${r.error}`); return }
+                  // CHI dien o dang TRONG — khong bao gio ghi de thu nguoi dung da go.
+                  const filled: string[] = []
+                  const skipped: string[] = []
+                  setForm(prev => {
+                    const next = { ...prev }
+                    if (r.title) {
+                      if (!prev.title.trim()) { next.title = r.title; filled.push('tên') }
+                      else skipped.push('tên')
+                    }
+                    if (r.priceSale) {
+                      if (!prev.priceSale.trim()) { next.priceSale = r.priceSale; filled.push('giá bán') }
+                      else skipped.push('giá bán')
+                    }
+                    return next
+                  })
+                  if (r.imageUrl && !imagePreview) { setImageUrlInput(r.imageUrl); setImagePreview(r.imageUrl); filled.push('ảnh') }
+                  else if (r.imageUrl) skipped.push('ảnh')
+
+                  setFetchNote(
+                    (filled.length ? `✓ Đã điền: ${filled.join(', ')}.` : '✓ Đọc được trang nhưng không có ô nào trống để điền.') +
+                    (skipped.length ? ` Giữ nguyên (bạn đã nhập): ${skipped.join(', ')}.` : '') +
+                    (r.priceSale ? '' : ' Trang này không công bố giá — nhập tay.') +
+                    ' Giá gốc phải tự nhập, shop hầu như không công bố.'
+                  )
+                }}
+              >
+                {fetching ? 'Đang đọc…' : '⤓ Lấy từ link'}
+              </button>
+            </div>
           </label>
+          {fetchNote && (
+            <div style={{ margin: '-6px 0 12px', padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 12, color: '#1e40af' }}>
+              {fetchNote}
+            </div>
+          )}
           {/* Cho biet NGAY luc go rang link nay se duoc gan ma ref cua shop nao.
               Ma khong duoc luu vao dealUrl (giu link sach de doi ma o store la moi
               deal cua shop do dung theo), nen neu khong hien gi o day thi nguoi

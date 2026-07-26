@@ -15,10 +15,22 @@ const QUERY = `*[_type == "deal" && defined(code)] | order(code desc) {
 
 const MISSING_CODE_QUERY = `count(*[_type == "deal" && !defined(code)])`
 
-export default async function SocialKitPage() {
-  const [deals, missingCode] = await Promise.all([
+export default async function SocialKitPage({ searchParams }: {
+  searchParams: Promise<{ code?: string }>
+}) {
+  const [deals, missingCode, params] = await Promise.all([
     writeClient.fetch(QUERY),
     writeClient.fetch<number>(MISSING_CODE_QUERY),
+    searchParams,
   ])
-  return <SocialKitClient deals={deals ?? []} missingCode={missingCode ?? 0} />
+  // `?code=` de nut 📣 tren /admin/deals nhay thang sang day voi deal da chon san —
+  // them deal roi dang bai la mot chuoi lam lien nhau, truoc day phai tim lai ma.
+  const initialCode = Number(params?.code)
+  return (
+    <SocialKitClient
+      deals={deals ?? []}
+      missingCode={missingCode ?? 0}
+      initialCode={Number.isFinite(initialCode) && initialCode > 0 ? initialCode : undefined}
+    />
+  )
 }

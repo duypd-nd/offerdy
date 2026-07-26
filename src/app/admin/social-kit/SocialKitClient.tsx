@@ -23,12 +23,16 @@ type KitDeal = {
 
 const QR_SIZE = 220
 
-export default function SocialKitClient({ deals, missingCode }: {
+export default function SocialKitClient({ deals, missingCode, initialCode }: {
   deals: KitDeal[]
   missingCode: number
+  /** Ma den tu `?code=` (nut 📣 o /admin/deals). Ma khong ton tai -> lui ve deal dau. */
+  initialCode?: number
 }) {
   const [search, setSearch] = useState('')
-  const [selectedCode, setSelectedCode] = useState<number | null>(deals[0]?.code ?? null)
+  const [selectedCode, setSelectedCode] = useState<number | null>(
+    (initialCode && deals.some(d => d.code === initialCode) ? initialCode : deals[0]?.code) ?? null
+  )
   const [style, setStyle] = useState<LinkStyle>('deal')
   const [campaignRaw, setCampaignRaw] = useState('')
   // Caption la GIA TRI DAN XUAT tu deal/kieu link/campaign, tru khi admin tu sua.

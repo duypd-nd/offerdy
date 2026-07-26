@@ -20,7 +20,9 @@ const CATEGORIES_QUERY = `*[_type == "category"] | order(coalesce(order, 9999) a
 // "se gan ?ref=... cua shop nao". Chi 28 dong nen truyen thang xuong client re hon
 // han goi API moi lan nguoi dung go mot ky tu.
 const STORE_HOSTS_QUERY = `*[_type == "store"]{
-  "slug": slug.current, name, website, affiliateLink
+  "slug": slug.current, name, website, affiliateLink,
+  "couponCode": *[_type == "offer" && store._ref == ^._id && active != false && defined(couponCode) && couponCode != ""]
+    | order(coalesce(order, 9999) asc)[0].couponCode
 }`
 
 export default async function AdminDealsPage() {

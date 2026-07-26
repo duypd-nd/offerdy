@@ -151,6 +151,16 @@ The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro insert
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
+## Adding a deal from a pasted URL (`fetchDealFromUrl`)
+Paste the product link, press **⤓ Lấy từ link**, and the form fills itself. Reuses `scrapeProductPage` (already serving `/admin/reviews`), so it shares the same SSRF-safe fetch and the same JSON-LD/OpenGraph reading.
+
+- Measured on three of the project's own shops (2026-07-26): **title 3/3, image 3/3, sale price 2/3** — a WooCommerce shop with no JSON-LD `offers` yields no price.
+- ⚠️ **The original price is never guessed.** Shops publish the current price, not what it was before; that figure decides the "% off" printed on every post and OG card. The operator types it, and the discount computes itself from the two numbers (`calcDiscount`, already there).
+- ⚠️ **Only empty fields are filled, never over what the operator typed** — and the note under the field states exactly what was filled and what was left alone. Silent overwriting of a corrected title would be worse than no autofill.
+- Price formatting lives in `src/lib/scrapedPrice.ts`, not in `actions.ts`: a `'use server'` module may only export async functions, so a synchronous helper there would break the build. Split out, it is also testable. `$399` not `$399.00`, real decimals kept, and an **unknown currency prints its code** (`SEK 49`) rather than defaulting to `$` — a wrong currency symbol is wrong price information.
+- The deals list has a **Tiếp thị** column (`✓ StoreName 🏷` / `⚠ không khớp`). The modal's warning only appears while typing, so a saved deal earning no commission had nothing to reveal it; this shows the whole list at a glance.
+- Each row with a code has a **📣** button to `/admin/social-kit?code=<code>`. Adding a deal and posting it are one continuous task; before this the operator had to navigate there and search the code again. An unknown or missing code falls back to the newest deal rather than an empty state.
+
 ## Tests (`npm test`)
 47 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, and the AI caption guardrails. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it.
 
