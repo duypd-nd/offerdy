@@ -9,7 +9,7 @@ import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
 import { DEAL_CODE_START } from '@/lib/dealCode'
 import { resolveOfferUrl } from '@/lib/affiliateUrl'
-import { couponForDealUrl, applyStoreRefToDealUrl, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
+import { couponForDealUrl, resolveDealLink, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
 import type { StoreHealthInput } from '@/lib/merchantHealth'
 
 // ── Site Settings (from configGeneral + configSocial) ──────────
@@ -300,21 +300,35 @@ export async function getDealCoupon(dealUrl?: string): Promise<DealCoupon | null
 // khong dung mot type chung nao ca (moi projection mot hinh), nen rang buoc
 // `T extends { dealUrl?: string }` se lam TypeScript thu hep ket qua xuong con
 // dung mot field dealUrl va lam vo moi noi tieu thu.
+type DealRow = { dealUrl?: string; store?: string }
+
+/** Gan ref + dien ten shop (chi khi `store` dang trong). */
+function applyDealResolution<T>(row: T, stores: StoreHostRow[]): T {
+  const d = row as DealRow
+  if (!d?.dealUrl) return row
+  const r = resolveDealLink(d.dealUrl, stores)
+  return {
+    ...d,
+    dealUrl: r.dealUrl,
+    // `||` chu khong phai `??`: chuoi rong cung tinh la trong. Va khong bao gio
+    // ghi de ten shop nguoi van hanh da go.
+    store: d.store || r.storeName,
+  } as T
+}
+
 async function withDealRef<T>(deal: T): Promise<T> {
-  const d = deal as { dealUrl?: string } | null
-  if (!d?.dealUrl) return deal
+  if (!(deal as DealRow)?.dealUrl) return deal
   try {
-    const stores = await getCachedStoreHosts() ?? []
-    return { ...d, dealUrl: applyStoreRefToDealUrl(d.dealUrl, stores) } as T
+    return applyDealResolution(deal, await getCachedStoreHosts() ?? [])
   } catch { return deal }
 }
 
 async function withDealRefs<T>(deals: T): Promise<T> {
-  const arr = deals as unknown as { dealUrl?: string }[] | null
+  const arr = deals as unknown as DealRow[] | null
   if (!Array.isArray(arr) || arr.length === 0) return deals
   try {
     const stores = await getCachedStoreHosts() ?? []
-    return arr.map(d => (d?.dealUrl ? { ...d, dealUrl: applyStoreRefToDealUrl(d.dealUrl, stores) } : d)) as unknown as T
+    return arr.map(d => applyDealResolution(d, stores)) as unknown as T
   } catch { return deals }
 }
 

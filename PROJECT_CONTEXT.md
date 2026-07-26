@@ -151,12 +151,23 @@ The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro insert
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
+## Tests (`npm test`)
+47 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, and the AI caption guardrails. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it.
+
+- Files: `tests/*.test.ts` using Node's built-in `node:test` + `node:assert`. **No test framework dependency.**
+- ⚠️ Run via `scripts/run-tests.mjs`, not `node --test tests/` directly. Node reads TypeScript fine, but Node's ESM demands **full file extensions** in imports (`./affiliateUrl.ts`), while the codebase uses extensionless `@/lib/...` bundler-style aliases. Changing the source to suit Node would risk the Next build, so the script bundles each test with esbuild (alias `@` → `src`, `packages: external`) into `node_modules/.cache/offerdy-tests` and runs `node --test` on the output. Tests therefore import exactly the way `src/` files import each other.
+- Bundling only — **nothing is mocked**, the tests exercise the real modules in `src/`.
+- `src/lib/productMatch.ts` exists as a separate file for this reason: the pure matching logic was split out of `productCatalog.ts` so testing it needs no network, no Sanity client and no env vars.
+- The suite was validated by deliberately breaking the cross-domain guard in `applyTrackingParams` — it failed the right test and passed again once reverted. Two regressions were introduced *by hand* during the 2026-07-26 session (generic narrowing, a misplaced `?? []`); this suite exists so that stops depending on luck.
+- Still uncovered and worth adding: the importer's create/patch decisions, `merchantHealth` scoring, and `shortLinkSource` UA detection.
+
 ## Deal URLs get the shop's ref automatically (`applyStoreRefToDealUrl`)
 The operator pastes a **bare** product link into a deal; the shop's tracking params are attached from the matched store's `affiliateLink`. Same host-matching as the coupon feature above, same reasoning as `offer.productUrl`: no match → returned untouched, never a fabricated ref.
 
 - **Applied in the query layer** (`withDealRef` / `withDealRefs` over `getDeals`, `getAllDeals`, `getDealBySlug`, `getDealRefByCode`), so every outbound path inherits it: the Get Deal button, deal cards on `/deals` and the homepage, JSON-LD, and above all the **`/g/<code>` redirect** — the link used in social posts, where a missing ref would cost commission at the busiest click point.
 - **`dealUrl` is stored bare, not rewritten in Sanity.** Change a shop's ref once on the store and every deal for that shop follows; bake it into each `dealUrl` and you must edit each deal by hand, with the ones you miss silently losing commission.
 - ⚠️ The two helpers are **deliberately transparent generics** (`<T>(x: T) => Promise<T>`). Constraining them to `{ dealUrl?: string }` makes TypeScript narrow the query result down to that single field and breaks every consumer. Also keep `?? []` where it already was — `withDealRefs(null)` returns `null` unchanged, which would quietly reintroduce the demo-data fallback bug the project fixed earlier.
+- **The shop's name fills `deal.store` when that field is empty** — all 22 deals had it blank, so the deal card, the detail page, the OG image and the JSON-LD `brand` said nothing about where the product is sold. The name is already implied by the domain, so no one needs to type it. Filled with `||` (an empty string counts as blank) and **never** over an operator-entered value.
 - The deal modal in `/admin/deals` previews the result live under the URL field: green with the exact final URL when a store matches, green "already has tracking params" when the pasted link brought its own, **amber warning when the domain matches no store** — that case earns no commission at all, and without the hint nothing on screen would reveal it, since the ref is never stored.
 
 ## Shop coupon on a deal (`getDealCoupon`)

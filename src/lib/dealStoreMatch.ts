@@ -76,10 +76,26 @@ export function applyStoreRefToDealUrl(
   dealUrl: string | undefined,
   stores: StoreHostRow[]
 ): string | undefined {
-  if (!dealUrl) return dealUrl
+  return resolveDealLink(dealUrl, stores).dealUrl
+}
+
+/**
+ * Mot lan khop domain, tra ve CA HAI thu suy ra duoc tu do: URL da gan tham so
+ * tiep thi, va TEN SHOP.
+ *
+ * Ten shop dung de dien `deal.store` khi truong do de trong — 22/22 deal dang
+ * trong, nen the deal / trang deal / anh OG / `seller` trong JSON-LD khong he noi
+ * san pham ban o dau. Thong tin do da nam san trong domain, khong can ai go tay.
+ * ⚠️ Chi dien khi TRONG, khong bao gio ghi de thu nguoi van hanh da go.
+ */
+export function resolveDealLink(
+  dealUrl: string | undefined,
+  stores: StoreHostRow[]
+): { dealUrl?: string; storeName?: string } {
+  if (!dealUrl) return { dealUrl }
   const store = matchStoreByUrl(dealUrl, stores)
-  if (!store) return dealUrl
-  return applyTrackingParams(dealUrl, store)
+  if (!store) return { dealUrl }
+  return { dealUrl: applyTrackingParams(dealUrl, store), storeName: store.name }
 }
 
 export type DealCoupon = {
