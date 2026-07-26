@@ -70,7 +70,7 @@ function OgWordmark() {
 /** Layout rieng cho deal: anh san pham to ben phai, gia + % giam noi bat ben trai.
  *  Khac BrandedOgImage vi voi deal thi GIA va MUC GIAM moi la thu keo click —
  *  logo nho 76px cua layout kia khong du suc lam viec do. */
-export function DealOgImage({ title, store, priceSale, priceOrig, badgeMain, badgeSub, imageUrl }: {
+export function DealOgImage({ title, store, priceSale, priceOrig, badgeMain, badgeSub, imageUrl, couponCode }: {
   title: string
   store?: string
   priceSale?: string
@@ -78,6 +78,11 @@ export function DealOgImage({ title, store, priceSale, priceOrig, badgeMain, bad
   badgeMain: string
   badgeSub?: string | null
   imageUrl?: string
+  /** Ma coupon that cua shop deal nay dan toi (khop qua domain — xem
+   *  src/lib/dealStoreMatch.ts). Bo trong -> an ticket di.
+   *  Dang chu tren ANH la duong duy nhat ma Instagram/TikTok khong chan: caption
+   *  o do khong cho link bam duoc, con ma thi nguoi xem doc va go lai duoc. */
+  couponCode?: string
 }) {
   return (
     <div style={{ ...FRAME_STYLE, display: 'flex', alignItems: 'center', padding: '0 64px', gap: 52 }}>
@@ -113,6 +118,19 @@ export function DealOgImage({ title, store, priceSale, priceOrig, badgeMain, bad
                 {priceOrig}
               </span>
             )}
+          </div>
+        )}
+
+        {couponCode && (
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 22px', borderRadius: 12,
+              background: '#fff', boxShadow: '0 12px 28px rgba(0,0,0,0.35)',
+            }}>
+              <span style={{ fontSize: 18, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: 3, display: 'flex' }}>Code</span>
+              <span style={{ fontSize: 32, fontWeight: 800, color: NAVY, letterSpacing: 1, display: 'flex' }}>{truncate(couponCode, 18)}</span>
+            </div>
           </div>
         )}
 

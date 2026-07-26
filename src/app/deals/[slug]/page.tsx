@@ -6,7 +6,8 @@ import Footer from '@/components/Footer'
 import AffiliateLink from '@/components/AffiliateLink'
 import FaqAccordion from '@/components/FaqAccordion'
 import ShareDeal from '@/components/ShareDeal'
-import { getDealBySlug, getConfigContent } from '@/sanity/queries'
+import { getDealBySlug, getConfigContent, getDealCoupon } from '@/sanity/queries'
+import ReviewCouponBox from '@/components/ReviewCouponBox'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 import { formatDealCode } from '@/lib/dealCode'
 
@@ -62,6 +63,10 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
     getConfigContent(),
   ])
   if (!deal) notFound()
+
+  // Ma coupon that cua shop ma deal nay dan toi, khop qua domain cua dealUrl.
+  // Goi SAU khi da co deal (can dealUrl) nen khong gop vao Promise.all tren.
+  const coupon = await getDealCoupon(deal.dealUrl)
 
   const badge = dealDiscountBadge(deal)
   // Server component: chi chay luc build/revalidate (60s), khong hydrate nen
@@ -165,6 +170,21 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
               <ShareDeal code={deal.code} slug={slug} title={deal.title} />
             </div>
           </div>
+
+          {/* Ma coupon cua shop. Loi van noi dung muc do biet: day la ma toan
+              shop, khong phai ma rieng cho san pham nay — xem ReviewCouponBox. */}
+          {coupon && (
+            <div style={{ marginBottom: 28 }}>
+              <ReviewCouponBox
+                code={coupon.code}
+                link={deal.dealUrl}
+                eyebrow={<>Active code at <span className="rv-coupon-brand">{coupon.storeName}</span></>}
+                heading={coupon.offerText || `${coupon.storeName} has a working discount code`}
+                sub="This is a store-wide code, not tied to this particular product — worth trying at checkout."
+                note={`Apply ${coupon.code} at checkout. Store-wide code, so some items may be excluded.`}
+              />
+            </div>
+          )}
 
           {deal.relatedReview && (
             <Link

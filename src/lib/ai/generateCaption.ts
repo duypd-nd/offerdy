@@ -57,7 +57,11 @@ export type CaptionAngle = typeof CAPTION_ANGLES[number]['id']
 // AI KHONG BAO GIO tu viet con so. No dat cho trong, code thay bang gia tri that
 // tu database. Nho vay khong the co chuyen caption noi sai gia, sai % giam, hay bia
 // ra ma coupon — la nhung khang dinh ma nguoi dang affiliate phai chiu trach nhiem.
-const PLACEHOLDERS = ['{price}', '{was}', '{discount}', '{link}', '{title}', '{code}'] as const
+// ⚠️ `{code}` la MA SAN PHAM cua Offerdy (#1020) dung de tra o /links — KHONG phai
+// ma coupon. Ma coupon cua shop la `{coupon}`, mot cho trong rieng. Gop hai thu nay
+// vao mot placeholder se pha logic CTA (nen tang khong cho link bam duoc BAT BUOC
+// phai co {code}) va lam nguoi xem go ma san pham vao o giam gia luc thanh toan.
+const PLACEHOLDERS = ['{price}', '{was}', '{discount}', '{link}', '{title}', '{code}', '{coupon}'] as const
 
 // ── Nen tang ──────────────────────────────────────────────────
 // Khac biet quan trong nhat KHONG phai do dai caption ma la: URL trong caption co
@@ -145,6 +149,14 @@ export type CaptionDealInput = {
   discountByAmount?: boolean
   categoryName?: string
   slug?: string
+  /** URL ra merchant — dung de suy ra shop nao, tu do lay ma coupon that. */
+  dealUrl?: string
+  /**
+   * Ma coupon THAT cua shop ma deal nay dan toi — suy ra tu domain cua `dealUrl`
+   * (xem src/lib/dealStoreMatch.ts), khong phai do model nghi ra. Bo trong thi
+   * `{coupon}` bi tu choi han o findUnsafeText.
+   */
+  couponCode?: string
 }
 
 export type Persona = {
@@ -209,6 +221,12 @@ Category: ${deal.categoryName ?? 'not specified'}
 Sale price: use {price}
 ${deal.priceOrig ? 'Original price: use {was}' : 'No original price is known — do not reference one.'}
 Discount: use {discount}
+${deal.couponCode
+  ? `Shop coupon: this shop has a working discount code, and the caption MUST contain the token {coupon} exactly once.
+  Writing ABOUT a code without including {coupon} is worthless — "there's also a code at checkout" tells the reader a code exists while withholding it, which is worse than saying nothing. Give them the token.
+  {coupon} and {code} are DIFFERENT things and both belong in the caption: {code} is the product number they search in the bio link to find this listing; {coupon} is the discount code they type at checkout. Never describe {coupon} as something to search with, and never call {code} a discount.
+  It is a STORE-WIDE code, so do NOT claim it applies to this product, do NOT say how much it saves, and do NOT add it on top of the discount figure ("{discount} plus another 15%" is a claim you cannot make). "code {coupon} at checkout" is right; "use {coupon} for an extra 20% off this bike" is not.`
+  : 'Shop coupon: none is known for this shop. NEVER write {coupon} — there is nothing to substitute and the caption would ship with a literal placeholder in it.'}
 
 ANGLE — ${a.label}
 ${a.brief}
@@ -223,13 +241,32 @@ Use {price}${deal.priceOrig ? ', {was}' : ''} and {discount} where the numbers b
 const MONEY_RE = /(?:[$£€₫]|USD|VND)\s?\d|(?<!\{)\b\d+(?:[.,]\d+)?\s?%/i
 const UNKNOWN_PLACEHOLDER_RE = /\{([a-z_]+)\}/gi
 
-export function findUnsafeText(text: string, platform?: CaptionPlatform): string | null {
+export function findUnsafeText(
+  text: string,
+  platform?: CaptionPlatform,
+  opts?: { hasCoupon?: boolean }
+): string | null {
   const money = text.match(MONEY_RE)
   if (money) return `tự viết số tiền/phần trăm: "${money[0].trim()}"`
   for (const m of text.matchAll(UNKNOWN_PLACEHOLDER_RE)) {
     if (!PLACEHOLDERS.includes(`{${m[1]}}` as typeof PLACEHOLDERS[number])) {
       return `dùng chỗ trống không hợp lệ: "{${m[1]}}"`
     }
+  }
+  // Shop khong co ma nao ma model van viet {coupon} -> caption se dang len kem
+  // dung chu "{coupon}", hoac te hon la bi thay bang chuoi rong lam cau vo nghia.
+  // Prompt da noi ro, nhung prompt la loi khuyen; day moi la thu chac chan.
+  if (!opts?.hasCoupon && text.includes('{coupon}')) {
+    return 'dùng {coupon} nhưng shop này không có mã coupon nào'
+  }
+  // Chieu nguoc lai: shop CO ma ma caption noi ve ma nhung khong dua ma.
+  // Da xay ra that trong lan thu dau — model viet "there's also a store-wide code
+  // at checkout" roi bo lung, tuc bao khach la co ma nhung giu ma lai. Nhu vay con
+  // te hon khong nhac gi: no tao mong doi rong. Prompt gio yeu cau ro, va day la
+  // lop chac chan.
+  if (opts?.hasCoupon && /\b(coupon|promo|discount)\s+code\b|\bcode at checkout\b/i.test(text)
+      && !text.includes('{coupon}')) {
+    return 'nói về mã giảm giá nhưng không đưa {coupon} vào (khách không dùng được mã mà họ không biết)'
   }
   // URL trong caption Instagram/TikTok khong bam duoc — de lot mot cai la giao cho
   // nguoi xem mot viec ho khong lam duoc bang mot cu cham.
@@ -252,6 +289,9 @@ export function fillPlaceholders(
     .replaceAll('{discount}', `${badge.main}${badge.sub ? ` ${badge.sub}` : ''}`)
     .replaceAll('{title}', deal.title)
     .replaceAll('{code}', `#${deal.code}`)
+    // Neu khong co ma thi findUnsafeText da loai variant nay tu truoc; nhanh nay
+    // chi la phong ho cuoi, va thay bang chuoi rong con hon de lo "{coupon}".
+    .replaceAll('{coupon}', deal.couponCode ?? '')
     .replaceAll('{link}', shortLink(deal.code, deal.slug, opts.style, opts.campaign))
 
   // Don cho dinh nhau. Prompt da dan ky nhung model van co xu huong viet "${price}"
@@ -303,7 +343,9 @@ export async function generateCaptions(input: {
   const variants: CaptionVariant[] = []
   const rejected: string[] = []
   for (const v of parsed.variants) {
-    const problem = findUnsafeText([v.hook, v.body, v.cta].join('\n'), platform)
+    const problem = findUnsafeText([v.hook, v.body, v.cta].join('\n'), platform, {
+      hasCoupon: Boolean(deal.couponCode),
+    })
     if (problem) rejected.push(problem)
     else variants.push(v)
   }

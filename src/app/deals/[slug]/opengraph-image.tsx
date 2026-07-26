@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import { getDealBySlug } from '@/sanity/queries'
+import { getDealBySlug, getDealCoupon } from '@/sanity/queries'
 import { DealOgImage, BrandedOgImage } from '@/lib/ogTemplate'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 
@@ -29,6 +29,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   }
 
   const badge = dealDiscountBadge(deal)
+  const coupon = await getDealCoupon(deal.dealUrl)
 
   return new ImageResponse(
     (
@@ -40,6 +41,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         badgeMain={badge.main}
         badgeSub={badge.sub}
         imageUrl={deal.imageUrl}
+        couponCode={coupon?.code}
       />
     ),
     { ...size }

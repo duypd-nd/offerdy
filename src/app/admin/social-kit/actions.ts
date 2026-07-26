@@ -6,6 +6,7 @@ import {
   type CaptionAngle, type CaptionPlatform, type CaptionDealInput, type Persona,
 } from '@/lib/ai/generateCaption'
 import type { LinkStyle } from '@/lib/socialCaption'
+import { getDealCoupon } from '@/sanity/queries'
 
 export type GeneratedCaption = { text: string; hashtags: string[]; suggestedTag: string }
 
@@ -42,7 +43,7 @@ export async function generateCaptionsForDeal(input: {
     const [deal, persona] = await Promise.all([
       writeClient.fetch<CaptionDealInput | null>(
         `*[_type == "deal" && code == $code][0]{
-          code, title, priceSale, priceOrig, discount, discountByAmount,
+          code, title, priceSale, priceOrig, discount, discountByAmount, dealUrl,
           "slug": slug.current, "categoryName": category->name
         }`,
         { code: input.code }
@@ -52,6 +53,11 @@ export async function generateCaptionsForDeal(input: {
       }`),
     ])
     if (!deal) return { ok: false, error: `Không tìm thấy deal #${input.code}` }
+
+    // Ma coupon that cua shop deal nay dan toi (khop qua domain cua dealUrl).
+    // Model chi duoc dat cho trong {coupon}; ma khong bao gio do model viet ra.
+    const coupon = await getDealCoupon(deal.dealUrl)
+    deal.couponCode = coupon?.code
 
     const proven = await fetchProvenCaptions(input.platform)
     const { variants, rejected } = await generateCaptions({
@@ -111,7 +117,7 @@ export async function generateWeekPlan(input: {
       writeClient.fetch<(CaptionDealInput & { imageUrl?: string })[]>(
         `*[_type == "deal" && defined(code)]
          | order(coalesce(lastPostedAt, "1970-01-01") asc, code desc)[0...$count]{
-          code, title, priceSale, priceOrig, discount, discountByAmount,
+          code, title, priceSale, priceOrig, discount, discountByAmount, dealUrl,
           "slug": slug.current, "categoryName": category->name,
           "imageUrl": image.asset->url
         }`,
@@ -134,6 +140,10 @@ export async function generateWeekPlan(input: {
       const angle = WEEK_ANGLES[i % WEEK_ANGLES.length]
       const campaign = `${deal.code}-${input.platform.slice(0, 2)}${angle}`
       try {
+        // Ma coupon cua tung shop — khac nhau theo deal, nen phai lay trong vong
+        // lap chu khong mot lan ben ngoai. getDealCoupon dung cache 5 phut nen
+        // 7 lan goi khong thanh 7 lan hoi Sanity.
+        deal.couponCode = (await getDealCoupon(deal.dealUrl))?.code
         const { variants } = await generateCaptions({
           deal, angle, count: 1, persona: persona ?? {}, platform: input.platform,
           provenCaptions: proven,

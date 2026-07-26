@@ -9,6 +9,7 @@ import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
 import { DEAL_CODE_START } from '@/lib/dealCode'
 import { resolveOfferUrl } from '@/lib/affiliateUrl'
+import { couponForDealUrl, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
 import type { StoreHealthInput } from '@/lib/merchantHealth'
 
 // ── Site Settings (from configGeneral + configSocial) ──────────
@@ -244,6 +245,38 @@ export async function getStoreBySlug(slug: string) {
   if (!isConfigured()) return staticStores.find(s => s.slug === slug) ?? null
   try {
     return await writeClient.fetch(STORE_BY_SLUG_QUERY, { slug }) ?? null
+  } catch { return null }
+}
+
+// ── Ma coupon cho deal (khop qua domain cua dealUrl) ───────────
+// Danh sach host + ma coupon cua 28 store. Nho nen keo het roi khop trong TS:
+// GROQ khong tach duoc hostname cua URL, va 28 dong thi re hon han goi nhieu lan.
+const STORE_HOSTS_QUERY = `*[_type == "store"]{
+  "slug": slug.current, name, website, affiliateLink,
+  "couponCode": *[_type == "offer" && store._ref == ^._id && active != false && defined(couponCode) && couponCode != ""]
+    | order(coalesce(order, 9999) asc)[0].couponCode,
+  "couponOfferText": *[_type == "offer" && store._ref == ^._id && active != false && defined(couponCode) && couponCode != ""]
+    | order(coalesce(order, 9999) asc)[0].offerText
+}`
+
+const getCachedStoreHosts = unstable_cache(
+  async () => writeClient.fetch<StoreHostRow[]>(STORE_HOSTS_QUERY),
+  ['store-hosts'],
+  { revalidate: 300 }
+)
+
+/**
+ * Ma coupon that cua shop ma mot deal dan toi, hoac null.
+ *
+ * ⚠️ Day la ma cua CA SHOP, khong phai ma rieng cho san pham do — nhieu shop loai
+ * tru hang dang giam gia khoi ma. Moi noi hien ma phai noi dung mucdo do ("shop
+ * nay dang co ma X"), khong duoc hua ma ap dung cho san pham. Ma sai o buoc thanh
+ * toan lam mat long tin nhieu hon la khong hien gi.
+ */
+export async function getDealCoupon(dealUrl?: string): Promise<DealCoupon | null> {
+  if (!isConfigured() || !dealUrl) return null
+  try {
+    return couponForDealUrl(dealUrl, await getCachedStoreHosts() ?? [])
   } catch { return null }
 }
 
