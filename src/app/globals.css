@@ -1137,9 +1137,17 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .lb-code-info{flex:1;min-width:0}
 .lb-code-store{font-size:13px;font-weight:700;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb-code-text{font-size:11.5px;color:rgba(255,255,255,.55);line-height:1.4;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lb-code-chip{flex-shrink:0;min-height:44px;padding:0 14px;border-radius:11px;background:rgba(34,197,94,.16);border:1px dashed rgba(34,197,94,.6);color:var(--green);font-size:13px;font-weight:800;font-family:inherit;letter-spacing:.6px;cursor:pointer;transition:background .18s,transform .12s}
+/* Chip ma dang VE that: giay trang, hai lo tron khoet o hai canh, va mot duong
+   rang cua doc ben trai. Lo phai khoet bang `mask` chu khong the gia bang mot khoi
+   mau dac — nen trang la gradient nen khoi dac se lo ro mep. Neu trinh duyet khong
+   ho tro mask thi chip van la mot the giay bo goc doc duoc binh thuong. */
+.lb-code-chip{flex-shrink:0;position:relative;min-height:44px;padding:0 15px 0 19px;border:0;border-radius:9px;background:#fff;color:var(--navy);font-size:13.5px;font-weight:800;font-family:inherit;letter-spacing:1px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);transition:transform .12s,box-shadow .18s;-webkit-mask:radial-gradient(circle 5px at 0 50%,transparent 5px,#000 5.5px),radial-gradient(circle 5px at 100% 50%,transparent 5px,#000 5.5px);-webkit-mask-composite:source-in;mask:radial-gradient(circle 5px at 0 50%,transparent 5px,#000 5.5px),radial-gradient(circle 5px at 100% 50%,transparent 5px,#000 5.5px);mask-composite:intersect}
+/* Duong rang cua — dat sau phan lo ben trai de trong nhu cho xe cuong ve */
+.lb-code-chip::before{content:"";position:absolute;left:9px;top:7px;bottom:7px;width:0;border-left:1.5px dashed rgba(15,25,41,.28)}
+.lb-code-chip:active{transform:scale(.95);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.lb-code-chip.is-copied{background:var(--green);color:var(--navy)}
+.lb-code-chip.is-copied::before{border-left-color:rgba(15,25,41,.35)}
 .lb-code-chip:active{transform:scale(.95);background:rgba(34,197,94,.3)}
-.lb-code-chip.is-copied{background:var(--green);border-style:solid;color:var(--navy)}
 .lb-code-go{flex-shrink:0;display:inline-flex;align-items:center;min-height:44px;padding:0 13px;border-radius:11px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:12.5px;font-weight:700;transition:background .18s,transform .12s}
 .lb-code-go:active{transform:scale(.95);background:rgba(34,197,94,.24)}
 .lb-codes-all{display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:10px;border-radius:12px;color:rgba(255,255,255,.72);font-size:13px;font-weight:700}
