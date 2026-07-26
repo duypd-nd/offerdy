@@ -1,6 +1,10 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **Store page: coded offers first (2026-07-26)** — a code is the only thing a shopper can use **without clicking a link**, and GoAffPro credits the order through the code, so a coded offer outranks a link-only one. On The KedStore the one coded offer sat at `order: 2` and showed third.
+  - ⚠️ **`order` is kept as the secondary key**, not dropped — all 326 offers carry a non-zero `order`, so it is live data. VisoOne Eyewear proves it: four coded offers ordered 5→4→3→2, then the uncoded one.
+  - ⚠️ Accepted trade-off: `order` can no longer pin an **uncoded** offer above a coded one. That is the direct consequence of the requested default.
+  - Verified live on both stores; 72/72 tests, `tsc` + lint clean. Also noted: `OFFERS_QUERY`/`getOffers()` is used by no page — dead code, left in place.
 - **Coupon code casing unified (2026-07-26)** — user reported the auto-filled code showing `offerdy` while the real code is `OFFERDY`. The auto-fill was faithful; the **data** was split, and the cause sat in the forms.
   - ⚠️ **The three admin forms disagreed**: `/admin/offers` kept the typed case while `/admin/coupon-codes` and `/admin/reviews` forced `.toUpperCase()`. Same code, different door, different result — that is how 16 of 77 codes ended up lowercase.
   - All three now **preserve what you type**. Silently upper-casing is not safe: some checkouts treat a discount code as case-sensitive, so a "tidied" code can be a dead code with nothing on screen to reveal it.

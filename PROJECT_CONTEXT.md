@@ -151,6 +151,15 @@ The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro insert
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
+## Store page: offers with a code come first
+`OFFERS_BY_STORE_QUERY` sorts by `select(defined(couponCode) && couponCode != "" => 0, 1) asc`, then `order desc`, then newest.
+
+- **Why the code outranks the operator's `order`**: a code is the only thing a shopper can use **without clicking a link**, and GoAffPro credits the order through the code itself — so a coded offer is worth more than a link-only one regardless of entry sequence. On The KedStore the single coded offer sat at `order: 2` and was being shown third.
+- ⚠️ **`order` is not discarded** — it still decides the sequence *within* each group (coded / not coded). VisoOne Eyewear shows this: four coded offers ordered 5→4→3→2, then the uncoded one.
+- ⚠️ The trade-off, accepted deliberately: `order` can no longer pin an **uncoded** offer above a coded one. That follows directly from "coded offers on top by default".
+- All 326 offers carry a non-zero `order`, so this field is live data, not an unused default — which is exactly why it stays as the secondary key rather than being dropped.
+- Note: `OFFERS_QUERY` / `getOffers()` in `queries.ts` is **not used by any page** (dead code, same class as the deleted `StoreDealsFilter`). Left in place for now; it did not need the same sort.
+
 ## Coupon code casing
 Codes are stored and displayed **exactly as typed** — no form normalises case any more. Some checkout systems treat a discount code as case-sensitive, so silently changing `MyCode` to `MYCODE` can produce a code that simply does not work, and nothing on screen would reveal it.
 

@@ -566,7 +566,18 @@ const OFFERS_QUERY = `*[_type == "offer" && active == true] | order(_createdAt d
   }
 }`
 
-const OFFERS_BY_STORE_QUERY = `*[_type == "offer" && active == true && store->slug.current == $storeSlug] | order(order desc, _createdAt desc) {
+// Offer CO MA GIAM GIA len tren cung, roi moi den `order` do nguoi van hanh dat.
+//
+// Ly do dat ma len lam khoa chinh: ma la thu duy nhat khach co the dung ma KHONG can
+// bam link, va GoAffPro ghi nhan don qua ca ma — nen mot offer co ma dang gia hon
+// mot offer chi co link, bat ke thu tu nhap. Truoc day `order desc` la khoa chinh
+// nen o The KedStore, offer duy nhat co ma (order 2) bi day xuong thu ba.
+//
+// ⚠️ `order` KHONG bi bo: no van quyet dinh thu tu BEN TRONG tung nhom (co ma /
+// khong ma). Doi lai, khong con cach nao ghim mot offer khong-co-ma len tren mot
+// offer co ma bang truong `order` — day la danh doi co y, theo yeu cau "mac dinh
+// offer nao co ma giam gia hien len tren cung".
+const OFFERS_BY_STORE_QUERY = `*[_type == "offer" && active == true && store->slug.current == $storeSlug] | order(select(defined(couponCode) && couponCode != "" => 0, 1) asc, order desc, _createdAt desc) {
   "id": _id,
   title,
   offerText,
