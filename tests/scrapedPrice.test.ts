@@ -45,6 +45,13 @@ test('khong biet ky hieu -> ghi MA tien te, KHONG mac dinh thanh $', () => {
   assert.equal(formatScrapedPrice('49', 'SEK'), 'SEK 49')
 })
 
-test('thieu ma tien te -> mac dinh USD (gan het shop cua du an ban bang USD)', () => {
-  assert.equal(formatScrapedPrice('49'), '$49')
+test('thieu ma tien te -> undefined, KHONG doan la USD', () => {
+  // Du an co deal ban bang IDR (#1016: Rp4.961.899). Doan "$" la gan sai don vi
+  // tien te, tuc mot con so gia sai in tren moi bai dang.
+  assert.equal(formatScrapedPrice('49'), undefined)
+  assert.equal(formatScrapedPrice('4961899'), undefined)
+})
+
+test('IDR co ma thi van dinh dang duoc', () => {
+  assert.equal(formatScrapedPrice('4961899', 'IDR'), 'IDR 4961899')
 })

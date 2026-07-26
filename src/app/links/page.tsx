@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getAllDeals, getSiteSettings } from '@/sanity/queries'
+import { getAllDeals, getSiteSettings, getCouponOffers } from '@/sanity/queries'
 import LinkInBioDeals from '@/components/LinkInBioDeals'
+import LinkInBioCodes from '@/components/LinkInBioCodes'
 import { rankDealsForLinks } from '@/lib/dealRanking'
 import type { Deal } from '@/data/deals'
 
@@ -17,9 +18,13 @@ export const metadata: Metadata = {
 }
 
 export default async function LinksPage() {
-  const [allDeals, settings] = await Promise.all([
+  const [allDeals, settings, couponOffers] = await Promise.all([
     getAllDeals(),
     getSiteSettings(),
+    // Ma coupon that cua cac shop. Giu NGUYEN thu tu do nguoi van hanh dat
+    // (`order` trong COUPON_OFFERS_QUERY) chu khong xep theo so click: voi tong
+    // luong click hien tai, xep theo hieu qua la xep theo nhieu.
+    getCouponOffers(),
   ])
 
   // Ca danh sach di xuong client (khong slice o day) de o tim kiem loc duoc TOAN BO
@@ -50,6 +55,12 @@ export default async function LinksPage() {
         </div>
 
         {deals.length > 0 && <LinkInBioDeals deals={deals} />}
+
+        {/* Ma coupon dat NGAY sau luoi deal: day la tai san manh nhat cho
+            Instagram/TikTok (ma la CHU, dan vao caption duoc; con GoAffPro ghi nhan
+            don qua ca ma nen khach khong bam link van tinh). Truoc day no nam sau
+            mot chip dan sang /coupon-codes. */}
+        <LinkInBioCodes offers={couponOffers} />
 
         <Link href="/deals" className="lb-all">View all deals →</Link>
 
