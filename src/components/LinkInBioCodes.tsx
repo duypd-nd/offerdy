@@ -18,9 +18,10 @@ import type { Offer } from '@/sanity/queries'
  * mang `rel="sponsored"`.
  */
 
-// Hien it thoi: day la trang de luot nhanh tren dien thoai, khong phai trang danh
-// muc. Ai muon xem het da co link sang /coupon-codes ngay duoi.
-const PREVIEW_COUNT = 6
+// Hien it thoi: khoi nay nam TREN luoi deal nen moi dong them la day deal xuong
+// duoi man hinh. 4 dong vua du de thay day la mot muc that ma khong chiem het
+// khung nhin dau tien. Ai muon xem het da co link sang /coupon-codes ngay duoi.
+const PREVIEW_COUNT = 4
 
 export default function LinkInBioCodes({ offers }: { offers: Offer[] }) {
   const [copied, setCopied] = useState<string | null>(null)

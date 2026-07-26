@@ -54,13 +54,13 @@ export default async function LinksPage() {
           <Link href="/stores" className="lb-chip">Stores</Link>
         </div>
 
-        {deals.length > 0 && <LinkInBioDeals deals={deals} />}
-
-        {/* Ma coupon dat NGAY sau luoi deal: day la tai san manh nhat cho
-            Instagram/TikTok (ma la CHU, dan vao caption duoc; con GoAffPro ghi nhan
-            don qua ca ma nen khach khong bam link van tinh). Truoc day no nam sau
-            mot chip dan sang /coupon-codes. */}
-        <LinkInBioCodes offers={couponOffers} />
+        {/* Ma coupon truyen VAO LinkInBioDeals de nam giua o tim kiem va luoi deal.
+            Ban dau dat sau <LinkInBioDeals/>, tuc sau 12 the deal (~4000px cuon) —
+            chon mat tai san manh nhat cho Instagram/TikTok o dung trang ma traffic
+            hai nen tang do do ve. */}
+        {deals.length > 0
+          ? <LinkInBioDeals deals={deals} beforeList={<LinkInBioCodes offers={couponOffers} />} />
+          : <LinkInBioCodes offers={couponOffers} />}
 
         <Link href="/deals" className="lb-all">View all deals →</Link>
 

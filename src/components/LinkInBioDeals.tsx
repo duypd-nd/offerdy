@@ -66,7 +66,11 @@ function search(deals: Deal[], raw: string): Deal[] {
   return [...byCodePrefix, ...byText]
 }
 
-export default function LinkInBioDeals({ deals }: { deals: Deal[] }) {
+export default function LinkInBioDeals({ deals, beforeList }: {
+  deals: Deal[]
+  /** Noi dung chen giua o tim kiem va luoi deal (dung cho khoi ma coupon). */
+  beforeList?: React.ReactNode
+}) {
   const [query, setQuery] = useState('')
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -114,6 +118,13 @@ export default function LinkInBioDeals({ deals }: { deals: Deal[] }) {
           </button>
         )}
       </form>
+
+      {/* Khoi ma coupon nam GIUA o tim kiem va luoi deal — day la vi tri dung:
+          o tim kiem phai o tren cung vi caption Instagram/TikTok bao nguoi ta "go
+          ma #1020 vao bio link", con ma coupon phai o TREN luoi deal vi truoc day
+          no bi chon duoi 12 the deal (~4000px) — user cuon khong thay.
+          An khi dang tim kiem: luc do nguoi dung dang tim mot san pham cu the. */}
+      {!searching && beforeList}
 
       <div className="lb-sec">
         <span className="lb-sec-t">{searching ? 'Results' : 'Latest deals'}</span>
