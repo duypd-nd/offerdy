@@ -32,6 +32,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/merchant-health', label: 'Merchant Health', icon: '❤️' },
       { href: '/admin/seo-audit',    label: 'SEO Audit',      icon: '🔎' },
       { href: '/admin/link-checker', label: 'Kiểm tra Link',  icon: '🔍' },
+      { href: '/admin/deep-links',   label: 'Link sản phẩm',  icon: '🎯' },
     ],
   },
   {
