@@ -8,6 +8,7 @@ import { reviews as staticReviews } from '@/data/reviews'
 import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
 import { DEAL_CODE_START } from '@/lib/dealCode'
+import { resolveOfferUrl } from '@/lib/affiliateUrl'
 import type { StoreHealthInput } from '@/lib/merchantHealth'
 
 // ── Site Settings (from configGeneral + configSocial) ──────────
@@ -347,7 +348,7 @@ export async function getCategorySlugsWithStores(): Promise<Set<string>> {
         .map(c => c.slug)
         .filter((s): s is string => !!s)
         // khop truc tiep (store tag dung slug) HOAC qua bang map sang enum cu
-        .filter(s => used.has(s) || used.has(SLUG_TO_STORE_CAT[s] ?? ' '))
+        .filter(s => used.has(s) || used.has(SLUG_TO_STORE_CAT[s] ?? ''))
     )
   } catch { return new Set() }
 }
@@ -419,7 +420,12 @@ export type Offer = {
   title: string
   offerText: string
   couponCode?: string
+  /** URL dich DA GIAI: trang san pham (kem ref) neu co, khong thi link store. */
   link: string
+  /** Link trang san pham dang tran, giu lai de admin/debug doi chieu. */
+  productUrl?: string
+  /** Ket qua kiem tra link gan nhat — resolveOfferUrl dung de lui ve link shop. */
+  linkStatus?: string
   description?: string
   usageTips?: string
   eligibilityNotes?: string
@@ -434,7 +440,26 @@ export type Offer = {
     colorClass: string
     slug: string
     imageUrl?: string
+    affiliateLink?: string
+    website?: string
   }
+}
+
+// Moi projection offer lay san `productUrl` + link/website cua store, roi di qua
+// ham nay de `offer.link` LUON la URL dich cuoi cung. Lam o tang query thay vi
+// tung component: cac trang offer (store, /coupon-codes, /flash-sales, JSON-LD)
+// nho do dung chung mot ket qua, khong noi nao co the quen gan ma ref.
+const OFFER_STORE_PROJECTION = `
+    name, abbr, colorClass,
+    "slug": slug.current,
+    affiliateLink, website`
+
+function resolveOfferLinks(rows: Offer[] | null | undefined): Offer[] {
+  if (!rows) return []
+  return rows.map(offer => ({
+    ...offer,
+    link: resolveOfferUrl(offer, offer.store ?? {}),
+  }))
 }
 
 const OFFERS_QUERY = `*[_type == "offer" && active == true] | order(_createdAt desc) {
@@ -443,14 +468,14 @@ const OFFERS_QUERY = `*[_type == "offer" && active == true] | order(_createdAt d
   offerText,
   couponCode,
   "link": link,
+  productUrl,
+  linkStatus,
   description,
   expiresAt,
   active,
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
-  "store": store-> {
-    name, abbr, colorClass,
-    "slug": slug.current
+  "store": store-> {${OFFER_STORE_PROJECTION}
   }
 }`
 
@@ -460,6 +485,8 @@ const OFFERS_BY_STORE_QUERY = `*[_type == "offer" && active == true && store->sl
   offerText,
   couponCode,
   "link": link,
+  productUrl,
+  linkStatus,
   description,
   usageTips,
   eligibilityNotes,
@@ -468,25 +495,21 @@ const OFFERS_BY_STORE_QUERY = `*[_type == "offer" && active == true && store->sl
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
-  "store": store-> {
-    name, abbr, colorClass,
-    "slug": slug.current
+  "store": store-> {${OFFER_STORE_PROJECTION}
   }
 }`
 
 export async function getOffers(): Promise<Offer[]> {
   if (!isConfigured()) return []
   try {
-    const data = await writeClient.fetch(OFFERS_QUERY)
-    return data ?? []
+    return resolveOfferLinks(await writeClient.fetch(OFFERS_QUERY))
   } catch { return [] }
 }
 
 export async function getOffersByStore(storeSlug: string): Promise<Offer[]> {
   if (!isConfigured()) return []
   try {
-    const data = await writeClient.fetch(OFFERS_BY_STORE_QUERY, { storeSlug })
-    return data ?? []
+    return resolveOfferLinks(await writeClient.fetch(OFFERS_BY_STORE_QUERY, { storeSlug }))
   } catch { return [] }
 }
 
@@ -586,15 +609,15 @@ const FLASH_SALES_QUERY = `*[_type == "offer" && active == true && defined(expir
   offerText,
   couponCode,
   "link": link,
+  productUrl,
+  linkStatus,
   description,
   expiresAt,
   active,
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
-  "store": store-> {
-    name, abbr, colorClass,
-    "slug": slug.current,
+  "store": store-> {${OFFER_STORE_PROJECTION},
     "imageUrl": image.asset->url
   }
 }`
@@ -602,8 +625,7 @@ const FLASH_SALES_QUERY = `*[_type == "offer" && active == true && defined(expir
 export async function getFlashSaleOffers(): Promise<Offer[]> {
   if (!isConfigured()) return []
   try {
-    const data = await writeClient.fetch(FLASH_SALES_QUERY)
-    return data ?? []
+    return resolveOfferLinks(await writeClient.fetch(FLASH_SALES_QUERY))
   } catch { return [] }
 }
 
@@ -619,15 +641,15 @@ const COUPON_OFFERS_QUERY = `*[_type == "offer" && active == true && defined(cou
   offerText,
   couponCode,
   "link": link,
+  productUrl,
+  linkStatus,
   description,
   expiresAt,
   active,
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
-  "store": store-> {
-    name, abbr, colorClass,
-    "slug": slug.current,
+  "store": store-> {${OFFER_STORE_PROJECTION},
     "imageUrl": image.asset->url
   }
 }`
@@ -643,8 +665,9 @@ const getCachedCouponOffers = unstable_cache(
 export async function getCouponOffers(): Promise<Offer[]> {
   if (!isConfigured()) return []
   try {
-    const data = await getCachedCouponOffers()
-    return data ?? []
+    // Giai link SAU cache: unstable_cache giu nguyen ket qua tho tu Sanity, con
+    // viec ghep ref la thuan tuy va re, khong can cache rieng.
+    return resolveOfferLinks(await getCachedCouponOffers())
   } catch { return [] }
 }
 
@@ -778,6 +801,19 @@ export type ClickAnalyticsSummary = {
   /** Xem vs bam-sang-merchant theo tung nguon, 30 ngay. Cot tra loi "kenh nao ra don". */
   sourceBreakdown: { source: string; views: number; clicks: number }[]
   topShortLinkDeals: { code?: number; title: string; opens: number; merchantClicks: number }[]
+  // ── Deep link (offer.productUrl) ──
+  /**
+   * ⚠️ Day la TY TRONG CLICK, khong phai ty le chuyen doi. Chuyen doi that xay ra
+   * ben GoAffPro va site khong nhin thay; offer cung khong co so luot hien thi de
+   * lam mau so. Con so nay chi tra loi "bao nhieu phan click di qua trang san
+   * pham", va chi co nghia khi dat cung mot so offer duoc phu.
+   */
+  deepLinkClicks: number
+  shallowLinkClicks: number
+  /** Do phu hien tai: bao nhieu offer dang co link san pham. */
+  offersWithProductUrl: number
+  /** Offer co the deep-link (khong tinh uu dai toan shop chua the nhan biet o day). */
+  offersTotal: number
 }
 
 const CLICK_ANALYTICS_QUERY = `{
@@ -789,6 +825,10 @@ const CLICK_ANALYTICS_QUERY = `{
     "id": _id, "directClicks": coalesce(clicks, 0)
   },
   "recentClicks": *[_type == "click" && kind != "shortlink" && _createdAt >= $thirtyDaysAgo]._createdAt,
+  "deepLinkClicks": count(*[_type == "click" && kind != "shortlink" && deepLink == true]),
+  "shallowLinkClicks": count(*[_type == "click" && kind != "shortlink" && deepLink == false]),
+  "offersWithProductUrl": count(*[_type == "offer" && active == true && defined(productUrl)]),
+  "offersTotal": count(*[_type == "offer" && active == true]),
   "allTimeClicks": count(*[_type == "click" && kind != "shortlink"]),
   "shortLinkClicks": *[_type == "click" && kind == "shortlink" && _createdAt >= $thirtyDaysAgo]{ source },
   "attributedClicks": *[_type == "click" && kind != "shortlink" && defined(source) && _createdAt >= $thirtyDaysAgo]{ source },
@@ -803,6 +843,7 @@ export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary>
     topOffers: [], needsAttentionCount: 0, zeroClickStoreCount: 0,
     shortLinkThirtyDay: 0, shortLinkAllTime: 0, dealMerchantAllTime: 0,
     sourceBreakdown: [], topShortLinkDeals: [],
+    deepLinkClicks: 0, shallowLinkClicks: 0, offersWithProductUrl: 0, offersTotal: 0,
   }
   if (!isConfigured()) return empty
   try {
@@ -819,6 +860,10 @@ export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary>
       shortLinkClicks: { source?: string }[]
       attributedClicks: { source?: string }[]
       shortLinkDeals: { code?: number; title: string; opens: number; merchantClicks: number }[]
+      deepLinkClicks: number
+      shallowLinkClicks: number
+      offersWithProductUrl: number
+      offersTotal: number
     }>(CLICK_ANALYTICS_QUERY, { thirtyDaysAgo })
 
     const todayCount = data.recentClicks.filter(c => c >= startOfToday).length
@@ -874,6 +919,10 @@ export async function getClickAnalyticsSummary(): Promise<ClickAnalyticsSummary>
       dealMerchantAllTime,
       sourceBreakdown,
       topShortLinkDeals: data.shortLinkDeals.slice(0, 5),
+      deepLinkClicks: data.deepLinkClicks ?? 0,
+      shallowLinkClicks: data.shallowLinkClicks ?? 0,
+      offersWithProductUrl: data.offersWithProductUrl ?? 0,
+      offersTotal: data.offersTotal ?? 0,
     }
   } catch { return empty }
 }

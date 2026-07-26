@@ -202,7 +202,11 @@ export default function StoreOfferList({
     .split('\n')
     .map(s => s.trim().replace(/\{store\}/g, storeName ?? ''))
     .filter(Boolean)
-  const destinationUrl = affiliateLink ?? (storeWebsite ? `https://${storeWebsite.replace(/^https?:\/\//, '')}` : '#')
+  // Duong lui chung cho ca store. Tung offer uu tien link RIENG cua no
+  // (offer.link da duoc resolveOfferUrl giai san o tang query: trang san pham
+  // kem ma ref neu offer co productUrl). Truoc day moi offer deu dung mot link
+  // chung nay -> khach bam offer mot san pham cu the van roi ve trang chu shop.
+  const storeFallbackUrl = affiliateLink ?? (storeWebsite ? `https://${storeWebsite.replace(/^https?:\/\//, '')}` : '#')
   const [filter, setFilter] = useState<Filter>('all')
 
   const nowDate = new Date(now)
@@ -249,7 +253,7 @@ export default function StoreOfferList({
               offer={o}
               defaultDescriptions={defaultDescriptions}
               index={i}
-              destinationUrl={destinationUrl}
+              destinationUrl={o.link || storeFallbackUrl}
               storeName={storeName}
               now={now}
             />
@@ -267,7 +271,7 @@ export default function StoreOfferList({
                 offer={o}
                 defaultDescriptions={defaultDescriptions}
                 index={i}
-                destinationUrl={destinationUrl}
+                destinationUrl={o.link || storeFallbackUrl}
                 storeName={storeName}
                 expired
                 now={now}

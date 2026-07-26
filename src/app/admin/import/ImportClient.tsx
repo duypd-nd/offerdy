@@ -38,6 +38,7 @@ const STORES_COLS = [
   { key: 'offer_title',       required: true,  note: 'Câu mô tả ĐẦY ĐỦ của offer, VD: "Giảm 30% toàn bộ sản phẩm"' },
   { key: 'Offer',             required: true,  note: 'Nhãn NGẮN dạng badge (khác offer_title), VD: "30% Off", "Free Shipping"' },
   { key: 'couponCode',        required: false, note: 'Mã giảm giá (nếu có)' },
+  { key: 'product_url',       required: false, note: '🎯 Link trang SẢN PHẨM cụ thể của offer này — dán TRẦN, KHÔNG cần ?ref=… (hệ thống tự gắn mã ref của đúng shop). Để trống = nút Get Deal về trang chủ shop. Điền được cho cả offer ĐÃ CÓ: khớp theo couponCode, không có mã thì khớp theo offer_title' },
   { key: 'expiresAt',         required: false, note: 'Ngày hết hạn, VD: 2026-12-31' },
   { key: 'verified',          required: false, note: 'TRUE/FALSE (mặc định TRUE)' },
   { key: 'active',            required: false, note: 'TRUE/FALSE (mặc định TRUE)' },
@@ -109,7 +110,7 @@ const COLS_MAP: Record<SheetType, ColDef[]> = {
 }
 
 const PREVIEW_COLS: Record<SheetType, string[]> = {
-  Stores: ['store_name', 'link', 'offer_title', 'Offer', 'couponCode'],
+  Stores: ['store_name', 'link', 'offer_title', 'Offer', 'couponCode', 'product_url'],
   Deals: ['title', 'store', 'priceSale', 'discount', 'summary'],
   Posts: ['title', 'category', 'author', 'publishedAt', 'excerpt'],
   Reviews: ['title', 'stars', 'tag', 'author', 'publishedAt', 'excerpt'],
@@ -236,7 +237,9 @@ function makeStoresExample() {
     {
       ...storeCols,
       offer_title: 'Example offer description written in full', Offer: 'Example Badge',
-      couponCode: 'EXAMPLECODE', expiresAt: '2026-12-31', verified: 'TRUE', active: 'TRUE', order: 1,
+      couponCode: 'EXAMPLECODE',
+      product_url: 'https://example.com/products/example-product',
+      expiresAt: '2026-12-31', verified: 'TRUE', active: 'TRUE', order: 1,
     },
     // ...row 2 is the SAME store with a second offer. Content columns are left
     // blank on purpose: store content is read once, from the first row that has it.
@@ -244,7 +247,7 @@ function makeStoresExample() {
       store_name: EXAMPLE_STORE, abbr: 'VD', website: 'example.com',
       link: 'https://example.com', category: 'general', maxOffer: 30,
       offer_title: 'Second offer for the same store', Offer: 'Example Badge 2',
-      couponCode: '', expiresAt: '', verified: 'TRUE', active: 'TRUE', order: 2,
+      couponCode: '', product_url: '', expiresAt: '', verified: 'TRUE', active: 'TRUE', order: 2,
     },
   ]
 }
@@ -457,9 +460,14 @@ export default function ImportClient() {
             </div>
             <div style={{ fontWeight: 700, fontSize: 13, color: '#0f1929', marginBottom: 8 }}>📌 Sheet {guideTab} — cấu trúc cột</div>
             {guideTab === 'Stores' && (
-              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#92400e', marginBottom: 10 }}>
-                Nhiều dòng cùng <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>store_name</code> → tự gộp 1 store, mỗi dòng tạo 1 offer riêng
-              </div>
+              <>
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#92400e', marginBottom: 10 }}>
+                  Nhiều dòng cùng <code style={{ background: '#fef3c7', padding: '0 4px', borderRadius: 3 }}>store_name</code> → tự gộp 1 store, mỗi dòng tạo 1 offer riêng
+                </div>
+                <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#166534', marginBottom: 10 }}>
+                  🎯 <b>Link sản phẩm</b>: điền <code style={{ background: '#dcfce7', padding: '0 4px', borderRadius: 3 }}>product_url</code> để nút Get Deal dẫn thẳng tới trang sản phẩm thay vì trang chủ shop. Dán URL trần — mã ref của shop được gắn tự động. Offer <b>đã có sẵn</b> cũng cập nhật được: giữ nguyên <code style={{ background: '#dcfce7', padding: '0 4px', borderRadius: 3 }}>store_name</code> + <code style={{ background: '#dcfce7', padding: '0 4px', borderRadius: 3 }}>offer_title</code>/<code style={{ background: '#dcfce7', padding: '0 4px', borderRadius: 3 }}>couponCode</code> như cũ rồi điền thêm cột này.
+                </div>
+              </>
             )}
             {guideTab === 'Deals' && (
               <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#166534', marginBottom: 10 }}>

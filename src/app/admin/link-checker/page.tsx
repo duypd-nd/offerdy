@@ -13,8 +13,10 @@ export type LinkItem = {
 
 export default async function LinkCheckerPage() {
   const items = await writeClient.fetch<LinkItem[]>(
-    `*[_type == "offer" && active == true && defined(link) && link != ""] {
-      "offerId": _id, title, link,
+    // Cung quy tac voi cron link-check-nightly: quet URL khach thuc su den,
+    // tuc trang san pham neu offer co productUrl.
+    `*[_type == "offer" && active == true && coalesce(productUrl, link) != ""] {
+      "offerId": _id, title, "link": coalesce(productUrl, link),
       "storeName": store->name, "storeSlug": store->slug.current
     } | order(storeName asc)`
   )

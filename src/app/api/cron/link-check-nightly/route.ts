@@ -4,8 +4,11 @@ import { checkUrl } from '@/lib/checkOfferLink'
 
 const BATCH_SIZE = Number(process.env.LINK_CHECK_BATCH_SIZE) || 50
 
-const CANDIDATES_QUERY = `*[_type == "offer" && active == true && defined(link) && link != ""] | order(coalesce(linkCheckedAt, "1970-01-01") asc) [0...$limit] {
-  "id": _id, link
+// Kiem tra dung URL khach thuc su den: co productUrl thi trang san pham moi la
+// dich, va trang san pham chet (het hang, go SKU) thuong xuyen hon trang chu
+// shop nhieu. Khong can gan ma ref o day — chi can biet trang con song hay khong.
+const CANDIDATES_QUERY = `*[_type == "offer" && active == true && (defined(productUrl) || defined(link)) && coalesce(productUrl, link) != ""] | order(coalesce(linkCheckedAt, "1970-01-01") asc) [0...$limit] {
+  "id": _id, "link": coalesce(productUrl, link)
 }`
 
 export async function GET(request: Request) {

@@ -61,6 +61,13 @@ export const offerType = defineType({
       description: 'URL dẫn đến trang offer của cửa hàng',
     }),
     defineField({
+      name: 'productUrl',
+      title: 'Link trang sản phẩm',
+      type: 'url',
+      description:
+        'URL trang sản phẩm cụ thể, dán TRẦN (không cần ?ref=…) — code tự gắn mã ref của shop. Để trống = dùng link chung của cửa hàng.',
+    }),
+    defineField({
       name: 'description',
       title: 'Mô tả chi tiết',
       type: 'text',

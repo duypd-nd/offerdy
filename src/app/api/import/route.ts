@@ -5,6 +5,7 @@ import { generateStoreContent } from '@/lib/ai/generateStoreContent'
 import { renderAboutHtml, type AboutContent } from '@/lib/ai/aboutTemplate'
 import { normalize } from '@/lib/fuzzy'
 import { uploadImageFromUrl } from '@/lib/safeFetch'
+import { validateProductUrl } from '@/lib/affiliateUrl'
 
 const IMPORT_AI_STORE_CAP = Number(process.env.IMPORT_AI_STORE_CAP) || 8
 
@@ -153,8 +154,9 @@ async function importStoresAndOffers(rows: ImportRow[]) {
   // Pre-load existing stores into cache (description/category/website/maxOffer needed
   // later to decide + populate AI draft generation for matched-existing stores)
   const existingStores = await writeClient.fetch<{
-    _id: string; name: string; description?: string; category?: string; website?: string; maxOffer?: number
-  }[]>(`*[_type == "store"]{_id, name, description, category, website, maxOffer}`)
+    _id: string; name: string; description?: string; category?: string; website?: string
+    maxOffer?: number; affiliateLink?: string
+  }[]>(`*[_type == "store"]{_id, name, description, category, website, maxOffer, affiliateLink}`)
   const storeCache = new Map(existingStores.map((s) => [s.name.toLowerCase(), s._id]))
   const storeInfo = new Map(existingStores.map((s) => [s._id, s]))
 
@@ -163,13 +165,20 @@ async function importStoresAndOffers(rows: ImportRow[]) {
   // also caught, not just against data already in Sanity. Scoped to ACTIVE offers only:
   // a coupon that was previously deactivated (expired/removed) and legitimately comes
   // back in a new import should be allowed to be re-created, not blocked forever.
-  const existingOffers = await writeClient.fetch<{ storeId: string; title: string; couponCode?: string }[]>(
-    `*[_type == "offer" && active == true]{ "storeId": store._ref, title, couponCode }`
+  const existingOffers = await writeClient.fetch<{
+    id: string; storeId: string; title: string; couponCode?: string; productUrl?: string
+  }[]>(
+    `*[_type == "offer" && active == true]{ "id": _id, "storeId": store._ref, title, couponCode, productUrl }`
   )
   const offerKeys = new Set<string>()
+  // _id cua offer trung, de cot product_url con cap nhat duoc offer DA TON TAI.
+  // Khong co map nay thi tinh nang deep-link vo dung voi toan bo offer hien co:
+  // nhanh trung chi bao "da ton tai, bo qua" roi thoi.
+  const existingOfferByKey = new Map<string, { id: string; productUrl?: string }>()
   for (const o of existingOffers) {
-    if (o.couponCode) offerKeys.add(offerCodeKey(o.storeId, o.couponCode))
-    else offerKeys.add(offerTitleKey(o.storeId, o.title))
+    const key = o.couponCode ? offerCodeKey(o.storeId, o.couponCode) : offerTitleKey(o.storeId, o.title)
+    offerKeys.add(key)
+    existingOfferByKey.set(key, { id: o.id, productUrl: o.productUrl })
   }
 
   // Stores touched this batch that end up with no description — candidates for a
@@ -254,6 +263,17 @@ async function importStoresAndOffers(rows: ImportRow[]) {
         const created = await writeClient.create(storeDoc)
         storeId = created._id
         storeCache.set(storeName.toLowerCase(), storeId)
+        // Ghi vao storeInfo ngay: cot product_url o chinh dong nay can biet
+        // affiliateLink cua store vua tao de kiem tra dung domain.
+        storeInfo.set(storeId, {
+          _id: storeId,
+          name: storeName,
+          description: storeDoc.description as string | undefined,
+          category: storeDoc.category as string | undefined,
+          website: storeDoc.website as string | undefined,
+          maxOffer: storeDoc.maxOffer as number | undefined,
+          affiliateLink: link,
+        })
         if (Object.keys(contentPatch).length > 0) storeContentApplied.add(storeId)
 
         if (!storeDoc.description) {
@@ -293,11 +313,48 @@ async function importStoresAndOffers(rows: ImportRow[]) {
         const couponCode = row.couponCode ? String(row.couponCode).trim() : ''
         const dupKey = couponCode ? offerCodeKey(storeId, couponCode) : offerTitleKey(storeId, title)
 
+        // Link trang san pham (tuy chon). Dan URL TRAN — ma ref cua shop duoc gan
+        // luc render, doc tu store.affiliateLink, nen o day chi luu ban goc sach.
+        const storeUrls = {
+          affiliateLink: storeInfo.get(storeId)?.affiliateLink,
+          website: storeInfo.get(storeId)?.website,
+        }
+        const productUrlCell = cellText(row, 'product_url')
+        let productUrl = ''
+        if (productUrlCell) {
+          const checked = validateProductUrl(productUrlCell, storeUrls)
+          if (!checked.ok) {
+            results.warnings.push({
+              row: i + 2,
+              message: `"${storeName}": bo qua "product_url" - ${checked.error}`,
+            })
+          } else {
+            productUrl = checked.value
+            if (checked.warning) {
+              results.warnings.push({ row: i + 2, message: `"${storeName}": ${checked.warning}` })
+            }
+          }
+        }
+
         if (offerKeys.has(dupKey)) {
-          results.warnings.push({
-            row: i + 2,
-            message: `"${storeName}": offer "${title}" da ton tai, bo qua`,
-          })
+          // Offer da ton tai: khong tao lai, nhung cot product_url van duoc ghi
+          // (o dien ghi de, o trong khong dung toi — cung quy tac voi cot noi
+          // dung store). Day la duong duy nhat de gan link san pham cho cac
+          // offer da nhap tu truoc.
+          const existing = existingOfferByKey.get(dupKey)
+          if (productUrl && existing && existing.productUrl !== productUrl) {
+            await writeClient.patch(existing.id).set({ productUrl }).commit()
+            existing.productUrl = productUrl
+            results.warnings.push({
+              row: i + 2,
+              message: `"${storeName}": offer "${title}" da ton tai - da cap nhat link san pham`,
+            })
+          } else {
+            results.warnings.push({
+              row: i + 2,
+              message: `"${storeName}": offer "${title}" da ton tai, bo qua`,
+            })
+          }
         } else {
           const offerDoc: SanityDoc = {
             _type: 'offer',
@@ -316,6 +373,7 @@ async function importStoresAndOffers(rows: ImportRow[]) {
             linkStatus: 'unchecked',
           }
           if (couponCode) offerDoc.couponCode = couponCode
+          if (productUrl) offerDoc.productUrl = productUrl
           if (row.expiresAt) {
             try {
               offerDoc.expiresAt = new Date(String(row.expiresAt)).toISOString()
@@ -324,8 +382,9 @@ async function importStoresAndOffers(rows: ImportRow[]) {
             }
           }
 
-          await writeClient.create(offerDoc)
+          const createdOffer = await writeClient.create(offerDoc)
           offerKeys.add(dupKey)
+          existingOfferByKey.set(dupKey, { id: createdOffer._id, productUrl: productUrl || undefined })
         }
       }
 
