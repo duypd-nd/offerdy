@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
 import { fetchSafely } from '@/lib/safeFetch'
+import { bestDescription } from '@/lib/productText'
 
 export type ScrapedProduct = {
   title: string
@@ -11,6 +12,24 @@ export type ScrapedProduct = {
 }
 
 type ScrapeResult = ScrapedProduct | { error: string }
+
+/** Mo ta trong than trang san pham, theo cac container pho bien cua Woo/Shopify. */
+function bodyDescription($: cheerio.CheerioAPI): string | undefined {
+  const SELECTORS = [
+    '#tab-description',                              // WooCommerce (tab Description)
+    '.woocommerce-Tabs-panel--description',
+    '.woocommerce-product-details__short-description',
+    '.product__description',                         // Shopify (nhieu theme)
+    '.product-single__description',
+    '[data-product-description]',
+  ]
+  for (const sel of SELECTORS) {
+    const text = $(sel).first().text().replace(/\s+/g, ' ').trim()
+    // >120 ky tu: duoi nguong nay thuong chi la nhan hoac o rong, khong phai mo ta.
+    if (text.length > 120) return text
+  }
+  return undefined
+}
 
 function absolutize(url: string, base: string): string | null {
   try {
@@ -87,10 +106,22 @@ export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
 
   if (!title) return { error: 'Khong tim thay tieu de san pham tren trang nay' }
 
-  const description =
-    (typeof product?.description === 'string' ? product.description : undefined) ||
-    metaContent('og:description') ||
-    metaContent('description')
+  // Lay mo ta DAI NHAT trong cac nguon, khong lay nguon dau tien tim thay.
+  //
+  // Ly do: meta/og:description la doan tom tat cho ket qua tim kiem, thuong bi cat
+  // ngan. Mo ta THAT do chu shop viet nam trong than trang. Do that
+  // (tarujskincare.com/product/face-cream, 2026-07-26): meta cho 277 ky tu con than
+  // trang cho 1050 — va chi ban dai moi chua diem ban hang thuc su ("sau lan dung
+  // dau, shop dieu chinh cong thuc theo loai da cua ban"), thu meta da cat mat.
+  //
+  // Quan trong voi AI Review Writer: mo ta cua chinh shop la TOAN BO du lieu that
+  // ma model co. Cang mo ta day, bai review cang it phai noi chung chung.
+  const description = bestDescription([
+    typeof product?.description === 'string' ? product.description : undefined,
+    bodyDescription($),
+    metaContent('og:description'),
+    metaContent('description'),
+  ])
 
   const ogImages = $('meta[property="og:image"]').map((_, el) => $(el).attr('content')).get().filter(Boolean) as string[]
   const twitterImage = metaContent('twitter:image')
