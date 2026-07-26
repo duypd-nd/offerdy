@@ -545,7 +545,7 @@ function ReviewModal({ mode, initial, storeHosts = [], onClose, onSaved, onDelet
           </div>
 
           <label className="oa-label">Mã giảm giá (hiện nổi bật trong bài — để trống = ẩn phần này)
-            <input className="oa-input" value={form.couponCode} onChange={e => set('couponCode', e.target.value.toUpperCase())}
+            <input className="oa-input" value={form.couponCode} onChange={e => set('couponCode', e.target.value)}
               placeholder="VD: OFFERDY20" style={{ fontFamily: 'monospace', letterSpacing: 1 }} />
           </label>
 

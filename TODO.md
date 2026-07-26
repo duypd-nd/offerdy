@@ -1,6 +1,12 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **Coupon code casing unified (2026-07-26)** — user reported the auto-filled code showing `offerdy` while the real code is `OFFERDY`. The auto-fill was faithful; the **data** was split, and the cause sat in the forms.
+  - ⚠️ **The three admin forms disagreed**: `/admin/offers` kept the typed case while `/admin/coupon-codes` and `/admin/reviews` forced `.toUpperCase()`. Same code, different door, different result — that is how 16 of 77 codes ended up lowercase.
+  - All three now **preserve what you type**. Silently upper-casing is not safe: some checkouts treat a discount code as case-sensitive, so a "tidied" code can be a dead code with nothing on screen to reveal it.
+  - Data: 13 offers `offerdy` → `OFFERDY` (operator confirmed uppercase is real). **3 offers keep `duy`** on purpose — a different word, and nobody has confirmed its real casing. Verified after: 0 lowercase `offerdy` left, 69 `OFFERDY`, 3 `duy` untouched.
+  - ⚠️ Left for the operator: `Cocon de Lune` stores `OFFERDYOFFERDYC`, plainly a paste accident, not auto-corrected because the intended value cannot be inferred.
+  - Note: the catalogue grew from 22 to **77 coupon codes** during this session — the operator was adding shops while the work went on.
 - **Real product galleries, duplicate images killed, reviews auto-attach ref + coupon (2026-07-26)** — user reported the Add-Review form showing three identical image checkboxes. Details in `PROJECT_CONTEXT.md` → "Product images".
   - ⚠️ **Three URLs, one photo.** cycleaddons.com returned the direct URL, the same file via the Jetpack CDN (`i0.wp.com/<host>/…`), and that again with `?fit=1024,1024&ssl=1`. `new Set()` can't see it. `imageIdentity.ts` keys on filename with CDN prefix, query and CMS size suffix stripped — and only cuts the suffix immediately before the extension so `iphone_2x_case.jpg` survives.
   - ⚠️ **The gallery is not in the DOM.** Themes lazy-load: that page has 16 image files and **zero** `<img src>`. Fixed by reading Shopify `/products/<handle>.js` and the WooCommerce Store API instead — both return clean ordered lists. **1 → 8 distinct images** for the scooter, 6 for Tennail, 1 for Tarujskincare (all it has).

@@ -236,7 +236,7 @@ function CouponModal({ mode, initial, stores, onClose, onSaved, onDeleted }: {
           <div className="oa-modal-row">
             <label className="oa-label">Mã giảm giá *
               <input className="oa-input" style={{ fontFamily: 'monospace', letterSpacing: 2, fontWeight: 700, textTransform: 'uppercase' }}
-                value={form.couponCode} onChange={e => set('couponCode', e.target.value.toUpperCase())} placeholder="VD: SAVE20" required />
+                value={form.couponCode} onChange={e => set('couponCode', e.target.value)} placeholder="VD: SAVE20" required />
             </label>
             <label className="oa-label">Store *
               <select className="oa-input" value={form.storeId} onChange={e => set('storeId', e.target.value)} required>
