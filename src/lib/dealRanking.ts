@@ -3,7 +3,7 @@ import type { Deal } from '@/data/deals'
 /**
  * Xep thu tu deal tren /links theo hieu qua THAT.
  *
- * Bai toan: /links chi co 12 o hien ngay, va do la vi tri dat nhat cua site (bio
+ * Bai toan: /links chi co 50 o hien ngay, va do la vi tri dat nhat cua site (bio
  * Instagram/TikTok tro co dinh vao day). Mot san pham nhieu luot xem ma khong ai
  * bam sang merchant dang chiem cho cua san pham ban duoc.
  *

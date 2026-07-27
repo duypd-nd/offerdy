@@ -31,7 +31,7 @@ export default async function LinksPage() {
   // deal ma khong phai goi API — xem LinkInBioDeals.
   //
   // Ghim truoc, roi den hieu qua that (xem -> bam sang merchant). Xem
-  // src/lib/dealRanking.ts — 12 o dau cua trang nay la vi tri dat nhat cua site.
+  // src/lib/dealRanking.ts — 50 o dau cua trang nay la vi tri dat nhat cua site.
   const deals = rankDealsForLinks(allDeals as Deal[])
 
   return (

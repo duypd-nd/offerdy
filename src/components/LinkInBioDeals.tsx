@@ -12,7 +12,7 @@ import type { Deal } from '@/data/deals'
 // So deal hien khi CHUA tim. Link-in-bio la de luot nhanh tren dien thoai, khong
 // phai trang danh muc — nhieu qua thi loang, nut "View all deals" o cuoi lo phan
 // con lai. Khi co tu khoa thi tim tren TOAN BO danh sach, khong gioi han.
-const PREVIEW_COUNT = 12
+const PREVIEW_COUNT = 50
 
 // Tim ngay tai cho (khong goi API): ca danh sach deal da nam trong HTML tra ve tu
 // server, nen loc bang JS cho ket qua tuc thi — quan trong voi traffic bio
