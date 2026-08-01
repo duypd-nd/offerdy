@@ -20,6 +20,9 @@ import { configPersonaType } from './configPersona'
 import { dailyReportType } from './dailyReport'
 import { captionLogType } from './captionLog'
 
+// Du lieu do nguoi dung cong khai tao ra
+import { couponAlertType } from './couponAlert'
+
 export const schemaTypes = [
   // Content
   dealType, storeType, categoryType, reviewType, postType, offerType, pageType,
@@ -28,4 +31,6 @@ export const schemaTypes = [
   configSEOType, configContentType, configAdsType, configPersonaType,
   // AI-generated
   dailyReportType, captionLogType,
+  // Do nguoi dung cong khai tao
+  couponAlertType,
 ]

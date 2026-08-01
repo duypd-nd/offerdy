@@ -33,6 +33,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/seo-audit',    label: 'SEO Audit',      icon: '🔎' },
       { href: '/admin/link-checker', label: 'Kiểm tra Link',  icon: '🔍' },
       { href: '/admin/deep-links',   label: 'Link sản phẩm',  icon: '🎯' },
+      { href: '/admin/coupon-alerts', label: 'Đăng ký nhận mã', icon: '🔔' },
     ],
   },
   {
