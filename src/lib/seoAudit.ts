@@ -47,10 +47,18 @@ function findDuplicates<T extends { id: string; value: string }>(items: T[]): Ma
   return dupes
 }
 
+// Link "Sua" phai mo THANG ban ghi co van de, khong phai ca danh sach. Ca 4 trang
+// admin deu loc theo `?q=`, va slug la khoa duy nhat nen dua slug vao la ra dung
+// mot dong; ban ghi thieu slug thi lui ve dung ten.
+function adminHrefFor(base: string, slugOrName?: string): string {
+  if (!slugOrName) return base
+  return `${base}?q=${encodeURIComponent(slugOrName)}`
+}
+
 export function auditStores(stores: StoreSeoInput[]): SeoIssue[] {
   const issues: SeoIssue[] = []
   for (const s of stores) {
-    const adminHref = '/admin/stores'
+    const adminHref = adminHrefFor('/admin/stores', s.slug || s.name)
     if (!s.metaTitle) issues.push({ type: 'missing_meta_title', severity: 'high', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
     if (!s.metaDescription) issues.push({ type: 'missing_meta_description', severity: 'high', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
     if (s.faqCount === 0) issues.push({ type: 'missing_faq', severity: 'medium', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
@@ -59,11 +67,11 @@ export function auditStores(stores: StoreSeoInput[]): SeoIssue[] {
 
   const titleDupes = findDuplicates(stores.filter(s => s.metaTitle).map(s => ({ id: s.id, value: s.metaTitle!, s })))
   for (const group of titleDupes.values()) {
-    for (const { s } of group) issues.push({ type: 'duplicate_meta_title', severity: 'low', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref: '/admin/stores' })
+    for (const { s } of group) issues.push({ type: 'duplicate_meta_title', severity: 'low', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref: adminHrefFor('/admin/stores', s.slug || s.name) })
   }
   const descDupes = findDuplicates(stores.filter(s => s.metaDescription).map(s => ({ id: s.id, value: s.metaDescription!, s })))
   for (const group of descDupes.values()) {
-    for (const { s } of group) issues.push({ type: 'duplicate_meta_description', severity: 'low', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref: '/admin/stores' })
+    for (const { s } of group) issues.push({ type: 'duplicate_meta_description', severity: 'low', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref: adminHrefFor('/admin/stores', s.slug || s.name) })
   }
 
   return issues
@@ -72,7 +80,7 @@ export function auditStores(stores: StoreSeoInput[]): SeoIssue[] {
 export function auditDeals(deals: DealSeoInput[]): SeoIssue[] {
   const issues: SeoIssue[] = []
   for (const d of deals) {
-    const adminHref = '/admin/deals'
+    const adminHref = adminHrefFor('/admin/deals', d.slug || d.title)
     if (!d.metaTitle) issues.push({ type: 'missing_meta_title', severity: 'medium', entityType: 'deal', entityId: d.id, entityName: d.title, entitySlug: d.slug, adminHref })
     if (!d.metaDescription) issues.push({ type: 'missing_meta_description', severity: 'medium', entityType: 'deal', entityId: d.id, entityName: d.title, entitySlug: d.slug, adminHref })
     if (d.faqCount === 0) issues.push({ type: 'missing_faq', severity: 'low', entityType: 'deal', entityId: d.id, entityName: d.title, entitySlug: d.slug, adminHref })
@@ -84,7 +92,7 @@ export function auditDeals(deals: DealSeoInput[]): SeoIssue[] {
 export function auditPosts(posts: PostSeoInput[]): SeoIssue[] {
   const issues: SeoIssue[] = []
   for (const p of posts) {
-    const adminHref = '/admin/posts'
+    const adminHref = adminHrefFor('/admin/posts', p.slug || p.title)
     if (!p.excerpt) issues.push({ type: 'missing_excerpt', severity: 'medium', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
     else if (p.excerpt.length < 50) issues.push({ type: 'thin_excerpt', severity: 'low', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
     if (!p.hasImage) issues.push({ type: 'missing_image', severity: 'low', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
@@ -95,7 +103,7 @@ export function auditPosts(posts: PostSeoInput[]): SeoIssue[] {
 export function auditReviews(reviews: ReviewSeoInput[]): SeoIssue[] {
   const issues: SeoIssue[] = []
   for (const r of reviews) {
-    const adminHref = '/admin/reviews'
+    const adminHref = adminHrefFor('/admin/reviews', r.slug || r.title)
     if (!r.excerpt) issues.push({ type: 'missing_excerpt', severity: 'medium', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
     else if (r.excerpt.length < 50) issues.push({ type: 'thin_excerpt', severity: 'low', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
     if (!r.hasImage) issues.push({ type: 'missing_image', severity: 'low', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })

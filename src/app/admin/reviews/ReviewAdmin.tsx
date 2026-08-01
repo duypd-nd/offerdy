@@ -55,20 +55,25 @@ export default function ReviewAdmin({ initialReviews, storeHosts = [] }: {
   storeHosts?: StoreHostRow[]
 }) {
   const [reviews, setReviews] = useState(initialReviews)
-  const [search, setSearch] = useState('')
+  // Seed o tim kiem tu ?q= de link tu /admin/seo-audit mo thang ban ghi co van de
+  // thay vi ca danh sach. Trang /admin/stores loc phia server; ba trang nay loc o
+  // client nen phai tu doc tham so ra.
+  const { searchParams, setParams } = useAdminUrlState()
+  const [search, setSearch] = useState(searchParams.get('q') ?? '')
   const [tagFilter, setTagFilter] = useState('all')
   const [editingReview, setEditingReview] = useState<AdminReview | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const page = useUrlPage()
-  const { setParams } = useAdminUrlState()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
   const filtered = reviews.filter(r => {
-    const matchSearch = r.title.toLowerCase().includes(search.toLowerCase())
+    // Co ca slug vi link tu /admin/seo-audit truyen slug, khong phai tieu de
+    const q = search.trim().toLowerCase()
+    const matchSearch = !q || r.title.toLowerCase().includes(q) || r.slug.toLowerCase().includes(q)
     const matchTag = tagFilter === 'all' || r.tag === tagFilter
     return matchSearch && matchTag
   })
@@ -105,7 +110,7 @@ export default function ReviewAdmin({ initialReviews, storeHosts = [] }: {
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm review..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
+          <input className="oa-search" placeholder="Tìm review..." value={search} onChange={e => { setSearch(e.target.value); setParams({ q: null }) }} />
           <select className="oa-select" value={tagFilter} onChange={e => { setTagFilter(e.target.value); setParams({}) }}>
             <option value="all">Tất cả loại</option>
             <option value="Review">Review</option>

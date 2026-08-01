@@ -102,13 +102,16 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
   storeHosts?: StoreHostRow[]
 }) {
   const [deals, setDeals] = useState(initialDeals)
-  const [search, setSearch] = useState('')
+  // Seed o tim kiem tu ?q= de link tu /admin/seo-audit mo thang ban ghi co van de
+  // thay vi ca danh sach. Trang /admin/stores loc phia server; ba trang nay loc o
+  // client nen phai tu doc tham so ra.
+  const { searchParams, setParams } = useAdminUrlState()
+  const [search, setSearch] = useState(searchParams.get('q') ?? '')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [editingDeal, setEditingDeal] = useState<AdminDeal | null>(null)
   const [showModal, setShowModal] = useState(false)
   const page = useUrlPage()
-  const { setParams } = useAdminUrlState()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null)
@@ -169,10 +172,13 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
   }
 
   const filtered = deals.filter(d => {
-    // Tim theo ten HOAC ma (go "1005" / "#1005"), de doi chieu voi so trong caption
+    // Tim theo ten HOAC ma (go "1005" / "#1005"), de doi chieu voi so trong caption.
+    // Co ca slug vi link tu /admin/seo-audit truyen slug — slug la khoa duy nhat,
+    // con tieu de thi co the trung nhau.
     const q = search.trim().toLowerCase()
     const matchSearch = !q
       || d.title.toLowerCase().includes(q)
+      || d.slug.toLowerCase().includes(q)
       || (d.code != null && `#${d.code}`.includes(q.startsWith('#') ? q : `#${q}`))
     const matchStatus = statusFilter === 'all' || (statusFilter === 'verified' ? d.verified : !d.verified)
     return matchSearch && matchStatus
@@ -210,7 +216,7 @@ export default function DealAdmin({ initialDeals, allReviews = [], allCategories
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm deal..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
+          <input className="oa-search" placeholder="Tìm deal..." value={search} onChange={e => { setSearch(e.target.value); setParams({ q: null }) }} />
           <select className="oa-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setParams({}) }}>
             <option value="all">Tất cả</option>
             <option value="verified">Verified</option>

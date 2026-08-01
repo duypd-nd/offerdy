@@ -16,20 +16,25 @@ type AdminPost = {
 
 export default function PostAdmin({ initialPosts }: { initialPosts: AdminPost[] }) {
   const [posts, setPosts] = useState(initialPosts)
-  const [search, setSearch] = useState('')
+  // Seed o tim kiem tu ?q= de link tu /admin/seo-audit mo thang ban ghi co van de
+  // thay vi ca danh sach. Trang /admin/stores loc phia server; ba trang nay loc o
+  // client nen phai tu doc tham so ra.
+  const { searchParams, setParams } = useAdminUrlState()
+  const [search, setSearch] = useState(searchParams.get('q') ?? '')
   const [catFilter, setCatFilter] = useState('all')
   const [editingPost, setEditingPost] = useState<AdminPost | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const page = useUrlPage()
-  const { setParams } = useAdminUrlState()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
   const filtered = posts.filter(p => {
-    const matchSearch = p.title.toLowerCase().includes(search.toLowerCase())
+    // Co ca slug vi link tu /admin/seo-audit truyen slug, khong phai tieu de
+    const q = search.trim().toLowerCase()
+    const matchSearch = !q || p.title.toLowerCase().includes(q) || p.slug.toLowerCase().includes(q)
     const matchCat = catFilter === 'all' || p.category === catFilter
     return matchSearch && matchCat
   })
@@ -66,7 +71,7 @@ export default function PostAdmin({ initialPosts }: { initialPosts: AdminPost[] 
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm bài viết..." value={search} onChange={e => { setSearch(e.target.value); setParams({}) }} />
+          <input className="oa-search" placeholder="Tìm bài viết..." value={search} onChange={e => { setSearch(e.target.value); setParams({ q: null }) }} />
           <select className="oa-select" value={catFilter} onChange={e => { setCatFilter(e.target.value); setParams({}) }}>
             <option value="all">Tất cả danh mục</option>
             {POST_CATS.map(c => <option key={c} value={c}>{c}</option>)}
