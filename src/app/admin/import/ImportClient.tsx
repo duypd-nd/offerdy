@@ -39,6 +39,9 @@ const STORES_COLS = [
   { key: 'Offer',             required: true,  note: 'Nhãn NGẮN dạng badge (khác offer_title), VD: "30% Off", "Free Shipping"' },
   { key: 'couponCode',        required: false, note: 'Mã giảm giá (nếu có)' },
   { key: 'product_url',       required: false, note: '🎯 Link trang SẢN PHẨM cụ thể của offer này — dán TRẦN, KHÔNG cần ?ref=… (hệ thống tự gắn mã ref của đúng shop). Để trống = nút Get Deal về trang chủ shop. Điền được cho cả offer ĐÃ CÓ: khớp theo couponCode, không có mã thì khớp theo offer_title' },
+  { key: 'offer_description', required: false, note: '📝 Mô tả chi tiết của offer. ĐIỀN Ô NÀY = AI KHÔNG tự viết đè: cron ai-content-nightly chỉ đụng offer có ô này TRỐNG. Để trống = mỗi đêm AI sinh 1 draft chờ bạn duyệt. Điền được cho cả offer ĐÃ CÓ (khớp như product_url)' },
+  { key: 'offer_usage_tips',  required: false, note: 'Cách dùng mã / cách áp dụng ưu đãi (tuỳ chọn)' },
+  { key: 'offer_eligibility', required: false, note: 'Điều kiện áp dụng: đơn tối thiểu, sản phẩm loại trừ, khu vực… (tuỳ chọn)' },
   { key: 'expiresAt',         required: false, note: 'Ngày hết hạn, VD: 2026-12-31' },
   { key: 'verified',          required: false, note: 'TRUE/FALSE (mặc định TRUE)' },
   { key: 'active',            required: false, note: 'TRUE/FALSE (mặc định TRUE)' },
@@ -239,6 +242,11 @@ function makeStoresExample() {
       offer_title: 'Example offer description written in full', Offer: 'Example Badge',
       couponCode: 'EXAMPLECODE',
       product_url: 'https://example.com/products/example-product',
+      // Điền ô này là offer đủ nội dung -> cron AI bỏ qua. Dòng 2 để trống
+      // để thấy rõ sự khác nhau giữa "đã đủ" và "để AI viết".
+      offer_description: 'Example detailed description of what this offer covers and who it suits.',
+      offer_usage_tips: 'Paste the code at checkout in the Discount field.',
+      offer_eligibility: 'Applies to full-price items only; minimum order $30.',
       expiresAt: '2026-12-31', verified: 'TRUE', active: 'TRUE', order: 1,
     },
     // ...row 2 is the SAME store with a second offer. Content columns are left
@@ -247,7 +255,10 @@ function makeStoresExample() {
       store_name: EXAMPLE_STORE, abbr: 'VD', website: 'example.com',
       link: 'https://example.com', category: 'general', maxOffer: 30,
       offer_title: 'Second offer for the same store', Offer: 'Example Badge 2',
-      couponCode: '', product_url: '', expiresAt: '', verified: 'TRUE', active: 'TRUE', order: 2,
+      couponCode: '', product_url: '',
+      // Để trống -> offer này sẽ được AI viết mô tả trong lần chạy cron kế tiếp.
+      offer_description: '', offer_usage_tips: '', offer_eligibility: '',
+      expiresAt: '', verified: 'TRUE', active: 'TRUE', order: 2,
     },
   ]
 }

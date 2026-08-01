@@ -137,6 +137,23 @@ function buildStoreContentPatch(
   return { patch, warnings }
 }
 
+// Noi dung cap OFFER. Truoc day khong co cot nao ghi vao `description` cua offer,
+// nen moi offer nhap bang Excel deu vinh vien thoa dieu kien `!defined(description)`
+// cua cron ai-content-nightly — dien ky den may AI van viet de. Dien o nay la
+// offer du noi dung va cron bo qua.
+// Cung quy tac voi cot noi dung store va cot product_url: o dien thi ghi de, o
+// trong la khong dung toi (khong bao gio xoa trang noi dung dang song).
+function buildOfferContentPatch(row: ImportRow): Record<string, string> {
+  const patch: Record<string, string> = {}
+  const description = cellText(row, 'offer_description')
+  if (description) patch.description = description
+  const usageTips = cellText(row, 'offer_usage_tips')
+  if (usageTips) patch.usageTips = usageTips
+  const eligibilityNotes = cellText(row, 'offer_eligibility')
+  if (eligibilityNotes) patch.eligibilityNotes = eligibilityNotes
+  return patch
+}
+
 // Combined: each row = 1 offer; rows with same store_name share the same store
 async function importStoresAndOffers(rows: ImportRow[]) {
   const results: {
@@ -336,18 +353,31 @@ async function importStoresAndOffers(rows: ImportRow[]) {
           }
         }
 
+        const offerContent = buildOfferContentPatch(row)
+
         if (offerKeys.has(dupKey)) {
-          // Offer da ton tai: khong tao lai, nhung cot product_url van duoc ghi
-          // (o dien ghi de, o trong khong dung toi — cung quy tac voi cot noi
-          // dung store). Day la duong duy nhat de gan link san pham cho cac
-          // offer da nhap tu truoc.
+          // Offer da ton tai: khong tao lai, nhung cot product_url va cac cot noi
+          // dung van duoc ghi (o dien ghi de, o trong khong dung toi — cung quy
+          // tac voi cot noi dung store). Day la duong duy nhat de gan link san
+          // pham va bo sung mo ta cho cac offer da nhap tu truoc.
           const existing = existingOfferByKey.get(dupKey)
+          const patch: Record<string, unknown> = { ...offerContent }
           if (productUrl && existing && existing.productUrl !== productUrl) {
-            await writeClient.patch(existing.id).set({ productUrl }).commit()
-            existing.productUrl = productUrl
+            patch.productUrl = productUrl
+          }
+
+          if (existing && Object.keys(patch).length > 0) {
+            // Gop vao MOT commit: truoc day product_url di rieng, them noi dung
+            // thanh 2 request cho moi dong trung.
+            await writeClient.patch(existing.id).set(patch).commit()
+            if (patch.productUrl) existing.productUrl = productUrl
+            const parts = [
+              patch.productUrl ? 'link san pham' : '',
+              Object.keys(offerContent).length ? 'noi dung' : '',
+            ].filter(Boolean)
             results.warnings.push({
               row: i + 2,
-              message: `"${storeName}": offer "${title}" da ton tai - da cap nhat link san pham`,
+              message: `"${storeName}": offer "${title}" da ton tai - da cap nhat ${parts.join(' + ')}`,
             })
           } else {
             results.warnings.push({
@@ -371,6 +401,9 @@ async function importStoresAndOffers(rows: ImportRow[]) {
             // does not apply to API-created documents.
             aiReviewStatus: 'none',
             linkStatus: 'unchecked',
+            // Co `description` la offer khong con thoa dieu kien cua cron, nen
+            // dien cot offer_description trong sheet la AI khong viet de nua.
+            ...offerContent,
           }
           if (couponCode) offerDoc.couponCode = couponCode
           if (productUrl) offerDoc.productUrl = productUrl
