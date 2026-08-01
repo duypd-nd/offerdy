@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { Offer } from '@/sanity/queries'
 import AffiliateLink from '@/components/AffiliateLink'
+import { trackOfferClick } from '@/actions/trackClick'
 
 // Styles injected directly — avoids globals.css hot-reload issues
 const CSS = `
@@ -75,7 +76,23 @@ function CouponCard({ offer }: { offer: Offer }) {
     if (!offer.couponCode) return
     if (!revealed) {
       setReveal(true)
-      if (offer.link) window.open(offer.link, '_blank', 'noopener,noreferrer')
+      if (offer.link) {
+        // Lan mo shop nay TRUOC DAY KHONG DUOC DEM. Nut "Get Deal" ben duoi di qua
+        // <AffiliateLink> nen co ban ghi click, con duong nay goi thang window.open
+        // — ma day moi la duong nhieu nguoi dung nhat tren trang ma giam gia. Hau
+        // qua: thong ke click thap hon thuc te, va khong biet ma nao thuc su keo
+        // duoc nguoi sang shop. Cung mot lop loi voi nut "Get Deal" tren trang deal
+        // da sua hom 26/7.
+        window.dataLayer = window.dataLayer || []
+        window.dataLayer.push({
+          event: 'affiliate_click',
+          affiliate_url: offer.link,
+          store_name: offer.store?.name,
+          offer_id: offer.id,
+        })
+        if (offer.id) trackOfferClick(offer.id).catch(() => {})
+        window.open(offer.link, '_blank', 'noopener,noreferrer')
+      }
     }
     navigator.clipboard.writeText(offer.couponCode).then(() => {
       setCopied(true)
@@ -206,22 +223,36 @@ export default function CouponCodesContent({ offers, page: initialPage, totalPag
   offers: Offer[]; page: number; totalPages: number
 }) {
   const [search, setSearch] = useState('')
+  const [endingSoon, setEndingSoon] = useState(false)
   const [filterPage, setFilterPage] = useState(1)
-  const isFiltering = search.length > 0
+  const isFiltering = search.length > 0 || endingSoon
 
-  const filtered = isFiltering
-    ? offers.filter(o =>
-        o.store?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        o.couponCode?.toLowerCase().includes(search.toLowerCase()) ||
-        o.title?.toLowerCase().includes(search.toLowerCase())
-      )
-    : offers
+  // "Ending soon" = con han va con toi da 7 ngay. Ma KHONG co ngay het han thi
+  // khong tinh la sap het — de trong nghia la khong biet, khong phai la vo han,
+  // nhung doan theo huong nao cung sai nen giu nguyen quy tac cua the: chi mac
+  // do khi thuc su co ngay.
+  const matchesSearch = (o: Offer) => {
+    const q = search.toLowerCase()
+    return !q
+      || !!o.store?.name?.toLowerCase().includes(q)
+      || !!o.couponCode?.toLowerCase().includes(q)
+      || !!o.title?.toLowerCase().includes(q)
+  }
+  const matchesEnding = (o: Offer) => {
+    if (!endingSoon) return true
+    if (!o.expiresAt) return false
+    const d = daysLeft(o.expiresAt)
+    return d >= 0 && d <= 7
+  }
+
+  const filtered = isFiltering ? offers.filter(o => matchesSearch(o) && matchesEnding(o)) : offers
 
   const totalPages = isFiltering ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)) : initialTotalPages
   const page = isFiltering ? filterPage : initialPage
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const handleSearch = (v: string) => { setSearch(v); setFilterPage(1) }
+  const toggleEndingSoon = () => { setEndingSoon(v => !v); setFilterPage(1) }
   const handleFilterPage = (p: number) => {
     setFilterPage(p)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -246,6 +277,22 @@ export default function CouponCodesContent({ offers, page: initialPage, totalPag
             onChange={e => handleSearch(e.target.value)}
           />
         </div>
+        {/* Loc ma sap het han. Chieu cao 42px bang o tim kiem de bam bang ngon tay
+            khong truot — nut nho hon 32px la loi hay gap nhat tren dien thoai. */}
+        <button
+          type="button"
+          onClick={toggleEndingSoon}
+          aria-pressed={endingSoon}
+          style={{
+            height: 42, padding: '0 16px', borderRadius: 99, fontSize: 13, fontWeight: 600,
+            cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit',
+            border: `1.5px solid ${endingSoon ? '#16A34A' : '#E4EAF2'}`,
+            background: endingSoon ? '#F0FDF4' : '#fff',
+            color: endingSoon ? '#15803D' : '#6B7694',
+          }}
+        >
+          ⏳ Ending soon
+        </button>
         <span style={{ fontSize: 13, color: '#6B7694', fontWeight: 500, whiteSpace: 'nowrap' }}>
           {filtered.length} codes · {totalPages} page{totalPages !== 1 ? 's' : ''}
         </span>

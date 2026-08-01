@@ -16,19 +16,20 @@ type DealCategory = { name: string; emoji?: string; slug: string }
 
 /** Giu category khi doi trang, va bo ?page khi doi category (ve trang 1) —
  *  neu khong, doi sang danh muc it deal hon se rot vao trang khong ton tai. */
-function dealsHref(page: number, category?: string) {
+function dealsHref(page: number, category?: string, sort?: string) {
   const qs = new URLSearchParams()
   if (category) qs.set('category', category)
+  if (sort) qs.set('sort', sort)
   if (page > 1) qs.set('page', String(page))
   const q = qs.toString()
   return `/deals${q ? `?${q}` : ''}`
 }
 
-export default function DealsPageContent({ deals, page, totalPages, totalCount, categories = [], activeCategory }: {
+export default function DealsPageContent({ deals, page, totalPages, totalCount, categories = [], activeCategory, activeSort }: {
   deals: Deal[]; page: number; totalPages: number; totalCount: number
-  categories?: DealCategory[]; activeCategory?: string
+  categories?: DealCategory[]; activeCategory?: string; activeSort?: string
 }) {
-  const pageHref = (p: number) => dealsHref(p, activeCategory)
+  const pageHref = (p: number) => dealsHref(p, activeCategory, activeSort)
   const activeName = categories.find(c => c.slug === activeCategory)?.name
 
   return (
@@ -52,7 +53,7 @@ export default function DealsPageContent({ deals, page, totalPages, totalCount, 
         {categories.length > 0 && (
           <div className="sol-tabs" style={{ flexWrap: 'wrap' }}>
             <Link
-              href={dealsHref(1)}
+              href={dealsHref(1, undefined, activeSort)}
               className={`sol-tab${!activeCategory ? ' active' : ''}`}
               style={{ textDecoration: 'none' }}
               aria-current={!activeCategory ? 'page' : undefined}
@@ -62,7 +63,7 @@ export default function DealsPageContent({ deals, page, totalPages, totalCount, 
             {categories.map(c => (
               <Link
                 key={c.slug}
-                href={dealsHref(1, c.slug)}
+                href={dealsHref(1, c.slug, activeSort)}
                 className={`sol-tab${activeCategory === c.slug ? ' active' : ''}`}
                 style={{ textDecoration: 'none' }}
                 aria-current={activeCategory === c.slug ? 'page' : undefined}
@@ -72,6 +73,28 @@ export default function DealsPageContent({ deals, page, totalPages, totalCount, 
             ))}
           </div>
         )}
+
+        {/* Sap xep. Truoc day chi loc duoc theo danh muc — voi hang tram deal thi
+            "cai nao giam nhieu nhat" la cau hoi dau tien cua nguoi san sale ma
+            khong tra loi duoc. Dung Link chu khong dung <select> de moi lua chon
+            co URL rieng, chia se duoc va Google doc duoc. */}
+        <div className="deals-sort" role="group" aria-label="Sort deals">
+          <span className="deals-sort-label">Sort</span>
+          {([
+            { key: undefined, label: 'Featured' },
+            { key: 'discount', label: 'Biggest discount' },
+            { key: 'price', label: 'Lowest price' },
+          ] as const).map(opt => (
+            <Link
+              key={opt.label}
+              href={dealsHref(1, activeCategory, opt.key)}
+              className={`deals-sort-btn${activeSort === opt.key ? ' active' : ''}`}
+              aria-current={activeSort === opt.key ? 'true' : undefined}
+            >
+              {opt.label}
+            </Link>
+          ))}
+        </div>
 
         <div className="deals-grid">
           {deals.map(deal => {

@@ -12,7 +12,7 @@ const PAGE_SIZE = 20
 const BASE_TITLE = "Today's Best Deals & Coupon Codes"
 const BASE_DESCRIPTION = 'Browse hundreds of verified coupon codes and deals updated daily. Every code tested before going live — no expired coupons.'
 
-type PageProps = { searchParams: Promise<{ page?: string; category?: string }> }
+type PageProps = { searchParams: Promise<{ page?: string; category?: string; sort?: string }> }
 
 /** Dung chung cho generateMetadata va page de hai ben khong bao gio lech nhau. */
 function buildCanonical(page: number, category?: string) {
@@ -57,7 +57,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 }
 
 export default async function DealsPage({ searchParams }: PageProps) {
-  const { page: pageParam, category } = await searchParams
+  const { page: pageParam, category, sort } = await searchParams
   const allDeals = await getAllDeals()
 
   // Chi dung nhung danh muc THUC SU co deal — khong render tab rong.
@@ -76,10 +76,24 @@ export default async function DealsPage({ searchParams }: PageProps) {
     ? allDeals.filter((d: Deal) => d.category?.slug === activeCategory)
     : allDeals
 
+  // Sap xep TRUOC khi phan trang, neu khong thi moi trang chi duoc sap trong
+  // pham vi 24 deal cua chinh no. Gia la chuoi co ky hieu tien te (",499.00")
+  // nen phai boc so ra; khong boc duoc thi day xuong cuoi thay vi doan bua.
+  const priceNum = (v?: string) => {
+    const n = parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''))
+    return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY
+  }
+  const activeSort = sort === 'discount' || sort === 'price' ? sort : undefined
+  const sorted = activeSort === 'discount'
+    ? [...filtered].sort((a: Deal, b: Deal) => (b.discount ?? 0) - (a.discount ?? 0))
+    : activeSort === 'price'
+    ? [...filtered].sort((a: Deal, b: Deal) => priceNum(a.priceSale) - priceNum(b.priceSale))
+    : filtered
+
   // Loc TRUOC roi moi phan trang — nguoc lai se ra trang rong khi loc.
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const page = Math.min(Math.max(1, Number(pageParam) || 1), totalPages)
-  const deals = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const deals = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const jsonLd = dealsItemListJsonLd(filtered)
 
   return (
@@ -96,9 +110,10 @@ export default async function DealsPage({ searchParams }: PageProps) {
           deals={deals}
           page={page}
           totalPages={totalPages}
-          totalCount={filtered.length}
+          totalCount={sorted.length}
           categories={categories}
           activeCategory={activeCategory}
+          activeSort={activeSort}
         />
       </main>
       <Footer />
