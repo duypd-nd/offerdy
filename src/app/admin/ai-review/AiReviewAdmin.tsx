@@ -5,6 +5,7 @@ import {
   approveAiDraft, rejectAiDraft, regenerateAiDraft,
   approveOfferAiDraft, rejectOfferAiDraft, regenerateOfferAiDraft,
   approveDealAiDraft, rejectDealAiDraft, regenerateDealAiDraft,
+  approveStoreDraftsBulk, approveOfferDraftsBulk, approveDealDraftsBulk,
 } from './actions'
 import { renderAboutHtml, type AboutCard, type AboutContent } from '@/lib/ai/aboutTemplate'
 
@@ -142,9 +143,102 @@ function CardEditor({ label, card, onChange }: { label: string; card: AboutCard;
   )
 }
 
-function StoreReviewPanel({ initialStores }: { initialStores: PendingStore[] }) {
+// Danh sách bên trái dùng chung cho cả 3 tab: ô tích từng dòng + ô "chọn tất cả".
+// Ô chọn tất cả ở trạng thái indeterminate khi mới chọn một phần, để phân biệt
+// với "chưa chọn gì" — nếu không, tích một mục rồi bấm vào nó sẽ bỏ chọn cả loạt
+// mà trên màn hình không có gì báo.
+function PickList<T extends { _id: string }>({
+  items, selectedId, checkedIds, onSelect, onToggle, onToggleAll, primary, secondary,
+}: {
+  items: T[]
+  selectedId?: string
+  checkedIds: Set<string>
+  onSelect: (item: T) => void
+  onToggle: (id: string) => void
+  onToggleAll: () => void
+  primary: (item: T) => string
+  secondary: (item: T) => string | undefined
+}) {
+  const allChecked = items.length > 0 && checkedIds.size === items.length
+  const someChecked = checkedIds.size > 0 && !allChecked
+
+  return (
+    <div className="oa-table-wrap">
+      <label
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
+          borderBottom: '1px solid #e5e7eb', background: '#f9fafb',
+          fontSize: 12, fontWeight: 600, color: '#6b7280', cursor: 'pointer',
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={allChecked}
+          ref={(el) => { if (el) el.indeterminate = someChecked }}
+          onChange={onToggleAll}
+          style={{ width: 16, height: 16, cursor: 'pointer' }}
+        />
+        {checkedIds.size > 0 ? `Đã chọn ${checkedIds.size}/${items.length}` : `Chọn tất cả (${items.length})`}
+      </label>
+
+      {items.map((item) => (
+        <div
+          key={item._id}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 14,
+            borderBottom: '1px solid #e5e7eb',
+            background: item._id === selectedId ? '#f0fdf4' : 'transparent',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={checkedIds.has(item._id)}
+            onChange={() => onToggle(item._id)}
+            style={{ width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }}
+          />
+          <button
+            onClick={() => onSelect(item)}
+            className="oa-name-btn"
+            style={{
+              display: 'block', flex: 1, minWidth: 0, textAlign: 'left',
+              padding: '10px 14px 10px 4px', background: 'transparent',
+            }}
+          >
+            {primary(item)}
+            <div style={{ fontSize: 11, color: '#9ca3af' }}>{secondary(item)}</div>
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Gộp kết quả duyệt hàng loạt thành một câu thông báo, có nêu số mục bị bỏ qua.
+function bulkToast(noun: string, approved: number, skipped: { label: string; reason: string }[]) {
+  const head = `Đã duyệt ${approved} ${noun}`
+  if (skipped.length === 0) return head
+  return `${head} — bỏ qua ${skipped.length}: ${skipped.map((s) => `${s.label} (${s.reason})`).join(', ')}`
+}
+
+function useChecked() {
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set())
+  const toggle = (id: string) =>
+    setCheckedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const toggleAll = (ids: string[]) =>
+    setCheckedIds((prev) => (prev.size === ids.length ? new Set() : new Set(ids)))
+  const clear = () => setCheckedIds(new Set())
+  return { checkedIds, toggle, toggleAll, clear }
+}
+
+function StoreReviewPanel({ initialStores, onCountChange }: { initialStores: PendingStore[]; onCountChange: (n: number) => void }) {
   const [stores, setStores] = useState(initialStores)
   const [selectedId, setSelectedId] = useState(initialStores[0]?._id)
+  const { checkedIds, toggle, toggleAll, clear } = useChecked()
   const [showPreview, setShowPreview] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
@@ -159,32 +253,53 @@ function StoreReviewPanel({ initialStores }: { initialStores: PendingStore[] }) 
     setShowPreview(false)
   }
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
-  const removeFromList = (id: string) => {
-    setStores(prev => {
-      const rest = prev.filter(s => s._id !== id)
-      if (selectedId === id) selectStore(rest[0] ?? ({} as PendingStore))
-      return rest
-    })
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 4000) }
+  const removeMany = (ids: Set<string>) => {
+    const rest = stores.filter(s => !ids.has(s._id))
+    setStores(rest)
+    onCountChange(rest.length)
+    clear()
+    if (selectedId && ids.has(selectedId)) selectStore(rest[0] ?? ({} as PendingStore))
   }
+  const removeFromList = (id: string) => removeMany(new Set([id]))
+
+  // Nội dung đang mở trong form được duyệt bằng action đơn lẻ để giữ nguyên phần
+  // sửa tay; các mục tích còn lại lấy thẳng aiDraft đã lưu trong một transaction.
+  const approveOpenWithEdits = () => selected && approveAiDraft(selected._id, selected.slug, selected.name, {
+    shortDescription: form.shortDescription,
+    about: formToAbout(form),
+    metaTitle: form.metaTitle,
+    metaKeywords: form.metaKeywords,
+    metaDescription: form.metaDescription,
+    faq: parseFaqText(form.faqText),
+    prosAndCons: {
+      pros: form.pros.split('\n').map(s => s.trim()).filter(Boolean),
+      cons: form.cons.split('\n').map(s => s.trim()).filter(Boolean),
+    },
+  })
 
   const handleApprove = () => {
-    if (!selected) return
-    startTransition(async () => {
-      await approveAiDraft(selected._id, selected.slug, selected.name, {
-        shortDescription: form.shortDescription,
-        about: formToAbout(form),
-        metaTitle: form.metaTitle,
-        metaKeywords: form.metaKeywords,
-        metaDescription: form.metaDescription,
-        faq: parseFaqText(form.faqText),
-        prosAndCons: {
-          pros: form.pros.split('\n').map(s => s.trim()).filter(Boolean),
-          cons: form.cons.split('\n').map(s => s.trim()).filter(Boolean),
-        },
+    if (checkedIds.size === 0) {
+      if (!selected) return
+      startTransition(async () => {
+        await approveOpenWithEdits()
+        showToast(`Đã duyệt nội dung cho ${selected.name}`)
+        removeFromList(selected._id)
       })
-      showToast(`Đã duyệt nội dung cho ${selected.name}`)
-      removeFromList(selected._id)
+      return
+    }
+
+    const ids = new Set(checkedIds)
+    startTransition(async () => {
+      let approved = 0
+      if (selected && ids.has(selected._id)) {
+        await approveOpenWithEdits()
+        approved++
+      }
+      const rest = [...ids].filter(id => id !== selected?._id)
+      const result = await approveStoreDraftsBulk(rest)
+      showToast(bulkToast('store', approved + result.approved, result.skipped))
+      removeMany(ids)
     })
   }
 
@@ -214,23 +329,16 @@ function StoreReviewPanel({ initialStores }: { initialStores: PendingStore[] }) 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 20, alignItems: 'start' }}>
       {toast && <div className="oa-toast">{toast}</div>}
-      <div className="oa-table-wrap">
-        {stores.map(s => (
-          <button
-            key={s._id}
-            onClick={() => selectStore(s)}
-            className="oa-name-btn"
-            style={{
-              display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px',
-              background: s._id === selectedId ? '#f0fdf4' : 'transparent',
-              borderBottom: '1px solid #e5e7eb',
-            }}
-          >
-            {s.name}
-            <div style={{ fontSize: 11, color: '#9ca3af' }}>{s.slug}</div>
-          </button>
-        ))}
-      </div>
+      <PickList
+        items={stores}
+        selectedId={selectedId}
+        checkedIds={checkedIds}
+        onSelect={selectStore}
+        onToggle={toggle}
+        onToggleAll={() => toggleAll(stores.map(s => s._id))}
+        primary={s => s.name}
+        secondary={s => s.slug}
+      />
 
       {selected && (
         <div className="oa-table-wrap" style={{ padding: 20, maxWidth: 720 }}>
@@ -307,7 +415,9 @@ function StoreReviewPanel({ initialStores }: { initialStores: PendingStore[] }) 
             <button className="oa-btn" onClick={handleRegenerate} disabled={isPending}>↻ Tạo lại</button>
             <div style={{ flex: 1 }} />
             <button className="oa-btn oa-btn-red" onClick={handleReject} disabled={isPending}>✕ Từ chối</button>
-            <button className="oa-btn oa-btn-green" onClick={handleApprove} disabled={isPending}>{isPending ? 'Đang lưu...' : '✓ Duyệt & Xuất bản'}</button>
+            <button className="oa-btn oa-btn-green" onClick={handleApprove} disabled={isPending}>
+              {isPending ? 'Đang lưu...' : checkedIds.size > 0 ? `✓ Duyệt ${checkedIds.size} mục đã chọn` : '✓ Duyệt & Xuất bản'}
+            </button>
           </div>
         </div>
       )}
@@ -315,9 +425,10 @@ function StoreReviewPanel({ initialStores }: { initialStores: PendingStore[] }) 
   )
 }
 
-function OfferReviewPanel({ initialOffers }: { initialOffers: PendingOffer[] }) {
+function OfferReviewPanel({ initialOffers, onCountChange }: { initialOffers: PendingOffer[]; onCountChange: (n: number) => void }) {
   const [offers, setOffers] = useState(initialOffers)
   const [selectedId, setSelectedId] = useState(initialOffers[0]?._id)
+  const { checkedIds, toggle, toggleAll, clear } = useChecked()
   const [description, setDescription] = useState(initialOffers[0]?.aiDraft?.description ?? '')
   const [usageTips, setUsageTips] = useState(initialOffers[0]?.aiDraft?.usageTips ?? '')
   const [eligibilityNotes, setEligibilityNotes] = useState(initialOffers[0]?.aiDraft?.eligibilityNotes ?? '')
@@ -333,21 +444,38 @@ function OfferReviewPanel({ initialOffers }: { initialOffers: PendingOffer[] }) 
     setEligibilityNotes(o.aiDraft?.eligibilityNotes ?? '')
   }
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
-  const removeFromList = (id: string) => {
-    setOffers(prev => {
-      const rest = prev.filter(o => o._id !== id)
-      if (selectedId === id) selectOffer(rest[0] ?? ({} as PendingOffer))
-      return rest
-    })
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 4000) }
+  const removeMany = (ids: Set<string>) => {
+    const rest = offers.filter(o => !ids.has(o._id))
+    setOffers(rest)
+    onCountChange(rest.length)
+    clear()
+    if (selectedId && ids.has(selectedId)) selectOffer(rest[0] ?? ({} as PendingOffer))
   }
+  const removeFromList = (id: string) => removeMany(new Set([id]))
 
   const handleApprove = () => {
-    if (!selected) return
+    if (checkedIds.size === 0) {
+      if (!selected) return
+      startTransition(async () => {
+        await approveOfferAiDraft(selected._id, selected.storeSlug, { description, usageTips, eligibilityNotes })
+        showToast(`Đã duyệt nội dung cho ${selected.title}`)
+        removeFromList(selected._id)
+      })
+      return
+    }
+
+    const ids = new Set(checkedIds)
     startTransition(async () => {
-      await approveOfferAiDraft(selected._id, selected.storeSlug, { description, usageTips, eligibilityNotes })
-      showToast(`Đã duyệt nội dung cho ${selected.title}`)
-      removeFromList(selected._id)
+      let approved = 0
+      if (selected && ids.has(selected._id)) {
+        await approveOfferAiDraft(selected._id, selected.storeSlug, { description, usageTips, eligibilityNotes })
+        approved++
+      }
+      const rest = [...ids].filter(id => id !== selected?._id)
+      const result = await approveOfferDraftsBulk(rest)
+      showToast(bulkToast('offer', approved + result.approved, result.skipped))
+      removeMany(ids)
     })
   }
 
@@ -377,23 +505,16 @@ function OfferReviewPanel({ initialOffers }: { initialOffers: PendingOffer[] }) 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 20, alignItems: 'start' }}>
       {toast && <div className="oa-toast">{toast}</div>}
-      <div className="oa-table-wrap">
-        {offers.map(o => (
-          <button
-            key={o._id}
-            onClick={() => selectOffer(o)}
-            className="oa-name-btn"
-            style={{
-              display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px',
-              background: o._id === selectedId ? '#f0fdf4' : 'transparent',
-              borderBottom: '1px solid #e5e7eb',
-            }}
-          >
-            {o.title}
-            <div style={{ fontSize: 11, color: '#9ca3af' }}>{o.storeName}</div>
-          </button>
-        ))}
-      </div>
+      <PickList
+        items={offers}
+        selectedId={selectedId}
+        checkedIds={checkedIds}
+        onSelect={selectOffer}
+        onToggle={toggle}
+        onToggleAll={() => toggleAll(offers.map(o => o._id))}
+        primary={o => o.title}
+        secondary={o => o.storeName}
+      />
 
       {selected && (
         <div className="oa-table-wrap" style={{ padding: 20, maxWidth: 560 }}>
@@ -418,7 +539,9 @@ function OfferReviewPanel({ initialOffers }: { initialOffers: PendingOffer[] }) 
             <button className="oa-btn" onClick={handleRegenerate} disabled={isPending}>↻ Tạo lại</button>
             <div style={{ flex: 1 }} />
             <button className="oa-btn oa-btn-red" onClick={handleReject} disabled={isPending}>✕ Từ chối</button>
-            <button className="oa-btn oa-btn-green" onClick={handleApprove} disabled={isPending}>{isPending ? 'Đang lưu...' : '✓ Duyệt & Xuất bản'}</button>
+            <button className="oa-btn oa-btn-green" onClick={handleApprove} disabled={isPending}>
+              {isPending ? 'Đang lưu...' : checkedIds.size > 0 ? `✓ Duyệt ${checkedIds.size} mục đã chọn` : '✓ Duyệt & Xuất bản'}
+            </button>
           </div>
         </div>
       )}
@@ -426,9 +549,10 @@ function OfferReviewPanel({ initialOffers }: { initialOffers: PendingOffer[] }) 
   )
 }
 
-function DealReviewPanel({ initialDeals }: { initialDeals: PendingDeal[] }) {
+function DealReviewPanel({ initialDeals, onCountChange }: { initialDeals: PendingDeal[]; onCountChange: (n: number) => void }) {
   const [deals, setDeals] = useState(initialDeals)
   const [selectedId, setSelectedId] = useState(initialDeals[0]?._id)
+  const { checkedIds, toggle, toggleAll, clear } = useChecked()
   const [isPending, startTransition] = useTransition()
   const [toast, setToast] = useState('')
 
@@ -441,30 +565,49 @@ function DealReviewPanel({ initialDeals }: { initialDeals: PendingDeal[] }) {
     setForm(dealDraftForm(d.aiDraft))
   }
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
-  const removeFromList = (id: string) => {
-    setDeals(prev => {
-      const rest = prev.filter(d => d._id !== id)
-      if (selectedId === id) selectDeal(rest[0] ?? ({} as PendingDeal))
-      return rest
-    })
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 4000) }
+  const removeMany = (ids: Set<string>) => {
+    const rest = deals.filter(d => !ids.has(d._id))
+    setDeals(rest)
+    onCountChange(rest.length)
+    clear()
+    if (selectedId && ids.has(selectedId)) selectDeal(rest[0] ?? ({} as PendingDeal))
   }
+  const removeFromList = (id: string) => removeMany(new Set([id]))
+
+  const approveOpenWithEdits = () => selected && approveDealAiDraft(selected._id, selected.slug, {
+    summary: form.summary,
+    prosAndCons: {
+      pros: form.pros.split('\n').map(s => s.trim()).filter(Boolean),
+      cons: form.cons.split('\n').map(s => s.trim()).filter(Boolean),
+    },
+    faq: parseFaqText(form.faqText),
+    metaTitle: form.metaTitle,
+    metaDescription: form.metaDescription,
+  })
 
   const handleApprove = () => {
-    if (!selected) return
-    startTransition(async () => {
-      await approveDealAiDraft(selected._id, selected.slug, {
-        summary: form.summary,
-        prosAndCons: {
-          pros: form.pros.split('\n').map(s => s.trim()).filter(Boolean),
-          cons: form.cons.split('\n').map(s => s.trim()).filter(Boolean),
-        },
-        faq: parseFaqText(form.faqText),
-        metaTitle: form.metaTitle,
-        metaDescription: form.metaDescription,
+    if (checkedIds.size === 0) {
+      if (!selected) return
+      startTransition(async () => {
+        await approveOpenWithEdits()
+        showToast(`Đã duyệt nội dung cho ${selected.title}`)
+        removeFromList(selected._id)
       })
-      showToast(`Đã duyệt nội dung cho ${selected.title}`)
-      removeFromList(selected._id)
+      return
+    }
+
+    const ids = new Set(checkedIds)
+    startTransition(async () => {
+      let approved = 0
+      if (selected && ids.has(selected._id)) {
+        await approveOpenWithEdits()
+        approved++
+      }
+      const rest = [...ids].filter(id => id !== selected?._id)
+      const result = await approveDealDraftsBulk(rest)
+      showToast(bulkToast('deal', approved + result.approved, result.skipped))
+      removeMany(ids)
     })
   }
 
@@ -494,23 +637,16 @@ function DealReviewPanel({ initialDeals }: { initialDeals: PendingDeal[] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 20, alignItems: 'start' }}>
       {toast && <div className="oa-toast">{toast}</div>}
-      <div className="oa-table-wrap">
-        {deals.map(d => (
-          <button
-            key={d._id}
-            onClick={() => selectDeal(d)}
-            className="oa-name-btn"
-            style={{
-              display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px',
-              background: d._id === selectedId ? '#f0fdf4' : 'transparent',
-              borderBottom: '1px solid #e5e7eb',
-            }}
-          >
-            {d.title}
-            <div style={{ fontSize: 11, color: '#9ca3af' }}>{d.store}</div>
-          </button>
-        ))}
-      </div>
+      <PickList
+        items={deals}
+        selectedId={selectedId}
+        checkedIds={checkedIds}
+        onSelect={selectDeal}
+        onToggle={toggle}
+        onToggleAll={() => toggleAll(deals.map(d => d._id))}
+        primary={d => d.title}
+        secondary={d => d.store}
+      />
 
       {selected && (
         <div className="oa-table-wrap" style={{ padding: 20, maxWidth: 720 }}>
@@ -551,7 +687,9 @@ function DealReviewPanel({ initialDeals }: { initialDeals: PendingDeal[] }) {
             <button className="oa-btn" onClick={handleRegenerate} disabled={isPending}>↻ Tạo lại</button>
             <div style={{ flex: 1 }} />
             <button className="oa-btn oa-btn-red" onClick={handleReject} disabled={isPending}>✕ Từ chối</button>
-            <button className="oa-btn oa-btn-green" onClick={handleApprove} disabled={isPending}>{isPending ? 'Đang lưu...' : '✓ Duyệt & Xuất bản'}</button>
+            <button className="oa-btn oa-btn-green" onClick={handleApprove} disabled={isPending}>
+              {isPending ? 'Đang lưu...' : checkedIds.size > 0 ? `✓ Duyệt ${checkedIds.size} mục đã chọn` : '✓ Duyệt & Xuất bản'}
+            </button>
           </div>
         </div>
       )}
@@ -565,6 +703,11 @@ export default function AiReviewAdmin({ initialStores, initialOffers, initialDea
   const [tab, setTab] = useState<'stores' | 'offers' | 'deals'>(
     initialStores.length > 0 ? 'stores' : initialOffers.length > 0 ? 'offers' : 'deals'
   )
+  // Số trên tab do panel báo lên sau mỗi lần duyệt — nếu vẫn đọc initial*.length
+  // thì duyệt sạch 40 store xong tab vẫn hiện "Stores (40)".
+  const [counts, setCounts] = useState({
+    stores: initialStores.length, offers: initialOffers.length, deals: initialDeals.length,
+  })
 
   return (
     <div className="oa-wrap">
@@ -577,21 +720,28 @@ export default function AiReviewAdmin({ initialStores, initialOffers, initialDea
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button className="oa-btn" style={tab === 'stores' ? { borderColor: '#16A34A', color: '#16A34A' } : undefined} onClick={() => setTab('stores')}>
-          Stores ({initialStores.length})
+          Stores ({counts.stores})
         </button>
         <button className="oa-btn" style={tab === 'offers' ? { borderColor: '#16A34A', color: '#16A34A' } : undefined} onClick={() => setTab('offers')}>
-          Offers ({initialOffers.length})
+          Offers ({counts.offers})
         </button>
         <button className="oa-btn" style={tab === 'deals' ? { borderColor: '#16A34A', color: '#16A34A' } : undefined} onClick={() => setTab('deals')}>
-          Deals ({initialDeals.length})
+          Deals ({counts.deals})
         </button>
       </div>
 
-      {tab === 'stores'
-        ? <StoreReviewPanel initialStores={initialStores} />
-        : tab === 'offers'
-        ? <OfferReviewPanel initialOffers={initialOffers} />
-        : <DealReviewPanel initialDeals={initialDeals} />}
+      {/* Cả ba panel luôn mounted, chỉ ẩn/hiện bằng CSS. Nếu render có điều kiện,
+          chuyển tab rồi quay lại sẽ dựng lại panel từ props ban đầu và những mục
+          vừa duyệt hiện về như chưa duyệt. */}
+      <div style={{ display: tab === 'stores' ? 'block' : 'none' }}>
+        <StoreReviewPanel initialStores={initialStores} onCountChange={n => setCounts(c => ({ ...c, stores: n }))} />
+      </div>
+      <div style={{ display: tab === 'offers' ? 'block' : 'none' }}>
+        <OfferReviewPanel initialOffers={initialOffers} onCountChange={n => setCounts(c => ({ ...c, offers: n }))} />
+      </div>
+      <div style={{ display: tab === 'deals' ? 'block' : 'none' }}>
+        <DealReviewPanel initialDeals={initialDeals} onCountChange={n => setCounts(c => ({ ...c, deals: n }))} />
+      </div>
     </div>
   )
 }
