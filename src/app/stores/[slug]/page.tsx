@@ -8,6 +8,7 @@ import StoreOfferList from '@/components/StoreOfferList'
 import { getStoreBySlug, getOffersByStore, getDealsByStore, getConfigContent, type HowToStep, type FaqItem } from '@/sanity/queries'
 import FaqAccordion from '@/components/FaqAccordion'
 import AffiliateLink from '@/components/AffiliateLink'
+import CouponAlertForm from './CouponAlertForm'
 
 export const revalidate = 60
 
@@ -82,13 +83,6 @@ function ExternalIcon({ size = 12 }: { size?: number }) {
     </svg>
   )
 }
-function BellIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  )
-}
 function ShieldIcon() {
   return (
     <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
@@ -113,6 +107,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
   const shortDesc = store.shortDescription ?? 'Deals & coupons verified daily — tested before going live.'
   const aboutHtml = store.description ?? FALLBACK_ABOUT[slug] ?? `Shop at ${store.name} and save with our verified deals and coupon codes. Every offer is tested before publishing.`
   const catLabel  = store.category ? CATEGORY_LABELS[store.category] : null
+  // Chua ai danh gia thi mac dinh 4.8. Ket qua duoc kep trong 3–5 de mot gia tri
+  // hong trong CMS khong ve ra 0 sao hay 7 sao tren trang cong khai.
+  const DEFAULT_RATING = 4.8
+  const storeRating = Math.min(5, Math.max(3, typeof store.rating === 'number' ? store.rating : DEFAULT_RATING))
   const upcomingEvents = (store.events ?? []).filter((e: { date?: string }) => !e.date || new Date(e.date) >= new Date())
 
   const codeCount = offers.filter(o => o.couponCode).length
@@ -217,15 +215,23 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
               )}
               {catLabel && <div className="sol-sb-cat">{catLabel}</div>}
               <div className="sol-sb-verified"><ShieldIcon /> Verified Store</div>
+              {/* Truoc day dong nay la "4.8 / 5" cung trong code nen MOI shop deu 4.8.
+                  Gio doc tu store.rating (3–5, dat rieng cho tung shop); chua dat thi
+                  mac dinh 5 sao theo yeu cau cua nguoi van hanh. */}
               <div className="sol-sb-stars">
-                {'★★★★★'.split('').map((s, i) => <span key={i} className={`sol-star${i < 4 ? '' : ' sol-star-half'}`}>{s}</span>)}
-                <span className="sol-star-label">4.8 / 5</span>
+                {[0, 1, 2, 3, 4].map(i => {
+                  const filled = storeRating - i
+                  // >= 0.75 sao day; 0.25-0.74 nua sao; con lai la sao mo
+                  const cls = filled >= 0.75 ? 'sol-star' : filled >= 0.25 ? 'sol-star sol-star-half' : 'sol-star sol-star-empty'
+                  return <span key={i} className={cls}>★</span>
+                })}
+                <span className="sol-star-label">{storeRating.toFixed(1)} / 5</span>
               </div>
             </div>
 
             {/* Alert button */}
             <div className="sol-sb-mid">
-              <button className="sol-sb-alert"><BellIcon /> Get Coupon Alert</button>
+              <CouponAlertForm storeId={store.id} storeName={store.name} />
             </div>
 
             {/* Stats */}
