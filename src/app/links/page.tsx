@@ -9,7 +9,11 @@ import type { Deal } from '@/data/deals'
 export const revalidate = 60
 
 export const metadata: Metadata = {
-  title: 'Offerdy — Today’s Best Deals',
+  // absolute: bo qua titleTemplate cua layout. Tieu de nay da mo dau bang ten
+  // thuong hieu, de template noi them "| Offerdy - Real Deals. Verified" nua thi
+  // tren tab trinh duyet hien "Offerdy ... | Offerdy ..." — day la trang dich cua
+  // toan bo traffic Instagram/TikTok nen cai nhin dau tien phai sach.
+  title: { absolute: 'Offerdy — Today’s Best Deals' },
   description: 'Hand-picked deals, verified before they go live. Tap any deal to see full details.',
   // Trang tien ich cho traffic mang xa hoi, noi dung trung voi /deals. Cho index
   // se tao trang thu hai canh tranh chinh /deals tren Google. Van de follow de
@@ -43,7 +47,11 @@ export default async function LinksPage() {
               dat len nen toi cua trang nay thi phan giua gan nhu tang hinh, doc ra
               "O...dy". Wordmark chu luon doc duoc, va giong het thanh phan trong anh
               OG (src/lib/ogTemplate.tsx) nen bai dang va trang dich dong bo. */}
-          <div className="lb-name">Offer<span>dy</span></div>
+          {/* La <h1> chu khong phai <div>: day la trang dich cua toan bo traffic
+              Instagram/TikTok ma truoc do khong co tieu de cap mot nao — trinh doc
+              man hinh nhay vao khong biet dang o dau. Kieu dang khong doi, class
+              giu nguyen toan bo. */}
+          <h1 className="lb-name">Offer<span>dy</span></h1>
           <div className="lb-tag">{settings.tagline}</div>
         </div>
 

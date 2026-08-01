@@ -7,7 +7,7 @@ import { getFlashSaleOffers } from '@/sanity/queries'
 export const revalidate = 60
 
 export const metadata: Metadata = {
-  title: 'Flash Sales — Limited-Time Deals | Offerdy',
+  title: 'Flash Sales — Limited-Time Deals',
   description: 'Deals expiring soon — grab them before the clock runs out. Verified flash sales updated in real time.',
   alternates: { canonical: 'https://www.offerdy.com/flash-sales' },
   openGraph: {

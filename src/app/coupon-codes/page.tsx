@@ -8,7 +8,7 @@ import { couponsItemListJsonLd } from '@/lib/dealSchema'
 export const revalidate = 60
 
 const PAGE_SIZE = 20
-const BASE_TITLE = 'Coupon Codes — Verified Promo Codes | Offerdy'
+const BASE_TITLE = 'Coupon Codes — Verified Promo Codes'
 const BASE_DESCRIPTION = 'Find verified coupon codes and promo codes for hundreds of stores. Every code tested before going live.'
 
 type PageProps = { searchParams: Promise<{ page?: string }> }

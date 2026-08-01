@@ -7,7 +7,7 @@ import { getCategories } from '@/sanity/queries'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Shop by Category — Offerdy',
+  title: 'Shop by Category',
   description: 'Browse verified deals and coupon codes by category — tech, fashion, home, beauty and more.',
   alternates: { canonical: 'https://www.offerdy.com/categories' },
   openGraph: {

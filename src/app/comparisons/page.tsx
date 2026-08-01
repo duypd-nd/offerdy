@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const posts = await getComparisonPosts()
 
   return {
-    title: 'Comparisons — Side-by-Side Deal Analysis | Offerdy',
+    title: 'Comparisons — Side-by-Side Deal Analysis',
     description: 'In-depth comparison guides to help you pick the best store, product, or deal. Unbiased, data-driven analysis.',
     alternates: { canonical: 'https://www.offerdy.com/comparisons' },
     ...(posts.length === 0 && { robots: { index: false, follow: true } }),

@@ -61,32 +61,41 @@ function getUrl(r: SearchResult): string {
 }
 
 // ── GROQ search ──────────────────────────────────────────────────
+//
+// Pham vi khop CO Y bao gom ca mo ta ngan, khong chi ten. Truoc day chi khop
+// name/title, nen go "kimono" hay "poncho" tra ve "No results found" du
+// Shopmossrose ghi ro tren trang la ban dung nhung thu do — nguoi mua tim theo
+// MON HANG, khong theo ten shop ho chua tung nghe.
+//
+// ⚠️ Khong dua truong `description` cua store vao: do la HTML, nen go "strong",
+// "div" hay "span" se khop gan het moi shop. `shortDescription` la van ban thuan
+// nen an toan.
 async function searchContent(q: string): Promise<SearchResult[]> {
   if (!q || q.length < 2) return []
   const p = `*${q}*`
   try {
     const [stores, deals, coupons, flash, posts, reviews] = await Promise.all([
       writeClient.fetch<SearchResult[]>(
-        `*[_type == "store" && (name match $p || abbr match $p) && published != false][0...20]{
+        `*[_type == "store" && (name match $p || abbr match $p || shortDescription match $p || category match $p) && published != false][0...20]{
           "_id": _id, "type": "store", "title": name, "slug": slug.current,
           "sub": coalesce(string(maxOffer) + "% off · " + category, "Store"),
           "imageUrl": image.asset->url, abbr
         }`, { p }
       ),
       writeClient.fetch<SearchResult[]>(
-        `*[_type == "deal" && title match $p][0...15]{
+        `*[_type == "deal" && (title match $p || summary match $p || store match $p)][0...15]{
           "_id": _id, "type": "deal", "title": title, "slug": slug.current,
           "sub": coalesce(priceSale + " · " + string(discount) + "% off", "Deal")
         }`, { p }
       ),
       writeClient.fetch<SearchResult[]>(
-        `*[_type == "offer" && active == true && defined(couponCode) && couponCode != "" && (title match $p || couponCode match $p)][0...15]{
+        `*[_type == "offer" && active == true && defined(couponCode) && couponCode != "" && (title match $p || couponCode match $p || offerText match $p)][0...15]{
           "_id": _id, "type": "coupon", "title": title, "slug": _id,
           "sub": couponCode + " · " + store->name
         }`, { p }
       ),
       writeClient.fetch<SearchResult[]>(
-        `*[_type == "offer" && active == true && defined(expiresAt) && expiresAt > now() && title match $p][0...15]{
+        `*[_type == "offer" && active == true && defined(expiresAt) && expiresAt > now() && (title match $p || offerText match $p)][0...15]{
           "_id": _id, "type": "flash", "title": title, "slug": _id,
           "sub": "Expires " + expiresAt + " · " + store->name
         }`, { p }
