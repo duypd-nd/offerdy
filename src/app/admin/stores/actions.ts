@@ -4,7 +4,24 @@ import { revalidatePath } from 'next/cache'
 import { writeClient } from '@/sanity/writeClient'
 
 export async function updateStore(id: string, patch: Record<string, unknown>) {
-  await writeClient.patch(id).set(patch).commit()
+  // O trong phai co nghia la "tra ve mac dinh", nen tach thanh unset thay vi set.
+  //
+  // ⚠️ Phai bat CA null LAN undefined: payload cua server action duoc React Flight
+  // ma hoa, va `undefined` di qua ranh gioi do thi den noi thanh `null`. Da kiem
+  // chung bang cach bat goi tin that — xoa trang o Max% gui len
+  // {"published":true,"maxOffer":null,...}. Chi kiem tra `=== undefined` thi nhanh
+  // nay khong bao gio chay.
+  const set: Record<string, unknown> = {}
+  const unset: string[] = []
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined || value === null) unset.push(key)
+    else set[key] = value
+  }
+
+  let tx = writeClient.patch(id)
+  if (Object.keys(set).length) tx = tx.set(set)
+  if (unset.length) tx = tx.unset(unset)
+  await tx.commit()
   revalidatePath('/admin/stores')
   revalidatePath('/stores/[slug]', 'page')
   revalidatePath('/stores')

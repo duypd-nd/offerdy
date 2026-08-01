@@ -242,7 +242,7 @@ const STORES_QUERY = `*[_type == "store" && published != false] | order(_created
 
 const STORE_BY_SLUG_QUERY = `*[_type == "store" && slug.current == $slug && published != false][0] {
   "id": _id, name, abbr, colorClass, "count": dealCount,
-  "slug": slug.current, website, affiliateLink, category, maxOffer,
+  "slug": slug.current, website, affiliateLink, category, maxOffer, rating,
   "imageUrl": image.asset->url,
   shortDescription, description,
   faq[]{ question, answer },

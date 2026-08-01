@@ -24,7 +24,7 @@ const FALLBACK_CATEGORIES: AdminCategory[] = [
 type AdminStore = {
   _id: string; name: string; slug: string; published: boolean
   category?: string; website?: string; affiliateLink?: string
-  maxOffer?: number; abbr?: string; shortDescription?: string
+  maxOffer?: number | null; rating?: number | null; abbr?: string; shortDescription?: string
   description?: string; imageUrl?: string; _createdAt: string
 }
 
@@ -184,6 +184,7 @@ export default function StoreAdmin({ stores: initialStores, categories: propCate
               <th>Danh mục</th>
               <th>Website</th>
               <th>Max%</th>
+              <th>Sao</th>
               <th>Duyệt</th>
               <th>Ngày thêm</th>
               <th></th>
@@ -207,7 +208,15 @@ export default function StoreAdmin({ stores: initialStores, categories: propCate
                 <td>
                   <input className="oa-inline-num" type="number" min={1} max={100}
                     value={s.maxOffer ?? ''} placeholder="—"
-                    onChange={e => handleField(s._id, 'maxOffer', e.target.value ? Number(e.target.value) : undefined)} />
+                    onChange={e => handleField(s._id, 'maxOffer', e.target.value ? Number(e.target.value) : null)} />
+                </td>
+                <td>
+                  {/* De trong = trang store hien 4.8 (DEFAULT_RATING). O trong bang
+                      chu khong chi trong form sua: 85 store ma phai mo modal tung
+                      cai thi khong ai ngoi sua het. */}
+                  <input className="oa-inline-num" type="number" min={3} max={5} step={0.1}
+                    value={s.rating ?? ''} placeholder="4.8"
+                    onChange={e => handleField(s._id, 'rating', e.target.value ? Number(e.target.value) : null)} />
                 </td>
                 <td>
                   <select className="oa-inline-sel" value={s.published !== false ? '1' : '0'} onChange={e => handleField(s._id, 'published', e.target.value === '1')}>
@@ -227,7 +236,7 @@ export default function StoreAdmin({ stores: initialStores, categories: propCate
                     )}
                     <button className="oa-row-save" title="Lưu" onClick={() => {
                       startTransition(async () => {
-                        await updateStore(s._id, { published: s.published, maxOffer: s.maxOffer })
+                        await updateStore(s._id, { published: s.published, maxOffer: s.maxOffer, rating: s.rating })
                         showToast('Đã lưu')
                       })
                     }}>✓</button>
@@ -237,7 +246,7 @@ export default function StoreAdmin({ stores: initialStores, categories: propCate
               </tr>
             ))}
             {stores.length === 0 && (
-              <tr><td colSpan={9} className="oa-empty">Không tìm thấy store nào</td></tr>
+              <tr><td colSpan={10} className="oa-empty">Không tìm thấy store nào</td></tr>
             )}
           </tbody>
         </table>
@@ -295,6 +304,7 @@ function EditStoreModal({ store, categories, onClose, onSaved, onDeleted }: {
     affiliateLink: store.affiliateLink ?? '',
     category: store.category ?? '',
     maxOffer: store.maxOffer ?? '',
+    rating: store.rating ?? '',
     abbr: store.abbr ?? '',
     shortDescription: store.shortDescription ?? '',
     description: store.description ?? '',
@@ -332,7 +342,8 @@ function EditStoreModal({ store, categories, onClose, onSaved, onDeleted }: {
         website: form.website || undefined,
         affiliateLink: form.affiliateLink || undefined,
         category: form.category || undefined,
-        maxOffer: form.maxOffer !== '' ? Number(form.maxOffer) : undefined,
+        maxOffer: form.maxOffer !== '' ? Number(form.maxOffer) : null,
+        rating: form.rating !== '' ? Number(form.rating) : null,
         abbr: form.abbr || undefined,
         shortDescription: form.shortDescription || undefined,
         description: form.description || undefined,
@@ -394,6 +405,9 @@ function EditStoreModal({ store, categories, onClose, onSaved, onDeleted }: {
             <label className="oa-label">Max Offer (%)
               <input className="oa-input" type="number" min={1} max={100} value={form.maxOffer} onChange={e => set('maxOffer', e.target.value)} placeholder="VD: 70" />
             </label>
+            <label className="oa-label">Đánh giá (3–5 sao)
+              <input className="oa-input" type="number" min={3} max={5} step={0.1} value={form.rating} onChange={e => set('rating', e.target.value)} placeholder="Để trống = 4.8 sao" />
+            </label>
             <label className="oa-label">Viết tắt
               <input className="oa-input" value={form.abbr} onChange={e => set('abbr', e.target.value.slice(0, 3))} maxLength={3} placeholder="VD: Am" />
             </label>
@@ -443,7 +457,7 @@ function AddStoreModal({ categories, onClose, onCreated }: {
   onClose: () => void
   onCreated: () => void
 }) {
-  const [form, setForm] = useState({ name: '', slug: '', website: '', affiliateLink: '', category: '', maxOffer: '', abbr: '', shortDescription: '', description: '', published: true })
+  const [form, setForm] = useState({ name: '', slug: '', website: '', affiliateLink: '', category: '', maxOffer: '', rating: '', abbr: '', shortDescription: '', description: '', published: true })
   const [logoUrl, setLogoUrl] = useState('')
   const [isPending, startTransition] = useTransition()
   const [slugError, setSlugError] = useState('')

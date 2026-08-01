@@ -48,7 +48,7 @@ export default async function AdminStoresPage({
 
   const LIST_QUERY = `*[${filter}] | order(_createdAt desc) [${start}...${end}] {
     _id, name, "slug": slug.current, published, category,
-    website, affiliateLink, maxOffer, abbr, shortDescription,
+    website, affiliateLink, maxOffer, rating, abbr, shortDescription,
     "imageUrl": image.asset->url, _createdAt
   }`
   const COUNT_QUERY = `count(*[${filter}])`

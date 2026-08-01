@@ -83,6 +83,22 @@ export const storeType = defineType({
       description: 'Mức giảm giá tối đa — VD: 70 → hiện "Up to 70% off"',
     }),
     defineField({
+      // Truoc day trang store hien cung mot dong "4.8 / 5" cho MOI shop — so cung
+      // trong code, khong lay tu dau ca. Truong nay cho dat so rieng cho tung shop.
+      // De trong thi trang hien 4.8 (DEFAULT_RATING trong stores/[slug]/page.tsx)
+      // — doi mac dinh thi phai sua o ca hai noi, o day chi la chu.
+      //
+      // Vi sao khong tinh tu votesActive/votesExpired: ca site chi co 3 offer tung
+      // duoc bam vote (2 lan "con dung duoc", 1 lan "het han") tren tong 326 offer.
+      // Diem dung tu mot cu bam khong phai du lieu, chi la nhieu.
+      name: 'rating',
+      title: 'Đánh giá (3–5 sao)',
+      type: 'number',
+      group: 'basic',
+      validation: r => r.min(3).max(5).precision(1),
+      description: 'Để trống = hiện 4.8. Nhập 3 đến 5, một chữ số thập phân — VD: 4.5',
+    }),
+    defineField({
       name: 'website',
       title: 'Website URL (domain gốc)',
       type: 'url',
