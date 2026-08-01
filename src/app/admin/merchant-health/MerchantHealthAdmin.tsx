@@ -1,7 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { deleteStore } from '../stores/actions'
 import { computeStoreHealth, levelFor, HEALTH_LEVEL_COLOR, HEALTH_LEVEL_LABEL as LEVEL_LABEL, type HealthLevel, type StoreHealthInput } from '@/lib/merchantHealth'
 import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
@@ -15,10 +17,42 @@ export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInp
   const [search, setSearch] = useState('')
   const page = useUrlPage()
   const { setParams } = useAdminUrlState()
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [toast, setToast] = useState('')
+  // Giu danh sach da xoa o phia client thay vi doi props moi: trang nay doc qua
+  // CDN Sanity, nen ngay sau khi xoa may giay dau server van tra ve store do.
+  // router.refresh() van duoc goi de dong bo phan con lai; bo loc nay chi de
+  // dong vua xoa khong nhay lai truoc mat nguoi dung.
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 4000) }
+
+  const handleDelete = (store: StoreHealthInput) => {
+    const offerCount = store.offerStats.total
+    const warning = offerCount > 0
+      ? `${offerCount} offer thuộc store này sẽ bị xóa theo.`
+      : 'Store này chưa có offer nào.'
+    if (!confirm(`Xóa store "${store.name}"?\n\n${warning}\nKhông thể hoàn tác.`)) return
+
+    startTransition(async () => {
+      const result = await deleteStore(store.id)
+      if (result.ok) {
+        setDeletedIds(prev => new Set(prev).add(store.id))
+        showToast(`Đã xóa "${store.name}"${result.deletedOfferCount ? ` và ${result.deletedOfferCount} offer liên quan` : ''}`)
+        router.refresh()
+      } else {
+        showToast(`Lỗi khi xóa "${store.name}": ${result.error}`)
+      }
+    })
+  }
 
   const scored = useMemo(
-    () => stores.map(s => ({ store: s, health: computeStoreHealth(s) })).sort((a, b) => a.health.overall - b.health.overall),
-    [stores]
+    () => stores
+      .filter(s => !deletedIds.has(s.id))
+      .map(s => ({ store: s, health: computeStoreHealth(s) }))
+      .sort((a, b) => a.health.overall - b.health.overall),
+    [stores, deletedIds]
   )
 
   const filtered = scored.filter(({ store, health }) => {
@@ -35,10 +69,11 @@ export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInp
 
   return (
     <div className="oa-wrap">
+      {toast && <div className="oa-toast">{toast}</div>}
       <div className="oa-header">
         <div>
           <h1 className="oa-title">Merchant Health</h1>
-          <div className="oa-breadcrumb">Home / Merchant Health ({stores.length} store)</div>
+          <div className="oa-breadcrumb">Home / Merchant Health ({scored.length} store)</div>
         </div>
       </div>
 
@@ -112,11 +147,29 @@ export default function MerchantHealthAdmin({ stores }: { stores: StoreHealthInp
                   </div>
                 </td>
                 <td>
-                  <Link href="/admin/stores" className="oa-row-link" title="Quản lý store">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                    </svg>
-                  </Link>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {/* /admin/stores loc theo `name match $q || slug.current match $q`, nen
+                        dua slug vao la mo thang store do — khong phai ca danh sach 85 store. */}
+                    <Link
+                      href={`/admin/stores?q=${encodeURIComponent(store.slug || store.name)}`}
+                      className="oa-row-link"
+                      title={`Mở "${store.name}" trong Quản lý store (sửa / ẩn)`}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                      </svg>
+                    </Link>
+                    <button
+                      className="oa-row-del"
+                      title={`Xóa "${store.name}"${store.offerStats.total ? ` và ${store.offerStats.total} offer` : ''}`}
+                      onClick={() => handleDelete(store)}
+                      disabled={isPending}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                      </svg>
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
