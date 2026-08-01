@@ -464,3 +464,50 @@ Every completed task should
 - Improve documentation quality
 
 Always leave the project in a better state than before.
+
+============================================================
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as markdown files under `.scratch/<feature>/` in this repo. See `docs/agents/issue-tracker.md`.
+
+Chọn local markdown thay vì GitHub Issues vì: dự án một người, việc đang theo dõi ở
+`TODO.md`, repo chưa từng mở issue nào, và `gh` chưa đăng nhập (mọi lệnh `gh` sẽ dừng
+ngay). Muốn đổi sang GitHub sau này thì chạy `gh auth login` rồi thay file trên bằng bản
+mẫu `issue-tracker-github.md` trong skill `setup-matt-pocock-skills`.
+
+### Triage labels
+
+The five canonical triage roles, each label string equal to its name. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Khi hai quy trình mâu thuẫn — cái nào thắng
+
+Tài liệu này mô tả một quy trình (Project Manager → giao vai → cập nhật `TODO.md` /
+`PROJECT_CONTEXT.md` / `PROGRESS_SYSTEM.md`). Bộ skill của Matt Pocock mang theo quy
+trình riêng (spec → ticket → triage → implement). Chúng chồng lên nhau, nên chốt rõ:
+
+1. **Nguồn sự thật về TIẾN ĐỘ vẫn là `TODO.md` và `PROJECT_CONTEXT.md`.** Việc gì hoàn
+   thành thì ghi vào đó, kể cả khi việc đó bắt đầu từ một skill của Matt. Không tách
+   nhật ký ra hai nơi — một dự án một người mà hai sổ là chắc chắn lệch.
+
+2. **`PROJECT_CONTEXT.md` giữ nguyên vai trò**: kiến trúc thật, quyết định đã chốt, cạm
+   bẫy đã gặp. `CONTEXT.md` (nếu sau này được tạo) **chỉ chứa từ vựng nghiệp vụ** —
+   định nghĩa "offer" khác "deal" khác "coupon" thế nào. Hai file, hai việc, đừng gộp.
+
+3. **Skill của Matt là công cụ, không phải nghĩa vụ.** Dùng `/diagnosing-bugs` khi có
+   lỗi khó, `/handoff` khi kết phiên, `/tdd` khi viết logic thuần. Không bắt mọi việc
+   phải đi qua spec → ticket → triage; dự án này một người làm, chi phí thủ tục đó lớn
+   hơn lợi ích.
+
+4. **`/code-review` có HAI bản** (bản dựng sẵn của Claude Code và bản của Matt). Bản của
+   Matt chấm theo hai trục (chuẩn code + đúng spec) và cần một mốc so sánh; bản dựng sẵn
+   soi diff đang làm dở. Nêu rõ đang gọi bản nào khi dùng.
+
+5. **Trước khi commit vẫn phải `npm test`** (72 assertion) — điều này không skill nào
+   thay thế được.
