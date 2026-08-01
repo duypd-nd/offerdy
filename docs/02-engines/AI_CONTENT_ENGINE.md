@@ -123,6 +123,12 @@ Require approval if:
 - Sensitive claims are included
 - Existing high-quality content would be replaced
 
+## As implemented (stricter than the rule above)
+
+Nothing is ever published without approval, and existing content is never a candidate in the first place: a record is picked only when its content field is **empty** and `aiReviewStatus == "none"`. Drafts are held in a separate `aiDraft` field and copied into the live fields only on approval, which also puts the record permanently out of scope.
+
+The operator therefore has two ways to stop AI writing for a record — give it content, or move it out of the `"none"` state — and both are reachable from the Excel import. See `PROJECT_CONTEXT.md` → "AI review queue" for the selection rule, the bulk-approval path, and the traps (`store_description` is not the field being checked; schema `initialValue` does not apply to API-created documents).
+
 ---
 
 # KPIs
