@@ -1,7 +1,13 @@
-import { client as readClient } from '@/sanity/client'
+import { client } from '@/sanity/client'
 import AiReviewAdmin from './AiReviewAdmin'
 
 export const dynamic = 'force-dynamic'
+
+// Hàng đợi duyệt phải đọc TƯƠI, không qua CDN. CDN mất tới vài chục giây mới
+// thấy lượt ghi vừa xong, nên duyệt xong bấm F5 là mục vừa duyệt hiện lại như
+// chưa duyệt — dễ khiến người dùng duyệt lại lần nữa hoặc tưởng lệnh ghi hỏng.
+// Dùng withConfig thay vì writeClient để đường đọc này không cần token ghi.
+const readClient = client.withConfig({ useCdn: false })
 
 const PENDING_STORES_QUERY = `*[_type == "store" && aiReviewStatus == "pending"] | order(_createdAt desc) {
   _id, name, "slug": slug.current, shortDescription, aiDraft
