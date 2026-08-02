@@ -31,13 +31,30 @@ export type Ga4Traffic = {
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const SCOPE = 'https://www.googleapis.com/auth/analytics.readonly'
 
+/**
+ * Bo dau nhay bao quanh neu co.
+ *
+ * `.env.local` di qua bo phan tich dotenv cua Next — no BOC dau nhay giup. Bang
+ * bien moi truong cua Vercel thi khong: gia tri duoc luu nguyen van. Nen cung
+ * mot chuoi `"-----BEGIN..."` dan vao hai noi cho ra hai ket qua khac nhau —
+ * chay ngon o may minh, hong tren production, va thong bao loi (OpenSSL
+ * "unsupported") khong he nhac gi den dau nhay.
+ */
+function unquote(value?: string): string | undefined {
+  const v = value?.trim()
+  if (!v) return undefined
+  return v.length >= 2 && ((v[0] === '"' && v.at(-1) === '"') || (v[0] === "'" && v.at(-1) === "'"))
+    ? v.slice(1, -1)
+    : v
+}
+
 function config() {
-  const propertyId = process.env.GA4_PROPERTY_ID?.trim()
-  const clientEmail = process.env.GA4_CLIENT_EMAIL?.trim()
+  const propertyId = unquote(process.env.GA4_PROPERTY_ID)
+  const clientEmail = unquote(process.env.GA4_CLIENT_EMAIL)
   // Bien moi truong khong giu duoc xuong dong that: khoa rieng dan vao Vercel
   // luon o dang mot dong voi `\n` viet lieu. Khong doi lai thi OpenSSL bao
   // "unsupported" va loi trong nhu la sai khoa.
-  const privateKey = process.env.GA4_PRIVATE_KEY?.replace(/\\n/g, '\n').trim()
+  const privateKey = unquote(process.env.GA4_PRIVATE_KEY)?.replace(/\\n/g, '\n').trim()
   if (!propertyId || !clientEmail || !privateKey) return null
   return { propertyId, clientEmail, privateKey }
 }

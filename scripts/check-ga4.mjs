@@ -60,9 +60,17 @@ if (fail) {
 }
 
 // ── 2. Dinh dang tung gia tri ────────────────────────────────────
-const propertyId = env.GA4_PROPERTY_ID.trim()
-const clientEmail = env.GA4_CLIENT_EMAIL.trim()
-const privateKey = env.GA4_PRIVATE_KEY.replace(/\\n/g, '\n').trim()
+// Bo dau nhay bao quanh — giong het `unquote()` trong src/lib/ga4.ts. Phai giong
+// nhau, khong thi script bao "dat" ma production van hong (hoac nguoc lai).
+const unquote = v => {
+  const s = (v ?? '').trim()
+  return s.length >= 2 && ((s[0] === '"' && s.at(-1) === '"') || (s[0] === "'" && s.at(-1) === "'"))
+    ? s.slice(1, -1)
+    : s
+}
+const propertyId = unquote(env.GA4_PROPERTY_ID)
+const clientEmail = unquote(env.GA4_CLIENT_EMAIL)
+const privateKey = unquote(env.GA4_PRIVATE_KEY).replace(/\\n/g, '\n').trim()
 
 if (/^G-/i.test(propertyId)) {
   bad(`GA4_PROPERTY_ID dang la "${propertyId}" — day la Measurement ID, khong phai Property ID`)
