@@ -103,8 +103,37 @@ function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export default function AdminNav() {
+/**
+ * So viec dang cho tren tung muc menu. Chi hien khi > 0 — mot huy hieu "0" khong
+ * mang thong tin gi ma van hut mat, lam nhung con so THAT kho nhan ra hon.
+ */
+function Badge({ count, tone }: { count: number; tone: 'amber' | 'red' }) {
+  if (count <= 0) return null
+  return (
+    <span className={`adm-badge adm-badge--${tone}`} aria-label={`${count} mục cần xử lý`}>
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
+
+// Muc nao la "co viec cho ban" va viec do gap toi dau. Link hong lam mat click
+// that su nen la mau do; hang doi duyet va nguoi dang ky cho la mau ho phach.
+const BADGE_TONE: Record<string, 'amber' | 'red'> = {
+  '/admin/ai-review': 'amber',
+  '/admin/coupon-alerts': 'amber',
+  '/admin/link-checker': 'red',
+}
+
+export default function AdminNav({ badges = {} }: { badges?: Record<string, number> }) {
   const path = usePathname()
+
+  // Duoi 900px thanh ben thanh ngan keo. Dong lai bang chinh cu bam vao link
+  // (xem `closeDrawer` duoi day) chu khong bang useEffect theo `path`: dat
+  // setState trong effect la thu ESLint cua du an nay chan, va o day khong can
+  // — dieu huong trong admin luon bat dau bang mot cu bam trong menu.
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const closeDrawer = () => setDrawerOpen(false)
+  const totalBadge = Object.values(badges).reduce((sum, n) => sum + (n ?? 0), 0)
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}
@@ -119,8 +148,26 @@ export default function AdminNav() {
     setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }))
 
   return (
-    <aside className="adm-sidebar">
-      <Link href="/admin" className="adm-logo">
+    <>
+      {/* Chi hien duoi 900px (xem globals.css) — o do thanh ben da thanh ngan keo
+          nen phai co mot cho de mo no ra. */}
+      <div className="adm-topbar">
+        <button className="adm-burger" onClick={() => setDrawerOpen(true)} aria-label="Mở menu quản trị" aria-expanded={drawerOpen}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />
+          </svg>
+        </button>
+        <Link href="/admin" className="adm-topbar-logo" onClick={closeDrawer}>
+          Offerdy<span>Admin</span>
+        </Link>
+        {/* Huy hieu tong: menu dong lai khong duoc phep giau het viec dang cho */}
+        <Badge count={totalBadge} tone="amber" />
+      </div>
+
+      {drawerOpen && <button className="adm-scrim" onClick={closeDrawer} aria-label="Đóng menu" />}
+
+      <aside className={`adm-sidebar${drawerOpen ? ' adm-sidebar--open' : ''}`}>
+      <Link href="/admin" className="adm-logo" onClick={closeDrawer}>
         Offerdy<span>Admin</span>
       </Link>
 
@@ -137,6 +184,9 @@ export default function AdminNav() {
         {NAV.map(group => {
           const isOpen = openGroups[group.key]
           const hasActive = group.items.some(item => path.startsWith(item.href))
+          // Nhom dong lai van phai to cao viec ben trong, khong thi gap lai la
+          // giau mat — dung cai ma huy hieu sinh ra de chong.
+          const groupCount = group.items.reduce((sum, item) => sum + (badges[item.href] ?? 0), 0)
 
           return (
             <div key={group.key} className="adm-nav-group">
@@ -154,6 +204,7 @@ export default function AdminNav() {
                   style={hasActive ? { color: group.color } : undefined}>
                   {group.label}
                 </span>
+                {!isOpen && <Badge count={groupCount} tone="amber" />}
                 <Chevron open={isOpen} />
               </button>
 
@@ -167,9 +218,11 @@ export default function AdminNav() {
                         href={item.href}
                         className={`adm-link${active ? ' active' : ''}`}
                         style={active ? { borderLeftColor: group.color, color: group.color } : undefined}
+                        onClick={closeDrawer}
                       >
                         <span className="adm-link-icon">{item.icon}</span>
-                        {item.label}
+                        <span className="adm-link-label">{item.label}</span>
+                        <Badge count={badges[item.href] ?? 0} tone={BADGE_TONE[item.href] ?? 'amber'} />
                       </Link>
                     )
                   })}
@@ -194,6 +247,7 @@ export default function AdminNav() {
           Sanity Studio
         </a>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }

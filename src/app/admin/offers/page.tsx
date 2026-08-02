@@ -6,6 +6,42 @@ export const dynamic = 'force-dynamic'
 
 const ADMIN_STORES_QUERY = `*[_type == "store" && published != false] | order(name asc) { _id, name }`
 
+/**
+ * Bo loc theo trang thai. Truoc day chi co active/inactive — nghia la moi cau hoi
+ * that su can tra loi ("offer nao sap chet?", "offer nao thieu mo ta?") deu phai
+ * lat tay qua 17 trang. Cac khoa duoi day chinh la cac the tren dashboard tro toi.
+ */
+const STATUS_CONDITION: Record<string, string> = {
+  active: 'active == true',
+  inactive: 'active != true',
+  expired: 'active == true && defined(expiresAt) && expiresAt < now()',
+  expiring: 'active == true && defined(expiresAt) && expiresAt >= now() && expiresAt <= $inSevenDays',
+  broken: 'active == true && linkStatus == "broken"',
+  nodesc: 'active == true && (!defined(description) || description == "")',
+  // `verified == false` chu khong phai `!= true`: offer cu tao truoc khi co truong
+  // nay khong he co `verified`, gop chung se bao dong ca tram muc chua tung sai.
+  unverified: 'active == true && verified == false',
+}
+
+/**
+ * `store->_createdAt desc` la thu tu mac dinh cu — giu nguyen de nguoi dung khong
+ * mat cai da quen. `defined(expiresAt) desc` trong kieu sap "sap het han" de offer
+ * KHONG co han khong tran len dau (GROQ xep null truoc gia tri).
+ */
+const SORT_ORDER: Record<string, string> = {
+  newest: 'store->_createdAt desc',
+  clicks: 'coalesce(clicks, 0) desc',
+  expiring: 'defined(expiresAt) desc, expiresAt asc',
+  title: 'title asc',
+}
+
+const PAGE_SIZES = [20, 50, 100]
+
+function parseSize(value: string | string[] | undefined): number {
+  const n = Number(paramStr(value))
+  return PAGE_SIZES.includes(n) ? n : PAGE_SIZES[0]
+}
+
 export default async function AdminOffersPage({
   searchParams,
 }: {
@@ -13,9 +49,11 @@ export default async function AdminOffersPage({
 }) {
   const sp = await searchParams
   const page = parsePage(sp.page)
+  const size = parseSize(sp.size)
   const q = paramStr(sp.q)
   const store = paramStr(sp.store)
   const status = paramStr(sp.status)
+  const sort = SORT_ORDER[paramStr(sp.sort)] ? paramStr(sp.sort) : 'newest'
   const from = paramStr(sp.from)
   const to = paramStr(sp.to)
 
@@ -23,15 +61,21 @@ export default async function AdminOffersPage({
   const params: Record<string, unknown> = {}
 
   if (q) {
-    conditions.push('title match $q')
+    // Tim ca ma giam gia va noi dung uu dai, khong chi tieu de: nguoi van hanh
+    // thuong nho "SAVE20" chu khong nho ten offer da dat la gi.
+    conditions.push('(title match $q || couponCode match $q || offerText match $q)')
     params.q = `*${q}*`
   }
   if (store) {
     conditions.push('store._ref == $store')
     params.store = store
   }
-  if (status === 'active') conditions.push('active == true')
-  if (status === 'inactive') conditions.push('active != true')
+  if (STATUS_CONDITION[status]) {
+    conditions.push(`(${STATUS_CONDITION[status]})`)
+    if (status === 'expiring') {
+      params.inSevenDays = new Date(new Date().getTime() + 7 * 86400000).toISOString()
+    }
+  }
   if (from) {
     conditions.push('_createdAt >= $from')
     params.from = `${from}T00:00:00.000Z`
@@ -42,11 +86,12 @@ export default async function AdminOffersPage({
   }
 
   const filter = conditions.join(' && ')
-  const { start, end } = pageRange(page)
+  const { start, end } = pageRange(page, size)
 
-  const LIST_QUERY = `*[${filter}] | order(store->_createdAt desc) [${start}...${end}] {
+  const LIST_QUERY = `*[${filter}] | order(${SORT_ORDER[sort]}) [${start}...${end}] {
     _id, title, active, "verified": coalesce(verified, true), "order": coalesce(order, 0),
     couponCode, link, offerText, description, expiresAt, _createdAt,
+    "clicks": coalesce(clicks, 0), "linkStatus": coalesce(linkStatus, "unchecked"),
     "store": store->{ _id, name, "slug": slug.current }
   }`
   const COUNT_QUERY = `count(*[${filter}])`
@@ -62,9 +107,11 @@ export default async function AdminOffersPage({
       offers={offers ?? []}
       stores={stores ?? []}
       page={page}
-      totalPages={totalPagesFor(total)}
+      pageSize={size}
+      pageSizes={PAGE_SIZES}
+      totalPages={totalPagesFor(total, size)}
       total={total}
-      filters={{ q, store, status, from, to }}
+      filters={{ q, store, status, sort, from, to }}
     />
   )
 }

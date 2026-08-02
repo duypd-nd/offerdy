@@ -1,5 +1,8 @@
 import { client as readClient } from '@/sanity/client'
 import Link from 'next/link'
+import { getAdminWorkQueue } from '@/lib/adminWorkQueue'
+import { getRecentSentryIssues } from '@/lib/sentryApi'
+import { getGa4Traffic } from '@/lib/ga4'
 
 export const dynamic = 'force-dynamic'
 
@@ -104,12 +107,21 @@ const TYPE_HREF: Record<string, string> = {
   store: '/admin/stores', deal: '/admin/deals', post: '/admin/posts',
   review: '/admin/reviews', offer: '/admin/offers', page: '/admin/pages',
 }
+// Chi 3 man danh sach nay doc `?q=` (xem page.tsx cua tung man). Voi cac loai
+// con lai, gan them `?q=` chi tao ra mot dia chi trong ma khong loc gi — bam vao
+// tuong da tim thay muc do roi hoa ra danh sach y nguyen.
+const TYPE_SEARCHABLE = new Set(['store', 'offer'])
 
 export default async function AdminDashboard() {
+  const now = new Date()
   const [
+    queue, sentryIssues, traffic,
     stores, offers, flashSales, couponCodes, deals, categories,
     allPosts, comparisons, tipsGuides, reviews, pages, recent,
   ] = await Promise.all([
+    getAdminWorkQueue(now),
+    getRecentSentryIssues(10),
+    getGa4Traffic(now),
     readClient.fetch<number>(`count(*[_type == "store" && published != false])`),
     readClient.fetch<number>(`count(*[_type == "offer" && active == true])`),
     readClient.fetch<number>(`count(*[_type == "offer" && active == true && defined(expiresAt) && expiresAt > now()])`),
@@ -129,20 +141,55 @@ export default async function AdminDashboard() {
   ])
 
   return (
-    <div style={{ padding: '32px 28px', maxWidth: 1200 }}>
+    <div className="adm-page" style={{ maxWidth: 1200 }}>
 
       {/* ── Header ── */}
-      <div style={{ marginBottom: 32 }}>
+      <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>Dashboard</h1>
-        <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>Quản lý toàn bộ nội dung Offerdy</p>
+        <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>Việc cần làm hôm nay, rồi mới đến kho nội dung</p>
       </div>
+
+      {/* ── Hôm nay ──
+          Con so kinh doanh phai la thu DAU TIEN nhin thay. Truoc day mo /admin ra
+          chi thay "84 store, 326 offer" — dem kho chu khong dem tien, con so click
+          nam sau mot lop menu. */}
+      <DashSection dot="#16a34a" label="Hôm nay">
+        <div className="adm-task-grid">
+          {/* Luot xem la MAU SO cua moi con so click ben canh — dat truoc de doc
+              theo dung thu tu: co bao nhieu nguoi vao, roi bao nhieu nguoi bam. */}
+          {traffic && (
+            <TaskCard href="/admin/reports" count={traffic.today} label="Lượt xem trang hôm nay" hint="Google Analytics 4" tone="green" zeroIsFine />
+          )}
+          <TaskCard href="/admin/reports" count={queue.clicksToday} label="Click affiliate hôm nay" hint="tính theo giờ VN" tone="green" zeroIsFine />
+          <TaskCard href="/admin/reports" count={queue.clicks7d} label="Click 7 ngày qua" hint="xem báo cáo đầy đủ" tone="green" zeroIsFine />
+          <TaskCard href="/admin/reports" count={sentryIssues.length} label="Lỗi production chưa xử lý" hint="Sentry — chi tiết ở Báo cáo" tone="red" />
+        </div>
+      </DashSection>
+
+      {/* ── Việc cần làm ──
+          Moi the la mot cau hoi "con bao nhieu muc dang sai" + duong dan thang toi
+          danh sach DA LOC san dung nhung muc do. So 0 van hien (mo di) chu khong
+          an: bien mat thi khong phan biet duoc "het viec" voi "hong truy van". */}
+      <DashSection dot="#f59e0b" label="Cần xử lý">
+        <div className="adm-task-grid">
+          <TaskCard href="/admin/ai-review" count={queue.pendingTotal} label="Nội dung AI chờ duyệt" hint={`${queue.pendingStores} store · ${queue.pendingOffers} offer · ${queue.pendingDeals} deal`} tone="amber" />
+          <TaskCard href="/admin/offers?status=expired" count={queue.expiredOffers} label="Offer đã hết hạn" hint="vẫn đang hiện trên web" tone="red" />
+          <TaskCard href="/admin/offers?status=expiring" count={queue.expiringOffers} label="Offer hết hạn trong 7 ngày" hint="gia hạn hoặc thay mã" tone="amber" />
+          <TaskCard href="/admin/offers?status=broken" count={queue.brokenLinks} label="Offer link hỏng" hint="mất click thật sự" tone="red" />
+          <TaskCard href="/admin/offers?status=nodesc" count={queue.missingDescription} label="Offer thiếu mô tả" hint="ảnh hưởng SEO và tỷ lệ bấm" tone="amber" />
+          <TaskCard href="/admin/offers?status=unverified" count={queue.unverifiedOffers} label="Offer chưa verified" hint="không hiện badge ✓" tone="amber" />
+          <TaskCard href="/admin/coupon-alerts" count={queue.pendingAlerts} label="Đăng ký chờ gửi mã" hint="khách đã để lại email" tone="amber" />
+        </div>
+      </DashSection>
 
       {/* ── Offers & Deals ── */}
       <DashSection dot="#f59e0b" label="Offers &amp; Deals">
         <StatGrid>
           <StatCard href="/admin/stores"       icon={I.store}    label="Stores"        count={stores}     color="#2563eb" bg="#eff6ff" />
           <StatCard href="/admin/offers"       icon={I.offer}    label="Active Offers" count={offers}     color="#7c3aed" bg="#f5f3ff" />
-          <StatCard href="/admin/flash-sales"  icon={I.flash}    label="Flash Sales"   count={flashSales} color="#dc2626" bg="#fef2f2" sub="đang hết hạn" />
+          {/* Truy van dem offer dang bat VA con han — nhan "dang het han" cu doc
+              nguoc lai thanh "so offer da chet", tuc hieu sai dau. */}
+          <StatCard href="/admin/flash-sales"  icon={I.flash}    label="Flash Sales"   count={flashSales} color="#dc2626" bg="#fef2f2" sub="còn hạn, đang chạy" />
           <StatCard href="/admin/coupon-codes" icon={I.coupon}   label="Coupon Codes"  count={couponCodes} color="#d97706" bg="#fffbeb" />
           <StatCard href="/admin/deals"        icon={I.deal}     label="Deals"         count={deals}      color="#0891b2" bg="#ecfeff" />
           <StatCard href="/admin/categories"   icon={I.category} label="Categories"    count={categories} color="#db2777" bg="#fdf2f8" />
@@ -172,7 +219,7 @@ export default async function AdminDashboard() {
             { href: '/admin/config/social',  icon: I.social,   label: 'Mạng xã hội' },
             { href: '/admin/import',         icon: I.download, label: 'Import Excel' },
           ].map(c => (
-            <Link key={c.href} href={c.href} style={{
+            <Link key={c.href} href={c.href} className="adm-hoverable" style={{
               display: 'flex', alignItems: 'center', gap: 10,
               background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
               padding: '10px 14px', textDecoration: 'none', color: '#374151',
@@ -192,7 +239,7 @@ export default async function AdminDashboard() {
 
       {/* ── Recent activity ── */}
       <DashSection label="Cập nhật gần đây" clock>
-        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+        <div className="adm-scroll-x" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
@@ -222,7 +269,14 @@ export default async function AdminDashboard() {
                     </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right' }}>
                       {TYPE_HREF[item._type] && (
-                        <Link href={TYPE_HREF[item._type]} style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', textDecoration: 'none' }}>
+                        <Link
+                          href={
+                            TYPE_SEARCHABLE.has(item._type) && item.name
+                              ? `${TYPE_HREF[item._type]}?q=${encodeURIComponent(item.name)}`
+                              : TYPE_HREF[item._type]
+                          }
+                          style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', textDecoration: 'none' }}
+                        >
                           Quản lý
                         </Link>
                       )}
@@ -271,6 +325,37 @@ function DashSection({ dot, label, clock, children }: {
   )
 }
 
+const TASK_TONE = {
+  red:   { color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+  amber: { color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+  green: { color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+} as const
+
+/**
+ * Mot viec dang cho + duong dan thang toi danh sach da loc san.
+ *
+ * `zeroIsFine` phan biet hai loai the khac han nhau: "0 offer het han" la TIN
+ * TOT (to mo di), con "0 click hom nay" chi la mot so lieu — to no mau do se
+ * bien mot ngay vang khach thanh mot bao dong gia.
+ */
+function TaskCard({ href, count, label, hint, tone, zeroIsFine }: {
+  href: string; count: number; label: string; hint: string
+  tone: keyof typeof TASK_TONE; zeroIsFine?: boolean
+}) {
+  const active = count > 0 && !zeroIsFine
+  const t = TASK_TONE[tone]
+  return (
+    <Link href={href} className="adm-task" style={{
+      background: active ? t.bg : '#fff',
+      borderColor: active ? t.border : '#e5e7eb',
+    }}>
+      <span className="adm-task-count" style={{ color: count > 0 ? t.color : '#cbd5e1' }}>{count}</span>
+      <span className="adm-task-label">{label}</span>
+      <span className="adm-task-hint">{hint}</span>
+    </Link>
+  )
+}
+
 function StatGrid({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 10 }}>
@@ -284,7 +369,7 @@ function StatCard({ href, icon, label, sub, count, color, bg }: {
   count: number; color: string; bg: string
 }) {
   return (
-    <Link href={href} style={{
+    <Link href={href} className="adm-hoverable" style={{
       display: 'flex', alignItems: 'center', gap: 14,
       background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12,
       padding: '14px 18px', textDecoration: 'none',

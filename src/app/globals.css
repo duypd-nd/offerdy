@@ -751,6 +751,11 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .oa-store-sel{width:140px}
 .oa-inline-num{height:30px;width:56px;padding:0 6px;border:1px solid #d1d5db;border-radius:5px;font-size:12px;text-align:center;outline:none}
 .oa-td-date{font-size:12px;color:#6b7280;white-space:nowrap}
+/* cot Click / Han + nhan canh bao trong o ten offer */
+.oa-th-clicks,.oa-td-clicks{width:64px;text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+.oa-th-exp,.oa-td-exp{width:92px;font-size:12px;font-weight:600;white-space:nowrap}
+.oa-flag{font-size:10.5px;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:1px 5px;margin:3px 0 0 4px;display:inline-block}
+.oa-flag-red{color:#b91c1c;background:#fef2f2;border-color:#fecaca}
 .oa-row-btns{display:flex;gap:4px}
 .oa-row-link{width:28px;height:28px;background:#2563eb;color:white;border-radius:5px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0}
 .oa-row-link:hover{background:#1d4ed8}
@@ -758,7 +763,8 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .oa-row-del{width:28px;height:28px;background:#dc2626;color:white;border:none;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .oa-empty{text-align:center;padding:40px;color:#9ca3af;font-size:14px}
 .oa-footer{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;flex-wrap:wrap;gap:10px;border-top:1px solid #e5e7eb}
-.oa-count{font-size:13px;color:#6b7280}
+.oa-count{font-size:13px;color:#6b7280;display:flex;align-items:center;gap:10px}
+.oa-size-select{height:32px;width:auto;min-width:92px}
 .oa-pagination{display:flex;align-items:center;gap:4px}
 .oa-page-btn{min-width:36px;height:34px;padding:0 12px;border:1px solid #e5e7eb;border-radius:8px;background:white;font-size:13px;font-weight:500;cursor:pointer;color:#374151;display:inline-flex;align-items:center;justify-content:center;gap:4px;transition:all .15s}
 .oa-page-btn:hover:not(:disabled){background:#f9fafb;border-color:#6b7280;color:#111827}
@@ -934,7 +940,7 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 }
 
 /* ── ADMIN SIDEBAR LAYOUT ── */
-.adm-root{display:flex;min-height:100vh}
+.adm-root{display:flex;min-height:100vh;font-family:system-ui,sans-serif}
 .adm-sidebar{width:228px;background:#0f172a;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
 .adm-logo{display:block;padding:18px 16px 16px;font-size:17px;font-weight:800;color:white;letter-spacing:-.5px;text-decoration:none}
 .adm-logo span{color:#4ade80}
@@ -957,11 +963,82 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .adm-link.active{color:#4ade80;background:rgba(74,222,128,.08);font-weight:600}
 .adm-link-icon{font-size:14px;line-height:1;flex-shrink:0;opacity:.75;width:18px;text-align:center}
 .adm-link.active .adm-link-icon{opacity:1}
+.adm-link-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* huy hieu so viec dang cho — chi hien khi > 0 */
+.adm-badge{flex-shrink:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;font-size:11px;font-weight:800;line-height:18px;text-align:center;font-variant-numeric:tabular-nums}
+.adm-badge--amber{background:#f59e0b;color:#3b1d00}
+.adm-badge--red{background:#ef4444;color:#fff}
 
 .adm-sidebar-footer{padding:10px 14px 16px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:6px}
 .adm-back-link{font-size:12px;color:rgba(255,255,255,.35);text-decoration:none;display:flex;align-items:center;gap:5px;transition:color .15s;padding:2px 0}
 .adm-back-link:hover{color:rgba(255,255,255,.7)}
 .adm-main{flex:1;overflow-x:hidden;min-width:0;background:#f4f6f9}
+
+/* khung trang admin viet bang JSX inline (dashboard, bao cao, link-checker) */
+.adm-page{padding:32px 28px}
+.adm-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.adm-stat-row-5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.adm-two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.adm-health-grid{display:grid;grid-template-columns:100px 1fr 1fr;gap:20px}
+@media(max-width:900px){
+  .adm-page{padding:20px 14px}
+  .adm-stat-row,.adm-stat-row-5{grid-template-columns:repeat(2,1fr)}
+  .adm-two-col,.adm-health-grid{grid-template-columns:1fr}
+}
+
+/* the "viec can lam" tren dashboard */
+.adm-task-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.adm-task{display:block;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;text-decoration:none;transition:border-color .12s,box-shadow .12s,transform .12s}
+.adm-task:hover{border-color:#94a3b8;box-shadow:0 4px 14px rgba(15,23,42,.07);transform:translateY(-1px)}
+.adm-task-count{display:block;font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.adm-task-label{display:block;font-size:13px;font-weight:600;color:#374151;margin-top:5px}
+.adm-task-hint{display:block;font-size:11px;color:#94a3b8;margin-top:2px}
+/* Cac the con lai cua dashboard viet bang inline style nen khong nhan duoc
+   `:hover` — chi can mot lop nay de chung phan hoi lai con tro nhu the viec. */
+.adm-hoverable{transition:border-color .12s,box-shadow .12s,transform .12s}
+.adm-hoverable:hover{border-color:#94a3b8 !important;box-shadow:0 4px 14px rgba(15,23,42,.07);transform:translateY(-1px)}
+
+/* ── ADMIN TREN DIEN THOAI ──
+   Thanh ben rong 228px co dinh chiem hon nua man hinh 390px, va bang offer bi
+   nen thanh mot chu moi dong — khu quan tri truoc day khong dung duoc tren dien
+   thoai. Duoi 900px: thanh ben thanh ngan keo, bang cuon ngang trong khung cua
+   no chu KHONG day ca trang chay ngang. */
+.adm-topbar{display:none}
+.adm-scrim{display:none}
+@media(max-width:900px){
+  .adm-root{display:block}
+  .adm-topbar{display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:60;background:#0f172a;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .adm-burger{display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:none;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer}
+  .adm-topbar-logo{flex:1;min-width:0;font-size:16px;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.4px}
+  .adm-topbar-logo span{color:#4ade80}
+  .adm-sidebar{position:fixed;top:0;left:0;bottom:0;z-index:80;width:262px;height:100dvh;transform:translateX(-100%);transition:transform .2s ease}
+  .adm-sidebar--open{transform:none}
+  .adm-scrim{display:block;position:fixed;inset:0;z-index:70;border:none;padding:0;background:rgba(2,6,23,.55);cursor:pointer}
+  /* 100dvh chu khong phai 100vh: tren dien thoai thanh dia chi an/hien lam 100vh
+     tinh du ra mot khoang bang chinh no, sinh vung trang o cuoi moi trang. */
+  .adm-main{min-height:calc(100dvh - 57px)}
+  /* `auto-fill minmax(190px,…)` roi xuong con 1 cot o 362px — 10 the xep doc
+     thanh mot cot dai la phai cuon rat lau moi thay het viec. Hai cot vua du. */
+  .adm-task-grid{grid-template-columns:repeat(2,1fr)}
+  /* Bang "cap nhat gan day" cua dashboard cat ten con "Fr…" o be ngang nay.
+     Cho cuon ngang thay vi hien mot cot vo nghia. */
+  .adm-scroll-x{overflow-x:auto}
+  .adm-scroll-x>table{min-width:640px}
+
+  /* Bang du lieu: dua le trang ve sat mep de o thuc su co cho tho */
+  .oa-header,.oa-toolbar,.oa-footer{padding-left:14px;padding-right:14px}
+  .oa-table-wrap{margin:14px 14px 0}
+  /* Bang co 11 cot — ep vua 390px se lam moi o rong mot chu. Cho cuon ngang
+     ben trong khung, la cach doc duy nhat con giu duoc y nghia cua tung dong.
+     Cot thu 3 (ten) phai duoc dat san be rong: neu khong, trinh duyet coi chu
+     co the xuong dong nen bop no lai con mot tu moi dong dung nhu truoc. */
+  .oa-table{min-width:1080px}
+  .oa-table th:nth-child(3),.oa-table td:nth-child(3){min-width:250px}
+  .oa-search,.oa-select{flex:1;min-width:120px}
+  .oa-actions{width:100%}
+  .oa-actions .oa-btn{flex:1;justify-content:center}
+}
 
 /* ── ADMIN DASHBOARD ── */
 .adm-dash{padding:32px 28px}

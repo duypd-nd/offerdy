@@ -5,17 +5,49 @@ import { useRouter } from 'next/navigation'
 import { updateOffer, deleteOffer, bulkDelete, createOffer } from './actions'
 import AdminPagination from '../_components/AdminPagination'
 import { useAdminUrlState } from '../_components/useAdminUrlState'
-import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 import { isoToAdminInput, adminInputToIso, ADMIN_TIMEZONE_LABEL } from '@/lib/adminDateTime'
 
 type AdminOffer = {
   _id: string; title: string; active: boolean; verified: boolean
   order: number; couponCode?: string; link: string; offerText: string
   description?: string; expiresAt?: string; _createdAt: string
+  clicks: number; linkStatus: string
   store: { _id: string; name: string; slug?: string }
 }
 type AdminStore = { _id: string; name: string }
-type OfferFilters = { q: string; store: string; status: string; from: string; to: string }
+type OfferFilters = { q: string; store: string; status: string; sort: string; from: string; to: string }
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'Tất cả trạng thái' },
+  { value: 'active', label: 'Đang hiện' },
+  { value: 'inactive', label: 'Đang ẩn' },
+  { value: 'expired', label: '⏰ Đã hết hạn' },
+  { value: 'expiring', label: '⏳ Hết hạn ≤ 7 ngày' },
+  { value: 'broken', label: '🔗 Link hỏng' },
+  { value: 'nodesc', label: '📝 Thiếu mô tả' },
+  { value: 'unverified', label: '✗ Chưa verified' },
+]
+
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Mặc định (store mới nhất)' },
+  { value: 'clicks', label: 'Click nhiều nhất' },
+  { value: 'expiring', label: 'Sắp hết hạn trước' },
+  { value: 'title', label: 'Tên A → Z' },
+]
+
+/**
+ * Con han bao lau — hien ngay tren bang thay vi phai mo tung offer ra xem.
+ * Tra ve `null` khi offer khong co han (phan lon offer thuong xuyen), de o do
+ * trong thay vi mot dau gach lam ram ca cot.
+ */
+function expiryLabel(iso?: string): { text: string; color: string } | null {
+  if (!iso) return null
+  const days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000)
+  if (days < 0) return { text: 'Đã hết hạn', color: '#dc2626' }
+  if (days === 0) return { text: 'Hết hôm nay', color: '#dc2626' }
+  if (days <= 7) return { text: `${days} ngày`, color: '#d97706' }
+  return { text: `${days} ngày`, color: '#94a3b8' }
+}
 
 function StoreSearchInput({ stores, value, onChange, allLabel }: {
   stores: AdminStore[]; value: string; onChange: (id: string) => void
@@ -74,9 +106,10 @@ function StoreSearchInput({ stores, value, onChange, allLabel }: {
   )
 }
 
-export default function OfferAdmin({ offers: initialOffers, stores, page, totalPages, total, filters }: {
+export default function OfferAdmin({ offers: initialOffers, stores, page, pageSize, pageSizes, totalPages, total, filters }: {
   offers: AdminOffer[]; stores: AdminStore[]
-  page: number; totalPages: number; total: number; filters: OfferFilters
+  page: number; pageSize: number; pageSizes: number[]
+  totalPages: number; total: number; filters: OfferFilters
 }) {
   const router = useRouter()
   const { setParams } = useAdminUrlState()
@@ -157,12 +190,13 @@ export default function OfferAdmin({ offers: initialOffers, stores, page, totalP
 
       <div className="oa-toolbar">
         <div className="oa-filters">
-          <input className="oa-search" placeholder="Tìm kiếm..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+          <input className="oa-search" placeholder="Tìm tên, mã, nội dung..." value={searchInput} onChange={e => setSearchInput(e.target.value)} />
           <StoreSearchInput stores={stores} value={filters.store || 'all'} onChange={id => setParams({ store: id === 'all' ? null : id })} allLabel="Tất cả store" />
           <select className="oa-select" value={filters.status || 'all'} onChange={e => setParams({ status: e.target.value === 'all' ? null : e.target.value })}>
-            <option value="all">Tất cả trạng thái</option>
-            <option value="active">Đang hiện</option>
-            <option value="inactive">Đang ẩn</option>
+            {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <select className="oa-select" title="Sắp xếp" value={filters.sort} onChange={e => setParams({ sort: e.target.value === 'newest' ? null : e.target.value })}>
+            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>↕ {o.label}</option>)}
           </select>
           <input className="oa-select" type="date" title="Từ ngày" value={filters.from} onChange={e => setParams({ from: e.target.value || null })} />
           <input className="oa-select" type="date" title="Đến ngày" value={filters.to} onChange={e => setParams({ to: e.target.value || null })} />
@@ -200,6 +234,11 @@ export default function OfferAdmin({ offers: initialOffers, stores, page, totalP
               <th className="oa-th-check"><input type="checkbox" checked={selected.size === offers.length && offers.length > 0} onChange={toggleAll} /></th>
               <th className="oa-th-num">#</th>
               <th>Tên Offer</th>
+              {/* Hai cot quan trong nhat ma bang nay tung khong co: offer nao RA
+                  TIEN, va offer nao sap chet. Thieu chung thi noi sua offer va
+                  noi biet offer do co dang gia hay khong la hai man khac nhau. */}
+              <th className="oa-th-clicks" title="Lượt bấm Get Code / Get Deal">Click</th>
+              <th className="oa-th-exp">Hạn</th>
               <th>Duyệt</th>
               <th>Verified</th>
               <th>Store</th>
@@ -212,10 +251,21 @@ export default function OfferAdmin({ offers: initialOffers, stores, page, totalP
             {offers.map((o, i) => (
               <tr key={o._id} className={selected.has(o._id) ? 'oa-row-sel' : ''}>
                 <td className="oa-td-check"><input type="checkbox" checked={selected.has(o._id)} onChange={() => toggleSelect(o._id)} /></td>
-                <td className="oa-td-num">{(page - 1) * ADMIN_PAGE_SIZE + i + 1}</td>
+                <td className="oa-td-num">{(page - 1) * pageSize + i + 1}</td>
                 <td>
                   <button className="oa-name-btn" onClick={() => setEditingOffer(o)}>{o.title}</button>
                   {o.couponCode && <span className="oa-code">🏷 {o.couponCode}</span>}
+                  {/* Khi dang loc dung theo mot van de thi nhan cua van de do lap
+                      lai o CA 118 dong — het bao dong, chi con nhieu. */}
+                  {o.linkStatus === 'broken' && filters.status !== 'broken' && <span className="oa-flag oa-flag-red" title="Link đã kiểm tra và bị hỏng">🔗 link hỏng</span>}
+                  {!o.description && filters.status !== 'nodesc' && <span className="oa-flag" title="Chưa có mô tả chi tiết">📝 thiếu mô tả</span>}
+                </td>
+                <td className="oa-td-clicks" style={{ color: o.clicks > 0 ? '#16a34a' : '#cbd5e1' }}>{o.clicks}</td>
+                <td className="oa-td-exp">
+                  {(() => {
+                    const e = expiryLabel(o.expiresAt)
+                    return e ? <span style={{ color: e.color }}>{e.text}</span> : <span style={{ color: '#e2e8f0' }}>∞</span>
+                  })()}
                 </td>
                 <td>
                   <select className="oa-inline-sel" value={o.active ? '1' : '0'} onChange={e => handleField(o._id, 'active', e.target.value === '1')}>
@@ -248,14 +298,24 @@ export default function OfferAdmin({ offers: initialOffers, stores, page, totalP
                 </td>
               </tr>
             ))}
-            {offers.length === 0 && <tr><td colSpan={9} className="oa-empty">Không tìm thấy offer nào</td></tr>}
+            {offers.length === 0 && <tr><td colSpan={11} className="oa-empty">Không tìm thấy offer nào</td></tr>}
           </tbody>
         </table>
       </div>
 
       <div className="oa-footer">
         <div className="oa-count">
-          {total > 0 ? `${(page - 1) * ADMIN_PAGE_SIZE + 1}–${Math.min(page * ADMIN_PAGE_SIZE, total)} / ${total} offer` : '0 offer'}
+          {total > 0 ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} / ${total} offer` : '0 offer'}
+          {/* 326 offer chia 20 dong = 17 trang. Cho chon 100 dong bien viec ra
+              soat ca kho tu 17 lan bam trang xuong con 4. */}
+          <select
+            className="oa-select oa-size-select"
+            title="Số dòng mỗi trang"
+            value={pageSize}
+            onChange={e => setParams({ size: e.target.value === String(pageSizes[0]) ? null : e.target.value })}
+          >
+            {pageSizes.map(s => <option key={s} value={s}>{s} dòng</option>)}
+          </select>
         </div>
         <AdminPagination page={page} totalPages={totalPages} />
       </div>

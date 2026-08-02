@@ -4,6 +4,7 @@ import { getRecentSentryIssues } from '@/lib/sentryApi'
 import { getMerchantHealthData, getLatestDailyReport } from '@/sanity/queries'
 import { computeStoreHealth, HEALTH_LEVEL_COLOR, HEALTH_LEVEL_LABEL as LEVEL_LABEL } from '@/lib/merchantHealth'
 import { SOURCE_LABEL, type ShortLinkSource } from '@/lib/shortLinkSource'
+import { getGa4Traffic } from '@/lib/ga4'
 import RegenerateButton from './RegenerateButton'
 
 export const dynamic = 'force-dynamic'
@@ -76,7 +77,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport, deepLinkStats] = await Promise.all([
+  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport, deepLinkStats, traffic] = await Promise.all([
     readClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -130,6 +131,7 @@ export default async function ReportsPage() {
         "shallowClicks": count(*[_type == "click" && kind != "shortlink" && deepLink == false])
       }`
     ),
+    getGa4Traffic(now),
   ])
 
   // Bao cao AI qua han. 48h chu khong phai 24h: cron chay 1 lan/ngay va Vercel
@@ -261,7 +263,7 @@ export default async function ReportsPage() {
     .sort((a, b) => b.clicks - a.clicks)
 
   return (
-    <div style={{ padding: '32px 28px', maxWidth: 1100 }}>
+    <div className="adm-page" style={{ maxWidth: 1100 }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>Báo cáo Click</h1>
         <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0' }}>
@@ -336,11 +338,70 @@ export default async function ReportsPage() {
       </div>
 
       {/* ── Thống kê theo thời gian (số liệu chính của báo cáo) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 24 }}>
+      <div className="adm-stat-row" style={{ marginBottom: 24 }}>
         <StatCard label="Hôm nay" value={todayCount} />
         <StatCard label="7 ngày qua" value={sevenDayCount} />
         <StatCard label="30 ngày qua" value={thirtyDayCount} />
         <StatCard label="Tất cả thời gian" value={allTimeCount} highlight />
+      </div>
+
+      {/* ── Lượt xem trang (GA4) — MẪU SỐ cho mọi con số click ở trên ──
+          Truoc day ca trang bao cao chi co tu so: "33 click" ma khong biet bao
+          nhieu nguoi da vao site, nen khong the noi con so do la tot hay te. */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: 13, fontWeight: 700, color: '#374151' }}>
+            👁 Lượt xem trang <span style={{ fontWeight: 500, color: '#94a3b8' }}>— Google Analytics 4</span>
+          </div>
+
+          {!traffic ? (
+            // Chua cau hinh thi noi ro CACH bat, khong hien so 0: "chua do" va
+            // "khong ai vao" nhin giong nhau se dan toi ket luan sai.
+            <div style={{ padding: 16, fontSize: 12.5, color: '#6b7280', lineHeight: 1.8 }}>
+              Chưa bật đọc GA4 — site vẫn đang thu thập qua GTM, chỉ là admin chưa đọc lại được.
+              Để bật: tạo <strong>service account</strong> trong Google Cloud, bật <strong>Google Analytics Data API</strong>,
+              thêm email service account đó làm <strong>Viewer</strong> của property GA4, rồi đặt 3 biến môi trường
+              {' '}<code style={{ background: '#f6f8fb', padding: '1px 5px', borderRadius: 4 }}>GA4_PROPERTY_ID</code>,
+              {' '}<code style={{ background: '#f6f8fb', padding: '1px 5px', borderRadius: 4 }}>GA4_CLIENT_EMAIL</code>,
+              {' '}<code style={{ background: '#f6f8fb', padding: '1px 5px', borderRadius: 4 }}>GA4_PRIVATE_KEY</code>.
+            </div>
+          ) : (
+            <div style={{ padding: 16 }}>
+              <div className="adm-stat-row" style={{ marginBottom: 16 }}>
+                <StatCard label="Xem hôm nay" value={traffic.today} />
+                <StatCard label="Xem 7 ngày qua" value={traffic.last7d} />
+                <StatCard label="Xem 30 ngày qua" value={traffic.last30d} />
+                <RateCard
+                  label="Bấm affiliate / lượt xem"
+                  clicks={thirtyDayCount}
+                  views={traffic.last30d}
+                />
+              </div>
+
+              {traffic.topPages.length > 0 && (
+                <div style={{ paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 8 }}>
+                    <span>Trang được xem nhiều nhất (30 ngày)</span>
+                    <span style={{ color: '#94a3b8' }}>lượt xem</span>
+                  </div>
+                  {traffic.topPages.map(p => (
+                    <div key={p.path} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12, marginBottom: 5 }}>
+                      <a href={p.path} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.path}
+                      </a>
+                      <strong style={{ color: '#0f172a', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{p.views}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f8fafc', fontSize: 11, color: '#94a3b8', lineHeight: 1.6 }}>
+                GA4 chặn bot theo cách riêng và số click ở trên đếm ở phía server, nên hai nguồn không bao giờ khớp tuyệt đối.
+                Tỷ lệ trên chỉ dùng để so sánh giữa các tháng với nhau, đừng đọc như một con số tuyệt đối.
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Deep link: độ phủ + tỷ trọng click. KHÔNG phải tỷ lệ chuyển đổi ── */}
@@ -399,7 +460,7 @@ export default async function ReportsPage() {
               Thêm <code style={{ background: '#f6f8fb', padding: '1px 4px', borderRadius: 3 }}>?s=tên-bài</code> vào cuối link để tách số liệu từng bài đăng.
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: shortLinkAllTime > 0 ? 18 : 0 }}>
+            <div className="adm-stat-row-5" style={{ marginBottom: shortLinkAllTime > 0 ? 18 : 0 }}>
               <StatCard label="Hôm nay" value={shortLinkToday} />
               <StatCard label="7 ngày qua" value={shortLink7d} />
               <StatCard label="30 ngày qua" value={shortLink30d} />
@@ -522,7 +583,11 @@ export default async function ReportsPage() {
               <tbody>
                 {sentryIssues.map((issue, i) => (
                   <tr key={issue.id} style={{ borderTop: i > 0 ? '1px solid #f1f5f9' : undefined }}>
-                    <td style={{ padding: '10px 16px', fontSize: 13, color: '#1e293b', fontWeight: 500, maxWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {/* Cho XUONG DONG chu khong cat bang ellipsis: `maxWidth: 0`
+                        + nowrap bop moi tieu de con "Error: An error …", tuc bang
+                        nay khong con noi duoc loi nao la loi gi — dung thu duy
+                        nhat ma no ton tai de tra loi. */}
+                    <td style={{ padding: '10px 16px', fontSize: 13, color: '#1e293b', fontWeight: 500, lineHeight: 1.45, wordBreak: 'break-word' }}>
                       <a href={issue.permalink} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', textDecoration: 'none' }}>{issue.title}</a>
                       {issue.culprit && <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {issue.culprit}</span>}
                     </td>
@@ -548,7 +613,7 @@ export default async function ReportsPage() {
               <span>📈 Platform Health — {healthData.length} store</span>
               <Link href="/admin/merchant-health" style={{ fontSize: 12, color: '#16a34a', textDecoration: 'underline' }}>Xem chi tiết →</Link>
             </div>
-            <div style={{ padding: 16, display: 'grid', gridTemplateColumns: '100px 1fr 1fr', gap: 20 }}>
+            <div className="adm-health-grid" style={{ padding: 16 }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 32, fontWeight: 800, color: HEALTH_LEVEL_COLOR[avgHealth >= 80 ? 'Healthy' : avgHealth >= 60 ? 'Poor' : 'Critical'] }}>{avgHealth}</div>
                 <div style={{ fontSize: 11, color: '#94a3b8' }}>Điểm TB</div>
@@ -616,7 +681,7 @@ export default async function ReportsPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div className="adm-two-col" style={{ marginBottom: 20 }}>
         <ReportTable
           title="Top Store được click nhiều nhất (tất cả thời gian)"
           emptyText="Chưa có lượt click nào"
@@ -638,7 +703,7 @@ export default async function ReportsPage() {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="adm-two-col">
         <ReportTable
           title="Top Store được click nhiều nhất (30 ngày qua)"
           emptyText="Chưa có lượt click nào trong 30 ngày qua"
@@ -672,6 +737,23 @@ function StatCard({ label, value, highlight }: { label: string; value: number; h
     }}>
       <div style={{ fontSize: 24, fontWeight: 800, color: highlight ? '#16a34a' : '#0f172a', lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{label}</div>
+    </div>
+  )
+}
+
+/**
+ * Ty le bam tren luot xem. Mau so bang 0 thi hien "—" chu khong phai 0% hay NaN:
+ * chua co ai vao trang thi cau hoi "bao nhieu phan tram bam" chua co nghia.
+ */
+function RateCard({ label, clicks, views }: { label: string; clicks: number; views: number }) {
+  const rate = views > 0 ? (clicks / views) * 100 : null
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '14px 16px' }}>
+      <div style={{ fontSize: 24, fontWeight: 800, color: rate === null ? '#cbd5e1' : '#0f172a', lineHeight: 1 }}>
+        {rate === null ? '—' : `${rate.toFixed(1)}%`}
+      </div>
+      <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{label}</div>
+      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>{clicks} / {views} · 30 ngày</div>
     </div>
   )
 }

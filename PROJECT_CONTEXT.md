@@ -61,8 +61,8 @@
 | `/[slug]` | ✅ Live | CMS-managed custom pages |
 
 ## Admin Pages (`/admin/...`)
-- **Dashboard** — inline-style stats cards (SVG icons, no emoji), 2 sections: Offers & Deals / Blog & Bài viết, config quick-links, recent activity table
-- **Sidebar nav** — 5 collapsible groups (Offers & Deals · Blog & Bài viết · Trang web · Pháp lý · Cấu hình), CSS dot indicator per group, emoji-free (SVG chevron), auto-opens active group
+- **Dashboard** — work first, inventory second. Top two rows are **Hôm nay** (GA4 pageviews, affiliate clicks today/7d, unresolved Sentry issues) and **Cần xử lý** (7 cards: AI review queue, expired offers, expiring ≤7d, broken links, missing description, unverified, pending coupon alerts). Every "Cần xử lý" card deep-links to the already-filtered list (`/admin/offers?status=…`). Below that: the original counter cards (Offers & Deals / Blog & Bài viết), config quick-links, recent activity. Counts come from `src/lib/adminWorkQueue.ts` — **one** GROQ query, `useCdn: false`, never throws (returns zeros on failure, because the sidebar consumes it on every admin page)
+- **Sidebar nav** — 5 collapsible groups (Offers & Deals · Blog & Bài viết · Trang web · Pháp lý · Cấu hình), CSS dot indicator per group, emoji-free (SVG chevron), auto-opens active group. Carries **badges** (AI review queue, pending coupon alerts, broken links) fed from `adminWorkQueue`; a collapsed group shows the sum of its children so folding a group never hides work. Badges render only when `> 0`
 - Deals, Stores, Categories, Offers, Posts, Reviews, Pages
 - About, Contact, Submit Deal, Partner, Terms, Privacy, Cookies, Affiliate Disclosure
 - Config: General, SEO, Social, Ads, Author, Content
@@ -74,6 +74,7 @@
 - **`/admin/merchant-health`** — 0-100 health score per store (Content 40% / SEO 20% / Affiliate 25% / Freshness 15%), sorted worst-first, links back to `/admin/stores`
 - **`/admin/seo-audit`** — deterministic (non-AI) audit: missing/duplicate meta title/description, missing FAQ, missing images, short excerpts
 - **`/admin/reports`** — "Platform Health" (avg score, broken links, stores needing attention) + AI Daily Report (Vietnamese summary + action items from Merchant Health + Sentry) + click analytics (top stores/offers, time-windowed) + Sentry unresolved issues + short-link/source breakdown. Has a **staleness banner** and a **"Tạo lại ngay"** button — see "Daily report staleness" below
+- **`/admin/offers` filters** — `?status=` accepts `active`, `inactive`, `expired`, `expiring` (≤7 days), `broken` (`linkStatus == "broken"`), `nodesc`, `unverified`; `?sort=` accepts `newest` (default, `store->_createdAt desc`), `clicks`, `expiring`, `title`; `?size=` accepts 20/50/100. The table shows **Click** and **Hạn** columns and flags rows with `🔗 link hỏng` / `📝 thiếu mô tả` (the flag is suppressed when the list is already filtered by that exact problem). Search matches `title`, `couponCode` **and** `offerText`. `unverified` uses `verified == false`, never `!= true` — offers predating the field have no `verified` at all
 - 9 list pages (stores/offers/coupon-codes/deals/flash-sales/comparisons/posts/reviews/tips-guides) + merchant-health use real URL pagination (`?page=N`; stores/offers/coupon-codes also put filters in the URL) via shared `src/lib/adminPagination.ts` + `src/app/admin/_components/{AdminPagination,useAdminUrlState,useUrlPage}` — do not reintroduce "load all then slice client-side"
 
 ## AI Engines (Anthropic Claude Sonnet 5 + Vercel Cron)
@@ -395,6 +396,22 @@ The four stat cards on `/admin/reports` all read from the **click log**. Do not 
 - Same fix applied in `getClickAnalyticsSummary()` (`allTimeClicks`), which feeds the AI daily report — it had the identical flaw.
 
 **Sanity reference gotcha**: strong references (default) block deletion of the referenced doc. `offer.store` is intentionally strong (real data integrity) but store deletion now cascades to delete its offers in one transaction rather than failing silently — see `src/app/admin/stores/actions.ts`. Analytics/log-only references (e.g. `click.offer`/`click.store`) use `_weak: true` (exact field name — `weak` is rejected by Sanity) since referential integrity doesn't matter there. When adding a new reference field, decide which case it is up front instead of defaulting to strong and discovering a deletion deadlock later.
+
+## Pageviews: read GA4, never count them ourselves (`src/lib/ga4.ts`)
+The report page had a numerator (clicks) and no denominator (visitors), so "33 clicks" could not be read as good or bad.
+
+- GTM is already on every page (`src/app/layout.tsx`), so **pageviews are already being collected**. Adding a second counter in Sanity would produce two different answers to one question — the exact trap documented in "Click totals: log vs counters" above. So the admin *reads GA4*, it does not count.
+- Auth is a **service account**, JWT signed inline with `node:crypto` (RS256) — no `@google-analytics/data` dependency for two REST calls. Needs `GA4_PROPERTY_ID`, `GA4_CLIENT_EMAIL`, `GA4_PRIVATE_KEY` (the private key arrives with literal `\n`; the module un-escapes it, otherwise OpenSSL just says "unsupported").
+- Not configured → returns **`null`**, not `0`. The UI then shows setup instructions. "Measurement is off" and "nobody visited" must never look the same.
+- The report response is cached `revalidate: 300`; the token request is `no-store`. Reading multiple `dateRanges` in one request returns rows keyed `date_range_0/1/2` — parse **by name**, not row order, or "today" can come out larger than "30 days".
+- `/admin/reports` also shows clicks ÷ pageviews over 30 days, with a note that GA4 filters bots differently from server-side click logging, so the two never match exactly.
+
+## Admin on a phone
+`.adm-sidebar` was a fixed 228px with no media query at all, so on a 390px screen it ate 60% of the viewport and the offer table collapsed to one word per line. Below **900px** (`globals.css`, the `ADMIN TREN DIEN THOAI` block):
+- sidebar becomes an off-canvas drawer (`.adm-sidebar--open`) behind a scrim, opened from `.adm-topbar`; it closes on any nav link click — **not** via `useEffect` on `usePathname`, because this repo's ESLint bans `set-state-in-effect`
+- data tables keep their real width (`.oa-table{min-width:1080px}`) and scroll horizontally inside `.oa-table-wrap`; the name column gets `min-width:250px` or the browser shrinks it back to one word per line
+- `.adm-page`, `.adm-stat-row`, `.adm-two-col`, `.adm-health-grid` replace the hard-coded inline `grid-template-columns` on the dashboard and report pages — inline styles cannot be overridden by a media query
+- heights use `100dvh`, not `100vh` (mobile address bar)
 
 ## Shared Components
 - `src/app/admin/_legal/LegalForm.tsx` — shared admin form for all 4 legal pages
