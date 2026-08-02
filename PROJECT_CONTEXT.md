@@ -406,6 +406,15 @@ The report page had a numerator (clicks) and no denominator (visitors), so "33 c
 - The report response is cached `revalidate: 300`; the token request is `no-store`. Reading multiple `dateRanges` in one request returns rows keyed `date_range_0/1/2` — parse **by name**, not row order, or "today" can come out larger than "30 days".
 - `/admin/reports` also shows clicks ÷ pageviews over 30 days, with a note that GA4 filters bots differently from server-side click logging, so the two never match exactly.
 
+## Images: cap them at the Sanity CDN, not only at `next/image` (`IMG` in `src/sanity/queries.ts`)
+`image.asset->url` returns the **original** asset. Measured on `/deals` at 390px/DPR2 over throttled 4G: one 1800×1800 JPEG arrived as **290KB** to fill a 220px card, and images were 514KB of a 1232KB page.
+
+- `next/image` was already in use with correct `sizes` on almost every render site, and it *does* work — but only for the paths that go through `/_next/image`. Three public pages use a raw `<img>` (deal / review / store detail), and the optimizer can fall back to the source URL, at which point nothing caps the size.
+- Fix: every public projection appends `?w=1200&auto=format&q=75` at the GROQ level, so the origin never hands out a 2048px original to anybody. `next/image` still resizes per viewport on top of it. This also means the optimizer downloads a small file to work on.
+- **1200** is the site's widest display (blog cover ≈760px CSS), with headroom for 1.5× screens. `auto=format` yields WebP/AVIF by `Accept`.
+- The constant carries its own GROQ quotes (`'"?w=…"'`) because GROQ concatenates strings: `url + "?w=…"`. Verified against the live dataset: `null + "…"` is `null`, so `coalesce(image.asset->url + IMG, externalImageUrl)` still falls through correctly for posts using an external image — **never** append these params to `externalImageUrl`, it points at someone else's domain.
+- Result: `/deals` 1232KB → **982KB**, images 514KB → 266KB. The remaining large block is GTM+GA4 at **284KB**, which is a business decision, not a bug.
+
 ## Admin on a phone
 `.adm-sidebar` was a fixed 228px with no media query at all, so on a 390px screen it ate 60% of the viewport and the offer table collapsed to one word per line. Below **900px** (`globals.css`, the `ADMIN TREN DIEN THOAI` block):
 - sidebar becomes an off-canvas drawer (`.adm-sidebar--open`) behind a scrim, opened from `.adm-topbar`; it closes on any nav link click — **not** via `useEffect` on `usePathname`, because this repo's ESLint bans `set-state-in-effect`

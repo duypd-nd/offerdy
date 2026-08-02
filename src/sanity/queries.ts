@@ -30,6 +30,29 @@ import { resolveOfferUrl } from '@/lib/affiliateUrl'
 import { couponForDealUrl, resolveDealLink, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
 import type { StoreHealthInput } from '@/lib/merchantHealth'
 
+/**
+ * Tham so bien doi anh gan vao MOI `image.asset->url` tra ra cho trang cong khai.
+ *
+ * Vi sao can: `image.asset->url` tra ve anh GOC. Do that tren /deals o man 390px —
+ * mot anh 1800x1800 ve may khach **290KB** de hien trong o rong 220px, va trang chu
+ * keo mot anh 2048x2048. Anh chiem 514KB trong tong 1232KB cua /deals.
+ *
+ * `next/image` van dung nhu cu va van cat theo `sizes` — nhung no chi giup khi trinh
+ * duyet di qua `/_next/image`. Cac duong khong qua no (the <img> tho o trang chi tiet
+ * deal/review/store, va anh du phong khi bo toi uu tra ve nguyen ban) truoc day khong
+ * co gi che chan. Cat ngay tu CDN cua Sanity bit ca hai duong mot luc, va con lam
+ * chinh bo toi uu cua Next tai ve mot anh nho hon de xu ly.
+ *
+ * `auto=format` cho ra WebP/AVIF voi trinh duyet ho tro. 1200px la be rong hien thi
+ * lon nhat cua site (anh bia blog ~760px CSS) con du cho man hinh 1.5x.
+ *
+ * Chuoi da kem dau nhay kep vi GROQ noi chuoi: `url + "?w=..."`.
+ * KHONG dung cho `externalImageUrl` — do la anh o domain khac, tham so nay vo nghia
+ * (xem cac cho `coalesce(...)` ben duoi: IMG chi gan vao ve Sanity, va `null + chuoi`
+ * trong GROQ ra null nen coalesce van roi dung sang externalImageUrl).
+ */
+const IMG = '"?w=1200&auto=format&q=75"'
+
 // ── Site Settings (from configGeneral + configSocial) ──────────
 const CONFIG_QUERY = `{
   "general": *[_type == "configGeneral" && _id == "configGeneral"][0] {
@@ -92,7 +115,7 @@ export async function getSiteSettings() {
 
 // ── Deals ──────────────────────────────────────────────────────
 const dealsQuery = (limit: number) => `*[_type == "deal"] | order(_createdAt desc)[0...${limit}] {
-  "id": _id, title, store, emoji, imgClass, "imageUrl": image.asset->url,
+  "id": _id, title, store, emoji, imgClass, "imageUrl": image.asset->url + ${IMG},
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, dealUrl, "slug": slug.current
 }`
 
@@ -101,14 +124,14 @@ const dealsQuery = (limit: number) => `*[_type == "deal"] | order(_createdAt des
 const ALL_DEALS_QUERY = `*[_type == "deal"] | order(_createdAt desc) {
   "id": _id, code, pinnedAt,
   "shortLinkClicks": coalesce(shortLinkClicks, 0), "dealClicks": coalesce(dealClicks, 0),
-  title, store, emoji, imgClass, "imageUrl": image.asset->url,
+  title, store, emoji, imgClass, "imageUrl": image.asset->url + ${IMG},
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl, "slug": slug.current,
   "category": category->{ name, emoji, "slug": slug.current }
 }`
 
 const EXPIRING_QUERY = `*[_type == "deal" && isExpiring == true && expiresAt > now()] | order(expiresAt asc)[0...7] {
   "id": _id, "name": title, "price": priceSale + " · was " + priceOrig, emoji,
-  expiresAt, "imageUrl": image.asset->url
+  expiresAt, "imageUrl": image.asset->url + ${IMG}
 }`
 
 export async function getDeals(limit = 10) {
@@ -150,7 +173,7 @@ export async function getDealsByStore(storeName: string) {
 }
 
 const DEAL_BY_SLUG_QUERY = `*[_type == "deal" && slug.current == $slug][0] {
-  "id": _id, code, title, store, emoji, imgClass, "imageUrl": image.asset->url,
+  "id": _id, code, title, store, emoji, imgClass, "imageUrl": image.asset->url + ${IMG},
   priceSale, priceOrig, discount, discountByAmount, verified, isExpiring, expiresAt, dealUrl,
   "slug": slug.current,
   summary, prosAndCons{ pros, cons }, faq[]{ question, answer },
@@ -237,13 +260,13 @@ export async function getExpiringDeals() {
 const STORES_QUERY = `*[_type == "store" && published != false] | order(_createdAt desc) {
   "id": _id, name, abbr, colorClass, "count": dealCount,
   "slug": slug.current, website, category, maxOffer,
-  "imageUrl": image.asset->url
+  "imageUrl": image.asset->url + ${IMG}
 }`
 
 const STORE_BY_SLUG_QUERY = `*[_type == "store" && slug.current == $slug && published != false][0] {
   "id": _id, name, abbr, colorClass, "count": dealCount,
   "slug": slug.current, website, affiliateLink, category, maxOffer, rating,
-  "imageUrl": image.asset->url,
+  "imageUrl": image.asset->url + ${IMG},
   shortDescription, description,
   faq[]{ question, answer },
   prosAndCons{ pros, cons },
@@ -439,7 +462,7 @@ export async function getStoresByCategory(slug: string) {
     return await readClient.fetch(
       `*[_type == "store" && (category == $slug || category == $legacy) && published != false] | order(name asc) {
         "id": _id, name, abbr, colorClass, "slug": slug.current,
-        website, maxOffer, "imageUrl": image.asset->url, category
+        website, maxOffer, "imageUrl": image.asset->url + ${IMG}, category
       }`,
       { slug, legacy: legacyValue }
     )
@@ -479,7 +502,7 @@ const PUBLISHED_FILTER = '(!defined(publishedAt) || publishedAt <= now())'
 const REVIEWS_QUERY = `*[_type == "review" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, title, excerpt, emoji, tag, stars, author,
   "date": publishedAt, imgBg,
-  "slug": slug.current, "imageUrl": coalesce(image.asset->url, externalImageUrl)
+  "slug": slug.current, "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl)
 }`
 
 export async function getReviews() {
@@ -492,7 +515,7 @@ export async function getReviews() {
 
 const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, emoji, tag, stars, author,
-  "date": publishedAt, "updatedAt": _updatedAt, imgBg, body, content, "imageUrl": coalesce(image.asset->url, externalImageUrl),
+  "date": publishedAt, "updatedAt": _updatedAt, imgBg, body, content, "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl),
   faq, prosAndCons, metaTitle, metaDescription, productUrl, affiliateUrl, couponCode
 }`
 
@@ -500,13 +523,13 @@ const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${
 const POSTS_QUERY = `*[_type == "post" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
-  "imageUrl": coalesce(image.asset->url, externalImageUrl)
+  "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl)
 }`
 
 const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, "updatedAt": _updatedAt, coverEmoji, coverBg, readTime, body, content,
-  "imageUrl": coalesce(image.asset->url, externalImageUrl)
+  "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl)
 }`
 
 export async function getPosts() {
@@ -748,7 +771,7 @@ const FLASH_SALES_QUERY = `*[_type == "offer" && active == true && defined(expir
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
   "store": store-> {${OFFER_STORE_PROJECTION},
-    "imageUrl": image.asset->url
+    "imageUrl": image.asset->url + ${IMG}
   }
 }`
 
@@ -780,7 +803,7 @@ const COUPON_OFFERS_QUERY = `*[_type == "offer" && active == true && defined(cou
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
   "store": store-> {${OFFER_STORE_PROJECTION},
-    "imageUrl": image.asset->url
+    "imageUrl": image.asset->url + ${IMG}
   }
 }`
 
@@ -805,7 +828,7 @@ export async function getCouponOffers(): Promise<Offer[]> {
 const COMPARISON_POSTS_QUERY = `*[_type == "post" && category == "Comparison" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
-  "imageUrl": image.asset->url
+  "imageUrl": image.asset->url + ${IMG}
 }`
 
 export async function getComparisonPosts() {
@@ -820,7 +843,7 @@ export async function getComparisonPosts() {
 const TIPS_GUIDES_QUERY = `*[_type == "post" && category == "Tips & Guides" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
-  "imageUrl": image.asset->url
+  "imageUrl": image.asset->url + ${IMG}
 }`
 
 export async function getTipsGuidePosts() {
@@ -837,7 +860,7 @@ export async function getPageBySlug(slug: string) {
     return await readClient.fetch(
       `*[_type == "page" && slug.current == $slug && published == true][0] {
         title, "slug": slug.current, excerpt, content,
-        "imageUrl": image.asset->url, _updatedAt
+        "imageUrl": image.asset->url + ${IMG}, _updatedAt
       }`,
       { slug }
     )
