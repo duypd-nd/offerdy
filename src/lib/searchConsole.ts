@@ -44,9 +44,31 @@ export type SearchConsoleData = {
    * loi noi dung — sua re va nhanh nhat trong SEO.
    */
   impressionsNoClicks: GscRow[]
+  /** Toan bo trang tung xuat hien — dung cho `findDeadPages`, khong de hien thi */
+  allPages: GscRow[]
   /** So trang KHAC NHAU tung xuat hien tren Google trong ky */
   pagesSeen: number
+  /** Tong luot hien cua TAT CA trang (de tinh ty trong roi vao trang chet) */
+  totalPageImpressions: number
 }
+
+export type DeadPage = { url: string; impressions: number; clicks: number; position: number; status: number }
+
+export type DeadPageReport = {
+  pages: DeadPage[]
+  /** Tong luot hien roi vao trang chet, trong so `checkedImpressions` da kiem tra */
+  deadImpressions: number
+  deadClicks: number
+  checkedImpressions: number
+  /** So URL da kiem tra — co gioi han, xem CHECK_LIMIT */
+  checked: number
+  totalPages: number
+}
+
+// Chi kiem tra N trang nhieu luot hien nhat. Moi trang la mot request HEAD ve
+// chinh site minh; kiem het 200+ trang moi lan mo bao cao la tu dap vao minh.
+// 40 trang dau da chiem phan lon luot hien, du de tra loi "co van de khong".
+const CHECK_LIMIT = 40
 
 function siteUrl(): string | null {
   return unquote(process.env.GSC_SITE_URL) ?? null
@@ -158,6 +180,50 @@ export async function getSearchConsoleData(now: Date): Promise<SearchConsoleData
       .filter(q => q.clicks === 0 && q.impressions >= 5)
       .sort((a, b) => b.impressions - a.impressions)
       .slice(0, 20),
+    allPages: pages,
     pagesSeen: pages.length,
+    totalPageImpressions: pages.reduce((sum, p) => sum + p.impressions, 0),
+  }
+}
+
+/**
+ * Trang Google VAN dang xep hang nhung site da khong con phuc vu nua.
+ *
+ * VI SAO PHAI CO: do that ngay 2026-08-03 — trong 201 trang Google dang hien,
+ * **167 tra ve 404**, chiem **71% tong luot hien** va **24 trong 28 luot bam**.
+ * Tuc gan nhu toan bo nguoi tim thay site qua Google deu dap vao trang "Page Not
+ * Found". Nguyen nhan la cac dot don store/review cu: xoa xong thi Google van
+ * giu ket qua them nhieu tuan.
+ *
+ * Khong the nhin thay tu Search Console: o do chi co luot hien, khong noi URL do
+ * con song hay khong. Cung khong the nhin tu site: /admin khong biet Google dang
+ * xep hang URL nao. Phai ghep hai nguon lai moi lo ra.
+ *
+ * `HEAD` chu khong `GET`: chi can ma trang thai, khong can tai ca trang.
+ */
+export async function findDeadPages(rows: GscRow[]): Promise<DeadPageReport> {
+  const sorted = [...rows].sort((a, b) => b.impressions - a.impressions)
+  const toCheck = sorted.slice(0, CHECK_LIMIT)
+
+  const dead: DeadPage[] = []
+  // Theo lo 8: mo 40 ket noi cung luc toi chinh minh la tu tao ra mot dot tai gia
+  for (let i = 0; i < toCheck.length; i += 8) {
+    await Promise.all(toCheck.slice(i, i + 8).map(async r => {
+      try {
+        const res = await fetch(r.key, { method: 'HEAD', next: { revalidate: 3600 } })
+        if (res.status >= 400) {
+          dead.push({ url: r.key, impressions: r.impressions, clicks: r.clicks, position: r.position, status: res.status })
+        }
+      } catch { /* mang loi -> coi nhu con song, tha bo sot con hon bao dong gia */ }
+    }))
+  }
+
+  return {
+    pages: dead.sort((a, b) => b.impressions - a.impressions),
+    deadImpressions: dead.reduce((s, p) => s + p.impressions, 0),
+    deadClicks: dead.reduce((s, p) => s + p.clicks, 0),
+    checkedImpressions: toCheck.reduce((s, p) => s + p.impressions, 0),
+    checked: toCheck.length,
+    totalPages: rows.length,
   }
 }

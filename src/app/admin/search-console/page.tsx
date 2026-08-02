@@ -1,5 +1,8 @@
 import Link from 'next/link'
-import { getSearchConsoleData, listSearchConsoleSites, isSearchConsoleConfigured, type GscRow } from '@/lib/searchConsole'
+import {
+  getSearchConsoleData, listSearchConsoleSites, isSearchConsoleConfigured, findDeadPages,
+  type GscRow, type DeadPageReport,
+} from '@/lib/searchConsole'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,6 +30,7 @@ export default async function SearchConsolePage() {
   ])
   // Chi hoi danh sach site khi that bai — de chi ra gia tri dung cho GSC_SITE_URL
   const sites = data ? null : await listSearchConsoleSites(now)
+  const dead = data ? await findDeadPages(data.allPages) : null
 
   return (
     <div className="adm-page" style={{ maxWidth: 1100 }}>
@@ -51,6 +55,9 @@ export default async function SearchConsolePage() {
           <div style={{ fontSize: 11, color: '#94a3b8', margin: '-8px 0 20px' }}>
             28 ngày, kết thúc ở 3 ngày trước — Search Console luôn chậm 2–3 ngày so với thực tế.
           </div>
+
+          {/* ── Trang chết mà Google vẫn xếp hạng — vấn đề lớn nhất, để lên đầu ── */}
+          {dead && dead.pages.length > 0 && <DeadPagesCard report={dead} />}
 
           {/* ── Độ phủ chỉ mục ── */}
           <Card title="📄 Bao nhiêu trang thực sự xuất hiện trên Google">
@@ -96,6 +103,73 @@ export default async function SearchConsolePage() {
           </Card>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * Trang Google van xep hang nhung site tra ve 4xx.
+ *
+ * Khong the thay dieu nay tu Search Console (o do chi co luot hien, khong biet
+ * URL con song khong) va cung khong the thay tu /admin (khong biet Google dang
+ * xep hang URL nao). Phai ghep hai nguon moi lo ra — va lan dau ghep, no cho
+ * thay 71% luot hien cua site dang roi vao trang chet.
+ */
+function DeadPagesCard({ report }: { report: DeadPageReport }) {
+  const pct = report.checkedImpressions > 0
+    ? Math.round((report.deadImpressions / report.checkedImpressions) * 100)
+    : 0
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #fee2e2', background: '#fef2f2', fontSize: 13, fontWeight: 700, color: '#dc2626' }}>
+          🚨 Google vẫn xếp hạng {report.pages.length} trang đã chết
+        </div>
+        <div style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
+            Trong <b>{report.checked}</b> trang được kiểm tra (nhiều lượt hiển thị nhất),
+            {' '}<b style={{ color: '#dc2626' }}>{report.pages.length}</b> trang trả về lỗi.
+            Chúng đang chiếm <b style={{ color: '#dc2626' }}>{report.deadImpressions.toLocaleString('vi-VN')} lượt hiển thị ({pct}%)</b>
+            {report.deadClicks > 0 && <> và đã nuốt <b style={{ color: '#dc2626' }}>{report.deadClicks} lượt bấm</b> — những người đó bấm vào rồi rơi thẳng vào trang &ldquo;Page Not Found&rdquo;</>}.
+          </div>
+          <div style={{ fontSize: 11.5, color: '#94a3b8', lineHeight: 1.7, margin: '10px 0 14px' }}>
+            Nguyên nhân thường là các đợt dọn store/review cũ: xoá xong nhưng Google còn giữ kết quả nhiều tuần.
+            Với trang còn nội dung tương đương, chuyển hướng 301 sang trang đó sẽ giữ được thứ hạng.
+            Với trang không còn gì thay thế, để 404 là đúng và Google sẽ tự bỏ — chỉ là chậm.
+          </div>
+          <div className="adm-scroll-x">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ padding: '8px 0', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '.04em' }}>Trang</th>
+                  <th style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'right', textTransform: 'uppercase' }}>Hiện</th>
+                  <th style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'right', textTransform: 'uppercase' }}>Vị trí</th>
+                  <th style={{ padding: '8px 0 8px 12px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'right', textTransform: 'uppercase' }}>Mã</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.pages.map(p => (
+                  <tr key={p.url} style={{ borderTop: '1px solid #f1f5f9' }}>
+                    <td style={{ padding: '8px 0', fontSize: 12.5, color: '#1e293b', maxWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.url.replace(/^https?:\/\/[^/]+/, '')}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>{p.impressions}</td>
+                    {/* Vi tri <= 10 la TRANG 1 — mat cho nay dau hon han mat mot ket qua o trang 4 */}
+                    <td style={{ padding: '8px 12px', fontSize: 13, textAlign: 'right', fontWeight: 700, color: p.position <= 10 ? '#dc2626' : '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                      {p.position.toFixed(1)}
+                    </td>
+                    <td style={{ padding: '8px 0 8px 12px', fontSize: 12, textAlign: 'right', color: '#94a3b8' }}>{p.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f8fafc', fontSize: 11, color: '#94a3b8' }}>
+            Cột vị trí tô đỏ = đang ở trang 1 của Google. Đó là những chỗ mất mát đau nhất.
+            Chỉ {report.checked}/{report.totalPages} trang được kiểm tra mỗi lần tải để không tự dội request vào site.
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

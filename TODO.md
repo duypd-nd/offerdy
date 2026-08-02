@@ -1,6 +1,14 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **🚨 Search Console is live, and it found the real problem: 71% of Google impressions land on 404s (2026-08-03)**
+  - Numbers: 28 clicks · **3075 impressions** · 0.9% CTR · average position 22.8 (28 days). So Google *does* know the site — indexing was never the bottleneck.
+  - **Of 201 pages Google is ranking, 167 return HTTP 404** — **2258 of 3165 impressions (71%)** and **24 of 28 clicks**. Every one of those clicks was a person who searched, found Offerdy, clicked, and hit "Page Not Found".
+  - On page 1 and dead: `/stores/pollo-ai` (position **4.8**) · `/stores/epz-audio` (7.4) · `/reviews/beyond-marina-review-…` (204 impressions at 9.7) · `/reviews/friendship-lamps-review-…` (8.8) · `/reviews/ultrafire-review-…` (11.2). Also `/reviews/best-laptops-under-500` with 296 impressions.
+  - Cause: the store/review cleanups. Google keeps ranking a deleted URL for weeks. **Deleting those review articles threw away the only organic traffic the site had.**
+  - Now a permanent card at the top of `/admin/search-console`, so this can never be invisible again.
+  - ⚠️ Neither source could show this alone: Search Console reports impressions but not whether the URL resolves; `/admin` does not know which URLs Google ranks.
+- [ ] **DECISION NEEDED — what to do with the 167 dead URLs.** Options: 301 each to the closest surviving store/review (keeps the ranking, best for the ones on page 1) · restore the deleted review articles if they were removed by accident · leave them 404 and let Google drop them slowly (correct but forfeits everything). The page-1 ones are worth handling individually; the long tail probably is not.
 - **`/admin/search-console` — code done, waiting on 3 Google-side steps (2026-08-03)** — built after GA4 showed the real bottleneck: **12 organic-search sessions in 30 days** out of 183. Details in `PROJECT_CONTEXT.md` → "Search Console".
   - Reuses the GA4 service account (`src/lib/googleAuth.ts`, extracted out of `ga4.ts`), so only **one** new variable: `GSC_SITE_URL`.
   - Leads with the two cheapest wins — queries at **position 11–20**, and **impressions with zero clicks** — instead of vanity totals.
