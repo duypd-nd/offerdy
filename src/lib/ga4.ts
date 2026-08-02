@@ -96,6 +96,21 @@ async function getAccessToken(now: Date): Promise<string | null> {
   return typeof data.access_token === 'string' ? data.access_token : null
 }
 
+/**
+ * Bo `/admin/*` va `/studio/*` khoi moi phep dem — do la nguoi van hanh, khong
+ * phai khach. `notExpression` de dung mot lan cho ca hai truy van.
+ */
+const EXCLUDE_INTERNAL = {
+  notExpression: {
+    orGroup: {
+      expressions: [
+        { filter: { fieldName: 'pagePath', stringFilter: { matchType: 'BEGINS_WITH', value: '/admin' } } },
+        { filter: { fieldName: 'pagePath', stringFilter: { matchType: 'BEGINS_WITH', value: '/studio' } } },
+      ],
+    },
+  },
+}
+
 type ReportRow = {
   dimensionValues?: { value: string }[]
   metricValues?: { value: string }[]
@@ -132,6 +147,16 @@ export async function getGa4Traffic(now: Date): Promise<Ga4Traffic | null> {
     if (!token) return null
 
     const [totals, pages] = await Promise.all([
+      // ── Loai lưu lượng NOI BO ────────────────────────────────
+      // Lan dau doc duoc so lieu that, 6 trong 10 trang duoc xem nhieu nhat la
+      // `/admin/*` (stores 125, offers 94, merchant-health 67…). Do la nguoi van
+      // hanh bam quanh khu quan tri, khong phai khach. De nguyen thi mau so bi
+      // thoi phong va ty le "bam affiliate / luot xem" thap gia — dung cai ma con
+      // so nay sinh ra de tra loi.
+      //
+      // Loc o phia GA4 chu khong tru bot sau khi nhan ve: `topPages` chi lay 10
+      // dong dau, nen tru sau se van con trang admin chiem cho cua trang that.
+      // `/studio` cung vay — do la Sanity Studio, cung khong phai khach.
       // Nhieu `dateRanges` trong mot request: GA4 tu them chieu `dateRange` va
       // tra ve mot dong cho moi khoang, ten la date_range_0/1/2 theo thu tu duoi.
       runReport(token, c.propertyId, {
@@ -141,6 +166,7 @@ export async function getGa4Traffic(now: Date): Promise<Ga4Traffic | null> {
           { startDate: '29daysAgo', endDate: 'today' },
         ],
         metrics: [{ name: 'screenPageViews' }],
+        dimensionFilter: EXCLUDE_INTERNAL,
       }),
       runReport(token, c.propertyId, {
         dateRanges: [{ startDate: '29daysAgo', endDate: 'today' }],
@@ -148,6 +174,7 @@ export async function getGa4Traffic(now: Date): Promise<Ga4Traffic | null> {
         metrics: [{ name: 'screenPageViews' }],
         orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
         limit: 10,
+        dimensionFilter: EXCLUDE_INTERNAL,
       }),
     ])
 

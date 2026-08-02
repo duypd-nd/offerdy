@@ -133,6 +133,27 @@ if (!tokenRes.ok || !tokenBody.access_token) {
 }
 ok('Google cap access token')
 
+/**
+ * Cac property ma service account nay doc duoc, hoi qua Admin API.
+ * Tra ve `null` khi khong hoi duoc (Admin API chua bat) — phan biet voi mang
+ * rong, la cau tra loi "co hoi duoc, va cau tra loi la khong co property nao".
+ */
+async function listVisibleProperties(accessToken) {
+  try {
+    const res = await fetch('https://analyticsadmin.googleapis.com/v1beta/accountSummaries', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return (data.accountSummaries ?? []).flatMap(a =>
+      (a.propertySummaries ?? []).map(p => ({
+        id: p.property.replace('properties/', ''),
+        name: `${p.displayName} — tai khoan ${a.displayName}`,
+      }))
+    )
+  } catch { return null }
+}
+
 // ── 4. Goi that Data API ─────────────────────────────────────────
 const reportRes = await fetch(
   `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
@@ -155,8 +176,27 @@ if (!reportRes.ok) {
   const msg = report?.error?.message ?? 'khong ro'
   hint(`Google noi: ${msg}`)
   if (reportRes.status === 403 && /permission|caller/i.test(msg)) {
-    hint(`Thieu quyen: vao analytics.google.com → Admin → Property access management`)
-    hint(`→ them ${clientEmail} voi vai tro Viewer`)
+    // 403 gop hai chuyen khac han nhau: CHUA cap quyen, va cap roi nhung dang hoi
+    // NHAM property. Tu doan thi mat vai vong — con Admin API tra loi duoc ngay.
+    //
+    // Bay da mac phai that: nguoi dung dua so 399807673, do la **Account ID**
+    // (accounts/399807673), con Property ID that la 543887586. Hai so nam sat nhau
+    // trong giao dien GA4 va deu la day so 9 chu, khong cach nao phan biet bang mat.
+    const props = await listVisibleProperties(tokenBody.access_token)
+    if (props === null) {
+      hint('Chua ro la chua cap quyen hay hoi nham property. Bat Admin API 1 phut de biet chac:')
+      hint('https://console.cloud.google.com/apis/library/analyticsadmin.googleapis.com')
+      hint(`Roi chay lai lenh nay.`)
+    } else if (props.length === 0) {
+      hint(`${clientEmail} chua duoc cap quyen o BAT KY property nao.`)
+      hint('analytics.google.com → Admin → Property access management → + → Add users')
+      hint('Nho BO TICK "Notify new users by email" — service account khong co hop thu.')
+    } else {
+      hint(`Quyen thi CO — nhung ${propertyId} khong nam trong so property doc duoc.`)
+      hint(`Rat co the ${propertyId} la ACCOUNT ID chu khong phai Property ID.`)
+      hint('Property ID dung la mot trong cac so duoi day:')
+      for (const p of props) hint(`   GA4_PROPERTY_ID=${p.id}   (${p.name})`)
+    }
   }
   if (reportRes.status === 403 && /disabled|not been used/i.test(msg)) {
     hint('Chua bat API: Google Cloud → APIs & Services → bat "Google Analytics Data API"')
