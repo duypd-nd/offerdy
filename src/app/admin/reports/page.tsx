@@ -5,6 +5,7 @@ import { getMerchantHealthData, getLatestDailyReport } from '@/sanity/queries'
 import { computeStoreHealth, HEALTH_LEVEL_COLOR, HEALTH_LEVEL_LABEL as LEVEL_LABEL } from '@/lib/merchantHealth'
 import { SOURCE_LABEL, type ShortLinkSource } from '@/lib/shortLinkSource'
 import { getGa4Traffic } from '@/lib/ga4'
+import { getAdminWorkQueue } from '@/lib/adminWorkQueue'
 import RegenerateButton from './RegenerateButton'
 
 export const dynamic = 'force-dynamic'
@@ -77,7 +78,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport, deepLinkStats, traffic] = await Promise.all([
+  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport, deepLinkStats, traffic, queue] = await Promise.all([
     readClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -132,6 +133,7 @@ export default async function ReportsPage() {
       }`
     ),
     getGa4Traffic(now),
+    getAdminWorkQueue(now),
   ])
 
   // Bao cao AI qua han. 48h chu khong phai 24h: cron chay 1 lan/ngay va Vercel
@@ -156,7 +158,15 @@ export default async function ReportsPage() {
     .map((s, i) => ({ store: s, health: healthScores[i] }))
     .sort((a, b) => b.health.overall - a.health.overall)
     .slice(0, 5)
-  const brokenLinkOffers = healthData.reduce((sum, s) => sum + (s.offerStats.linkChecked - s.offerStats.linkOk), 0)
+  // Doc tu CUNG mot nguon voi the tren dashboard va huy hieu thanh ben, thay vi
+  // tu cong lai tu `healthData`.
+  //
+  // Cong thuc cu (`linkChecked - linkOk`) cho ra dung con so — da doi chieu, ca
+  // hai deu la 7 — nhung `healthData` di qua `unstable_cache` 60 giay con hang doi
+  // viec doc tuoi. Dung luc cron kiem tra link dang ghi, hai o tren CUNG mot man
+  // hinh lech nhau (do duoc 20 so voi 18), va nguoi doc khong co cach nao biet cai
+  // nao dung. Mot con so thi khong the tu mau thuan voi chinh no.
+  const brokenLinkOffers = queue.brokenLinks
   const missingContentStores = healthData.filter(s => !s.hasDescription || s.faqCount < 3).length
 
   const todayCount = recentClicks.filter(c => c._createdAt >= startOfToday).length

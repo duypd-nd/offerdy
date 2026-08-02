@@ -388,6 +388,11 @@ A cron-written report that silently stops updating is worse than no report: it k
 - **Staleness banner** at **48h**, not 24h: Vercel triggers a daily cron within an approximate window, so 24h would cry wolf whenever it ran a few hours late.
 - **"Tạo lại ngay"** (`src/app/admin/reports/actions.ts`) calls `generateDailyReport()` through a server action, so it is authorised by the admin Basic Auth in `proxy.ts` and needs no `CRON_SECRET` — an escape hatch that works even while the cron is broken. Errors are returned to the UI rather than swallowed, because the failure worth seeing here (missing key, exhausted credit) is exactly the kind that otherwise disappears. Each press is a real, billable Anthropic call, hence the `confirm()`.
 
+## One number, one source: broken-link count
+`/admin/reports` used to derive "N offer link hỏng" itself as `sum(linkChecked - linkOk)` over `getMerchantHealthData()`. The formula is correct — checked against `count(*[… linkStatus == "broken"])` and both give the same answer — but `getMerchantHealthData()` goes through `unstable_cache` (60s) while the dashboard card and sidebar badge read fresh via `adminWorkQueue`. While the nightly link-check cron is writing, the same screen showed **20** in one box and **18** in another, with nothing to tell the reader which was right. The report page now reads `queue.brokenLinks`, the same source as everywhere else.
+
+⚠️ When checking this by hand, note `MERCHANT_HEALTH_QUERY` is `*[_type == "store"]` with **no** `published` filter — adding `published != false` to an ad-hoc query drops hidden stores (Venatos, 3 broken offers) and manufactures a discrepancy that does not exist in the app.
+
 ## Click totals: log vs counters
 The four stat cards on `/admin/reports` all read from the **click log**. Do not compute "all time" by summing `offer.clicks` / `store.clicks`.
 
@@ -403,6 +408,7 @@ The report page had a numerator (clicks) and no denominator (visitors), so "33 c
 - GTM is already on every page (`src/app/layout.tsx`), so **pageviews are already being collected**. Adding a second counter in Sanity would produce two different answers to one question — the exact trap documented in "Click totals: log vs counters" above. So the admin *reads GA4*, it does not count.
 - Auth is a **service account**, JWT signed inline with `node:crypto` (RS256) — no `@google-analytics/data` dependency for two REST calls. Needs `GA4_PROPERTY_ID`, `GA4_CLIENT_EMAIL`, `GA4_PRIVATE_KEY` (the private key arrives with literal `\n`; the module un-escapes it, otherwise OpenSSL just says "unsupported").
 - Not configured → returns **`null`**, not `0`. The UI then shows setup instructions. "Measurement is off" and "nobody visited" must never look the same.
+- **`npm run check:ga4`** verifies the whole chain and names the failing step. It exists because `getGa4Traffic` deliberately swallows every error and returns `null` — on screen, "not configured", "bad private key", "service account not a Viewer" and "wrong ID" all look identical. The script catches the likeliest mistake explicitly: pasting the **Measurement ID** (`G-…`) where the numeric **Property ID** belongs. It never prints key material, only lengths and prefixes.
 - The report response is cached `revalidate: 300`; the token request is `no-store`. Reading multiple `dateRanges` in one request returns rows keyed `date_range_0/1/2` — parse **by name**, not row order, or "today" can come out larger than "30 days".
 - `/admin/reports` also shows clicks ÷ pageviews over 30 days, with a note that GA4 filters bots differently from server-side click logging, so the two never match exactly.
 
