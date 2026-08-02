@@ -8,8 +8,14 @@ export type SuggestItem = { name: string; sub: string; icon: string; imageUrl?: 
 
 const PUBLISHED_FILTER = '(!defined(publishedAt) || publishedAt <= now())'
 
+// Anh o day chi hien trong o 28-32px (goi y tim kiem o Header, va goi y tren
+// trang 404). Truy van nay co ban rieng, khong dung chung voi `src/sanity/
+// queries.ts`, nen phai tu cat — neu khong no tra ve anh GOC: logo Cycleaddons
+// la mot file PNG 1200x400 de ve vao mot o vuong 28px.
+const ICON = '"?w=96&auto=format&q=75"'
+
 const SUGGEST_QUERY = `{
-  "stores": *[_type == "store"]{ "name": name, abbr, "imageUrl": image.asset->url, "slug": slug.current },
+  "stores": *[_type == "store"]{ "name": name, abbr, "imageUrl": image.asset->url + ${ICON}, "slug": slug.current },
   "deals": *[_type == "deal"]{ "name": title, "sub": coalesce(priceSale + " · " + string(discount) + "% off", "Deal"), "icon": emoji, "slug": slug.current },
   "reviews": *[_type == "review" && ${PUBLISHED_FILTER}]{ "name": title, "sub": coalesce(tag, "Review"), "icon": emoji, "slug": slug.current },
   "posts": *[_type == "post" && ${PUBLISHED_FILTER}]{ "name": title, "sub": coalesce(category, "Article"), "icon": coverEmoji, "slug": slug.current }

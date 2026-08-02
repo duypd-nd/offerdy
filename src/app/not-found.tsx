@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
+import NotFoundSuggestions from '@/components/NotFoundSuggestions'
 
 export const metadata: Metadata = {
   title: 'Page Not Found',
@@ -95,6 +96,10 @@ export default function NotFound() {
                 ← Go Home
               </Link>
             </div>
+
+            {/* Goi y thu con song, dua tren chinh URL bi hong. Xem component de
+                biet vi sao khong the doc duong dan o phia server. */}
+            <NotFoundSuggestions />
           </div>
 
           {/* footer bar */}

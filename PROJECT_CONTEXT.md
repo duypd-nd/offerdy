@@ -434,6 +434,15 @@ Built because the numbers said so: GA4 showed **12 organic-search sessions in 30
 - `findDeadPages` checks only the **top 40 pages by impressions**, with `HEAD` and `revalidate: 3600`, in batches of 8 — the report must not turn every page load into 200 requests against our own site. The UI states the limit rather than implying full coverage.
 - Index coverage is shown as "pages that appeared in results / URLs in `sitemap.xml`", and the sitemap count is read from the **production `sitemap.xml`** rather than recounted in GROQ — `sitemap.ts` has its own inclusion rules (drops `/comparisons` while empty, only categories that have stores), so recounting would create a second answer to one question.
 
+## The 404 page recovers traffic (`src/components/NotFoundSuggestions.tsx`)
+**24 of 28 Google clicks in July 2026 landed on a 404** — deleted store/review URLs that Google still ranks. Those people typed something specific and clicked; two generic buttons threw all of it away.
+
+- **301 redirects were considered and rejected.** The content was deleted *deliberately*, so no equivalent page exists, and Google treats a redirect to an unrelated page as a soft 404 — it forfeits the ranking and looks manipulative. Staying 404 is correct; the page just needed to be useful.
+- ⚠️ **The suggestions must not cost the 404 status.** Rendering a normal page with the slug in hand would return **200**, turning a real error into a soft 404 and keeping dead URLs indexed forever. So `not-found.tsx` stays a server component (Next returns 404) and only the suggestion block is a client component reading `usePathname()`.
+- `src/lib/slugKeywords.ts` turns `/reviews/beyond-marina-review-2026-best-inflatable-kayaks-…` into ranked keywords, dropping years and industry filler (`review`, `best`, `coupon`, `deal`…) — keeping those matches everything, which is as useless as matching nothing. Longest word first: it is the most distinctive.
+- ⚠️ **`fuzzyMatch` is too loose for this.** It treats any substring as a hit, which is right while someone is typing but wrong here: `/stores/pollo-ai` was suggesting **"Apollo Moda"** because `"apollo moda"` contains `"pollo"`. `matchesKeyword()` tightens it to word-start matching. A confidently-presented wrong answer is worse than no answer — the page now says "We no longer carry Pollo Ai" with a search link instead.
+- `/api/search-suggest` keeps its **own** GROQ query, separate from `src/sanity/queries.ts`, so the `?w=` image cap had to be applied there too — it was returning a 1200×400 PNG to fill a 28px box.
+
 ## Admin on a phone
 `.adm-sidebar` was a fixed 228px with no media query at all, so on a 390px screen it ate 60% of the viewport and the offer table collapsed to one word per line. Below **900px** (`globals.css`, the `ADMIN TREN DIEN THOAI` block):
 - sidebar becomes an off-canvas drawer (`.adm-sidebar--open`) behind a scrim, opened from `.adm-topbar`; it closes on any nav link click — **not** via `useEffect` on `usePathname`, because this repo's ESLint bans `set-state-in-effect`
