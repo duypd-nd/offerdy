@@ -58,3 +58,16 @@ test('khong truyen do dai duoi -> mac dinh 0, khong bao dong gia', () => {
   const title = 'Dasaita Car Stereo Review 2026: Best Android Head Units'
   assert.equal(longTitles(auditReviews(review(title))), 0)
 })
+
+test('review co metaTitle ngan -> KHONG bao, du title bai viet rat dai', () => {
+  // Trang /reviews/[slug] dung `metaTitle ?? title` lam <title> (generateMetadata),
+  // nen kiem `title` khong thoi se bao dong nham cho bai da duoc dat metaTitle dung.
+  const long = 'FlashFish Portable Power Station Review 2026: Compact Backup Power for Camping, RVs and Home Essentials'
+  const withMeta = [{ id: 'r1', title: long, slug: 'r', excerpt: 'x'.repeat(60), hasImage: true, metaTitle: 'FlashFish Power Station Review 2026' }]
+  assert.equal(longTitles(auditReviews(withMeta, 10)), 0)
+})
+
+test('review metaTitle cung qua dai -> van bao', () => {
+  const withMeta = [{ id: 'r1', title: 'ngan', slug: 'r', excerpt: 'x'.repeat(60), hasImage: true, metaTitle: 'y'.repeat(55) }]
+  assert.equal(longTitles(auditReviews(withMeta, 10)), 1)
+})

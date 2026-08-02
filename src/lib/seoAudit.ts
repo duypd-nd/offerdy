@@ -57,8 +57,11 @@ export function issueLabel(type: SeoIssueType): string {
 
 export type StoreSeoInput = { id: string; name: string; slug?: string; metaTitle?: string; metaDescription?: string; faqCount: number; hasImage: boolean }
 export type DealSeoInput = { id: string; title: string; slug?: string; metaTitle?: string; metaDescription?: string; faqCount: number; hasImage: boolean }
-export type PostSeoInput = { id: string; title: string; slug?: string; excerpt?: string; hasImage: boolean }
-export type ReviewSeoInput = { id: string; title: string; slug?: string; excerpt?: string; hasImage: boolean }
+// `metaTitle` co mat vi trang bai viet/review dung `metaTitle ?? title` lam
+// <title> (xem generateMetadata cua /reviews/[slug] va /blog/[slug]). Kiem `title`
+// khong thoi se bao dong nham cho bai da co metaTitle ngan dung chuan.
+export type PostSeoInput = { id: string; title: string; slug?: string; excerpt?: string; metaTitle?: string; hasImage: boolean }
+export type ReviewSeoInput = { id: string; title: string; slug?: string; excerpt?: string; metaTitle?: string; hasImage: boolean }
 
 function findDuplicates<T extends { id: string; value: string }>(items: T[]): Map<string, T[]> {
   const byValue = new Map<string, T[]>()
@@ -89,7 +92,7 @@ export function auditStores(stores: StoreSeoInput[], suffixLength = 0): SeoIssue
     const adminHref = adminHrefFor('/admin/stores', s.slug || s.name)
     if (!s.metaTitle) issues.push({ type: 'missing_meta_title', severity: 'high', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
     if (!s.metaDescription) issues.push({ type: 'missing_meta_description', severity: 'high', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
-    if (isTitleTooLong(s.metaTitle, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
+    if (isTitleTooLong(s.metaTitle || s.name, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
     if (s.faqCount === 0) issues.push({ type: 'missing_faq', severity: 'medium', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
     if (!s.hasImage) issues.push({ type: 'missing_image', severity: 'medium', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
   }
@@ -127,7 +130,7 @@ export function auditPosts(posts: PostSeoInput[], suffixLength = 0): SeoIssue[] 
     if (!p.excerpt) issues.push({ type: 'missing_excerpt', severity: 'medium', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
     else if (p.excerpt.length < 50) issues.push({ type: 'thin_excerpt', severity: 'low', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
     if (!p.hasImage) issues.push({ type: 'missing_image', severity: 'low', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
-    if (isTitleTooLong(p.title, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
+    if (isTitleTooLong(p.metaTitle || p.title, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
   }
   return issues
 }
@@ -139,7 +142,7 @@ export function auditReviews(reviews: ReviewSeoInput[], suffixLength = 0): SeoIs
     if (!r.excerpt) issues.push({ type: 'missing_excerpt', severity: 'medium', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
     else if (r.excerpt.length < 50) issues.push({ type: 'thin_excerpt', severity: 'low', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
     if (!r.hasImage) issues.push({ type: 'missing_image', severity: 'low', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
-    if (isTitleTooLong(r.title, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
+    if (isTitleTooLong(r.metaTitle || r.title, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
   }
   return issues
 }

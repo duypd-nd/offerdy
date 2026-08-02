@@ -1091,10 +1091,10 @@ const SEO_AUDIT_QUERY = `{
     "faqCount": count(faq), "hasImage": defined(image)
   },
   "posts": *[_type == "post" && defined(publishedAt) && publishedAt <= now()] {
-    "id": _id, title, "slug": slug.current, excerpt, "hasImage": defined(image) || defined(externalImageUrl)
+    "id": _id, title, "slug": slug.current, excerpt, metaTitle, "hasImage": defined(image) || defined(externalImageUrl)
   },
   "reviews": *[_type == "review" && (!defined(publishedAt) || publishedAt <= now())] {
-    "id": _id, title, "slug": slug.current, excerpt, "hasImage": defined(image) || defined(externalImageUrl)
+    "id": _id, title, "slug": slug.current, excerpt, metaTitle, "hasImage": defined(image) || defined(externalImageUrl)
   }
 }`
 
