@@ -101,6 +101,27 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         {/* Google Tag Manager (noscript) */}
         <noscript dangerouslySetInnerHTML={{ __html: `<iframe src="https://www.googletagmanager.com/ns.html?id=GTM-K3N8W8B8" height="0" width="0" style="display:none;visibility:hidden"></iframe>` }} />
+        {/*
+          Tat do luong cho chinh nguoi van hanh.
+
+          Do ngay 2026-08-03: trong 765 luot xem trang (da bo /admin), **709 den tu
+          Viet Nam** va rieng Nam Dinh la 279 — tuc phan lon "khach" la chinh nguoi
+          quan tri duyet cac trang cong khai. Bo loc `/admin` khong bat duoc viec do.
+          Hau qua: moi ty le tinh tren mau so nay deu sai, va sai theo huong lam
+          site trong te hon thuc te o phia khach nuoc ngoai.
+
+          `window['ga-disable-<ID>'] = true` la co che tu choi do luong CHINH THUC
+          cua Google — dat truoc khi gtag chay thi GA4 khong gui bat ky su kien nao.
+          Chon cach nay thay vi loc theo IP trong GA4: mang gia dinh o VN doi IP
+          thuong xuyen, va khi IP doi thi bo loc IP hong mot cach IM LANG — so lieu
+          lai ban ma khong co dau hieu gi.
+
+          Bat/tat o /notrack. `beforeInteractive` de co nay duoc dat TRUOC GTM;
+          dat sau thi vai su kien dau tien da kip gui di.
+        */}
+        <Script id="ga-optout" strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: `try{if(document.cookie.indexOf('ofd_notrack=1')>-1){window['ga-disable-G-0H313ZSF8K']=true}}catch(e){}` }}
+        />
         {/* Google Tag Manager */}
         <Script
           id="gtm"

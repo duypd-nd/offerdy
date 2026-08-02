@@ -388,6 +388,18 @@ export default async function ReportsPage() {
                 />
               </div>
 
+              {/* ── Khách ở đâu ──
+                  Khong phai so lieu de ngam. Site ban hang shop My/EU bang tieng
+                  Anh; do 03/08 cho thay 709/765 luot xem den tu Viet Nam, rieng
+                  Nam Dinh 279 — tuc mau so dang chua phan lon nguoi khong bao gio
+                  mua, va moi ty le tinh tren no deu lac quan gia. */}
+              {(traffic.topCountries.length > 0 || traffic.topCities.length > 0) && (
+                <div className="adm-two-col" style={{ paddingTop: 14, borderTop: '1px solid #f1f5f9', marginBottom: 14 }}>
+                  <GeoList title="Quốc gia (30 ngày)" rows={traffic.topCountries} total={traffic.last30d} />
+                  <GeoList title="Thành phố (30 ngày)" rows={traffic.topCities} total={traffic.last30d} />
+                </div>
+              )}
+
               {traffic.topPages.length > 0 && (
                 <div style={{ paddingTop: 14, borderTop: '1px solid #f1f5f9' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 8 }}>
@@ -747,6 +759,39 @@ function StatCard({ label, value, highlight }: { label: string; value: number; h
     }}>
       <div style={{ fontSize: 24, fontWeight: 800, color: highlight ? '#16a34a' : '#0f172a', lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>{label}</div>
+    </div>
+  )
+}
+
+/**
+ * Danh sach "ten — so luot — ty trong", kem thanh ty le de doc bang mat.
+ * Hien ca ty trong chu khong chi so tuyet doi: "709 luot tu Viet Nam" khong noi
+ * len dieu gi cho den khi biet no la 93% cua tat ca.
+ */
+function GeoList({ title, rows, total }: {
+  title: string; rows: { name: string; views: number }[]; total: number
+}) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 8 }}>{title}</div>
+      {rows.length === 0 ? (
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>Chưa có dữ liệu</div>
+      ) : rows.map(r => {
+        const pct = total > 0 ? Math.round((r.views / total) * 100) : 0
+        return (
+          <div key={r.name} style={{ marginBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+              <span style={{ color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+              <span style={{ flexShrink: 0, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                <strong style={{ color: '#0f172a' }}>{r.views}</strong> · {pct}%
+              </span>
+            </div>
+            <div style={{ height: 3, background: '#f1f5f9', borderRadius: 2, marginTop: 3, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: '#cbd5e1' }} />
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

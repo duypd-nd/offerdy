@@ -1,6 +1,13 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **Geography panel + a working way to keep our own visits out of GA4 (2026-08-03)** — asked whether country data was measurable; measuring it properly changed how every other number reads.
+  - After the `/admin` filter, 765 pageviews split as **Vietnam 710 (92%)** · US 17 · France 12 · Germany 9 · UK 7. By city: **Nam Định 280 (36%)**, Hà Nội 32, Hải Phòng 26. The site sells English-language US/EU merchants — so **real overseas traffic is roughly 56 pageviews a month**, and the 3.9% click rate was computed against a denominator that is mostly the operator plus `/kyniem` visitors.
+  - `/admin/reports` now shows country and city with share-of-total, because an absolute number ("710 from Vietnam") says nothing until you see it is 92%.
+  - **`/notrack`** toggles a `ofd_notrack` cookie; an inline `beforeInteractive` script then sets `window['ga-disable-G-0H313ZSF8K']`, Google's official opt-out. **Verified in real Chrome: 1 request to GA4 without the cookie, 0 with it.**
+  - ⚠️ **Deliberately not GA4's IP-based internal-traffic filter.** A Vietnamese home connection changes IP regularly, and when it does the filter breaks *silently* — data goes dirty again with no signal. A cookie follows the browser. Cost: it must be set once per browser/device, incognito included.
+  - ⚠️ The `ga-disable` flag is read once at page load, so `/notrack` reloads after toggling; otherwise the page you are on keeps sending events.
+  - The page is `noindex` and stays out of `sitemap.ts`.
 - **🚨 Search Console is live, and it found the real problem: 71% of Google impressions land on 404s (2026-08-03)**
   - Numbers: 28 clicks · **3075 impressions** · 0.9% CTR · average position 22.8 (28 days). So Google *does* know the site — indexing was never the bottleneck.
   - **Of 201 pages Google is ranking, 167 return HTTP 404** — **2258 of 3165 impressions (71%)** and **24 of 28 clicks**. Every one of those clicks was a person who searched, found Offerdy, clicked, and hit "Page Not Found".

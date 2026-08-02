@@ -26,6 +26,15 @@ export type Ga4Traffic = {
   last30d: number
   /** Trang duoc xem nhieu nhat trong 30 ngay */
   topPages: { path: string; views: number }[]
+  /**
+   * Quoc gia va thanh pho, 30 ngay.
+   *
+   * Khong phai so lieu de ngam: site ban hang cua shop My/EU bang tieng Anh, nen
+   * ty trong Viet Nam cao co nghia la mau so dang chua phan lon nguoi khong bao
+   * gio mua — va moi ty le tinh tren no deu lac quan gia.
+   */
+  topCountries: { name: string; views: number }[]
+  topCities: { name: string; views: number }[]
 }
 
 const SCOPE = 'https://www.googleapis.com/auth/analytics.readonly'
@@ -85,6 +94,18 @@ async function runReport(token: string, propertyId: string, body: unknown): Prom
  * Khong bao gio nem: day la mot o phu tren trang bao cao, mot su co ben Google
  * khong duoc phep lam trang trang ca bao cao click.
  */
+/** Cac dong "ten -> so luot" cua mot bao cao xep hang mot chieu. */
+function named(rows: ReportRow[]): { name: string; views: number }[] {
+  return rows
+    .map(row => ({
+      name: row.dimensionValues?.[0]?.value ?? '',
+      views: Number(row.metricValues?.[0]?.value ?? 0),
+    }))
+    // GA4 tra "(not set)" khi khong xac dinh duoc vi tri — hien nguyen van chu
+    // khong bo di, vi bo se lam tong cac dong khong con khop voi tong chung.
+    .filter(r => r.name && Number.isFinite(r.views))
+}
+
 export async function getGa4Traffic(now: Date): Promise<Ga4Traffic | null> {
   const c = config()
   if (!c) return null
@@ -93,7 +114,19 @@ export async function getGa4Traffic(now: Date): Promise<Ga4Traffic | null> {
     const token = await getGoogleAccessToken(SCOPE, now)
     if (!token) return null
 
-    const [totals, pages] = await Promise.all([
+    // Mot ham nho cho cac bao cao "xep hang theo mot chieu" — ba cai duoi day
+    // chi khac nhau moi ten chieu.
+    const ranked = (dimension: string, limit: number) =>
+      runReport(token, c.propertyId, {
+        dateRanges: [{ startDate: '29daysAgo', endDate: 'today' }],
+        dimensions: [{ name: dimension }],
+        metrics: [{ name: 'screenPageViews' }],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        limit,
+        dimensionFilter: EXCLUDE_INTERNAL,
+      })
+
+    const [totals, pages, countries, cities] = await Promise.all([
       // ── Loai lưu lượng NOI BO ────────────────────────────────
       // Lan dau doc duoc so lieu that, 6 trong 10 trang duoc xem nhieu nhat la
       // `/admin/*` (stores 125, offers 94, merchant-health 67…). Do la nguoi van
@@ -115,14 +148,9 @@ export async function getGa4Traffic(now: Date): Promise<Ga4Traffic | null> {
         metrics: [{ name: 'screenPageViews' }],
         dimensionFilter: EXCLUDE_INTERNAL,
       }),
-      runReport(token, c.propertyId, {
-        dateRanges: [{ startDate: '29daysAgo', endDate: 'today' }],
-        dimensions: [{ name: 'pagePath' }],
-        metrics: [{ name: 'screenPageViews' }],
-        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
-        limit: 10,
-        dimensionFilter: EXCLUDE_INTERNAL,
-      }),
+      ranked('pagePath', 10),
+      ranked('country', 8),
+      ranked('city', 8),
     ])
 
     // Doc theo TEN khoang chu khong theo vi tri dong: GA4 khong bao dam thu tu
@@ -144,6 +172,8 @@ export async function getGa4Traffic(now: Date): Promise<Ga4Traffic | null> {
           views: Number(row.metricValues?.[0]?.value ?? 0),
         }))
         .filter(p => p.path && Number.isFinite(p.views)),
+      topCountries: named(countries),
+      topCities: named(cities),
     }
   } catch {
     return null
