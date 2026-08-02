@@ -1,6 +1,7 @@
 export type SeoIssueType =
   | 'missing_meta_title' | 'missing_meta_description' | 'duplicate_meta_title' | 'duplicate_meta_description'
   | 'missing_faq' | 'missing_image' | 'thin_excerpt' | 'missing_excerpt'
+  | 'long_meta_title'
 
 export type SeoIssue = {
   type: SeoIssueType
@@ -21,6 +22,33 @@ const LABEL: Record<SeoIssueType, string> = {
   missing_image: 'Thiếu ảnh đại diện',
   thin_excerpt: 'Excerpt quá ngắn (<50 ký tự)',
   missing_excerpt: 'Thiếu Excerpt',
+  long_meta_title: 'Tiêu đề quá dài — Google cắt mất phần cuối',
+}
+
+/**
+ * Google chi hien khoang 60 ky tu tieu de (~580px) roi cat bang dau "…".
+ *
+ * Do that ngay 2026-08-03 tren cac trang DANG xep hang: **24/28 vuot nguong**.
+ * Nang nhat la /reviews/flashfish-... — 299 luot hien o vi tri 8.2 va **0 click**,
+ * tieu de 136 ky tu, nguoi tim kiem chi doc duoc
+ * "FlashFish Portable Power Station Review 2026: Compact Bac…".
+ *
+ * ⚠️ Phai tinh CA phan duoi cua `titleTemplate`. Mau dang dung
+ * `%s | Offerdy - Real Deals. Verified` gan them **33 ky tu** vao moi trang —
+ * hon mot nua ngan sach hien thi, truoc khi trang do kip noi gi ve minh. Kiem
+ * moi `metaTitle.length` se bo sot dung cai nguyen nhan lon nhat.
+ */
+export const TITLE_LIMIT = 60
+
+/** So ky tu co dinh ma `titleTemplate` them vao moi tieu de ("%s | Offerdy" -> 10). */
+export function titleSuffixLength(titleTemplate?: string): number {
+  if (!titleTemplate) return 0
+  return titleTemplate.replace('%s', '').length
+}
+
+function isTitleTooLong(title: string | undefined, suffixLength: number): boolean {
+  if (!title) return false
+  return title.trim().length + suffixLength > TITLE_LIMIT
 }
 
 export function issueLabel(type: SeoIssueType): string {
@@ -55,12 +83,13 @@ function adminHrefFor(base: string, slugOrName?: string): string {
   return `${base}?q=${encodeURIComponent(slugOrName)}`
 }
 
-export function auditStores(stores: StoreSeoInput[]): SeoIssue[] {
+export function auditStores(stores: StoreSeoInput[], suffixLength = 0): SeoIssue[] {
   const issues: SeoIssue[] = []
   for (const s of stores) {
     const adminHref = adminHrefFor('/admin/stores', s.slug || s.name)
     if (!s.metaTitle) issues.push({ type: 'missing_meta_title', severity: 'high', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
     if (!s.metaDescription) issues.push({ type: 'missing_meta_description', severity: 'high', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
+    if (isTitleTooLong(s.metaTitle, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
     if (s.faqCount === 0) issues.push({ type: 'missing_faq', severity: 'medium', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
     if (!s.hasImage) issues.push({ type: 'missing_image', severity: 'medium', entityType: 'store', entityId: s.id, entityName: s.name, entitySlug: s.slug, adminHref })
   }
@@ -77,36 +106,40 @@ export function auditStores(stores: StoreSeoInput[]): SeoIssue[] {
   return issues
 }
 
-export function auditDeals(deals: DealSeoInput[]): SeoIssue[] {
+export function auditDeals(deals: DealSeoInput[], suffixLength = 0): SeoIssue[] {
   const issues: SeoIssue[] = []
   for (const d of deals) {
     const adminHref = adminHrefFor('/admin/deals', d.slug || d.title)
     if (!d.metaTitle) issues.push({ type: 'missing_meta_title', severity: 'medium', entityType: 'deal', entityId: d.id, entityName: d.title, entitySlug: d.slug, adminHref })
     if (!d.metaDescription) issues.push({ type: 'missing_meta_description', severity: 'medium', entityType: 'deal', entityId: d.id, entityName: d.title, entitySlug: d.slug, adminHref })
+    // Deal khong dat metaTitle thi trang dung `title` lam tieu de
+    if (isTitleTooLong(d.metaTitle || d.title, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'deal', entityId: d.id, entityName: d.title, entitySlug: d.slug, adminHref })
     if (d.faqCount === 0) issues.push({ type: 'missing_faq', severity: 'low', entityType: 'deal', entityId: d.id, entityName: d.title, entitySlug: d.slug, adminHref })
     if (!d.hasImage) issues.push({ type: 'missing_image', severity: 'low', entityType: 'deal', entityId: d.id, entityName: d.title, entitySlug: d.slug, adminHref })
   }
   return issues
 }
 
-export function auditPosts(posts: PostSeoInput[]): SeoIssue[] {
+export function auditPosts(posts: PostSeoInput[], suffixLength = 0): SeoIssue[] {
   const issues: SeoIssue[] = []
   for (const p of posts) {
     const adminHref = adminHrefFor('/admin/posts', p.slug || p.title)
     if (!p.excerpt) issues.push({ type: 'missing_excerpt', severity: 'medium', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
     else if (p.excerpt.length < 50) issues.push({ type: 'thin_excerpt', severity: 'low', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
     if (!p.hasImage) issues.push({ type: 'missing_image', severity: 'low', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
+    if (isTitleTooLong(p.title, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'post', entityId: p.id, entityName: p.title, entitySlug: p.slug, adminHref })
   }
   return issues
 }
 
-export function auditReviews(reviews: ReviewSeoInput[]): SeoIssue[] {
+export function auditReviews(reviews: ReviewSeoInput[], suffixLength = 0): SeoIssue[] {
   const issues: SeoIssue[] = []
   for (const r of reviews) {
     const adminHref = adminHrefFor('/admin/reviews', r.slug || r.title)
     if (!r.excerpt) issues.push({ type: 'missing_excerpt', severity: 'medium', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
     else if (r.excerpt.length < 50) issues.push({ type: 'thin_excerpt', severity: 'low', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
     if (!r.hasImage) issues.push({ type: 'missing_image', severity: 'low', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
+    if (isTitleTooLong(r.title, suffixLength)) issues.push({ type: 'long_meta_title', severity: 'medium', entityType: 'review', entityId: r.id, entityName: r.title, entitySlug: r.slug, adminHref })
   }
   return issues
 }

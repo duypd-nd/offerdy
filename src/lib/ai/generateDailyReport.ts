@@ -2,10 +2,10 @@ import { z } from 'zod'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
 import { getAnthropicClient } from './anthropicClient'
-import { getMerchantHealthData, getSeoAuditData, getClickAnalyticsSummary } from '@/sanity/queries'
+import { getMerchantHealthData, getSeoAuditData, getClickAnalyticsSummary, getConfigSeo } from '@/sanity/queries'
 import { computeStoreHealth } from '@/lib/merchantHealth'
 import { getRecentSentryIssues } from '@/lib/sentryApi'
-import { auditStores, auditDeals, auditPosts, auditReviews } from '@/lib/seoAudit'
+import { auditStores, auditDeals, auditPosts, auditReviews, titleSuffixLength } from '@/lib/seoAudit'
 
 const DailyReportSchema = z.object({
   summary: z.string().describe('2-4 sentences summarizing overall platform health today, in plain language for a non-technical team member'),
@@ -101,11 +101,14 @@ export async function generateDailyReport(triggeredBy: 'cron' | 'admin' = 'cron'
   const topErrors = sentryIssues.slice(0, 3).map(i => i.title)
 
   const seoData = await getSeoAuditData()
+  // Truyen do dai phan duoi tieu de y NHU /admin/seo-audit: thieu no thi bao cao
+  // AI dem ra mot so va trang SEO Audit dem ra mot so khac cho cung cau hoi.
+  const seoSuffix = titleSuffixLength((await getConfigSeo()).titleTemplate)
   const seoIssues = [
-    ...auditStores(seoData.stores),
-    ...auditDeals(seoData.deals),
-    ...auditPosts(seoData.posts),
-    ...auditReviews(seoData.reviews),
+    ...auditStores(seoData.stores, seoSuffix),
+    ...auditDeals(seoData.deals, seoSuffix),
+    ...auditPosts(seoData.posts, seoSuffix),
+    ...auditReviews(seoData.reviews, seoSuffix),
   ]
   const seoIssueCount = seoIssues.length
   const seoHighSeverityCount = seoIssues.filter(i => i.severity === 'high').length
