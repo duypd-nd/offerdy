@@ -18,7 +18,7 @@
  * vao site" la hai chuyen khac han nhau, va hien 0 se bien cai thu nhat thanh
  * cai thu hai.
  */
-import { createSign } from 'node:crypto'
+import { getGoogleAccessToken, unquote } from '@/lib/googleAuth'
 
 export type Ga4Traffic = {
   today: number
@@ -28,72 +28,19 @@ export type Ga4Traffic = {
   topPages: { path: string; views: number }[]
 }
 
-const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const SCOPE = 'https://www.googleapis.com/auth/analytics.readonly'
 
-/**
- * Bo dau nhay bao quanh neu co.
- *
- * `.env.local` di qua bo phan tich dotenv cua Next — no BOC dau nhay giup. Bang
- * bien moi truong cua Vercel thi khong: gia tri duoc luu nguyen van. Nen cung
- * mot chuoi `"-----BEGIN..."` dan vao hai noi cho ra hai ket qua khac nhau —
- * chay ngon o may minh, hong tren production, va thong bao loi (OpenSSL
- * "unsupported") khong he nhac gi den dau nhay.
- */
-function unquote(value?: string): string | undefined {
-  const v = value?.trim()
-  if (!v) return undefined
-  return v.length >= 2 && ((v[0] === '"' && v.at(-1) === '"') || (v[0] === "'" && v.at(-1) === "'"))
-    ? v.slice(1, -1)
-    : v
-}
-
+// Danh tinh Google (email + khoa rieng) nam o `src/lib/googleAuth.ts`, dung chung
+// voi Search Console. Rieng `GA4_PROPERTY_ID` thi chi GA4 can.
 function config() {
   const propertyId = unquote(process.env.GA4_PROPERTY_ID)
-  const clientEmail = unquote(process.env.GA4_CLIENT_EMAIL)
-  // Bien moi truong khong giu duoc xuong dong that: khoa rieng dan vao Vercel
-  // luon o dang mot dong voi `\n` viet lieu. Khong doi lai thi OpenSSL bao
-  // "unsupported" va loi trong nhu la sai khoa.
-  const privateKey = unquote(process.env.GA4_PRIVATE_KEY)?.replace(/\\n/g, '\n').trim()
-  if (!propertyId || !clientEmail || !privateKey) return null
-  return { propertyId, clientEmail, privateKey }
+  const hasIdentity = !!process.env.GA4_CLIENT_EMAIL && !!process.env.GA4_PRIVATE_KEY
+  if (!propertyId || !hasIdentity) return null
+  return { propertyId }
 }
 
 export function isGa4Configured(): boolean {
   return config() !== null
-}
-
-const b64url = (input: string | Buffer) =>
-  Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-
-async function getAccessToken(now: Date): Promise<string | null> {
-  const c = config()
-  if (!c) return null
-
-  const iat = Math.floor(now.getTime() / 1000)
-  const claim = {
-    iss: c.clientEmail,
-    scope: SCOPE,
-    aud: TOKEN_URL,
-    iat,
-    exp: iat + 3600,
-  }
-  const unsigned = `${b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }))}.${b64url(JSON.stringify(claim))}`
-  const signature = createSign('RSA-SHA256').update(unsigned).sign(c.privateKey)
-  const assertion = `${unsigned}.${b64url(signature)}`
-
-  const res = await fetch(TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion,
-    }),
-    cache: 'no-store',
-  })
-  if (!res.ok) return null
-  const data = await res.json()
-  return typeof data.access_token === 'string' ? data.access_token : null
 }
 
 /**
@@ -143,7 +90,7 @@ export async function getGa4Traffic(now: Date): Promise<Ga4Traffic | null> {
   if (!c) return null
 
   try {
-    const token = await getAccessToken(now)
+    const token = await getGoogleAccessToken(SCOPE, now)
     if (!token) return null
 
     const [totals, pages] = await Promise.all([

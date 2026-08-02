@@ -423,6 +423,15 @@ The report page had a numerator (clicks) and no denominator (visitors), so "33 c
 - The constant carries its own GROQ quotes (`'"?w=…"'`) because GROQ concatenates strings: `url + "?w=…"`. Verified against the live dataset: `null + "…"` is `null`, so `coalesce(image.asset->url + IMG, externalImageUrl)` still falls through correctly for posts using an external image — **never** append these params to `externalImageUrl`, it points at someone else's domain.
 - Result: `/deals` 1232KB → **982KB**, images 514KB → 266KB. The remaining large block is GTM+GA4 at **284KB**, which is a business decision, not a bug.
 
+## Search Console (`src/lib/searchConsole.ts`, `/admin/search-console`)
+Built because the numbers said so: GA4 showed **12 organic-search sessions in 30 days** against 183 total. For an affiliate/coupon site organic search *is* the business model, and there was zero visibility into the Google side — which pages are indexed, which queries the site appears for, how many impressions go unclicked.
+
+- **Shares the GA4 service account** via `src/lib/googleAuth.ts` (`getGoogleAccessToken(scope, now)`); only one new variable, `GSC_SITE_URL`. The env vars keep their `GA4_*` names on purpose — they are the shared Google identity now, and renaming would force the operator to re-enter them on Vercel for nothing.
+- ⚠️ **`GSC_SITE_URL` has two incompatible legal forms**: `sc-domain:offerdy.com` (domain verification) and `https://www.offerdy.com/` (URL-prefix verification, trailing slash included). They are not interchangeable and a wrong one gives the same empty screen as "no permission". `npm run check:gsc` calls `sites.list` and prints the exact values that work — same trick that finally solved the GA4 Property-ID confusion.
+- ⚠️ **Search Console lags 2–3 days.** Asking for "today" always returns empty, which on screen is indistinguishable from "nobody found the site". The window is therefore fixed at 28 days ending 3 days ago, and the UI says so.
+- The page leads with the two cheapest wins rather than vanity totals: **queries at position 11–20** (already relevant, one nudge from page 1) and **impressions with zero clicks** (a title/meta problem, not a content problem).
+- Index coverage is shown as "pages that appeared in results / URLs in `sitemap.xml`", and the sitemap count is read from the **production `sitemap.xml`** rather than recounted in GROQ — `sitemap.ts` has its own inclusion rules (drops `/comparisons` while empty, only categories that have stores), so recounting would create a second answer to one question.
+
 ## Admin on a phone
 `.adm-sidebar` was a fixed 228px with no media query at all, so on a 390px screen it ate 60% of the viewport and the offer table collapsed to one word per line. Below **900px** (`globals.css`, the `ADMIN TREN DIEN THOAI` block):
 - sidebar becomes an off-canvas drawer (`.adm-sidebar--open`) behind a scrim, opened from `.adm-topbar`; it closes on any nav link click — **not** via `useEffect` on `usePathname`, because this repo's ESLint bans `set-state-in-effect`

@@ -1,6 +1,11 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **`/admin/search-console` — code done, waiting on 3 Google-side steps (2026-08-03)** — built after GA4 showed the real bottleneck: **12 organic-search sessions in 30 days** out of 183. Details in `PROJECT_CONTEXT.md` → "Search Console".
+  - Reuses the GA4 service account (`src/lib/googleAuth.ts`, extracted out of `ga4.ts`), so only **one** new variable: `GSC_SITE_URL`.
+  - Leads with the two cheapest wins — queries at **position 11–20**, and **impressions with zero clicks** — instead of vanity totals.
+  - `npm run check:gsc` walks the chain and, crucially, **lists the exact `GSC_SITE_URL` values that work**: `sc-domain:…` and `https://…/` are both legal, not interchangeable, and a wrong one looks identical to "no permission".
+  - **Operator still has to**: enable **Google Search Console API** in the same Cloud project · add the service-account email under Search Console → Settings → Users and permissions · set `GSC_SITE_URL` in `.env.local` and on Vercel.
 - **GA4 is live: the report page finally has a denominator (2026-08-02)** — `/admin/reports` reads real pageviews. First honest numbers: **11 today · 67 over 7 days · 762 over 30 days**, and a click-through rate of **3.9%**.
   - ⚠️ **`GA4_PROPERTY_ID` is not the Account ID.** Both are 9-digit numbers side by side in the GA4 UI. `399807673` is the *account* ("offerdy.com"); the property is **`543887586`**. The symptom is `403 User does not have sufficient permissions for this property`, which reads exactly like a missing Viewer grant and sent us chasing permissions for several rounds. `check-ga4` now answers it itself: on 403 it asks the Admin API which properties the service account *can* read and prints the correct `GA4_PROPERTY_ID=…`.
   - ⚠️ **45% of "traffic" was us.** The first real read showed 6 of the top 10 pages were `/admin/*` — the operator browsing the admin. Unfiltered: 1374 views / 2.2% click rate. Filtered (`EXCLUDE_INTERNAL`, excludes `/admin` and `/studio` **at the GA4 query**): 762 / 3.9%. Filter server-side, not afterwards — `topPages` returns only 10 rows, so admin pages would crowd out real ones.
