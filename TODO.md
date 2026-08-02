@@ -1,6 +1,13 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **Tiêu đề bị Google cắt: một dòng cấu hình gỡ 65 trang (2026-08-03)** — chased a concrete clue: `/reviews/flashfish-…` had **299 impressions at position 8.2 and zero clicks**. Its `<title>` was **136 characters**; Google cuts at ~60, so searchers only ever read *"FlashFish Portable Power Station Review 2026: Compact Bac…"*. Measured across the live ranking pages: **24 of 28 over the limit**.
+  - ⚠️ **The biggest cause was the template, not the pages.** `titleTemplate` was `%s | Offerdy - Real Deals. Verified` — a **33-character** suffix on every page, more than half the visible budget, spent before the page says anything about itself. Operator changed it to `%s | Offerdy`; verified live (`/deals` 75 → 52 chars) and the audit dropped **115 → 50**.
+  - Measured all 123 titled pages first: 33-char suffix → 115 over · 10-char → 50 · none → 14. So the config change was worth ~65 pages and the rest are genuinely long titles.
+  - New `long_meta_title` rule in SEO Audit takes `suffixLength` as a **parameter** — checking `metaTitle.length` alone would have missed the single biggest cause. Wired into `generateDailyReport` too, or the AI report and the audit page would count differently for the same question (the trap already fixed once for broken links).
+  - ⚠️ **Shipped a bug in the first pass and fixed it in the next commit**: the rule checked `review.title` / `post.title`, but those pages render `metaTitle ?? title`. A post with a correctly-short `metaTitle` was being flagged — the kind of false alarm that makes people stop trusting the whole table. Now `metaTitle || title`, so nobody has to butcher an article headline to satisfy Google.
+  - Remaining worklist is **8 pages, not 50** — the ones with real impressions: flashfish (299), dasaita (137), willwork (128), `/reviews` (84), bakers-secret (43), sunwayfoto (42), `/author` (13), `/flash-sales` (10).
+  - Tests 86 → **95**.
 - **Geography panel + a working way to keep our own visits out of GA4 (2026-08-03)** — asked whether country data was measurable; measuring it properly changed how every other number reads.
   - After the `/admin` filter, 765 pageviews split as **Vietnam 710 (92%)** · US 17 · France 12 · Germany 9 · UK 7. By city: **Nam Định 280 (36%)**, Hà Nội 32, Hải Phòng 26. The site sells English-language US/EU merchants — so **real overseas traffic is roughly 56 pageviews a month**, and the 3.9% click rate was computed against a denominator that is mostly the operator plus `/kyniem` visitors.
   - `/admin/reports` now shows country and city with share-of-total, because an absolute number ("710 from Vietnam") says nothing until you see it is 92%.
