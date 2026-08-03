@@ -301,7 +301,7 @@ export async function getStoreBySlug(slug: string) {
 // Danh sach host + ma coupon cua 28 store. Nho nen keo het roi khop trong TS:
 // GROQ khong tach duoc hostname cua URL, va 28 dong thi re hon han goi nhieu lan.
 const STORE_HOSTS_QUERY = `*[_type == "store"]{
-  "slug": slug.current, name, website, affiliateLink,
+  "slug": slug.current, name, website, affiliateLink, category,
   "couponCode": *[_type == "offer" && store._ref == ^._id && active != false && defined(couponCode) && couponCode != ""]
     | order(coalesce(order, 9999) asc)[0].couponCode,
   "couponOfferText": *[_type == "offer" && store._ref == ^._id && active != false && defined(couponCode) && couponCode != ""]

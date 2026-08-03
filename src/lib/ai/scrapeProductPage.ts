@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio'
 import { fetchSafely, ACCEPT_HTML } from '@/lib/safeFetch'
 import { bestDescription } from '@/lib/productText'
+import { fromMinorUnits } from '@/lib/scrapedPrice'
 import { dedupeImageUrls } from '@/lib/imageIdentity'
 
 // Cung gioi han voi productCatalog: du cho mot trang san pham, khong de treo lau.
@@ -12,6 +13,8 @@ export type ScrapedProduct = {
   images: string[]
   siteName?: string
   price?: string
+  /** Gia truoc giam, chi co khi shop cong bo — xem `storeApiData`. */
+  priceOrig?: string
   currency?: string
 }
 
@@ -48,12 +51,33 @@ function bodyDescription($: cheerio.CheerioAPI): string | undefined {
  * Truoc day chi lay JSON-LD/og:image nen ra DUNG MOT tam, lap lai 3 lan qua 3 URL
  * khac nhau — nguoi van hanh nhan 3 o tick trong y het nhau.
  */
-async function galleryImages(pageUrl: string): Promise<string[]> {
+type StoreApi = {
+  images: string[]
+  /** So tran, chua ghep ky hieu tien te — `scrapeProductPage` moi biet tien te nao. */
+  priceSaleRaw?: string
+  /**
+   * Gia GOC (truoc giam). Chi dat khi shop that su cong bo va no CAO HON gia ban;
+   * bang nhau nghia la khong giam, dien vao chi tao ra "-0%" tren the deal.
+   */
+  priceOrigRaw?: string
+  currency?: string
+}
+
+const EMPTY_API: StoreApi = { images: [] }
+
+/** Doi gia ve so, bo qua chuoi rong / 0 / khong phai so. */
+function num(v: unknown): number | undefined {
+  if (typeof v !== 'number' && typeof v !== 'string') return undefined
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+async function storeApiData(pageUrl: string): Promise<StoreApi> {
   let u: URL
-  try { u = new URL(pageUrl) } catch { return [] }
+  try { u = new URL(pageUrl) } catch { return EMPTY_API }
   const seg = u.pathname.replace(/\/+$/, '').split('/').filter(Boolean)
   const handle = seg[seg.length - 1]
-  if (!handle) return []
+  if (!handle) return EMPTY_API
 
   // Shopify: duong dan san pham luon la /products/<handle>
   if (seg.includes('products')) {
@@ -62,10 +86,31 @@ async function galleryImages(pageUrl: string): Promise<string[]> {
     })
     if (!('error' in shopify) && shopify.res.ok) {
       try {
-        const data = await shopify.res.json() as { images?: unknown }
-        if (Array.isArray(data.images)) {
-          const list = data.images.filter((x): x is string => typeof x === 'string')
-          if (list.length) return list
+        const data = await shopify.res.json() as {
+          images?: unknown
+          price?: unknown
+          compare_at_price?: unknown
+          variants?: { price?: unknown; compare_at_price?: unknown }[]
+        }
+        const images = Array.isArray(data.images)
+          ? data.images.filter((x): x is string => typeof x === 'string')
+          : []
+        if (images.length) {
+          // ⚠️ Shopify tra tien te o don vi NHO (2999 = 29.99), khong phai don vi
+          // chinh. Doc thang la gia gap 100 lan tren the deal.
+          const v = data.variants?.[0]
+          const sale = num(data.price) ?? num(v?.price)
+          const orig = num(data.compare_at_price) ?? num(v?.compare_at_price)
+          return {
+            images,
+            priceSaleRaw: fromMinorUnits(sale),
+            // compare_at_price van con nguyen khi shop het khuyen mai — phai so
+            // voi gia ban chu khong chi kiem tra "co gia tri hay khong".
+            priceOrigRaw: orig !== undefined && sale !== undefined && orig > sale
+              ? fromMinorUnits(orig)
+              : undefined,
+            // Shopify `.js` khong khai ma tien te — de trong, JSON-LD cua trang lo.
+          }
         }
       } catch { /* khong phai JSON -> thu Woo ben duoi */ }
     }
@@ -76,16 +121,41 @@ async function galleryImages(pageUrl: string): Promise<string[]> {
     u.origin + '/wp-json/wc/store/v1/products?slug=' + encodeURIComponent(handle),
     { ...FETCH_OPTS, accept: 'application/json' }
   )
-  if ('error' in woo || !woo.res.ok) return []
+  if ('error' in woo || !woo.res.ok) return EMPTY_API
   try {
     const data = await woo.res.json() as unknown
-    const product = Array.isArray(data) ? data[0] : data
-    const imgs = (product as { images?: unknown })?.images
-    if (!Array.isArray(imgs)) return []
-    return imgs
-      .map(x => (typeof x === 'string' ? x : (x as { src?: unknown })?.src))
-      .filter((x): x is string => typeof x === 'string')
-  } catch { return [] }
+    const product = (Array.isArray(data) ? data[0] : data) as {
+      images?: unknown
+      prices?: {
+        price?: unknown
+        regular_price?: unknown
+        sale_price?: unknown
+        currency_code?: unknown
+        currency_minor_unit?: unknown
+      }
+    } | undefined
+    const imgs = product?.images
+    const images = Array.isArray(imgs)
+      ? imgs
+          .map(x => (typeof x === 'string' ? x : (x as { src?: unknown })?.src))
+          .filter((x): x is string => typeof x === 'string')
+      : []
+
+    // ⚠️ Woo cung tra don vi nho, nhung so chu so thap phan la BIEN — no khai
+    // `currency_minor_unit` (USD = 2, JPY = 0). Chia cung cho 100 la sai voi JPY.
+    const p = product?.prices
+    const unit = typeof p?.currency_minor_unit === 'number' ? p.currency_minor_unit : 2
+    const sale = num(p?.sale_price) ?? num(p?.price)
+    const orig = num(p?.regular_price)
+    return {
+      images,
+      priceSaleRaw: fromMinorUnits(sale, unit),
+      priceOrigRaw: orig !== undefined && sale !== undefined && orig > sale
+        ? fromMinorUnits(orig, unit)
+        : undefined,
+      currency: typeof p?.currency_code === 'string' ? p.currency_code : undefined,
+    }
+  } catch { return EMPTY_API }
 }
 function absolutize(url: string, base: string): string | null {
   try {
@@ -182,10 +252,12 @@ export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
   const ogImages = $('meta[property="og:image"]').map((_, el) => $(el).attr('content')).get().filter(Boolean) as string[]
   const twitterImage = metaContent('twitter:image')
 
+  const api = await storeApiData(url)
+
   // Thu vien san pham dat TRUOC: day la anh that cua san pham, dung thu tu shop
   // xep. og:image/JSON-LD thuong chi la mot anh dai dien, de sau lam du phong.
   const allImages = [
-    ...(await galleryImages(url)),
+    ...api.images,
     ...productImages,
     ...ogImages,
     ...(twitterImage ? [twitterImage] : []),
@@ -197,10 +269,17 @@ export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
   // 3 URL khac nhau (CDN Jetpack + tham so kich thuoc) — xem src/lib/imageIdentity.ts
   const images = dedupeImageUrls(allImages)
 
-  const price = typeof offersObj?.price === 'string' || typeof offersObj?.price === 'number'
+  const ldPrice = typeof offersObj?.price === 'string' || typeof offersObj?.price === 'number'
     ? String(offersObj.price)
     : undefined
-  const currency = typeof offersObj?.priceCurrency === 'string' ? offersObj.priceCurrency : undefined
+  const ldCurrency = typeof offersObj?.priceCurrency === 'string' ? offersObj.priceCurrency : undefined
+
+  // JSON-LD chi cong bo MOT gia — gia dang ban. Gia goc nam trong API cua nen tang
+  // shop (`compare_at_price` cua Shopify, `regular_price` cua Woo), cung mot lan goi
+  // da dung de lay thu vien anh nen khong ton them request nao.
+  const price = ldPrice ?? api.priceSaleRaw
+  // Woo tu khai ma tien te; Shopify thi khong, phai muon cua JSON-LD tren trang.
+  const currency = ldCurrency ?? api.currency
 
   return {
     title,
@@ -208,6 +287,7 @@ export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
     images,
     siteName: metaContent('og:site_name'),
     price,
+    priceOrig: api.priceOrigRaw,
     currency,
   }
 }

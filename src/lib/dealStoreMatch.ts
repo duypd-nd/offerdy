@@ -24,6 +24,12 @@ export type StoreHostRow = {
   couponCode?: string
   /** Cau mo ta uu dai di kem ma, de hien "Giam 15% toan don" thay vi chi ma tran. */
   couponOfferText?: string
+  /**
+   * Slug danh muc cua store (vi du "beauty"). Deal cua mot shop nail thi thuoc
+   * Beauty — day la phan loai NGUOI VAN HANH da lam san cho ca 85 store, dung lai
+   * thi khong phai doan tu ten san pham.
+   */
+  category?: string
 }
 
 /** Host de so sanh: bo `www.`, ha chu thuong. `null` neu khong phai URL http(s). */

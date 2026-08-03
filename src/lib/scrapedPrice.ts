@@ -13,6 +13,23 @@ const SYMBOL: Record<string, string> = {
   USD: '$', EUR: '€', GBP: '£', VND: '₫', CAD: 'CA$', AUD: 'A$',
 }
 
+/**
+ * Doi gia tu don vi NHO cua tien te ve don vi chinh: 2999 -> "29.99".
+ *
+ * Ca Shopify (`/products/<handle>.js`) lan WooCommerce (Store API) deu tra gia o
+ * don vi nho. Doc thang con so do la gia gap 100 lan tren the deal.
+ *
+ * `minorUnit` khac nhau theo tien te — Woo tu khai (`currency_minor_unit`): USD 2,
+ * JPY 0. Chia cung cho 100 la sai voi JPY. Shopify khong khai thi mac dinh 2.
+ */
+export function fromMinorUnits(value: unknown, minorUnit = 2): string | undefined {
+  if (typeof value !== 'number' && typeof value !== 'string') return undefined
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return undefined
+  const unit = Number.isInteger(minorUnit) && minorUnit >= 0 && minorUnit <= 4 ? minorUnit : 2
+  return String(n / 10 ** unit)
+}
+
 export function formatScrapedPrice(price?: string, currency?: string): string | undefined {
   if (!price) return undefined
   // Bo moi thu khong phai so/dau cham: gia co the den kem ky hieu, dau phay ngan

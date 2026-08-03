@@ -448,6 +448,16 @@ Built because the numbers said so: GA4 showed **12 organic-search sessions in 30
 - ⚠️ **`fuzzyMatch` is too loose for this.** It treats any substring as a hit, which is right while someone is typing but wrong here: `/stores/pollo-ai` was suggesting **"Apollo Moda"** because `"apollo moda"` contains `"pollo"`. `matchesKeyword()` tightens it to word-start matching. A confidently-presented wrong answer is worse than no answer — the page now says "We no longer carry Pollo Ai" with a search link instead.
 - `/api/search-suggest` keeps its **own** GROQ query, separate from `src/sanity/queries.ts`, so the `?w=` image cap had to be applied there too — it was returning a 1200×400 PNG to fill a 28px box.
 
+## "Lấy từ link" fills giá gốc and danh mục — both come from data we already had
+The deal form used to tell the operator *"Giá gốc phải tự nhập, shop hầu như không công bố"*. That was looking in the wrong place, not a fact about shops.
+
+- **JSON-LD only ever publishes ONE price — the selling price.** The original price lives in the shop platform's own API: Shopify `compare_at_price`, WooCommerce `prices.regular_price`. `storeApiData()` in `src/lib/ai/scrapeProductPage.ts` was already calling both endpoints to build the image gallery and throwing every other field away, so this costs **zero extra requests**.
+- ⚠️ **Both APIs return money in MINOR UNITS** — cycleaddons `regular_price: 3812` is $38.12, hometownseeds `price: 3599` is $35.99. Reading them raw puts a 100× price on a live deal, and nothing crashes to warn you. `fromMinorUnits()` in `src/lib/scrapedPrice.ts` handles it; the decimal count is **per currency** (`currency_minor_unit`: USD 2, JPY 0), so a hardcoded `/100` is wrong for JPY.
+- ⚠️ **`compare_at_price` stays populated after a sale ends**, so it must be compared against the selling price — `orig > sale` — not merely checked for existence. Otherwise deals get a "-0%" badge.
+- **Shopify's `.js` does not carry a currency code**; the page's JSON-LD `priceCurrency` supplies it. Woo's Store API does carry `currency_code`. When neither exists, `formatScrapedPrice` deliberately returns undefined rather than guessing `$` (see the IDR deal note in that file) — hometownseeds hits exactly this and still fills no price.
+- **Danh mục comes from the matched store, not from the product title.** `store.category` is a plain slug string (`"beauty"`), already set on all 85 stores, and `STORE_HOSTS_QUERY` now returns it. Deriving it from curated data beats classifying product names.
+- ⚠️ **Filling the two price fields must also recompute `discount`** — the form's discount is derived in the price inputs' `onChange`, so writing prices programmatically bypasses it and the deal saves with an empty discount badge.
+
 ## Scraping a merchant page: send a browser's `Accept`, not `text/html`
 `/admin` "Lấy thông tin sản phẩm" kept failing with **`HTTP 500 khi tải …`**, and the 500 came from the *merchant's* nginx, not from us.
 

@@ -95,7 +95,7 @@ type AdminDeal = {
 }
 
 type ReviewOption = { _id: string; title: string }
-type CategoryOption = { _id: string; name: string; emoji?: string }
+type CategoryOption = { _id: string; name: string; emoji?: string; slug?: string }
 
 export default function DealAdmin({ initialDeals, allReviews = [], allCategories = [], storeHosts = [] }: {
   initialDeals: AdminDeal[]; allReviews?: ReviewOption[]; allCategories?: CategoryOption[]
@@ -615,6 +615,7 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
                   // CHI dien o dang TRONG — khong bao gio ghi de thu nguoi dung da go.
                   const filled: string[] = []
                   const skipped: string[] = []
+                  const matchedStore = matchStoreByUrl(form.dealUrl, storeHosts)
                   setForm(prev => {
                     const next = { ...prev }
                     if (r.title) {
@@ -624,6 +625,24 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
                     if (r.priceSale) {
                       if (!prev.priceSale.trim()) { next.priceSale = r.priceSale; filled.push('giá bán') }
                       else skipped.push('giá bán')
+                    }
+                    if (r.priceOrig) {
+                      if (!prev.priceOrig.trim()) { next.priceOrig = r.priceOrig; filled.push('giá gốc') }
+                      else skipped.push('giá gốc')
+                    }
+                    // Danh muc lay theo SHOP chu khong doan tu ten san pham: ca 85
+                    // store deu da duoc phan loai san, dung lai thi khong sai bao gio.
+                    const catSlug = matchedStore?.category
+                    const cat = catSlug ? allCategories.find(c => c.slug === catSlug) : undefined
+                    if (cat) {
+                      if (!prev.categoryId) { next.categoryId = cat._id; filled.push(`danh mục (${cat.name}, theo shop)`) }
+                      else skipped.push('danh mục')
+                    }
+                    // % giam khong phai o nguoi dung go — no duoc tinh lai moi lan
+                    // sua gia (xem hai o gia ben tren). Dien gia ma quen buoc nay
+                    // thi deal luu voi discount rong va the deal mat nhan giam gia.
+                    if (next.priceOrig !== prev.priceOrig || next.priceSale !== prev.priceSale) {
+                      next.discount = calcDiscount(next.priceOrig, next.priceSale)
                     }
                     return next
                   })
@@ -635,7 +654,7 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
                     (filled.length ? `✓ Đã điền: ${filled.join(', ')}.` : '✓ Đọc được trang nhưng không có ô nào trống để điền.') +
                     (skipped.length ? ` Giữ nguyên (bạn đã nhập): ${skipped.join(', ')}.` : '') +
                     (r.priceSale ? '' : ' Trang này không công bố giá — nhập tay.') +
-                    ' Giá gốc phải tự nhập, shop hầu như không công bố.'
+                    (r.priceSale && !r.priceOrig ? ' Shop không công bố giá gốc (hoặc đang không giảm giá) — nhập tay nếu bạn biết.' : '')
                   )
                 }}
               >

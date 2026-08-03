@@ -96,12 +96,18 @@ export async function uploadDealImageFromUrl(url: string) {
  * cung mot duong fetch chan SSRF, cung mot cach doc JSON-LD/OpenGraph.
  *
  * Do that tren 3 shop cua du an (2026-07-26): tieu de 3/3, anh 3/3, gia ban 2/3
- * (WooCommerce khong phat JSON-LD offers thi khong co gia). GIA GOC gan nhu khong
- * shop nao cong bo — nguoi van hanh tu go, va % giam tu tinh tu hai gia. Khong doan
- * gia goc: do la con so quyet dinh "giam bao nhieu" hien tren moi bai dang.
+ * (WooCommerce khong phat JSON-LD offers thi khong co gia).
+ *
+ * ⚠️ Truoc day cho rang "gia goc gan nhu khong shop nao cong bo" va bat nguoi van
+ * hanh tu go. Sai — do tim nham cho: JSON-LD chi phat MOT gia, con gia goc nam
+ * trong API cua nen tang shop (`compare_at_price` cua Shopify, `regular_price` cua
+ * Woo), la dung cai API da goi san de lay thu vien anh. Do that tren cycleaddons
+ * (Woo) 2026-08-04: regular_price 3812 / sale_price 2999 -> gia goc $38.12.
+ *
+ * Van khong DOAN gia goc: chi dien khi shop cong bo va no cao hon gia ban.
  */
 export async function fetchDealFromUrl(url: string): Promise<
-  | { ok: true; title: string; priceSale?: string; imageUrl?: string; images: string[]; siteName?: string }
+  | { ok: true; title: string; priceSale?: string; priceOrig?: string; imageUrl?: string; images: string[]; siteName?: string }
   | { ok: false; error: string }
 > {
   const trimmed = url.trim()
@@ -114,6 +120,7 @@ export async function fetchDealFromUrl(url: string): Promise<
     ok: true,
     title: scraped.title,
     priceSale: formatScrapedPrice(scraped.price, scraped.currency),
+    priceOrig: formatScrapedPrice(scraped.priceOrig, scraped.currency),
     imageUrl: scraped.images[0],
     // Tra ve CA danh sach de nguoi van hanh chon anh nao lam anh deal — bo doc
     // gio lay duoc ca thu vien san pham va da bo trung (xem imageIdentity.ts).

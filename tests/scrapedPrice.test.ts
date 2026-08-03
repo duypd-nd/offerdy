@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatScrapedPrice } from '@/lib/scrapedPrice'
+import { formatScrapedPrice, fromMinorUnits } from '@/lib/scrapedPrice'
 
 test('gia that tu shop -> chuoi co ky hieu', () => {
   assert.equal(formatScrapedPrice('28.99', 'USD'), '$28.99')
@@ -54,4 +54,33 @@ test('thieu ma tien te -> undefined, KHONG doan la USD', () => {
 
 test('IDR co ma thi van dinh dang duoc', () => {
   assert.equal(formatScrapedPrice('4961899', 'IDR'), 'IDR 4961899')
+})
+
+/**
+ * Doi don vi nho -> don vi chinh. Cac con so duoi day lay tu API that (2026-08-04):
+ * cycleaddons (Woo Store API) tra regular_price 3812 / sale_price 2999 kem
+ * currency_minor_unit 2; hometownseeds (Shopify .js) tra price 3599.
+ *
+ * Vi sao dang test rieng: doc thang con so cua API la gia GAP 100 LAN tren the
+ * deal — sai kieu nay khong lam vo gi ca, no chi len trang voi mot con so vo ly.
+ */
+test('gia tu API cua shop: don vi nho -> don vi chinh', () => {
+  assert.equal(fromMinorUnits(2999), '29.99')   // Woo sale_price
+  assert.equal(fromMinorUnits(3812), '38.12')   // Woo regular_price
+  assert.equal(fromMinorUnits(3599), '35.99')   // Shopify price (cents)
+})
+
+test('so chu so thap phan theo tung tien te, khong phai luon chia 100', () => {
+  // JPY khong co don vi nho -> currency_minor_unit = 0, chia 100 la sai 100 lan
+  assert.equal(fromMinorUnits(1500, 0), '1500')
+  assert.equal(fromMinorUnits(1500, 2), '15')
+  assert.equal(fromMinorUnits(15000, 3), '15')
+})
+
+test('gia tri khong dung duoc -> undefined chu khong phai 0', () => {
+  assert.equal(fromMinorUnits(null), undefined)
+  assert.equal(fromMinorUnits(undefined), undefined)
+  assert.equal(fromMinorUnits(0), undefined)
+  assert.equal(fromMinorUnits(''), undefined)
+  assert.equal(fromMinorUnits('khong phai so'), undefined)
 })

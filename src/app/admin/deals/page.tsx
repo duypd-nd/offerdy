@@ -14,7 +14,9 @@ const QUERY = `*[_type == "deal"] | order(coalesce(order, 9999) asc, _createdAt 
 }`
 
 const REVIEWS_QUERY = `*[_type == "review"] | order(title asc) { _id, title }`
-const CATEGORIES_QUERY = `*[_type == "category"] | order(coalesce(order, 9999) asc, name asc) { _id, name, emoji }`
+// `slug` de doi chieu voi `store.category` (cung la slug) khi tu chon danh muc
+// theo shop trong DealAdmin.
+const CATEGORIES_QUERY = `*[_type == "category"] | order(coalesce(order, 9999) asc, name asc) { _id, name, emoji, "slug": slug.current }`
 
 // Host + link affiliate cua 28 store, de o nhap link trong modal noi ngay duoc
 // "se gan ?ref=... cua shop nao". Chi 28 dong nen truyen thang xuong client re hon
