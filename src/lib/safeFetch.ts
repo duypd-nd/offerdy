@@ -1,8 +1,17 @@
-import { writeClient } from '@/sanity/writeClient'
 import dns from 'dns/promises'
 import { isIP } from 'net'
 
 const DEFAULT_UA = 'Mozilla/5.0 (compatible; OfferdyBot/1.0; +https://www.offerdy.com)'
+
+// Accept khi keo mot trang HTML — phai giong het trinh duyet, KHONG duoc gui
+// "text/html" tran trui.
+//
+// Vi sao: mot so storefront tra ve HTTP 500 khi Accept thieu ky tu dai dien.
+// Do duoc tren seeandbuy12.wed2c.com (nginx), cung URL cung User-Agent:
+// Accept "text/html" -> 500 lien tuc 5/5 lan; Accept co ky tu dai dien -> 200
+// lien tuc 5/5 lan. Doi User-Agent khong thay doi gi, nen day KHONG phai chan
+// bot ma la loi thuong luong noi dung ben ho. Chuoi duoi day la chuoi Chrome gui.
+export const ACCEPT_HTML = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
 
 function isPrivateOrReservedIp(ip: string): boolean {
   const version = isIP(ip)
@@ -112,6 +121,10 @@ export async function uploadImageFromUrl(url: string): Promise<UploadImageResult
   const { res } = fetched
   if (!res.ok) return { error: `HTTP ${res.status} khi tai "${url}"` }
   try {
+    // Nap Sanity o day chu khong o dau file: `createClient` NEM ngay luc import
+    // khi thieu projectId, nen mot import o dau file se keo theo yeu cau bien moi
+    // truong Sanity cho ca `fetchSafely` — mot ham mang thuan tuy khong lien quan.
+    const { writeClient } = await import('@/sanity/writeClient')
     const blob = await res.blob()
     const filename = url.split('/').pop()?.split('?')[0] || 'image.png'
     const asset = await writeClient.assets.upload('image', blob, {

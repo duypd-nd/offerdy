@@ -448,6 +448,15 @@ Built because the numbers said so: GA4 showed **12 organic-search sessions in 30
 - ⚠️ **`fuzzyMatch` is too loose for this.** It treats any substring as a hit, which is right while someone is typing but wrong here: `/stores/pollo-ai` was suggesting **"Apollo Moda"** because `"apollo moda"` contains `"pollo"`. `matchesKeyword()` tightens it to word-start matching. A confidently-presented wrong answer is worse than no answer — the page now says "We no longer carry Pollo Ai" with a search link instead.
 - `/api/search-suggest` keeps its **own** GROQ query, separate from `src/sanity/queries.ts`, so the `?w=` image cap had to be applied there too — it was returning a 1200×400 PNG to fill a 28px box.
 
+## Scraping a merchant page: send a browser's `Accept`, not `text/html`
+`/admin` "Lấy thông tin sản phẩm" kept failing with **`HTTP 500 khi tải …`**, and the 500 came from the *merchant's* nginx, not from us.
+
+- **The trigger is the `Accept` header, not the User-Agent.** Measured against `seeandbuy12.wed2c.com`, same URL, same UA: `Accept: text/html` → **500 on 5 of 5 requests**; an `Accept` containing `*/*` → **200 on 5 of 5**. Swapping in a real Chrome UA changed nothing. So it is not bot-blocking — their content negotiation falls over when no wildcard is offered.
+- `ACCEPT_HTML` in `src/lib/safeFetch.ts` is the string Chrome sends; `tests/acceptHeader.test.ts` asserts it keeps the wildcard so nobody trims it back.
+- ⚠️ **Debugging this with `curl` needs `--compressed`.** wed2c gzips even when no `Accept-Encoding` is offered, so plain `curl` shows binary and looks like an empty page. Node's `fetch` sends `Accept-Encoding` and decompresses on its own — the app was fine, the diagnosis was not.
+- `fetchSafely` no longer imports `writeClient` at module scope — `createClient` **throws at import time** without `projectId`, which forced Sanity env vars on every consumer of a plain network helper (and made the module untestable). `uploadImageFromUrl` imports it lazily instead.
+- Still strict on purpose: the JSON/XML fetches in `src/lib/productCatalog.ts` keep `application/json` / `application/xml`, since a wildcard there invites an HTML page back where the parser expects data.
+
 ## Page titles: the brand suffix belongs to `titleTemplate`, nowhere else
 `src/app/layout.tsx` sets `title: { default, template: titleTemplate }`, where `titleTemplate` comes from Sanity SEO config and is currently `%s | Offerdy`. **Next appends that suffix to every page-level `title`.** So a page that writes its own `— Offerdy` gets it twice — 24 pages were doing exactly that (`… | Offerdy | Offerdy`), burning 10 of a ~60-character budget on a repeat of the brand.
 

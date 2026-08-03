@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio'
-import { fetchSafely } from '@/lib/safeFetch'
+import { fetchSafely, ACCEPT_HTML } from '@/lib/safeFetch'
 import { bestDescription } from '@/lib/productText'
 import { dedupeImageUrls } from '@/lib/imageIdentity'
 
@@ -122,7 +122,7 @@ function findJsonLdProduct($: cheerio.CheerioAPI): Record<string, unknown> | nul
 }
 
 export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
-  const fetched = await fetchSafely(url, { maxBytes: 3 * 1024 * 1024, timeoutMs: 10_000, accept: 'text/html' })
+  const fetched = await fetchSafely(url, { maxBytes: 3 * 1024 * 1024, timeoutMs: 10_000, accept: ACCEPT_HTML })
   if ('error' in fetched) return { error: fetched.error }
   const { res } = fetched
   if (!res.ok) return { error: `HTTP ${res.status} khi tai "${url}"` }
