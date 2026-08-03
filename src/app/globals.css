@@ -261,7 +261,10 @@ a.announce-bar:hover{background:var(--green-dark)}
 .reviews-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
 .review-card{background:var(--white);border-radius:var(--r);border:1.5px solid var(--border);overflow:hidden;transition:box-shadow .25s,transform .25s,border-color .25s;display:flex;flex-direction:column}
 .review-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px);border-color:transparent}
-.review-img{height:200px;display:flex;align-items:center;justify-content:center;font-size:62px;position:relative;overflow:hidden;flex-shrink:0}
+/* Anh vuong: aspect-ratio thay cho height co dinh, de o luon co ti le 1:1 du the
+   nam trong luoi 1, 2 hay 4 cot. Can width:100% vi day la the <a> (inline) — thieu
+   no thi aspect-ratio tinh tren be rong noi dung chu khong phai be rong the. */
+.review-img{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:62px;position:relative;overflow:hidden;flex-shrink:0}
 .review-tag{position:absolute;bottom:10px;left:12px;background:var(--navy);color:white;font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;letter-spacing:.04em;text-transform:uppercase}
 .review-body{padding:16px 18px 18px;display:flex;flex-direction:column;flex:1}
 .review-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
