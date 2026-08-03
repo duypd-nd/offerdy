@@ -267,7 +267,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                   <Link key={r.slug} href={`/reviews/${r.slug}`} className="asb-card">
                     <div className="asb-thumb" style={{ background: r.imageUrl ? undefined : (r.imgBg ?? 'var(--bg)') }}>
                       {r.imageUrl
-                        ? <Image src={r.imageUrl} alt={r.title} fill sizes="128px" style={{ objectFit: 'cover' }} />
+                        ? <Image src={r.imageUrl} alt={r.title} fill sizes="96px" style={{ objectFit: 'cover' }} />
                         : (r.emoji ?? '⭐')
                       }
                     </div>

@@ -202,7 +202,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   imageUrl?: string
                 }) => (
                   <Link key={p.slug} href={`/blog/${p.slug}`} className="asb-card">
-                    <div className="asb-thumb" style={{ background: p.imageUrl ? undefined : (p.coverBg ?? 'var(--bg)'), fontSize: 28 }}>
+                    <div className="asb-thumb asb-thumb--wide" style={{ background: p.imageUrl ? undefined : (p.coverBg ?? 'var(--bg)'), fontSize: 28 }}>
                       {p.imageUrl
                         ? <Image src={p.imageUrl} alt={p.title} fill sizes="128px" style={{ objectFit: 'cover' }} />
                         : (p.coverEmoji ?? '📝')}

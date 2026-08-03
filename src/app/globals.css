@@ -853,7 +853,12 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .asb-card{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);text-decoration:none;transition:background .12s}
 .asb-card:last-child{border-bottom:none;padding-bottom:14px}
 .asb-card:hover{background:var(--bg)}
-.asb-thumb{width:128px;height:64px;border-radius:8px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;position:relative}
+/* Vuong 96px chu khong phai 128: giu chieu rong cu thi hang cao them 64px va
+   tua de bi cat con mot dong. 96 vua vuong, vua tra 32px be rong lai cho chu. */
+.asb-thumb{width:96px;height:96px;border-radius:8px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;position:relative}
+/* Sidebar blog giu 2:1: anh bia blog la banner ngang co chu, cat vuong la mat chu.
+   Anh review la anh san pham nen vuong van doc duoc. */
+.asb-thumb--wide{width:128px;height:64px}
 .asb-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .asb-info{flex:1;min-width:0}
 .asb-name{font-size:12px;font-weight:700;color:var(--text);line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:5px}
