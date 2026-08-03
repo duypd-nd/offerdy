@@ -45,3 +45,7 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Bao cao sinh tu dong (npm run triage:dead). Cac file .md trong .scratch/ la
+# issue tracker cua du an nen VAN duoc theo doi — chi bo qua ban ket xuat.
+.scratch/*.json

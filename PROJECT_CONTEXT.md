@@ -169,6 +169,34 @@ The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro insert
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
+## Offers show a real date, and it says exactly what it means
+Every offer card carries `🔗 Link checked <date>` from `linkCheckedAt` next to the `✓ Verified` badge, on `/stores/[slug]` and `/coupon-codes`.
+
+- Why: an undated "Verified" badge is worth close to nothing in this category. Industry measurement across **78.8M live checkout tests puts code rejection at 26.2%**, and **87.6% of user votes on coupon listings are downvotes** — shoppers arrive already expecting the code to fail, so recency is the signal that separates a live listing from filler.
+- ⚠️ **The date is not invented.** `expiresAt` is empty on **0 of 303** offers and there is no source for a merchant's true expiry, so nothing was back-filled. `linkCheckedAt` is present on **303 of 303** because the nightly cron writes it — it is the only real dated fact available, so that is what ships.
+- ⚠️ **"Link checked", never "Code tested".** The cron verifies the outbound link resolves; it has never attempted to apply a code at checkout. Those are different claims and the tooltip spells out which one this is. Same rule as the review coupon box: state the scope, never imply the stronger claim.
+- Styled deliberately quieter than `.sol-vbadge` — it qualifies the Verified badge rather than competing with it.
+- ⚠️ Trap when editing the GROQ blocks: **a backtick inside a `//` comment closes the surrounding template literal** (`TS1005`). Comments inside GROQ strings must avoid backticks.
+- 📌 `/flash-sales` filters on `defined(expiresAt) && expiresAt > now()`. With `expiresAt` empty everywhere, **that page renders empty** — while the sitemap still submits it at priority 0.9, `changeFrequency: hourly`.
+
+## The sitemap is a Route Handler, and Route Handlers are cached
+`src/app/sitemap.ts` declares **`export const revalidate = 3600`**. Removing that line silently un-publishes every piece of content added after the next deploy.
+
+- ⚠️ **`sitemap.js` is cached by default** — the Next docs say so outright (`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/01-metadata/sitemap.md`): it is "a special Route Handler that is cached by default unless it uses a Request-time API or dynamic config option". With no config it is generated **once at build** and frozen. Every content page in this app carries `revalidate = 60`; the sitemap carried nothing, so it alone froze.
+- What that cost, measured 2026-08-04: the production sitemap was still the snapshot from the last deploy (~07-26), so **22 of 23 reviews — the entire batch written 08-03 for the actual partner shops — had never been submitted to Google**, while the same file still listed **14 store URLs that now 404**. A sitemap that points at dead pages is the worst possible signal when 93% of the site's impressions already land on 404s.
+- **3600, not 60.** Google reads a sitemap roughly once a day, and each regeneration costs 7 Sanity queries. An hour is fresher than search needs and caps the damage if anything polls `/sitemap.xml` — the API quota has been exhausted once already by exactly this class of leak.
+- Its 7 queries moved `writeClient` → `readClient` at the same time: a sitemap is a public read, and up-to-60s CDN staleness is meaningless for a file Google fetches daily.
+- Verified by diffing the live production sitemap against a local build: reviews **12 → 24**, deals **23 → 31**, stores **85 → 80**, total **149 → 164**, and **404 URLs inside the sitemap 14 → 0**.
+- 📌 `about`, `contact` and `search` still read through `writeClient`, so the "only three call sites" claim below is out of date. Not the bottleneck, left alone deliberately.
+
+## Search: Google ranks pages that no longer exist (`npm run triage:dead`)
+`scripts/dead-pages-triage.mjs` checks **every** URL Google has shown for the site over 90 days, then joins the dead ones against current Sanity data to sort them into `301` / `DUNG_LAI` / `GIU_404`.
+
+- First full run 2026-08-04: **181 of 201 ranked URLs return 404**, taking **2939 of 3170 impressions (93%)** and **28 of 28 clicks**. By section: 152 stores, 18 reviews, 5 blog, 6 deals.
+- Why it exists next to `findDeadPages`: that one is a **diagnosis** widget capped at the top 40 pages because it runs on every admin page view. This is a **decision** tool — full coverage, cross-referenced against live content, run by hand.
+- ⚠️ **No case was a renamed slug**, so there is nothing to 301. And the content cannot be recovered: Sanity's history API answers `403 … requires excludeContent to be true` on this plan and the transaction log returns **0 rows**. Rebuilding means rewriting.
+- ⚠️ Name matching is **word-based (Jaccard, ≥0.5)**, never substring — the substring trap is what once made the 404 page suggest "Apollo Moda" for `/stores/pollo-ai`. A wrong 301 suggestion is costlier than none, so the threshold is deliberately high and unmatched rows are left for a human.
+
 ## Sanity: two clients, two quotas
 See the comment block atop `src/sanity/queries.ts`. Short version: **public reads go through `readClient` (CDN)**, and `writeClient` (direct API) is reserved for writes and the few reads that must be fresh.
 
@@ -187,6 +215,8 @@ See the comment block atop `src/sanity/queries.ts`. Short version: **public read
 
 - ⚠️ Why it was needed: `buyUrl` used to be plain `affiliateUrl || productUrl`. A review created through `/admin/reviews` gets a ref'd URL from the form, but one created through **Excel import** carries a bare link — so the CTA inside a published review earned **nothing**, with nothing on screen to reveal it.
 - The coupon fallback also means the Reviews import sheet needs no coupon column at all. Verified live: the Katyayani review has an empty `couponCode` and the page still renders that shop's real code (`duy`).
+- ⚠️ **Links inside the article body needed the same treatment** (2026-08-03, `getStoreRefForHtml` → `applyStoreRefToHtmlLinks`). The body is HTML generated once and stored in Sanity, so every link in it is a **snapshot of the link at writing time**: the top CTA was resolved at render and carried `?ref=`, while the "Check the best price" button below Pros & Cons — the one under the reader's thumb — went out bare. Measured on the 23 live reviews: **8 of them** (all `lightstyl.com` and `kyokuknives.com`) had a bare in-body link although the shop has had `?ref=offerdy` all along; the field the generator read (`affiliateUrl`) was simply empty when those drafts were written. Verified after the fix: all 6 links in `crystal-rays-chandelier-review-iron-stained-glass` now end in `?ref=offerdy`.
+- Only `<a href>` is rewritten. `<img src>` is left alone (ref params on a CDN image URL are meaningless and can break it), as is Next's `<link rel="preload">`. `&amp;` is decoded before the URL is parsed — otherwise `&amp;utm_source` reads as a parameter literally named `amp;utm_source` — and re-escaped on the way out.
 
 ## Store page: offers with a code come first
 `OFFERS_BY_STORE_QUERY` sorts by `select(defined(couponCode) && couponCode != "" => 0, 1) asc`, then `order desc`, then newest.
@@ -233,7 +263,7 @@ Two content groups that never referenced each other now do, both riding the doma
 - **`/links` shows working coupon codes** directly (`LinkInBioCodes`), 6 rows, **one per shop**: real data has one shop with two codes (Frizzlife), and repeating a shop on a 6-row page costs another brand its slot. Codes render **exactly as stored** — production has both `OFFERDY` and `offerdy`, and some checkouts are case-sensitive, so normalising could break a code. Not sorted by clicks: at current volume that would be sorting by noise.
 
 ## Tests (`npm test`)
-47 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, and the AI caption guardrails. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it.
+106 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, and the AI caption guardrails. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it.
 
 - Files: `tests/*.test.ts` using Node's built-in `node:test` + `node:assert`. **No test framework dependency.**
 - ⚠️ Run via `scripts/run-tests.mjs`, not `node --test tests/` directly. Node reads TypeScript fine, but Node's ESM demands **full file extensions** in imports (`./affiliateUrl.ts`), while the codebase uses extensionless `@/lib/...` bundler-style aliases. Changing the source to suit Node would risk the Next build, so the script bundles each test with esbuild (alias `@` → `src`, `packages: external`) into `node_modules/.cache/offerdy-tests` and runs `node --test` on the output. Tests therefore import exactly the way `src/` files import each other.

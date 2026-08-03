@@ -114,6 +114,22 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName
                   ✓ Verified {hasCode ? 'Code' : 'Deal'}
                 </span>
               )}
+              {/*
+                Ngay kiem tra that, lay tu cron dem (`linkCheckedAt`, co o ca 303
+                offer). Vi sao no dang o day: nguoi mua ma khong tin "Verified" tran
+                — 26% ma bi tu choi o quay thanh toan tren toan nganh — nen mot
+                nhan khong ngay thang gan nhu khong co gia tri. Ngay that thi co.
+
+                ⚠️ Chu la "Link checked", KHONG phai "Code tested". Cron chi kiem
+                link con song, no chua bao gio thu ap ma vao gio hang. Viet thanh
+                "code verified" o day la hua mot viec chua lam — dung kieu mat long
+                tin ma ca du an nay van tranh (xem hop coupon trong trang review).
+              */}
+              {offer.linkCheckedAt && (
+                <span className="sol-checked" title="We check every outbound link nightly. This is the link check date — not a checkout test of the code.">
+                  🔗 Link checked {fmtExpiredDate(offer.linkCheckedAt)}
+                </span>
+              )}
               {daysLeft !== null && daysLeft <= 7 && (
                 <span className="sol-exp">⏰ {daysLeft}d left</span>
               )}

@@ -566,6 +566,9 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .sol-vbadge{font-size:11px;font-weight:700;color:var(--green-dark);background:var(--green-50);border:1px solid var(--green-100);border-radius:4px;padding:2px 8px}
 .sol-vbadge.deal{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.18);color:#1d4ed8}
 .sol-exp{font-size:11px;font-weight:600;color:#ea580c;background:rgba(234,88,12,.07);border:1px solid rgba(234,88,12,.18);border-radius:4px;padding:2px 8px}
+/* Ngay kiem tra link. Co y de MO hon .sol-vbadge: day la thong tin phu tro cho
+   nhan "Verified", khong phai mot nhan thu hai tranh cho voi no. */
+.sol-checked{font-size:11px;font-weight:500;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:help}
 .sol-title{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.4}
 .sol-desc{font-size:12px;color:var(--muted);line-height:1.55;margin:0}
 .sol-desc-tip,.sol-desc-eligibility{margin-top:4px;opacity:.85}

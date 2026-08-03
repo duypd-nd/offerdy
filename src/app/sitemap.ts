@@ -1,8 +1,29 @@
 import type { MetadataRoute } from 'next'
-import { writeClient } from '@/sanity/writeClient'
+import { client as readClient } from '@/sanity/client'
 import { getCategorySlugsWithStores } from '@/sanity/queries'
 
 const BASE = 'https://www.offerdy.com'
+
+/**
+ * ⚠️ KHONG DUOC BO DONG NAY.
+ *
+ * `sitemap.ts` la mot Route Handler **duoc cache mac dinh** — khong khai bao gi
+ * thi Next sinh no MOT LAN luc build roi dong bang vinh vien. Ket qua do duoc
+ * ngay 2026-08-04: sitemap tren production van la anh chup cua lan deploy cuoi
+ * (~26/07), nen **22 trong 23 bai review — toan bo so viet ngay 03/08 cho dung
+ * cac shop doi tac — chua bao gio duoc bao cho Google**, trong khi sitemap van
+ * moi Google vao **14 trang store da bi xoa** (nay tra 404).
+ *
+ * Doi lai: noi dung moi vo hinh voi tim kiem cho den lan deploy sau, va Google
+ * hoc duoc rang sitemap nay dan toi trang chet — dung thu can phai tranh nhat
+ * khi 93% hien thi cua site da roi vao 404.
+ *
+ * 3600 chu khong phai 60 nhu cac trang noi dung: Google doc sitemap khoang mot
+ * lan moi ngay, con moi lan sinh lai ton 7 luot truy van Sanity. Mot gio la du
+ * tuoi cho tim kiem ma van chan duoc kha nang ai do goi lien tuc /sitemap.xml
+ * lam cham han ngach.
+ */
+export const revalidate = 3600
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let stores: { slug: string; _updatedAt: string }[] = []
@@ -20,15 +41,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     ;[stores, posts, reviews, pages, categories, deals, comparisonCount] = await Promise.all([
-      writeClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
-      writeClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now()]{ "slug": slug.current, _updatedAt }`),
-      writeClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
-      writeClient.fetch(`*[_type == "page" && published != false]{ "slug": slug.current, _updatedAt }`),
-      writeClient.fetch(`*[_type == "category"]{ "slug": slug.current, _updatedAt }`),
-      writeClient.fetch(`*[_type == "deal"]{ "slug": slug.current, _updatedAt }`),
+      readClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
+      readClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now()]{ "slug": slug.current, _updatedAt }`),
+      readClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
+      readClient.fetch(`*[_type == "page" && published != false]{ "slug": slug.current, _updatedAt }`),
+      readClient.fetch(`*[_type == "category"]{ "slug": slug.current, _updatedAt }`),
+      readClient.fetch(`*[_type == "deal"]{ "slug": slug.current, _updatedAt }`),
       // Cung dieu kien loc voi COMPARISON_POSTS_QUERY trong src/sanity/queries.ts —
       // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
-      writeClient.fetch(`count(*[_type == "post" && category == "Comparison" && (!defined(publishedAt) || publishedAt <= now())])`),
+      readClient.fetch(`count(*[_type == "post" && category == "Comparison" && (!defined(publishedAt) || publishedAt <= now())])`),
     ])
   } catch {}
 

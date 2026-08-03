@@ -12,7 +12,8 @@
     "lint": "eslint",
     "test": "node scripts/run-tests.mjs",
     "check:ga4": "node scripts/check-ga4.mjs",
-    "check:gsc": "node scripts/check-gsc.mjs"
+    "check:gsc": "node scripts/check-gsc.mjs",
+    "triage:dead": "node scripts/dead-pages-triage.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.113.0",
