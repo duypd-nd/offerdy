@@ -72,7 +72,45 @@ function num(v: unknown): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
 
-async function storeApiData(pageUrl: string): Promise<StoreApi> {
+/**
+ * Tien te GOC cua mot shop Shopify, doc tu `/meta.json`. `undefined` neu khong
+ * phai Shopify hoac shop chan duong nay.
+ *
+ * Dung de lam gi: xem `withCurrency` ben duoi.
+ */
+async function shopifyBaseCurrency(origin: string): Promise<string | undefined> {
+  const res = await fetchSafely(origin + '/meta.json', { ...FETCH_OPTS, accept: 'application/json' })
+  if ('error' in res || !res.res.ok) return undefined
+  try {
+    const data = await res.res.json() as { currency?: unknown }
+    return typeof data.currency === 'string' && /^[A-Za-z]{3}$/.test(data.currency)
+      ? data.currency.toUpperCase()
+      : undefined
+  } catch { return undefined }
+}
+
+/**
+ * Gan `?currency=<ma>` de Shopify tra gia bang tien te GOC cua shop.
+ *
+ * ⚠️ Vi sao can: Shopify Markets doi gia theo VI TRI NGUOI XEM. Doc tu Viet Nam
+ * thi tennail.com hien 837.000 ₫ — nhung Offerdy ban cho khach My/EU, nen mot
+ * the deal ghi gia VND la sai voi gan nhu moi nguoi doc no. Do that 2026-08-04:
+ * cung URL, khong tham so -> VND 83700000; `?currency=USD` -> USD 3120, dung bang
+ * $31.20 dang hien tren trang chu Offerdy.
+ *
+ * Lay tien te goc cua shop chu KHONG dat cung USD: bang tien te goc la gia shop
+ * that su thu, moi ma khac deu la ban quy doi theo ty gia trong ngay.
+ */
+function withCurrency(rawUrl: string, currency?: string): string {
+  if (!currency) return rawUrl
+  try {
+    const u = new URL(rawUrl)
+    u.searchParams.set('currency', currency)
+    return u.toString()
+  } catch { return rawUrl }
+}
+
+async function storeApiData(pageUrl: string, currency?: string): Promise<StoreApi> {
   let u: URL
   try { u = new URL(pageUrl) } catch { return EMPTY_API }
   const seg = u.pathname.replace(/\/+$/, '').split('/').filter(Boolean)
@@ -81,7 +119,7 @@ async function storeApiData(pageUrl: string): Promise<StoreApi> {
 
   // Shopify: duong dan san pham luon la /products/<handle>
   if (seg.includes('products')) {
-    const shopify = await fetchSafely(u.origin + '/products/' + handle + '.js', {
+    const shopify = await fetchSafely(withCurrency(u.origin + '/products/' + handle + '.js', currency), {
       ...FETCH_OPTS, accept: 'application/json',
     })
     if (!('error' in shopify) && shopify.res.ok) {
@@ -191,8 +229,42 @@ function findJsonLdProduct($: cheerio.CheerioAPI): Record<string, unknown> | nul
   return null
 }
 
+/**
+ * Ma tien te khi JSON-LD khong khai — do that tren 3 shop Shopify (2026-08-04):
+ * ilovesoiree.com KHONG co `priceCurrency` trong JSON-LD nhung co `og:price:currency`.
+ *
+ * ⚠️ CHI lay tu chinh trang vua tai, TUYET DOI khong goi `/meta.json` cua Shopify.
+ * `/meta.json` tra ve tien te GOC cua shop, con gia minh vua doc la tien te DANG
+ * HIEN THI — Shopify Markets doi theo vi tri nguoi xem. Do that tren
+ * empowerbeautiful.com tu Viet Nam: trang hien VND con `/meta.json` bao USD. Ghep
+ * hai nguon do lai la gan nhan "$" cho mot con so VND.
+ */
+function pageCurrency($: cheerio.CheerioAPI, metaContent: (name: string) => string | undefined): string | undefined {
+  const meta = metaContent('og:price:currency') || metaContent('product:price:currency')
+  if (meta) return meta.trim()
+
+  // Theme Shopify nhung khong co the meta: `Shopify.currency = {"active":"USD",...}`
+  for (const el of $('script').toArray()) {
+    const m = $(el).contents().text().match(/Shopify\.currency\s*=\s*\{[^}]*"active"\s*:\s*"([A-Za-z]{3})"/)
+    if (m) return m[1]
+  }
+  return undefined
+}
+
 export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
-  const fetched = await fetchSafely(url, { maxBytes: 3 * 1024 * 1024, timeoutMs: 10_000, accept: ACCEPT_HTML })
+  // Hoi tien te goc TRUOC khi tai trang, roi tai trang bang chinh tien te do —
+  // neu chi doi tien te cho API con trang HTML van la ban dia phuong thi JSON-LD
+  // se cho gia VND con API cho gia USD, ghep lai thanh mot con so sai don vi.
+  // Chi ton them dung mot request, va chi voi Shopify (Woo tu khai tien te).
+  let origin: string | undefined
+  try { origin = new URL(url).origin } catch { origin = undefined }
+  // Chi hoi khi duong dan co dang Shopify — Woo khong co /meta.json, hoi la phi mot request.
+  const baseCurrency = origin && url.includes('/products/')
+    ? await shopifyBaseCurrency(origin)
+    : undefined
+  const pageUrl = withCurrency(url, baseCurrency)
+
+  const fetched = await fetchSafely(pageUrl, { maxBytes: 3 * 1024 * 1024, timeoutMs: 10_000, accept: ACCEPT_HTML })
   if ('error' in fetched) return { error: fetched.error }
   const { res } = fetched
   if (!res.ok) return { error: `HTTP ${res.status} khi tai "${url}"` }
@@ -252,7 +324,7 @@ export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
   const ogImages = $('meta[property="og:image"]').map((_, el) => $(el).attr('content')).get().filter(Boolean) as string[]
   const twitterImage = metaContent('twitter:image')
 
-  const api = await storeApiData(url)
+  const api = await storeApiData(pageUrl, baseCurrency)
 
   // Thu vien san pham dat TRUOC: day la anh that cua san pham, dung thu tu shop
   // xep. og:image/JSON-LD thuong chi la mot anh dai dien, de sau lam du phong.
@@ -278,8 +350,8 @@ export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
   // shop (`compare_at_price` cua Shopify, `regular_price` cua Woo), cung mot lan goi
   // da dung de lay thu vien anh nen khong ton them request nao.
   const price = ldPrice ?? api.priceSaleRaw
-  // Woo tu khai ma tien te; Shopify thi khong, phai muon cua JSON-LD tren trang.
-  const currency = ldCurrency ?? api.currency
+  // Woo tu khai ma tien te; Shopify thi khong, phai nhat tren chinh trang do.
+  const currency = ldCurrency ?? api.currency ?? pageCurrency($, metaContent)
 
   return {
     title,
