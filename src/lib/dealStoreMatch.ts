@@ -85,6 +85,44 @@ export function applyStoreRefToDealUrl(
   return resolveDealLink(dealUrl, stores).dealUrl
 }
 
+/** `&amp;` -> `&`: href trong HTML co the da duoc escape, ma `&amp;utm_source`
+ *  parse ra mot tham so ten "amp;utm_source" — sai ngay tu buoc doc. */
+function decodeHtmlAttr(s: string) {
+  return s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+}
+
+function encodeHtmlAttr(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+/**
+ * Gan tham so tiep thi vao MOI `<a href>` trong mot doan HTML da luu san.
+ *
+ * Vi sao can rieng ham nay: noi dung bai review duoc sinh MOT LAN roi luu thang
+ * vao Sanity, nen moi link nam trong do la anh chup cua link luc viet bai. Bai
+ * viet khi shop chua duoc khai bao (hoac o "Link Affiliate" con trong) co nut
+ * "Check the best price" giua bai tro ra merchant TRAN — trong khi nut CTA dau
+ * trang, vi duoc gan luc render, van co ref. Mot bai, hai so phan, va cai mat
+ * hoa hong lai la cai nam ngay duoi phan Pros & Cons noi nguoi ta bam nhieu nhat.
+ *
+ * Gan luc RENDER giong `applyStoreRefToDealUrl` (xem ly do o do): sua ma ref o
+ * store la ca kho bai cu di theo, khong phai sinh lai noi dung tung bai.
+ */
+export function applyStoreRefToHtmlLinks(
+  html: string | undefined,
+  stores: StoreHostRow[]
+): string | undefined {
+  if (!html) return html
+  // Chi dung `href` cua the <a>: `src` cua <img> tro toi CDN anh, gan ref vao do
+  // vua vo nghia vua co the lam hong URL anh.
+  return html.replace(/(<a\b[^>]*?\bhref=)(["'])(.*?)\2/gi, (whole, prefix: string, quote: string, raw: string) => {
+    const href = decodeHtmlAttr(raw)
+    const withRef = applyStoreRefToDealUrl(href, stores)
+    if (!withRef || withRef === href) return whole
+    return `${prefix}${quote}${encodeHtmlAttr(withRef)}${quote}`
+  })
+}
+
 /**
  * Mot lan khop domain, tra ve CA HAI thu suy ra duoc tu do: URL da gan tham so
  * tiep thi, va TEN SHOP.

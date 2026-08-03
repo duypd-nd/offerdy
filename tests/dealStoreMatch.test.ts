@@ -8,6 +8,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   matchStoreByUrl, couponForDealUrl, applyStoreRefToDealUrl, resolveDealLink,
+  applyStoreRefToHtmlLinks,
   type StoreHostRow,
 } from '@/lib/dealStoreMatch'
 
@@ -83,6 +84,46 @@ test('giu query va fragment san co', () => {
 
 test('undefined -> undefined, khong nem loi', () => {
   assert.equal(applyStoreRefToDealUrl(undefined, stores), undefined)
+})
+
+// ── Link nam TRONG than bai (HTML da luu) ────────────────────────
+test('nut CTA giua bai review duoc gan ref, khong chi nut dau trang', () => {
+  const html = '<p>x</p><a class="article-cta" href="https://kyokuknives.com/p/santoku" target="_blank">Check the best price →</a>'
+  assert.match(
+    applyStoreRefToHtmlLinks(html, stores)!,
+    /href="https:\/\/kyokuknives\.com\/p\/santoku\?ref=offerdy"/
+  )
+})
+
+test('gan cho MOI link trong bai, ke ca link boc quanh anh', () => {
+  const html = '<figure><a href="https://kyokuknives.com/p/x"><img src="https://cdn.sanity.io/a.jpg" /></a></figure>'
+    + "<a href='https://kyokuknives.com/p/y'>mua</a>"
+  const out = applyStoreRefToHtmlLinks(html, stores)!
+  assert.match(out, /href="https:\/\/kyokuknives\.com\/p\/x\?ref=offerdy"/)
+  assert.match(out, /href='https:\/\/kyokuknives\.com\/p\/y\?ref=offerdy'/)
+  // src cua anh khong bi dong vao: gan ref vao URL anh vua vo nghia vua de lam hong
+  assert.match(out, /src="https:\/\/cdn\.sanity\.io\/a\.jpg"/)
+})
+
+test('nhieu tham so -> escape & thanh &amp; trong HTML', () => {
+  const out = applyStoreRefToHtmlLinks('<a href="https://www.frizzlife.com/products/px600">mua</a>', stores)!
+  assert.match(out, /href="https:\/\/www\.frizzlife\.com\/products\/px600\?ref=offerdy&amp;utm_source=affiliate"/)
+})
+
+test('href da escape san -> doc dung tham so, khong nhan "amp;" la ten tham so', () => {
+  const html = '<a href="https://www.frizzlife.com/products/px600?ref=daco&amp;utm_source=affiliate">mua</a>'
+  const out = applyStoreRefToHtmlLinks(html, stores)!
+  assert.equal(out, html) // da du tham so -> khong doi gi
+})
+
+test('link noi bo va shop la -> giu nguyen, khong dung toi', () => {
+  const html = '<a href="/deals">deals</a><a href="https://hovsco.com/x">shop la</a>'
+  assert.equal(applyStoreRefToHtmlLinks(html, stores), html)
+})
+
+test('than bai trong -> tra ve nguyen ban, khong nem loi', () => {
+  assert.equal(applyStoreRefToHtmlLinks(undefined, stores), undefined)
+  assert.equal(applyStoreRefToHtmlLinks('', stores), '')
 })
 
 // ── Dien ten shop khi deal de trong ──────────────────────────────

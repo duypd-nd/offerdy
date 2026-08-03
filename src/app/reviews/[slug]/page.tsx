@@ -6,7 +6,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import FaqAccordion from '@/components/FaqAccordion'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
-import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor, getStoreRefForUrl, getDealCoupon } from '@/sanity/queries'
+import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor, getStoreRefForUrl, getStoreRefForHtml, getDealCoupon } from '@/sanity/queries'
 import { reviews as staticReviews } from '@/data/reviews'
 
 export const revalidate = 60
@@ -121,11 +121,15 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
   // va truoc day nut CTA trong bai review khong mang tracking gi ca — click khong
   // ra hoa hong ma khong co dau hieu nao.
   const rawBuyUrl = review.affiliateUrl || review.productUrl
-  const [buyUrl, shopCoupon] = await Promise.all([
+  const [buyUrl, shopCoupon, articleHtml] = await Promise.all([
     getStoreRefForUrl(rawBuyUrl),
     // Ma coupon cua shop: review nhap qua Excel khong co cot couponCode, nhung ma
     // suy ra duoc tu domain nen khong can nguoi nhap tay.
     getDealCoupon(rawBuyUrl),
+    // Va ca link BEN TRONG than bai: nut "Check the best price" giua bai duoc AI
+    // nhung vao HTML tu luc viet bai nen no dong bang link cua luc do — bai nao
+    // viet khi o "Link Affiliate" con trong thi nut ay tro ra merchant tran.
+    getStoreRefForHtml(review.content),
   ])
 
   return (
@@ -187,8 +191,8 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                 {review.excerpt}
               </p>
 
-              {review.content && review.content.length > 100 ? (
-                <div dangerouslySetInnerHTML={{ __html: review.content }} />
+              {articleHtml && articleHtml.length > 100 ? (
+                <div dangerouslySetInnerHTML={{ __html: articleHtml }} />
               ) : review.body && review.body.length > 0 ? (
                 <PortableBody body={review.body} />
               ) : (

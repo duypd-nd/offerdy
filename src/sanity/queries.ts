@@ -27,7 +27,7 @@ import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
 import { DEAL_CODE_START } from '@/lib/dealCode'
 import { resolveOfferUrl } from '@/lib/affiliateUrl'
-import { couponForDealUrl, resolveDealLink, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
+import { applyStoreRefToHtmlLinks, couponForDealUrl, resolveDealLink, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
 import type { StoreHealthInput } from '@/lib/merchantHealth'
 
 /**
@@ -344,6 +344,20 @@ export async function getStoreRefForUrl(url?: string): Promise<string | undefine
 }
 
 /**
+ * Gan tham so tiep thi vao moi link nam TRONG than bai (HTML da luu o Sanity).
+ *
+ * Than bai review duoc sinh mot lan roi luu cung link cua luc do, nen nut
+ * "Check the best price" giua bai khong tu cap nhat theo store nhu nut CTA dau
+ * trang. Cho no di qua cung mot phep khop domain de hai nut cung mot so phan.
+ */
+export async function getStoreRefForHtml(html?: string): Promise<string | undefined> {
+  if (!isConfigured() || !html) return html
+  try {
+    return applyStoreRefToHtmlLinks(html, await getCachedStoreHosts() ?? [])
+  } catch { return html }
+}
+
+/**
  * Gan tham so tiep thi cua shop vao `dealUrl` cua MOT deal.
  *
  * Lam o tang query nen moi duong ra merchant deu di qua day: nut Get Deal tren
@@ -568,6 +582,12 @@ export type Offer = {
   productUrl?: string
   /** Ket qua kiem tra link gan nhat — resolveOfferUrl dung de lui ve link shop. */
   linkStatus?: string
+  /**
+   * Lan cuoi cron dem kiem link nay. Hien ra cong khai tren the offer: day la
+   * du lieu ngay thang THAT duy nhat ve do tuoi cua uu dai (`expiresAt` dang
+   * trong o ca 303 offer). Chi noi "link con song", khong noi ma dung duoc.
+   */
+  linkCheckedAt?: string
   description?: string
   usageTips?: string
   eligibilityNotes?: string
@@ -645,6 +665,13 @@ const OFFERS_BY_STORE_QUERY = `*[_type == "offer" && active == true && store->sl
   eligibilityNotes,
   expiresAt,
   active,
+  // Ngay cron dem kiem link lan cuoi. Ca 303/303 offer deu co truong nay, va no
+  // la du lieu NGAY THANG THAT duy nhat hien co ve do tuoi cua mot uu dai —
+  // truong expiresAt dang trong o ca 303. Xem StoreOfferList: chu hien ra phai
+  // noi dung pham vi ("link con song"), KHONG duoc ngu y "ma dung duoc khi
+  // thanh toan".
+  // (Khong dung dau backtick trong khoi nay: no nam trong template literal.)
+  linkCheckedAt,
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
@@ -767,6 +794,7 @@ const FLASH_SALES_QUERY = `*[_type == "offer" && active == true && defined(expir
   description,
   expiresAt,
   active,
+  linkCheckedAt,
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
@@ -799,6 +827,7 @@ const COUPON_OFFERS_QUERY = `*[_type == "offer" && active == true && defined(cou
   description,
   expiresAt,
   active,
+  linkCheckedAt,
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
