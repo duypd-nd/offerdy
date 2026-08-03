@@ -7,7 +7,7 @@ import { getTipsGuidePosts } from '@/sanity/queries'
 export const revalidate = 60
 
 export const metadata: Metadata = {
-  title: 'Tips & Guides — Smart Shopping Advice | Offerdy',
+  title: 'Tips & Guides — Smart Shopping Advice',
   description: 'Shopping tips, saving strategies, and expert guides to help you get the best deals online every time.',
   alternates: { canonical: 'https://www.offerdy.com/tips-guides' },
   openGraph: {

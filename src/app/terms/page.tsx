@@ -10,7 +10,7 @@ const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS = {
   h1: 'Terms of Use', lastUpdated: '2026-06-28', intro: '',
-  sections: [], seoTitle: 'Terms of Use — Offerdy',
+  sections: [], seoTitle: 'Terms of Use',
   seoDescription: 'Read the Terms of Use for Offerdy. By using our coupon code platform, you agree to these terms.',
   indexPage: true,
 }

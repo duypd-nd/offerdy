@@ -50,7 +50,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params
   const store = await getStoreBySlug(slug)
   if (!store) return {}
-  const title = store.metaTitle ?? `${store.name} Deals & Coupons — Offerdy`
+  // titleTemplate trong layout da them duoi thuong hieu, nen `title` khong duoc tu gan
+  // " — Offerdy" nua (se thanh "... — Offerdy | Offerdy"). OG title khong qua template.
+  const title = store.metaTitle ?? `${store.name} Deals & Coupons`
+  const ogTitle = store.metaTitle ?? `${store.name} Deals & Coupons — Offerdy`
   const description = store.metaDescription ?? store.shortDescription ?? `Verified deals and coupon codes for ${store.name}.`
   const url = `${BASE}/stores/${slug}`
   return {
@@ -59,7 +62,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     keywords: store.metaKeywords ?? `${store.name} deals, ${store.name} coupon, ${store.name} promo code`,
     alternates: { canonical: url },
     openGraph: {
-      title,
+      title: ogTitle,
       description,
       url,
       siteName: 'Offerdy',
@@ -70,7 +73,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       // summary_large_image chu khong phai summary: anh OG la 1200x630 duoc thiet ke
       // rieng, the nho hinh vuong cua 'summary' cat mat phan lon noi dung.
       card: 'summary_large_image',
-      title,
+      title: ogTitle,
       description,
     },
   }

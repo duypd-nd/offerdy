@@ -448,6 +448,16 @@ Built because the numbers said so: GA4 showed **12 organic-search sessions in 30
 - ⚠️ **`fuzzyMatch` is too loose for this.** It treats any substring as a hit, which is right while someone is typing but wrong here: `/stores/pollo-ai` was suggesting **"Apollo Moda"** because `"apollo moda"` contains `"pollo"`. `matchesKeyword()` tightens it to word-start matching. A confidently-presented wrong answer is worse than no answer — the page now says "We no longer carry Pollo Ai" with a search link instead.
 - `/api/search-suggest` keeps its **own** GROQ query, separate from `src/sanity/queries.ts`, so the `?w=` image cap had to be applied there too — it was returning a 1200×400 PNG to fill a 28px box.
 
+## Page titles: the brand suffix belongs to `titleTemplate`, nowhere else
+`src/app/layout.tsx` sets `title: { default, template: titleTemplate }`, where `titleTemplate` comes from Sanity SEO config and is currently `%s | Offerdy`. **Next appends that suffix to every page-level `title`.** So a page that writes its own `— Offerdy` gets it twice — 24 pages were doing exactly that (`… | Offerdy | Offerdy`), burning 10 of a ~60-character budget on a repeat of the brand.
+
+- **Rule: a page-level `title` never contains "Offerdy".** Keep `metaTitle`/`seoTitle` ≤ **48 characters** so the templated total stays under Google's ~60-character cut.
+- ⚠️ **`openGraph.title` and `twitter.title` do NOT pass through `titleTemplate`.** Store and category pages therefore build a separate `ogTitle` that still carries the brand — stripping the suffix from a shared `title` variable would have quietly de-branded every social card.
+- ⚠️ **Config-backed pages read `doc.seoTitle ?? DEFAULTS.seoTitle`**, so Sanity *and* the code `DEFAULTS` both have to be edited. They had already drifted: `/about` said "500+ Stores" in code and "350+ Stores" in Sanity. The admin form files (`src/app/admin/*/…Form.tsx`) carry a third copy of the same defaults.
+- ⚠️ **Measure length in characters, not bytes.** `${#var}` in bash counts bytes under a C locale — an em dash is 3, `é` is 2 — which reported pages as over the limit that were not. Use `[...s].length` in Node or GROQ `length()`, the unit Google actually truncates in.
+- ⚠️ **After writing titles to Sanity, store pages stay stale for up to ~60s** — `revalidate = 60` on the route *plus* `useCdn: true` in `src/sanity/client.ts`. The fix looks broken until both expire; re-check before diagnosing.
+- The `long_meta_title` audit rule takes `suffixLength` as a parameter and compares `metaTitle || title`, because that is what these pages actually render (see the 2026-08-03 entry in `TODO.md`).
+
 ## Admin on a phone
 `.adm-sidebar` was a fixed 228px with no media query at all, so on a 390px screen it ate 60% of the viewport and the offer table collapsed to one word per line. Below **900px** (`globals.css`, the `ADMIN TREN DIEN THOAI` block):
 - sidebar becomes an off-canvas drawer (`.adm-sidebar--open`) behind a scrim, opened from `.adm-topbar`; it closes on any nav link click — **not** via `useEffect` on `usePathname`, because this repo's ESLint bans `set-state-in-effect`

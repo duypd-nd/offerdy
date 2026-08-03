@@ -10,7 +10,7 @@ const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS = {
   h1: 'Privacy Policy', lastUpdated: '2026-06-28', intro: '',
-  sections: [], seoTitle: 'Privacy Policy — Offerdy',
+  sections: [], seoTitle: 'Privacy Policy',
   seoDescription: "Read Offerdy's Privacy Policy. We explain what data we collect, how we use it, and your rights.",
   indexPage: true,
 }

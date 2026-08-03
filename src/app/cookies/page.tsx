@@ -10,7 +10,7 @@ const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS = {
   h1: 'Cookie Policy', lastUpdated: '2026-06-28', intro: '',
-  sections: [], seoTitle: 'Cookie Policy — Offerdy',
+  sections: [], seoTitle: 'Cookie Policy',
   seoDescription: 'Learn how Offerdy uses cookies for analytics and affiliate tracking, and how to manage your preferences.',
   indexPage: true,
 }

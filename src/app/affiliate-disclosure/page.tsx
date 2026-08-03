@@ -10,7 +10,7 @@ const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS = {
   h1: 'Affiliate Disclosure', lastUpdated: '2026-06-28', intro: '',
-  sections: [], seoTitle: 'Affiliate Disclosure — Offerdy',
+  sections: [], seoTitle: 'Affiliate Disclosure',
   seoDescription: 'Offerdy earns affiliate commissions when you shop through our links, at no extra cost to you. Read our full disclosure.',
   indexPage: true,
 }

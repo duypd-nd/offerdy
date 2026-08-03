@@ -23,7 +23,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     getStoresByCategory(slug),
   ])
   if (!cat) return {}
-  const title = `${cat.emoji} ${cat.name} Deals & Coupons — Offerdy`
+  // Khong gan " — Offerdy" vao day: titleTemplate trong layout da them duoi thuong hieu,
+  // gan them o day thanh "... — Offerdy | Offerdy". OG title thi khong qua template nen tu gan.
+  const title = `${cat.emoji} ${cat.name} Deals & Coupons`
+  const ogTitle = `${title} — Offerdy`
   const description = cat.description ?? `Browse the best ${cat.name} deals and verified coupon codes.`
   const url = `${BASE}/categories/${slug}`
   return {
@@ -34,8 +37,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     // Tu dao nguoc khi co store dau tien. Sitemap loai URL nay ra trong cung dieu
     // kien (xem getCategorySlugsWithStores trong src/sanity/queries.ts).
     ...(stores.length === 0 && { robots: { index: false, follow: true } }),
-    openGraph: { title, description, url, siteName: 'Offerdy', type: 'website' },
-    twitter: { card: 'summary', title, description },
+    openGraph: { title: ogTitle, description, url, siteName: 'Offerdy', type: 'website' },
+    twitter: { card: 'summary', title: ogTitle, description },
   }
 }
 

@@ -53,7 +53,7 @@ const DEFAULTS: Required<AboutData> = {
   ],
   promiseTitle: 'No expired codes. No surprises at checkout.',
   promiseBody: "If a code on Offerdy doesn't work, we want to know immediately. Every deal listed is one we'd use ourselves. Offerdy will always be free for shoppers — we earn a small affiliate commission when you buy, at no extra cost to you, ever.",
-  seoTitle: 'About Offerdy — Verified Coupon Codes for 500+ Stores',
+  seoTitle: 'About Offerdy — How We Verify Every Coupon',
   seoDescription: 'Offerdy was built because expired coupon codes are frustrating. Every promo code and discount code on Offerdy is verified before going live — free for shoppers worldwide.',
   showStory: true, showStats: true, showCoverage: true, indexPage: true,
 }

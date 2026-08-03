@@ -21,7 +21,7 @@ const DEFAULTS: Required<PartnerData> = {
   ctaHeading: 'Ready to get started?',
   ctaBody: "Reach out with your store name, affiliate network, and what you're looking for. We'll get back to you within 48 hours.",
   contactEmail: 'partners@offerdy.com',
-  seoTitle: 'Partner with Offerdy — Reach Millions of Deal-Seekers',
+  seoTitle: "Partner with Offerdy — List Your Store's Deals",
   seoDescription: 'Partner with Offerdy to feature your deals in front of an engaged audience of shoppers. Affiliate-based, performance-driven.',
   indexPage: true,
 }

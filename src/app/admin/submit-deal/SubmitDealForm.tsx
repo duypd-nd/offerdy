@@ -22,7 +22,7 @@ const DEFAULTS: Required<SubmitDealData> = {
     'No referral codes or MLM links.',
     'Deals must be applicable to real purchases — no fake discounts.',
   ],
-  seoTitle: 'Submit a Deal — Help Us Find the Best Coupons | Offerdy',
+  seoTitle: 'Submit a Deal — Help Us Find the Best Coupons',
   seoDescription: 'Know a coupon code or deal we\'re missing? Submit it to Offerdy. We verify every submission before it goes live.',
   indexPage: true,
 }
