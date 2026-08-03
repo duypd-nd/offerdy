@@ -92,6 +92,46 @@ export const offerType = defineType({
       type: 'datetime',
       description: 'Để trống nếu không có ngày hết hạn',
     }),
+    // ── Thu ma that o quay thanh toan ───────────────────────────
+    // Khac han `verified` (mac dinh true, khong ai bam) va `linkCheckedAt` (cron
+    // chi kiem link CON SONG). Ba truong nay ghi lai viec nguoi that mang ma di
+    // ap vao gio hang that.
+    //
+    // Vi sao dang co: ca nganh coupon do duoc 26,2% ma bi tu choi khi thanh toan
+    // (78,8 trieu luot thu), va 87,6% phieu binh chon cua nguoi dung la phieu che
+    // — nen mot nhan "Verified" khong kem ngay thang gan nhu vo gia tri. Ket qua
+    // thu that, co ngay, la thu duy nhat doi thu khong sao chep duoc, va dung la
+    // "Information Gain" ma Google 2026 cham diem.
+    //
+    // ⚠️ Chi DIEN TAY. Khong co cron nao duoc phep ghi vao day — dat mot ngay tu
+    // dong vao o "da thu that" la bien no thanh mot nhan rong thu hai.
+    defineField({
+      name: 'codeTestedAt',
+      title: 'Đã thử mã lúc',
+      type: 'datetime',
+      description: 'Thời điểm BẠN thật sự mang mã đi áp vào giỏ hàng. Để trống nếu chưa thử.',
+    }),
+    defineField({
+      name: 'codeTestResult',
+      title: 'Kết quả thử',
+      type: 'string',
+      options: {
+        list: [
+          { title: '✅ Áp được', value: 'worked' },
+          { title: '⚠️ Áp được nhưng có điều kiện', value: 'partial' },
+          { title: '❌ Bị từ chối', value: 'rejected' },
+        ],
+        layout: 'radio',
+      },
+    }),
+    defineField({
+      name: 'codeTestNote',
+      title: 'Quan sát được gì',
+      type: 'string',
+      description:
+        'Viết đúng thứ nhìn thấy trên màn hình thanh toán, ví dụ "giảm 10%, không yêu cầu đơn tối thiểu, không áp cho hàng sale". Câu này hiện công khai.',
+    }),
+
     defineField({
       name: 'votesActive',
       title: 'Votes: Still Works',

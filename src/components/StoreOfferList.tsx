@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import type { Offer } from '@/sanity/queries'
 import { voteOffer } from '@/actions/voteOffer'
 import AffiliateLink from '@/components/AffiliateLink'
+import { offerTrustBadge } from '@/lib/offerTrust'
 
 type Filter = 'all' | 'verified' | 'codes' | 'deals'
 
@@ -97,6 +98,12 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName
     ? Math.ceil((new Date(offer.expiresAt).getTime() - now) / 86400000)
     : null
 
+  // Nhan tin cay: da thu ma tay thi thang, chua thi lui ve ngay cron kiem link.
+  // `offerTrustBadge` doc ngay THANG/NGAY truc tiep tu chuoi ISO chu khong qua
+  // mui gio may chay — component nay chay ca luc SSR lan luc hydrate, nen mot
+  // moc gan nua dem se cho ra hai ngay khac nhau neu dung toLocaleDateString.
+  const trust = offerTrustBadge(offer)
+
   return (
     <div className={`sol-row${expired ? ' sol-row-expired' : ''}`}>
       {/* Discount */}
@@ -115,19 +122,15 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName
                 </span>
               )}
               {/*
-                Ngay kiem tra that, lay tu cron dem (`linkCheckedAt`, co o ca 303
-                offer). Vi sao no dang o day: nguoi mua ma khong tin "Verified" tran
-                — 26% ma bi tu choi o quay thanh toan tren toan nganh — nen mot
-                nhan khong ngay thang gan nhu khong co gia tri. Ngay that thi co.
-
-                ⚠️ Chu la "Link checked", KHONG phai "Code tested". Cron chi kiem
-                link con song, no chua bao gio thu ap ma vao gio hang. Viet thanh
-                "code verified" o day la hua mot viec chua lam — dung kieu mat long
-                tin ma ca du an nay van tranh (xem hop coupon trong trang review).
+                Mot nhan duy nhat, chon theo do MANH cua bang chung: da thu ma tay
+                thi thang, chua thu thi lui ve ngay cron kiem link. Toan bo phep
+                chon va cach dien dat nam trong src/lib/offerTrust.ts (co test) —
+                de o do vi day la cho de tuot tay nhat: goi ket qua cua cron la
+                "code tested" la hua mot viec chua bao gio lam.
               */}
-              {offer.linkCheckedAt && (
-                <span className="sol-checked" title="We check every outbound link nightly. This is the link check date — not a checkout test of the code.">
-                  🔗 Link checked {fmtExpiredDate(offer.linkCheckedAt)}
+              {trust && (
+                <span className={`sol-trust sol-trust-${trust.tone}`} title={trust.title}>
+                  {trust.tone === 'strong' ? '✓' : trust.tone === 'warn' ? '⚠' : '🔗'} {trust.label}
                 </span>
               )}
               {daysLeft !== null && daysLeft <= 7 && (
@@ -139,6 +142,15 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName
         <div className="sol-title">{offer.title}</div>
         {(offer.description || defaultDescription) && (
           <p className="sol-desc">{offer.description || defaultDescription}</p>
+        )}
+        {/*
+          Cau quan sat duoc khi thu ma — day moi la phan mang thong tin that.
+          "Giam 10%, khong yeu cau don toi thieu, khong ap cho hang sale" la thu
+          khong the sao chep tu trang khac, va la dung loai noi dung Google 2026
+          cham diem (Information Gain). Cai nhan ngay o tren chi la con dau.
+        */}
+        {!expired && trust?.detail && (
+          <p className={`sol-desc sol-testnote${trust.tone === 'warn' ? ' warn' : ''}`}>{trust.detail}</p>
         )}
         {!expired && offer.usageTips && <p className="sol-desc sol-desc-tip">💡 {offer.usageTips}</p>}
         {!expired && offer.eligibilityNotes && <p className="sol-desc sol-desc-eligibility">ℹ️ {offer.eligibilityNotes}</p>}

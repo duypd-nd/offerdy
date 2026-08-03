@@ -588,6 +588,12 @@ export type Offer = {
    * trong o ca 303 offer). Chi noi "link con song", khong noi ma dung duoc.
    */
   linkCheckedAt?: string
+  /** Thoi diem nguoi van hanh THAT SU ap ma vao gio hang. Chi dien tay. */
+  codeTestedAt?: string
+  /** 'worked' | 'partial' | 'rejected' */
+  codeTestResult?: string
+  /** Quan sat duoc gi khi thu, hien cong khai. */
+  codeTestNote?: string
   description?: string
   usageTips?: string
   eligibilityNotes?: string
@@ -672,6 +678,11 @@ const OFFERS_BY_STORE_QUERY = `*[_type == "offer" && active == true && store->sl
   // thanh toan".
   // (Khong dung dau backtick trong khoi nay: no nam trong template literal.)
   linkCheckedAt,
+  // Ket qua thu ma TAY o quay thanh toan — bang chung manh hon han linkCheckedAt.
+  // Xem src/lib/offerTrust.ts de biet cai nao thang cai nao.
+  codeTestedAt,
+  codeTestResult,
+  codeTestNote,
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
@@ -795,6 +806,11 @@ const FLASH_SALES_QUERY = `*[_type == "offer" && active == true && defined(expir
   expiresAt,
   active,
   linkCheckedAt,
+  // Ket qua thu ma TAY o quay thanh toan — bang chung manh hon han linkCheckedAt.
+  // Xem src/lib/offerTrust.ts de biet cai nao thang cai nao.
+  codeTestedAt,
+  codeTestResult,
+  codeTestNote,
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),
@@ -828,6 +844,11 @@ const COUPON_OFFERS_QUERY = `*[_type == "offer" && active == true && defined(cou
   expiresAt,
   active,
   linkCheckedAt,
+  // Ket qua thu ma TAY o quay thanh toan — bang chung manh hon han linkCheckedAt.
+  // Xem src/lib/offerTrust.ts de biet cai nao thang cai nao.
+  codeTestedAt,
+  codeTestResult,
+  codeTestNote,
   "verified": coalesce(verified, true),
   "votesActive": coalesce(votesActive, 0),
   "votesExpired": coalesce(votesExpired, 0),

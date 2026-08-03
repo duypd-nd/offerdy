@@ -169,6 +169,16 @@ The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro insert
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
+## Coupon tests: the one thing competitors cannot copy (`/admin/coupon-tests`)
+Three hand-filled fields on `offer` — `codeTestedAt`, `codeTestResult`, `codeTestNote` — record the operator actually entering a code at a real checkout. `src/lib/offerTrust.ts` picks **one** badge per offer by strength of evidence, and is unit-tested.
+
+- Order of precedence: **hand test** (`✓ Tested Aug 4` + the observed sentence) → **nightly link check** (`🔗 Link checked Aug 3`) → nothing. The two must never share wording: the cron has never entered a code at a checkout.
+- ⚠️ **`codeTestedAt` is written by the server action, never sent from the client.** The date is a public claim ("we tested this on Aug 4"), so it has to be when the action really ran, not a typed value. Cron jobs are forbidden from touching these fields — an auto-stamped "tested" date turns the strongest signal on the site into a second empty badge.
+- ⚠️ **A rejected code is still displayed** (`⚠ Didn't work on Aug 4`). Hiding it buys one click today and costs the reader permanently; in a category where 26.2% of codes fail, saying so is the differentiator.
+- ⚠️ **Dates are formatted from the ISO string in UTC** (`fmtDayUtc`), never `toLocaleDateString`. `StoreOfferList` is a client component that renders during SSR *and* hydration, so a locale-dependent date near midnight produces two different days — a hydration mismatch, and two readers seeing different dates. This project has already lost 7 hours to a timezone bug once.
+- ⚠️ **The real shape of the work, measured 2026-08-04:** 71 coded offers spread over **67 stores** (65 have exactly one), and only **7 distinct codes** — `OFFERDY` alone covers 63 stores. So the job is "test one code at 67 different checkouts", not "test 71 codes", and the per-store result is precisely what is worth recording. The admin list is therefore **flat, not grouped by store** — grouping would have produced 67 headers for 71 rows.
+- Verified end to end on 2026-08-04 by writing one result, confirming `Tested …` plus the observation sentence rendered on the store page, then clearing all three fields again.
+
 ## Offers show a real date, and it says exactly what it means
 Every offer card carries `🔗 Link checked <date>` from `linkCheckedAt` next to the `✓ Verified` badge, on `/stores/[slug]` and `/coupon-codes`.
 

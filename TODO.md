@@ -1,6 +1,13 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **Tầng 1: chỗ ghi kết quả thử mã thật — thứ duy nhất đối thủ không sao chép được (2026-08-04)** — `/admin/coupon-tests` + 3 trường mới trên `offer` + `src/lib/offerTrust.ts` (có test).
+  - Thứ tự ưu tiên nhãn theo **độ mạnh của bằng chứng**: thử tay (`✓ Tested Aug 4` + câu quan sát) → cron kiểm link (`🔗 Link checked Aug 3`) → không hiện gì. Hai mức **không được dùng chung cách diễn đạt** — cron chưa bao giờ áp mã vào giỏ hàng.
+  - ⚠️ **Dữ liệu lật ngược giả định thiết kế ban đầu.** Tôi định gom nhóm theo shop để "thử 72 mã trong một buổi". Đo thật: 71 offer có mã nằm trên **67 shop** (65 shop chỉ có 1 mã), và chỉ có **7 mã khác nhau** — riêng `OFFERDY` dùng ở 63 shop. Việc thật là **thử một mã ở 67 quầy thanh toán khác nhau**. Gom nhóm sẽ đẻ ra 67 tiêu đề cho 71 dòng → đổi sang danh sách phẳng, tên shop nằm ngay trên dòng.
+  - ⚠️ **Mã bị từ chối VẪN hiện ra** (`⚠ Didn't work on Aug 4`). Giấu đi thì được một cú bấm hôm nay và mất người đọc mãi mãi — trong ngành mà 26,2% mã hỏng, thẳng thắn chính là điểm khác biệt.
+  - ⚠️ **`codeTestedAt` do máy chủ đặt, không nhận từ client** — ngày này là một khẳng định công khai nên phải là lúc thao tác thật sự xảy ra. Cấm mọi cron ghi vào 3 trường này: một ngày tự động sẽ biến tín hiệu mạnh nhất của site thành cái nhãn rỗng thứ hai.
+  - ⚠️ **Ngày đọc theo UTC** (`fmtDayUtc`), không dùng `toLocaleDateString`: `StoreOfferList` là client component chạy cả lúc SSR lẫn hydrate, nên một mốc gần nửa đêm cho ra hai ngày khác nhau → hydration mismatch, và hai người đọc thấy hai ngày khác nhau. Đổi lại: người vận hành ở VN thử lúc tối muộn sẽ thấy ngày UTC lùi một hôm — admin dùng chung hàm nên hai nơi luôn khớp.
+  - Kiểm chứng đầu-cuối: ghi một kết quả → nhãn `Tested` + câu quan sát hiện trên trang store → gỡ sạch cả 3 trường. Test 106 → **115**, lint vẫn đúng 49 vấn đề có sẵn.
 - **Mã giảm giá cuối cùng cũng có NGÀY — lấy từ dữ liệu thật đã có sẵn (2026-08-04)** — ngành coupon 2026 chấm điểm theo "kiểm tra gần đây cỡ nào" (26,2% mã bị từ chối ở quầy thanh toán trên 78,8 triệu lượt thử), mà mọi thẻ offer của Offerdy chỉ có nhãn `✓ Verified` **không kèm ngày** — gần như vô giá trị với người mua.
   - ⚠️ **Không bịa ngày.** `expiresAt` trống ở cả **0/303** offer và không có nguồn nào biết hạn thật của mã. Nhưng `linkCheckedAt` thì **có đủ 303/303**, do cron đêm tự sinh — đây là dữ liệu ngày tháng THẬT duy nhất đang có.
   - Hiện `🔗 Link checked Aug 3` cạnh nhãn Verified, ở `/stores/[slug]` và `/coupon-codes`. Kiểm chứng trên trang thật: 4/4 offer của Kyokuknives hiện đúng cả hai nhãn.
