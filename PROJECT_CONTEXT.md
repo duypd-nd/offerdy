@@ -289,7 +289,16 @@ The operator had corrected the Sanity copy to 350+; the two hardcoded strings we
 
 ⚠️ **The cure is not typing the right number — it is not typing a number.** `getPublishedStoreCount()` uses the same `published != false` filter as `/stores` and the sitemap, so the boast matches the page a reader can actually click through to. On a fetch error it returns 0, and the caller is expected to drop the sentence rather than print "0 stores".
 
-📌 **Unresolved and larger than the count:** `/about`'s category cards name **Nike, ASOS, Zara, H&M, Levi's, Apple, Samsung, Lenovo, Anker, Booking.com, Agoda, Airbnb, DoorDash, Uber Eats, HelloFresh** as brands with active codes. Checked against the store list on 2026-08-04: **none of the 15 exists on the site.** The real catalogue is small DTC shops (cycleaddons, frizzlife, skinhubbeauty, cottagecore clothes…). This is a claim about inventory the site does not have, on the page whose stated purpose is trust — and it also argues against the site's own positioning, which is the long tail RetailMeNot does not cover.
+### The category cards used to name brands the site does not carry
+Until 2026-08-04 `/about` listed **Nike, ASOS, Zara, H&M, Levi's, Apple, Samsung, Lenovo, Anker, Booking.com, Agoda, Airbnb, DoorDash, Uber Eats, HelloFresh** as brands with active codes. Checked against the store list: **none of the 15 existed on the site.** A shopper reading that page — the one titled *"Verified coupon codes you can actually use"* — would go looking for Nike coupons and find none.
+
+The two worst cards were the ones with the least behind them: **Travel had 1 shop and Food had 2**, while **Home (13) and Beauty (10)** had no card at all. The cards now follow the real distribution — Fashion (22), Home (13), Electronics (11), Beauty (10) — and name shops that exist.
+
+⚠️ **Every name was checked against Sanity before writing, and the check caught a real error**: the draft said "Redodo Power" while the store is stored as `redodopower-de`, so the guard refused to write until the comparison normalised punctuation. Any future rewrite of this copy should do the same — the whole failure mode here is prose that nobody ever diffed against the data.
+
+⚠️ **Counts are deliberately absent from the card text.** Writing "22 fashion brands" would recreate the drift the `{storeCount}` token was introduced to kill, one level down.
+
+📌 Two data oddities surfaced by the name check, both unfixed: the store **"Сottagecore clothes" begins with a Cyrillic С (U+0421)**, so any Latin-`C` search or name match silently misses it; and **"PET &amp; ME"** has an HTML entity stored literally in the name field.
 
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
