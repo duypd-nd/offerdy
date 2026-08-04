@@ -8,6 +8,18 @@
   - **Người vận hành quyết: để chết, chờ 2 tuần.** Lần đo sau so ba thứ: (1) có review nào trong 23 cái lọt vào bảng hiển thị chưa · (2) CTR toàn site đã rời 0,88% chưa · (3) tỷ trọng hiển thị của trang chết có giảm không.
 
 ## Done ✅
+- **Bài Comparison đầu tiên: so 4 hệ thống RO của Frizzlife (2026-08-05)** — bắt đầu vá lỗ hổng lớn nhất về nội dung: site có **thân phễu** (23 review từng SKU) và **đáy phễu** (trang store, mã giảm) nhưng **không có đỉnh phễu**. Không ai gõ "Frizzlife PX600" khi chưa biết Frizzlife là ai — họ gõ *"best tankless reverse osmosis system"*.
+  - `/blog/frizzlife-tankless-ro-systems-compared` · `post` + category `Comparison`. **Lắp 100% từ 4 review đã có**, không thêm một thông số nào từ ngoài.
+  - ⚠️ **KHÔNG đăng vào `/reviews`.** Loại `review` bắt buộc có `stars` và trang phát `@type: Review` + `itemReviewed: Product` — tức khai với Google "đây là đánh giá MỘT sản phẩm, chấm N sao". Bài so 4 model đăng vào đó là sai sự thật và trái quy định review snippet. Loại `post` phát `@type: Article`, đúng loại. **Đã kiểm trên trang thật: chỉ có Article + BreadcrumbList, không có Review/Rating giả.**
+  - ⚠️ **Tên bài không đặt là "Best tankless RO system".** Câu đó hứa so sánh **xuyên thương hiệu** mà site chưa có dữ liệu hãng nào khác — đúng loại hứa hão `/about` vừa phải sửa. Khi có review hãng thứ hai mới viết được bài đó.
+  - **Giá trị thật của bài nằm ở chỗ không review đơn lẻ nào nêu được**: PX600 và PD600-TAM3 **cùng 600 GPD**, nên khoản chênh ~$90 không mua thêm nước — nó mua đúng khoáng hoá kiềm + đồng hồ TDS. Information Gain sinh ra từ việc *đặt cạnh nhau*, không phải từ nội dung mới.
+  - **Hai ô để trống thật** (giá PX600, PX600 có khoáng hoá không) kèm một mục "bài này KHÔNG trả lời được gì". 4 review gốc tự nhận viết từ mô tả sản phẩm chứ không phải dùng thử; giấu đi là bịa uy tín.
+  - **Mã giảm không viết vào bài**, chỉ dẫn sang `/stores/frizzlife` — bài không tự cập nhật khi mã hết hạn, trang store thì có ngày kiểm.
+  - Kiểu bảng đặt ở `globals.css` (`.article-table-wrap` + `.article-body table`, cuộn ngang trên điện thoại) chứ **không nhồi `<style>` vào từng bài** — 6 bài blog cũ mỗi bài mang một khối CSS riêng, sửa một lần là phải sửa sáu chỗ.
+  - Chốt chặn trước khi ghi: 4/4 slug review được dẫn link đều tồn tại, và slug bài không trùng bài nào.
+  - **Ba chặn bảo vệ tự chạy đúng**: `/blog` và `/comparisons` tự quay lại sitemap (246 URL), `/tips-guides` vẫn bị chặn vì còn 0 bài, `/llms.txt` nhắc lại Comparisons. Không thao tác tay nào.
+  - 📌 Việc tiếp cho bài này: **chèn link ngược từ 4 review sang bài** (hiện chúng không liên kết với nhau) — đó là nửa còn lại của phễu. Và cân nhắc thêm `ItemList` vào JSON-LD trang blog cho bài dạng danh sách.
+  - 📌 Lỗi dữ liệu lộ ra: offer *"PD1200 RO Water Filter – Save $219"* có `productUrl` trỏ `/products/fcr100`, không khớp tên.
 - **"500+ stores" trên /about và /partner — thôi gõ tay con số (2026-08-04)** — site có **80** store, mà con số nằm ở **bốn nơi và đã trôi bốn hướng**:
   - `configAbout` (heroLead/coverageHeading/stats) → **350+** · `configPartner` → **500+** · `about/page.tsx` dòng "Explore all … stores" → **500+** · `about/page.tsx` **FAQ JSON-LD** → **500+**.
   - Hai cái đầu sửa được qua admin nên người vận hành đã hạ xuống 350+; hai cái sau **viết cứng trong code**, không ai với tới, nên vẫn 500+. ⚠️ Cái cuối nặng nhất: **dữ liệu có cấu trúc gửi thẳng cho Google**, khai vống hơn **6 lần** thực tế.

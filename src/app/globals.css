@@ -825,6 +825,16 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .article-body figure img{margin:0 auto}
 .article-body figcaption{font-size:13px;color:var(--muted);margin-top:8px}
 .article-body a:not(.article-cta){color:var(--green-dark);text-decoration:underline;text-underline-offset:2px}
+/* Bang so sanh trong bai Comparison. De o day chu khong nhoi <style> vao tung bai:
+   6 bai blog cu moi bai mang mot khoi CSS rieng — sua mot lan la phai sua sau cho.
+   `.article-table-wrap` cho bang tu cuon ngang tren dien thoai; khong co no thi bang
+   4 cot day ca trang ra va pha vo bo cuc. */
+.article-table-wrap{overflow-x:auto;margin:24px 0;-webkit-overflow-scrolling:touch}
+.article-body table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+.article-body thead th{text-align:left;font-weight:700;color:var(--text);background:var(--bg);border-bottom:1.5px solid var(--border);padding:10px 12px;white-space:nowrap}
+.article-body tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.article-body tbody tr:last-child td{border-bottom:none}
+.article-body td em{color:var(--muted);font-style:normal}
 .article-verdict{background:var(--green-50);border:1.5px solid var(--green-100);border-radius:var(--r);padding:20px 24px;margin:32px 0}
 .article-verdict-lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--green-dark);margin-bottom:6px}
 .article-verdict-text{font-size:15px;font-weight:600;color:var(--text);line-height:1.55}

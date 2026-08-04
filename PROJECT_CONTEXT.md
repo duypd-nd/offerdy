@@ -331,6 +331,21 @@ Real demand is arriving at dead URLs: `$500 laptop` / `500 dollar laptop` / `13 
 
 **Decision (operator, 2026-08-04): leave the dead pages dead and re-measure in two weeks.** What to compare on the next pass: whether any of the 23 current reviews has entered the impressions table at all; whether site-wide CTR has moved off 0.88%; and whether the dead-page share of impressions is falling as Google drops them.
 
+## Category articles go in `post` / `Comparison`, never in `review`
+The site had a **middle** (23 single-SKU reviews) and a **bottom** (store and offer pages) but no **top**: nobody searches "Frizzlife PX600" before they know what Frizzlife is. They search "best tankless reverse osmosis system". That gap is why 23 reviews drew 128 impressions and 0 clicks while deleted category pages drew 1,834.
+
+⚠️ **A multi-product roundup must not be a `review` document.** The `review` schema makes `stars` required, and `/reviews/[slug]` emits `@type: Review` with a single `reviewRating` and `itemReviewed: { @type: Product }`. Putting a four-model comparison there tells Google *"this is a review of one product, rated N"* — false, and against Google's review-snippet rules for multi-item roundups. `post` emits `@type: Article`, which is correct. Verified on the rendered page: `Article` + `BreadcrumbList` only, no fabricated `Review`/`Rating`.
+
+Routing, which is easy to get wrong: `/comparisons` is a **listing page only** — there is no `/comparisons/[slug]`. Every post lives at `/blog/<slug>` and a `Comparison` post appears in both listings.
+
+⚠️ **Name the article for what it can actually deliver.** The first one is *"Which Frizzlife Tankless RO System Should You Buy?"*, not *"Best tankless reverse osmosis system"* — the second promises a cross-brand comparison the site has no data for, which is the same empty promise `/about` had to be cleaned of. Write the broad title when a second brand has been reviewed.
+
+**Where the value comes from.** The four Frizzlife reviews each describe one model; none of them can say that the **PX600 and PD600-TAM3 are rated identically at 600 GPD**, so the price gap buys alkaline remineralisation and a TDS readout rather than more water. That fact exists only in the comparison. This is what Information Gain means here — not new prose, but a conclusion that only appears when existing material is placed side by side.
+
+**Honesty carries over from the source.** All four reviews say they were written from the product description, so the article states plainly what it cannot answer (filter life, cartridge cost, installed footprint) and leaves two table cells empty rather than guessing. Coupon codes stay on the store page and are linked, never pasted into an article — an article does not update itself when a code expires.
+
+Table styling lives in `globals.css` (`.article-table-wrap` for horizontal scroll on mobile, `.article-body table`). The six deleted blog posts each carried their own `<style>` block; one shared rule means one place to fix.
+
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
 
