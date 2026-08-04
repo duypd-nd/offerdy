@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import type { TestItem } from './page'
 import { saveCodeTest, clearCodeTest } from './actions'
 import { fmtDayUtc } from '@/lib/offerTrust'
+import { NOTE_PHRASES, hasPhrase, togglePhrase } from '@/lib/couponTestNote'
 
 type Result = 'worked' | 'partial' | 'rejected'
 
@@ -166,11 +167,45 @@ function TestRow({ row, onPatch }: { row: TestItem; onPatch: (id: string, patch:
         )}
       </div>
 
+      {/*
+        Cau mau: duong tat de khoi go tay, KHONG phai cau tra loi.
+        - Khong cai nao chon san, va bam nut ket qua khong tu dien gi ca.
+        - Bo trong van luu duoc — mot cau bia con te hon khong co cau nao.
+        - Trang thai "dang chon" doc THANG tu chuoi ghi chu, khong giu state rieng,
+          nen go tay xoa mot cum thi cai chip tuong ung tu tat theo.
+      */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontSize: 11, color: '#94a3b8', marginRight: 2 }}>quan sát:</span>
+        {NOTE_PHRASES.map(p => {
+          const on = hasPhrase(note, p)
+          return (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setNote(n => togglePhrase(n, p))}
+              disabled={isPending}
+              style={{
+                fontSize: 11, padding: '4px 9px', borderRadius: 999, whiteSpace: 'nowrap',
+                cursor: isPending ? 'not-allowed' : 'pointer',
+                color: on ? '#0f172a' : '#64748b',
+                background: on ? '#e0f2fe' : '#fff',
+                border: `1px solid ${on ? '#7dd3fc' : '#e2e8f0'}`,
+                fontWeight: on ? 600 : 400,
+              }}
+            >
+              {on ? '✓ ' : '+ '}{p}
+            </button>
+          )
+        })}
+      </div>
+
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         <input
           value={note}
           onChange={e => setNote(e.target.value)}
-          placeholder="Quan sát được gì — vd: giảm 10%, không yêu cầu đơn tối thiểu, không áp cho hàng sale"
+          /* Vi du bang TIENG ANH: cau nay in ra trang store cho nguoi mua doc, khong
+             phai ghi chu noi bo. Placeholder cu vo tinh goi y bang tieng Viet. */
+          placeholder="Hiện công khai (tiếng Anh) — vd: 10% off applied at checkout, no minimum order required"
           style={{
             flex: '1 1 320px', minWidth: 0, fontSize: 13, padding: '7px 10px',
             border: '1px solid #e2e8f0', borderRadius: 8, color: '#0f172a',

@@ -186,6 +186,16 @@ Three hand-filled fields on `offer` — `codeTestedAt`, `codeTestResult`, `codeT
 - ⚠️ **The real shape of the work, measured 2026-08-04:** 71 coded offers spread over **67 stores** (65 have exactly one), and only **7 distinct codes** — `OFFERDY` alone covers 63 stores. So the job is "test one code at 67 different checkouts", not "test 71 codes", and the per-store result is precisely what is worth recording. The admin list is therefore **flat, not grouped by store** — grouping would have produced 67 headers for 71 rows.
 - Verified end to end on 2026-08-04 by writing one result, confirming `Tested …` plus the observation sentence rendered on the store page, then clearing all three fields again.
 
+### Note phrases: vocabulary, not answers (`src/lib/couponTestNote.ts`)
+The observation field has a row of one-click phrases (`NOTE_PHRASES`) next to the result buttons, so recording a result costs a click instead of a typed sentence.
+
+The distinction the whole feature rests on: **the machine offers a choice, the human makes the claim.** Nothing is pre-selected, the result buttons never auto-fill anything, and an empty note still saves. An auto-written observation would not be an observation — the same reason `codeTestedAt` is server-stamped and cron is banned from these three fields.
+
+- ⚠️ **The phrases are English.** `codeTestNote` renders publicly under the offer, and public pages are 100% English (`/admin/*` is Vietnamese). The input's placeholder used to give *Vietnamese* examples, which quietly invited Vietnamese text onto a store page read by US/EU shoppers — fixed at the same time. A unit test asserts no Vietnamese diacritics in `NOTE_PHRASES`.
+- ⚠️ **Matching is per comma-separated part, never `includes()`.** `"minimum order required"` is a substring of `"no minimum order required"` — a substring check would light up both chips when one is selected, and clicking the other would strip the wrong clause. Two of the eleven unit tests exist only to pin this down.
+- Selected state is derived straight from the note string, with no separate state: editing the text by hand switches the corresponding chip off on its own.
+- Verified on the running admin page: 71 rows, chips on every row, **0 pre-selected**.
+
 ## Offers show a real date, and it says exactly what it means
 Every offer card carries `🔗 Link checked <date>` from `linkCheckedAt` next to the `✓ Verified` badge, on `/stores/[slug]` and `/coupon-codes`.
 
