@@ -166,6 +166,13 @@ https://cycleaddons.com/?ref=offerdy -> 200 in 8861ms   (old timeout: 8s)
 
 The shop is perfectly alive; only the ref'd URL is slow, because GoAffPro inserts a tracking hop. Yet three offers on Cycleaddons — **the store with the most clicks on the site** — were labelled broken, along with one on Pupino (which answers 200 to every method). Consequences: Merchant Health docked the store, `/admin/reports` reported dead links that weren't, and worst of all the new safety valve below would have **switched off deep links on exactly that store**. Timeout raised 8s → 15s at the same time: an affiliate link travels through a redirect chain and is inherently slower than a normal link. `/admin/link-checker` now shows indeterminate results in a separate amber block instead of listing them as broken.
 
+### ⚠️ A `broken` verdict has to be able to heal
+The nightly cron's candidate query is `active == true **|| linkStatus == "broken"**`. The second clause is not an optimisation — without it a `broken` label is permanent.
+
+Found 2026-08-04. All **6** offers carrying `linkStatus: 'broken'` were also `active: false`, so the cron (which only looked at active offers) had excluded every one of them. Re-checking by hand: 5 really were 404 — the merchants had pulled those SKUs — but **Dowinx EU answered 200**. Its label had been wrong since 2026-08-02 with no route back.
+
+The damage is not a wrong count on a dashboard. `resolveOfferUrl()` (below) switches off deep-linking whenever it sees `broken`, so the day that offer is switched back on it would silently lose its deep link because of a stale two-day-old check. Cost of the fix: a handful of extra fetches a night, and the set shrinks by itself — every correct re-check removes an offer from the clause.
+
 ### Safety valve for dead product pages
 `resolveOfferUrl()` drops back to the store link when `offer.linkStatus === 'broken'` **and** the offer has a `productUrl` — the nightly checker tests `coalesce(productUrl, link)`, so a broken status on such an offer means the *product page* is what failed. Better a live shop front page than a 404. When there is no `productUrl` the status refers to the shop link itself and nothing better exists to fall back to, so behaviour is unchanged. `unchecked` is explicitly not treated as broken.
 
@@ -187,7 +194,20 @@ Every offer card carries `🔗 Link checked <date>` from `linkCheckedAt` next to
 - ⚠️ **"Link checked", never "Code tested".** The cron verifies the outbound link resolves; it has never attempted to apply a code at checkout. Those are different claims and the tooltip spells out which one this is. Same rule as the review coupon box: state the scope, never imply the stronger claim.
 - Styled deliberately quieter than `.sol-vbadge` — it qualifies the Verified badge rather than competing with it.
 - ⚠️ Trap when editing the GROQ blocks: **a backtick inside a `//` comment closes the surrounding template literal** (`TS1005`). Comments inside GROQ strings must avoid backticks.
-- 📌 `/flash-sales` filters on `defined(expiresAt) && expiresAt > now()`. With `expiresAt` empty everywhere, **that page renders empty** — while the sitemap still submits it at priority 0.9, `changeFrequency: hourly`.
+- ✅ **Resolved 2026-08-04**: `/flash-sales` filters on `defined(expiresAt) && expiresAt > now()`, and with `expiresAt` empty on every offer the page renders empty. The page itself is left alone — it is correct, it simply has no data yet. What was wrong was **advertising it**: `sitemap.ts` and `/llms.txt` now include it only when the same filter returns a row, so the URL comes back on its own the day a real expiry is set. See "Empty pages are not advertised" below.
+
+## Empty pages are not advertised
+Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
+
+| Page | Guard | Source of the count |
+|---|---|---|
+| `/comparisons` | `comparisonCount > 0` | `COMPARISON_POSTS_QUERY` filter, duplicated in `sitemap.ts` |
+| `/flash-sales` | `flashSaleCount > 0` | `FLASH_SALES_QUERY` filter, duplicated in `sitemap.ts`; `/llms.txt` calls `getFlashSaleOffers()` |
+| category docs | `categoriesWithStores` | `getCategorySlugsWithStores()` |
+
+⚠️ **The filter is duplicated, so the two copies must be changed together.** Both sites of duplication carry a comment saying so. A guard that no longer matches its page is worse than no guard: it submits a page that renders empty, or hides one that renders fine.
+
+Why it matters here specifically: `/flash-sales` was submitted at **priority 0.9 with `changeFrequency: hourly`** while containing nothing, i.e. telling Google every hour that an empty page had just changed. On a site recovering from 93% of impressions landing on 404s, deliberately pointing the crawler at a blank page is the exact signal to avoid. The nav link stays — a human clicking "Flash Sales" and seeing "nothing right now" is a normal, honest outcome; a crawler being invited hourly is not.
 
 ## The sitemap is a Route Handler, and Route Handlers are cached
 `src/app/sitemap.ts` declares **`export const revalidate = 3600`**. Removing that line silently un-publishes every piece of content added after the next deploy.

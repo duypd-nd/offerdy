@@ -19,7 +19,7 @@ const BASE = 'https://www.offerdy.com'
  * khi 93% hien thi cua site da roi vao 404.
  *
  * 3600 chu khong phai 60 nhu cac trang noi dung: Google doc sitemap khoang mot
- * lan moi ngay, con moi lan sinh lai ton 7 luot truy van Sanity. Mot gio la du
+ * lan moi ngay, con moi lan sinh lai ton 8 luot truy van Sanity. Mot gio la du
  * tuoi cho tim kiem ma van chan duoc kha nang ai do goi lien tuc /sitemap.xml
  * lam cham han ngach.
  */
@@ -36,11 +36,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Neu fetch loi -> giu 0 -> loai URL ra, dung huong an toan: tha bo sot mot URL
   // hop le (Google se crawl lai) con hon nop mot trang rong cho Google index.
   let comparisonCount = 0
+  // Dem offer dang chay ma sap het han — cung ly do voi comparisonCount.
+  // Do 2026-08-04: 0/303 offer co `expiresAt`, nghia la /flash-sales RONG hoan toan
+  // trong khi sitemap van moi Google vao voi priority 0.9 + changeFrequency hourly.
+  // Moi gio mot lan bao Google "trang nay vua doi" roi dan no toi mot trang khong co
+  // gi la dung thu tin hieu can tranh nhat luc dang phuc hoi tu 93% hien thi roi vao
+  // 404. Khi nao co offer that co expiresAt thi URL tu quay lai sitemap.
+  let flashSaleCount = 0
   // Chi nop category doc nao thuc su co store. Cung ly do voi /comparisons.
   let categoriesWithStores: Set<string> = new Set()
 
   try {
-    ;[stores, posts, reviews, pages, categories, deals, comparisonCount] = await Promise.all([
+    ;[stores, posts, reviews, pages, categories, deals, comparisonCount, flashSaleCount] = await Promise.all([
       readClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now()]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
@@ -50,6 +57,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // Cung dieu kien loc voi COMPARISON_POSTS_QUERY trong src/sanity/queries.ts —
       // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
       readClient.fetch(`count(*[_type == "post" && category == "Comparison" && (!defined(publishedAt) || publishedAt <= now())])`),
+      // Cung dieu kien loc voi FLASH_SALES_QUERY trong src/sanity/queries.ts —
+      // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
+      readClient.fetch(`count(*[_type == "offer" && active == true && defined(expiresAt) && expiresAt > now()])`),
     ])
   } catch {}
 
@@ -60,7 +70,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: BASE,                            lastModified: now, changeFrequency: 'daily',   priority: 1.0 },
     { url: `${BASE}/stores`,                lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
     { url: `${BASE}/deals`,                 lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
-    { url: `${BASE}/flash-sales`,           lastModified: now, changeFrequency: 'hourly',  priority: 0.9 },
+    ...(flashSaleCount > 0
+      ? [{ url: `${BASE}/flash-sales`, lastModified: now, changeFrequency: 'hourly' as const, priority: 0.9 }]
+      : []),
     { url: `${BASE}/coupon-codes`,          lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
     { url: `${BASE}/reviews`,               lastModified: now, changeFrequency: 'weekly',  priority: 0.8 },
     { url: `${BASE}/blog`,                  lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },

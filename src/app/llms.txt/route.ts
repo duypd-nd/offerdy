@@ -1,12 +1,16 @@
-import { getCategories, getPosts, getReviews } from '@/sanity/queries'
+import { getCategories, getPosts, getReviews, getFlashSaleOffers } from '@/sanity/queries'
 
 const BASE = 'https://www.offerdy.com'
 
 export async function GET() {
-  const [categories, posts, reviews] = await Promise.all([
+  const [categories, posts, reviews, flashSales] = await Promise.all([
     getCategories(),
     getPosts(),
     getReviews(),
+    // Chi gioi thieu /flash-sales khi no thuc su co gi — cung ly do voi sitemap.ts.
+    // Chi cho mot he thong AI toi mot trang rong thi no tra loi nguoi dung bang mot
+    // trang rong, va do la dieu duy nhat no nho ve muc nay.
+    getFlashSaleOffers(),
   ])
 
   const lines: string[] = []
@@ -18,7 +22,9 @@ export async function GET() {
   lines.push('## Core sections')
   lines.push(`- [All deals](${BASE}/deals): Live, verified deals across every store, updated daily.`)
   lines.push(`- [Coupon codes](${BASE}/coupon-codes): Verified promo codes grouped by store, with expiry dates.`)
-  lines.push(`- [Flash sales](${BASE}/flash-sales): Offers expiring soon, with live countdowns.`)
+  if (flashSales.length) {
+    lines.push(`- [Flash sales](${BASE}/flash-sales): Offers expiring soon, with live countdowns.`)
+  }
   lines.push(`- [Stores](${BASE}/stores): Directory of every store with active offers.`)
   lines.push(`- [Categories](${BASE}/categories): Deals grouped by shopping category.`)
   lines.push(`- [Reviews](${BASE}/reviews): Independent, real-world product reviews.`)
