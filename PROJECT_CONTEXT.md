@@ -267,9 +267,11 @@ In both post-fix runs a valid cache entry still had minutes of TTL left, so expi
 
 ⚠️ **Do not "fix" this by adding `tags` to `unstable_cache`.** The bundled Next 16 docs say `unstable_cache` "has been replaced by `use cache`", and `revalidateTag(tag)` without the second `profile` argument is deprecated in this version. That route stacks two deprecated APIs, and the clean alternative (`'use cache'` + `cacheTag`) requires opting into Cache Components — an app-wide change to caching semantics. Naming the paths costs one function and no deprecated API.
 
-`revalidateStoreDependents()` in `src/app/admin/stores/actions.ts` is now used by create, update **and** delete. Creating matters as much as editing: on 2026-08-04 a single new store was the only thing missing before 35 existing deals could attach their ref.
+**One list, three writers.** `store-hosts` is mutated from three admin surfaces — stores, offers, and coupon codes — and each used to keep its own revalidation list. That drift is what produced the bug. The list now lives once, in `src/lib/revalidateStoreHosts.ts` (`revalidateStoreHostConsumers()`), and all three call it; each action file keeps only the paths unique to itself. One list is wrong or right in all three places at once, and one edit fixes it everywhere.
 
-📌 **The same gap remains in two other actions**: `admin/offers` and `admin/coupon-codes` change `store-hosts.couponCode` (the shop's headline code, rendered on deal pages via `getDealCoupon`) but revalidate neither `/deals` nor `/deals/[slug]`.
+Offers and coupon codes matter here for a non-obvious reason: `store-hosts` carries each shop's **headline coupon code**, which deal pages render via `getDealCoupon()`. Editing a code without this would leave deal pages advertising the old one for up to 5 minutes — the same class of stale-claim problem the review coupon box already has a rule against.
+
+Creating matters as much as editing: on 2026-08-04 a single new store was the only thing missing before 35 existing deals could attach their ref. All mutating actions across the three files call a revalidate helper — verified by reading each one; the remaining functions in `stores/actions.ts` are read-only or asset uploads that never change published data.
 
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:

@@ -2,36 +2,14 @@
 
 import { revalidatePath } from 'next/cache'
 import { writeClient } from '@/sanity/writeClient'
+import { revalidateStoreHostConsumers } from '@/lib/revalidateStoreHosts'
 
-/**
- * Lam moi MOI trang phu thuoc vao mot store — khong chi trang store.
- *
- * Vi sao rong hon ve truc quan: `getCachedStoreHosts()` trong queries.ts la mot
- * BANG TRA CUU DUNG CHUNG (ten shop + ma ref theo domain). Tao, sua hay xoa mot
- * store deu doi bang do, ma bang do duoc doc o **trang deal va trang review** —
- * nhung noi truoc day khong he duoc nhac ten khi luu store.
- *
- * Hau qua do duoc ngay 2026-08-04: sau khi dien `affiliateLink` cho mot store,
- * link ra ngoai tren trang deal van thieu ma ref. Do bang dong ho: nap cache luc
- * 06:05:27, bam Luu luc 06:07:35, trang doi luc 06:10:13 — tuc no doi vi het cua
- * so 300 giay, KHONG phai vi bam Luu. Nguoi van hanh sua ma ref roi mo trang ra
- * xem thi thay y nguyen, va khong co cach nao ep.
- *
- * ⚠️ Danh sach nay phai bam theo cac trang THUC SU doc `store-hosts`. Them mot
- * trang moi dung `getDealCoupon` / `getStoreRefForUrl` / `withDealRefs` thi phai
- * them vao day, khong thi no lang le tre 5 phut.
- */
+/** Trang rieng cua store, cong them moi noi doc bang `store-hosts` dung chung. */
 function revalidateStoreDependents() {
   revalidatePath('/admin/stores')
   revalidatePath('/stores')
   revalidatePath('/stores/[slug]', 'page')
-  revalidatePath('/', 'page')
-  // Duoi day la cac trang gan ma ref theo domain qua `store-hosts`.
-  revalidatePath('/deals')
-  revalidatePath('/deals/[slug]', 'page')
-  revalidatePath('/links')
-  revalidatePath('/reviews')
-  revalidatePath('/reviews/[slug]', 'page')
+  revalidateStoreHostConsumers()
 }
 
 export async function updateStore(id: string, patch: Record<string, unknown>) {
