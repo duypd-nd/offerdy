@@ -43,11 +43,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // gi la dung thu tin hieu can tranh nhat luc dang phuc hoi tu 93% hien thi roi vao
   // 404. Khi nao co offer that co expiresAt thi URL tu quay lai sitemap.
   let flashSaleCount = 0
+  // Dem rieng bai Tips & Guides. `/blog` thi dung thang `posts.length` ben duoi
+  // vi no liet ke moi bai; `/tips-guides` loc theo category nen phai dem rieng.
+  let tipsGuidesCount = 0
   // Chi nop category doc nao thuc su co store. Cung ly do voi /comparisons.
   let categoriesWithStores: Set<string> = new Set()
 
   try {
-    ;[stores, posts, reviews, pages, categories, deals, comparisonCount, flashSaleCount] = await Promise.all([
+    ;[stores, posts, reviews, pages, categories, deals, comparisonCount, flashSaleCount, tipsGuidesCount] = await Promise.all([
       readClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now()]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
@@ -60,6 +63,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // Cung dieu kien loc voi FLASH_SALES_QUERY trong src/sanity/queries.ts —
       // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
       readClient.fetch(`count(*[_type == "offer" && active == true && defined(expiresAt) && expiresAt > now()])`),
+      // Cung dieu kien loc voi TIPS_GUIDES_QUERY trong src/sanity/queries.ts —
+      // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
+      readClient.fetch(`count(*[_type == "post" && category == "Tips & Guides" && (!defined(publishedAt) || publishedAt <= now())])`),
     ])
   } catch {}
 
@@ -75,11 +81,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       : []),
     { url: `${BASE}/coupon-codes`,          lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
     { url: `${BASE}/reviews`,               lastModified: now, changeFrequency: 'weekly',  priority: 0.8 },
-    { url: `${BASE}/blog`,                  lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },
+    // `/blog` va `/tips-guides` chi vao sitemap khi con bai de liet ke. Ngay
+    // 2026-08-04 da xoa 6 bai chung chung cuoi cung -> ca hai trang deu rong, va
+    // nop mot trang rong cho Google la dung thu vua sua cho /flash-sales.
+    ...(posts.length > 0
+      ? [{ url: `${BASE}/blog`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
+      : []),
     ...(comparisonCount > 0
       ? [{ url: `${BASE}/comparisons`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
       : []),
-    { url: `${BASE}/tips-guides`,           lastModified: now, changeFrequency: 'weekly',  priority: 0.7 },
+    ...(tipsGuidesCount > 0
+      ? [{ url: `${BASE}/tips-guides`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
+      : []),
     { url: `${BASE}/categories`,            lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
     { url: `${BASE}/about`,                 lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE}/author`,                lastModified: now, changeFrequency: 'monthly', priority: 0.5 },

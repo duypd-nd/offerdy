@@ -1,4 +1,4 @@
-import { getCategories, getPosts, getReviews, getFlashSaleOffers, getComparisonPosts } from '@/sanity/queries'
+import { getCategories, getPosts, getReviews, getFlashSaleOffers, getComparisonPosts, getTipsGuidePosts } from '@/sanity/queries'
 
 const BASE = 'https://www.offerdy.com'
 
@@ -10,12 +10,13 @@ export async function GET() {
   // Do 2026-08-04 tren server that: sitemap da loai ca /flash-sales lan /comparisons
   // (0 offer co han, 0 bai Comparison) trong khi file nay van quang cao ca hai. Hai
   // ban do cua cung mot site khong duoc mau thuan nhau.
-  const [categories, posts, reviews, flashSales, comparisons] = await Promise.all([
+  const [categories, posts, reviews, flashSales, comparisons, tipsGuides] = await Promise.all([
     getCategories(),
     getPosts(),
     getReviews(),
     getFlashSaleOffers(),
     getComparisonPosts(),
+    getTipsGuidePosts(),
   ])
 
   const lines: string[] = []
@@ -36,7 +37,9 @@ export async function GET() {
   if (comparisons.length) {
     lines.push(`- [Comparisons](${BASE}/comparisons): Side-by-side product and store comparisons.`)
   }
-  lines.push(`- [Tips & Guides](${BASE}/tips-guides): Money-saving strategies and shopping guides.`)
+  if (tipsGuides.length) {
+    lines.push(`- [Tips & Guides](${BASE}/tips-guides): Money-saving strategies and shopping guides.`)
+  }
   lines.push('')
 
   if (categories.length) {

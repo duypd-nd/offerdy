@@ -1,6 +1,15 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **Tầng 2: xoá 6 bài blog chung chung, và chặn nốt 2 trang liệt kê vừa thành rỗng (2026-08-04)** — quyết định dựa trên Search Console chứ không theo cảm tính.
+  - 90 ngày (03/05 → 01/08), trên nền toàn site 28 bấm / 3.173 hiển thị: **6 bài sống cộng lại được 7 hiển thị, 0 bấm** (0,2% hiển thị của site); 2 trong 6 bài chưa từng xuất hiện.
+  - ⚠️ **Một bài ĐÃ XOÁ lại hơn cả 6 bài sống cộng lại gấp ~10 lần**: `/blog/browser-extensions-for-automatic-coupons` trả 404 mà vẫn được **67 hiển thị**. Khác biệt là CHỦ ĐỀ, không phải chất lượng văn: một câu hỏi cụ thể trong đúng lĩnh vực của site và sát lúc mua, so với "How to Save Money" cạnh tranh với cả internet. Trang đó không khôi phục được (Sanity history 403) nhưng chủ đề đã được chứng minh — đáng viết mới.
+  - Để so: **cả 10 trang nhiều hiển thị nhất đều là `/reviews/*`** (299, 296, 204, 137, 134). Review mới là thứ kéo người, blog chưa bao giờ.
+  - Sao lưu `.scratch/deleted-posts-backup.json` (69 KB) trước khi xoá, vì Sanity history không phục hồi được.
+  - **Hệ quả xử lý luôn trong cùng một lần**: 6 bài là toàn bộ post của site, xoá xong `post` còn **0** → `/blog` và `/tips-guides` thành trang rỗng mà vẫn nằm trong sitemap priority 0.7. Đã chặn cả hai ở `sitemap.ts` và `/llms.txt`, đúng cách đã làm với `/flash-sales`. Không chặn thì bản sửa sáng nay tự phá lại chính nó.
+  - Kiểm trên server thật: sitemap **242 URL**, không còn `/blog`, `/tips-guides`, `/comparisons`, `/flash-sales` lẫn URL `/blog/<slug>` nào; `/llms.txt` hết dòng Tips & Guides; cả 4 trang vẫn trả **200** cho người thật.
+  - 🔎 **Lộ ra khi kiểm menu: footer link tới `/posts` ("Shopping Blog") trả 404** trên cả local lẫn production — một link chết nằm ở **mọi trang** của site, route đó chưa bao giờ tồn tại (đường đúng là `/blog`). Đã gỡ khỏi `configGeneral.footerColumns` thay vì trỏ sang `/blog`, vì `/blog` giờ cũng rỗng — đổi link chết thành link rỗng thì không giải quyết gì. Sao lưu `.scratch/footer-backup.json`. Kiểm lại: **16/16 link footer còn lại đều 200**.
+  - 📌 Footer vẫn giữ `/flash-sales`, `/comparisons`, `/tips-guides` dù cả ba đang rỗng — **có chủ đích**, cùng lý lẽ với thanh nav: người bấm vào thấy "chưa có gì" là trung thực, chỉ crawler mới không được mời.
 - **Câu mẫu bấm-là-chọn cho ô quan sát khi thử mã (2026-08-04)** — người vận hành hỏi có tự điền câu quan sát khi bấm "Áp được" được không. **Không làm** — câu quan sát mà máy tự điền thì không còn là quan sát; nó là lời khai công khai kèm ngày tháng về hành vi quầy thanh toán của một shop bên thứ ba, và chính `PROJECT_CONTEXT.md` đã cấm cron ghi vào 3 trường này vì đúng lý do đó. Làm thứ gần nhất giải quyết đúng vấn đề (ngại gõ 67 câu): **một hàng câu mẫu, bấm là chọn**.
   - Máy đưa ra *lựa chọn*, người đưa ra *khẳng định*: không cái nào chọn sẵn, nút kết quả không tự điền gì, bỏ trống vẫn lưu được.
   - ⚠️ **Câu mẫu bằng TIẾNG ANH** — `codeTestNote` hiện công khai dưới thẻ offer, mà trang public 100% tiếng Anh. Placeholder cũ đang gợi ý ví dụ **bằng tiếng Việt**, tức là âm thầm mời chữ Việt lên trang bán hàng cho khách Mỹ/EU đọc — đã sửa. Có test chặn dấu tiếng Việt lọt vào `NOTE_PHRASES`.

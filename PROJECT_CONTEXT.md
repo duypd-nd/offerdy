@@ -234,6 +234,24 @@ Verified end to end on 2026-08-04 against a running server: 401 with no secret a
 
 **Consequence for reading the data:** the 194 offer descriptions that exist did **not** come from this engine. They were written by an external AI filling spreadsheet columns at import time — which is why they are formulaic (`"Enjoy free shipping"` opens 26 of them, `"Save 10% on"` another 21, and only 17 of 194 mention a checkable condition). Do not treat their style as evidence of what `generateOfferContent.ts` produces.
 
+## Tier 2: the six generic blog posts are gone (2026-08-04)
+All six posts — "How to Save Money", "Create a Budget", "Daily Saving Habits", "Why Saving Money Matters", "Smart Shopping Tips", "How Offerdy Helps" — were deleted. They were the *only* posts on the site, so `post` count is now **0**.
+
+The decision was made on Search Console data, not taste. Over 90 days (2026-05-03 → 2026-08-01), against a site total of 28 clicks / 3,173 impressions:
+
+| | Impressions | Clicks |
+|---|---:|---:|
+| All six live posts combined | **7** | **0** |
+| One *deleted* post — `/blog/browser-extensions-for-automatic-coupons` (404) | **67** | 0 |
+
+⚠️ **A dead page out-earned every live blog post by roughly 10×.** The difference is topic, not quality of writing: "browser extensions for automatic coupons" is a specific question inside this site's own subject area and close to purchase intent; "How to Save Money" competes with the entire internet and matches no buying moment. That page is unrecoverable (Sanity history returns 403 on this plan) but the topic is proven and worth writing fresh.
+
+For scale: every one of the site's top-10 pages by impressions is a `/reviews/*` page (299, 296, 204, 137, 134). Reviews earn the attention here; the blog never did.
+
+Deleted docs are backed up to `.scratch/deleted-posts-backup.json` (gitignored) — taken before deletion, because Sanity history cannot restore them.
+
+**Consequence handled in the same change:** with zero posts, `/blog` and `/tips-guides` render empty, so both are now guarded out of `sitemap.ts` and `/llms.txt` (see the table below). Both still return 200 for humans.
+
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
 
@@ -241,6 +259,8 @@ Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on
 |---|---|---|
 | `/comparisons` | `comparisonCount > 0` | `COMPARISON_POSTS_QUERY` filter, duplicated in `sitemap.ts`; `/llms.txt` calls `getComparisonPosts()` |
 | `/flash-sales` | `flashSaleCount > 0` | `FLASH_SALES_QUERY` filter, duplicated in `sitemap.ts`; `/llms.txt` calls `getFlashSaleOffers()` |
+| `/blog` | `posts.length > 0` | the sitemap's own `posts` fetch — `/blog` lists every post, so no separate count |
+| `/tips-guides` | `tipsGuidesCount > 0` | `TIPS_GUIDES_QUERY` filter, duplicated in `sitemap.ts`; `/llms.txt` calls `getTipsGuidePosts()` |
 | category docs | `categoriesWithStores` | `getCategorySlugsWithStores()` (sitemap only — `/llms.txt` lists category docs from `getCategories()`) |
 
 ⚠️ **`/comparisons` was found live on 2026-08-04 by fetching both files off the running server**: the sitemap already excluded it (zero Comparison posts) while `/llms.txt` still advertised it. Reading the code would not have shown this — the guard existed, just in only one of the two maps. Whenever a guard is added to one, check the other.
