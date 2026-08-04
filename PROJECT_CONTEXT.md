@@ -201,9 +201,11 @@ Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on
 
 | Page | Guard | Source of the count |
 |---|---|---|
-| `/comparisons` | `comparisonCount > 0` | `COMPARISON_POSTS_QUERY` filter, duplicated in `sitemap.ts` |
+| `/comparisons` | `comparisonCount > 0` | `COMPARISON_POSTS_QUERY` filter, duplicated in `sitemap.ts`; `/llms.txt` calls `getComparisonPosts()` |
 | `/flash-sales` | `flashSaleCount > 0` | `FLASH_SALES_QUERY` filter, duplicated in `sitemap.ts`; `/llms.txt` calls `getFlashSaleOffers()` |
-| category docs | `categoriesWithStores` | `getCategorySlugsWithStores()` |
+| category docs | `categoriesWithStores` | `getCategorySlugsWithStores()` (sitemap only — `/llms.txt` lists category docs from `getCategories()`) |
+
+⚠️ **`/comparisons` was found live on 2026-08-04 by fetching both files off the running server**: the sitemap already excluded it (zero Comparison posts) while `/llms.txt` still advertised it. Reading the code would not have shown this — the guard existed, just in only one of the two maps. Whenever a guard is added to one, check the other.
 
 ⚠️ **The filter is duplicated, so the two copies must be changed together.** Both sites of duplication carry a comment saying so. A guard that no longer matches its page is worse than no guard: it submits a page that renders empty, or hides one that renders fine.
 

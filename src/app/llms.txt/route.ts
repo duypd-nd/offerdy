@@ -1,16 +1,21 @@
-import { getCategories, getPosts, getReviews, getFlashSaleOffers } from '@/sanity/queries'
+import { getCategories, getPosts, getReviews, getFlashSaleOffers, getComparisonPosts } from '@/sanity/queries'
 
 const BASE = 'https://www.offerdy.com'
 
 export async function GET() {
-  const [categories, posts, reviews, flashSales] = await Promise.all([
+  // Chi gioi thieu mot muc khi no thuc su co gi — cung ly do voi sitemap.ts. Chi cho
+  // mot he thong AI toi mot trang rong thi no tra loi nguoi dung bang mot trang rong,
+  // va do la dieu duy nhat no nho ve muc nay.
+  //
+  // Do 2026-08-04 tren server that: sitemap da loai ca /flash-sales lan /comparisons
+  // (0 offer co han, 0 bai Comparison) trong khi file nay van quang cao ca hai. Hai
+  // ban do cua cung mot site khong duoc mau thuan nhau.
+  const [categories, posts, reviews, flashSales, comparisons] = await Promise.all([
     getCategories(),
     getPosts(),
     getReviews(),
-    // Chi gioi thieu /flash-sales khi no thuc su co gi — cung ly do voi sitemap.ts.
-    // Chi cho mot he thong AI toi mot trang rong thi no tra loi nguoi dung bang mot
-    // trang rong, va do la dieu duy nhat no nho ve muc nay.
     getFlashSaleOffers(),
+    getComparisonPosts(),
   ])
 
   const lines: string[] = []
@@ -28,7 +33,9 @@ export async function GET() {
   lines.push(`- [Stores](${BASE}/stores): Directory of every store with active offers.`)
   lines.push(`- [Categories](${BASE}/categories): Deals grouped by shopping category.`)
   lines.push(`- [Reviews](${BASE}/reviews): Independent, real-world product reviews.`)
-  lines.push(`- [Comparisons](${BASE}/comparisons): Side-by-side product and store comparisons.`)
+  if (comparisons.length) {
+    lines.push(`- [Comparisons](${BASE}/comparisons): Side-by-side product and store comparisons.`)
+  }
   lines.push(`- [Tips & Guides](${BASE}/tips-guides): Money-saving strategies and shopping guides.`)
   lines.push('')
 
