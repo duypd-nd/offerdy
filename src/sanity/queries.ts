@@ -529,6 +529,27 @@ export async function getCategorySlugsWithStores(): Promise<Set<string>> {
 // PUBLISHED_FILTER: an bai co publishedAt trong tuong lai (lich dang bai) cho toi dung ngay
 const PUBLISHED_FILTER = '(!defined(publishedAt) || publishedAt <= now())'
 
+/**
+ * Bo loc cho POST — chat hon PUBLISHED_FILTER mot bac.
+ *
+ * ⚠️ **Post KHONG co `publishedAt` la post CONG KHAI**, vi PUBLISHED_FILTER cho
+ * qua ca truong hop `!defined`. Nghia la tao mot ban nhap AI bang
+ * `create({_type:'post', aiReviewStatus:'pending'})` se **dang ngay** mot bai
+ * rong len `/blog/<slug>` — va vi `content` trong nen trang render
+ * `PlaceholderBody`, tuc mot doan van mau chung chung khong lien quan gi toi bai.
+ *
+ * Nen ban nhap duoc chan HAI LOP, co y du thua:
+ *   1. Luc tao, `publishedAt` dat mot moc tuong lai (DRAFT_PUBLISHED_AT trong
+ *      src/lib/postDraft.ts) — lop nay chan duoc ke ca truy van nao quen loc.
+ *   2. Bo loc nay — chan duoc ke ca khi ai do sua tay ngay dang trong Studio.
+ *
+ * Viet `!defined(...) || ... != "pending"` chu khong chi `!= "pending"`: ngu
+ * nghia so sanh voi gia tri thieu trong GROQ da tung lam sai mot phep dem trong
+ * du an nay, va dang bien the tuong minh thi khong the doc nham.
+ */
+const POST_VISIBLE_FILTER =
+  `${PUBLISHED_FILTER} && (!defined(aiReviewStatus) || aiReviewStatus != "pending")`
+
 const REVIEWS_QUERY = `*[_type == "review" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
   "id": _id, title, excerpt, emoji, tag, stars, author,
   "date": publishedAt, imgBg,
@@ -550,15 +571,16 @@ const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${
 }`
 
 // ── Blog Posts ─────────────────────────────────────────────────
-const POSTS_QUERY = `*[_type == "post" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
+const POSTS_QUERY = `*[_type == "post" && ${POST_VISIBLE_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
   "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl)
 }`
 
-const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${PUBLISHED_FILTER}][0] {
+const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${POST_VISIBLE_FILTER}][0] {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, "updatedAt": _updatedAt, coverEmoji, coverBg, readTime, body, content,
+  metaTitle, metaDescription,
   "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl)
 }`
 
@@ -891,10 +913,10 @@ export async function getCouponOffers(): Promise<Offer[]> {
 }
 
 // ── Comparison Posts ───────────────────────────────────────────
-const COMPARISON_POSTS_QUERY = `*[_type == "post" && category == "Comparison" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
+const COMPARISON_POSTS_QUERY = `*[_type == "post" && category == "Comparison" && ${POST_VISIBLE_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
-  "imageUrl": image.asset->url + ${IMG}
+  "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl)
 }`
 
 export async function getComparisonPosts() {
@@ -906,7 +928,7 @@ export async function getComparisonPosts() {
 }
 
 // ── Tips & Guides Posts ────────────────────────────────────────
-const TIPS_GUIDES_QUERY = `*[_type == "post" && category == "Tips & Guides" && ${PUBLISHED_FILTER}] | order(publishedAt desc) {
+const TIPS_GUIDES_QUERY = `*[_type == "post" && category == "Tips & Guides" && ${POST_VISIBLE_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
   "imageUrl": image.asset->url + ${IMG}

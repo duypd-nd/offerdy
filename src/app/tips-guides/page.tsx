@@ -30,7 +30,7 @@ export default async function TipsGuidesPage() {
           <h1 className="page-hero-title">📖 Shopping Guides</h1>
           <p className="page-hero-sub">Strategies, tips, and deep dives to help you spend smarter and save more.</p>
         </div>
-        <BlogPageContent posts={posts} />
+        <BlogPageContent posts={posts} showTabs={false} />
       </main>
       <Footer />
     </>

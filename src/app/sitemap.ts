@@ -52,20 +52,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     ;[stores, posts, reviews, pages, categories, deals, comparisonCount, flashSaleCount, tipsGuidesCount] = await Promise.all([
       readClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
-      readClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now()]{ "slug": slug.current, _updatedAt }`),
+      readClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now() && aiReviewStatus != "pending"]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "page" && published != false]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "category"]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "deal"]{ "slug": slug.current, _updatedAt }`),
       // Cung dieu kien loc voi COMPARISON_POSTS_QUERY trong src/sanity/queries.ts —
       // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
-      readClient.fetch(`count(*[_type == "post" && category == "Comparison" && (!defined(publishedAt) || publishedAt <= now())])`),
+      readClient.fetch(`count(*[_type == "post" && category == "Comparison" && (!defined(publishedAt) || publishedAt <= now()) && aiReviewStatus != "pending"])`),
       // Cung dieu kien loc voi FLASH_SALES_QUERY trong src/sanity/queries.ts —
       // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
       readClient.fetch(`count(*[_type == "offer" && active == true && defined(expiresAt) && expiresAt > now()])`),
       // Cung dieu kien loc voi TIPS_GUIDES_QUERY trong src/sanity/queries.ts —
       // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
-      readClient.fetch(`count(*[_type == "post" && category == "Tips & Guides" && (!defined(publishedAt) || publishedAt <= now())])`),
+      readClient.fetch(`count(*[_type == "post" && category == "Tips & Guides" && (!defined(publishedAt) || publishedAt <= now()) && aiReviewStatus != "pending"])`),
     ])
   } catch {}
 

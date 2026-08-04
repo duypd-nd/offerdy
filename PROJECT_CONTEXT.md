@@ -346,6 +346,32 @@ Routing, which is easy to get wrong: `/comparisons` is a **listing page only** �
 
 Table styling lives in `globals.css` (`.article-table-wrap` for horizontal scroll on mobile, `.article-body table`). The six deleted blog posts each carried their own `<style>` block; one shared rule means one place to fix.
 
+## ⚠️ A post with no `publishedAt` is PUBLIC — drafts need two guards
+`PUBLISHED_FILTER` is `(!defined(publishedAt) || publishedAt <= now())`. The `!defined` branch means **creating a post without a date publishes it immediately**. For an AI draft — created before it has any content — `/blog/[slug]` then falls through to `PlaceholderBody`, a block of generic filler prose about "battle-tested across thousands of transactions" that has nothing to do with the article. That is the easiest way for the article generator to embarrass the site.
+
+Two guards, deliberately redundant, both added 2026-08-05:
+
+1. **`DRAFT_PUBLISHED_AT = '2099-01-01'`** (`src/lib/postDraft.ts`) — stamped at creation. Catches any query that forgets to filter.
+2. **`POST_VISIBLE_FILTER`** (`src/sanity/queries.ts`) — `PUBLISHED_FILTER` plus `(!defined(aiReviewStatus) || aiReviewStatus != "pending")`, used by all four post queries. Catches someone hand-editing the date in Studio.
+
+Verified by creating a real pending draft: the article URL returned **404** and it appeared in none of `/blog`, `/comparisons`, or the sitemap — then, with the 2099 date removed so only guard 2 remained, still **404**. Each guard was shown to work alone.
+
+⚠️ The filter is written `!defined(x) || x != "pending"` rather than bare `x != "pending"`. Both behave identically — checked against live data, GROQ treats a missing field as *not equal* — but the explicit form cannot be misread, and this project has already lost time to GROQ's comparison semantics on missing values.
+
+## Blog posts finally carry affiliate tracking
+`getStoreRefForHtml` has existed and worked for a long time, with exactly **one** call site: the review page. Blog post HTML went straight into `dangerouslySetInnerHTML`, so every merchant link an editor pasted into an article went out **untracked**.
+
+`blog/[slug]/page.tsx` now calls it too. Proved end to end rather than by reading: a bare `https://www.frizzlife.com/products/px600` added to a live article rendered as `…?ref=offerdy&utm_source=affiliate` — picking up *both* params from that store's `affiliateLink`, then the article was restored byte-for-byte.
+
+Resolved at render, not at save: changing a store's ref code updates the whole archive with no edits. `/blog` and `/blog/[slug]` are therefore registered in `revalidateStoreHostConsumers()` — the warning in that file said any new consumer of `store-hosts` must be, and this is the first one added since.
+
+## One list for post categories
+`src/lib/postCategory.ts` exports `POST_CATEGORIES`, `CAT_CLASS` and `catClass()`. The Sanity schema builds its dropdown from it, `BlogPageContent` builds its filter chips from it, and both `BlogPageContent` and `blog/[slug]` badge with it.
+
+The reason: the list previously lived in four places and had already drifted. `Comparison` existed in the schema but was **missing from the filter chips and from the colour map** — so comparison articles had no route to them from `/blog` and were badged as Tips. Adding `.cat-compare` to `globals.css` completed the set.
+
+Same change fixed `/tips-guides`, which reused `BlogPageContent` and rendered all five chips over a Tips-only dataset — four of them guaranteed to show "No articles in this category yet." It now passes `showTabs={false}`.
+
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
 

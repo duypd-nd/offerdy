@@ -36,6 +36,10 @@ export function revalidateStoreHostConsumers() {
   revalidatePath('/links')
   revalidatePath('/reviews')
   revalidatePath('/reviews/[slug]', 'page')
+  // Them 2026-08-05: trang blog gio cung goi getStoreRefForHtml de gan ma ref vao
+  // link trong than bai — dung cai canh bao o cuoi khoi chu thich tren.
+  revalidatePath('/blog')
+  revalidatePath('/blog/[slug]', 'page')
   // Trang chu cung liet ke deal.
   revalidatePath('/', 'page')
 }

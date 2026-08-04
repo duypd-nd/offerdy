@@ -1,42 +1,130 @@
 import { defineType, defineField } from 'sanity'
+import { POST_CATEGORY_OPTIONS } from '@/lib/postCategory'
 
 export const postType = defineType({
   name: 'post',
   title: 'Blog Post',
   type: 'document',
+  groups: [
+    { name: 'content', title: 'Nội dung', default: true },
+    { name: 'seo', title: 'SEO' },
+    { name: 'ai', title: 'AI' },
+  ],
   fields: [
-    defineField({ name: 'title', title: 'Title', type: 'string', validation: r => r.required() }),
-    defineField({ name: 'slug', title: 'Slug', type: 'slug', options: { source: 'title' }, validation: r => r.required() }),
-    defineField({ name: 'excerpt', title: 'Excerpt', type: 'text', rows: 3 }),
+    defineField({ name: 'title', title: 'Title', type: 'string', group: 'content', validation: r => r.required() }),
+    defineField({ name: 'slug', title: 'Slug', type: 'slug', options: { source: 'title' }, group: 'content', validation: r => r.required() }),
+    defineField({ name: 'excerpt', title: 'Excerpt', type: 'text', rows: 3, group: 'content' }),
     defineField({
       name: 'category',
       title: 'Category',
       type: 'string',
-      options: {
-        list: [
-          { title: 'Tips & Guides', value: 'Tips & Guides' },
-          { title: 'Comparison', value: 'Comparison' },
-          { title: 'Store Guide', value: 'Store Guide' },
-          { title: 'Deals Roundup', value: 'Deals Roundup' },
-          { title: 'News', value: 'News' },
-        ],
-      },
+      group: 'content',
+      // Dung chung danh sach voi giao dien — xem src/lib/postCategory.ts.
+      options: { list: POST_CATEGORY_OPTIONS },
     }),
-    defineField({ name: 'author', title: 'Author', type: 'string' }),
-    defineField({ name: 'publishedAt', title: 'Published At', type: 'date' }),
-    defineField({ name: 'coverEmoji', title: 'Cover Emoji', type: 'string' }),
-    defineField({ name: 'coverBg', title: 'Cover Background (CSS gradient)', type: 'string' }),
-    defineField({ name: 'readTime', title: 'Read Time (minutes)', type: 'number' }),
-    defineField({ name: 'content', title: 'Nội dung HTML', type: 'text' }),
-    defineField({ name: 'image', title: 'Hình ảnh đại diện', type: 'image', options: { hotspot: true } }),
-    defineField({ name: 'externalImageUrl', title: 'Hình ảnh đại diện (link ngoài)', type: 'url' }),
+    defineField({ name: 'author', title: 'Author', type: 'string', group: 'content' }),
+    defineField({
+      name: 'publishedAt',
+      title: 'Published At',
+      type: 'date',
+      group: 'content',
+      // ⚠️ De TRONG la bai CONG KHAI, khong phai ban nhap: bo loc cua du an la
+      // `!defined(publishedAt) || publishedAt <= now()`. Ban nhap do AI sinh ra
+      // duoc dat mot moc tuong lai (xem DRAFT_PUBLISHED_AT trong
+      // src/lib/postDraft.ts) de khong ro ra trang cong khai.
+      description: 'Để trống = ĐĂNG NGAY. Muốn giữ nháp thì đặt ngày ở tương lai.',
+    }),
+    defineField({ name: 'coverEmoji', title: 'Cover Emoji', type: 'string', group: 'content' }),
+    defineField({ name: 'coverBg', title: 'Cover Background (CSS gradient)', type: 'string', group: 'content' }),
+    defineField({ name: 'readTime', title: 'Read Time (minutes)', type: 'number', group: 'content' }),
+    defineField({ name: 'content', title: 'Nội dung HTML', type: 'text', group: 'content' }),
+    defineField({ name: 'image', title: 'Hình ảnh đại diện', type: 'image', options: { hotspot: true }, group: 'content' }),
+    defineField({ name: 'externalImageUrl', title: 'Hình ảnh đại diện (link ngoài)', type: 'url', group: 'content' }),
     defineField({
       name: 'body',
       title: 'Body (Portable Text)',
       type: 'array',
+      group: 'content',
       of: [
         { type: 'block' },
         { type: 'image', options: { hotspot: true } },
+      ],
+    }),
+
+    // ── SEO ──────────────────────────────────────────────────────
+    // ⚠️ KHONG duoc chua chu "Offerdy": `titleTemplate` o layout tu them duoi
+    // thuong hieu. Xem muc "Page titles" trong PROJECT_CONTEXT.md.
+    defineField({
+      name: 'metaTitle', title: 'Meta Title', type: 'string', group: 'seo',
+      description: 'Để trống = dùng Title. KHÔNG chứa chữ "Offerdy" — đuôi thương hiệu do site tự thêm. Nên ≤ 48 ký tự.',
+    }),
+    defineField({
+      name: 'metaDescription', title: 'Meta Description', type: 'text', rows: 2, group: 'seo',
+      description: 'Để trống = dùng Excerpt. Nên ≤ 160 ký tự.',
+    }),
+
+    // ── Bai do AI sinh tu mot store ──────────────────────────────
+    defineField({
+      name: 'sourceStore', title: 'Store nguồn', type: 'reference', to: [{ type: 'store' }], group: 'content',
+      description: 'Bài viết về sản phẩm của shop này. Dùng để lấy mã giảm giá và gắn link tiếp thị.',
+    }),
+    defineField({
+      name: 'articleProducts', title: 'Sản phẩm trong bài', type: 'array', group: 'content',
+      description: 'Giá được chụp lại lúc viết bài — trang hiển thị kèm mốc thời gian, không giả vờ là giá thời gian thực.',
+      of: [{
+        type: 'object',
+        fields: [
+          defineField({ name: 'url', title: 'URL sản phẩm', type: 'url' }),
+          defineField({ name: 'title', title: 'Tên sản phẩm', type: 'string' }),
+          defineField({ name: 'imageUrl', title: 'Ảnh', type: 'url' }),
+          defineField({ name: 'priceAtWriting', title: 'Giá lúc viết', type: 'string' }),
+          defineField({ name: 'currency', title: 'Tiền tệ', type: 'string' }),
+          defineField({ name: 'capturedAt', title: 'Chụp lúc', type: 'datetime' }),
+        ],
+        preview: { select: { title: 'title', subtitle: 'priceAtWriting' } },
+      }],
+    }),
+
+    // ── AI ───────────────────────────────────────────────────────
+    // Cung khuon voi store/offer/deal: ban nhap nam rieng o `aiDraft`, duyet o
+    // /admin/ai-review moi chep sang truong that roi go `aiDraft` di.
+    defineField({
+      name: 'aiReviewStatus', title: 'Trạng thái duyệt AI', type: 'string', group: 'ai',
+      initialValue: 'none', readOnly: true,
+      description: 'Quản lý qua trang /admin/ai-review — không chỉnh tay.',
+      options: { list: ['none', 'pending', 'approved', 'rejected'] },
+    }),
+    defineField({
+      name: 'aiDraft', title: 'Bản nháp AI', type: 'object', group: 'ai', readOnly: true,
+      fields: [
+        defineField({ name: 'title', type: 'string' }),
+        defineField({ name: 'excerpt', type: 'text', rows: 2 }),
+        defineField({ name: 'contentHtml', type: 'text', rows: 10 }),
+        defineField({ name: 'metaTitle', type: 'string' }),
+        defineField({ name: 'metaDescription', type: 'text', rows: 2 }),
+        defineField({ name: 'coverEmoji', type: 'string' }),
+        defineField({ name: 'coverBg', type: 'string' }),
+        defineField({ name: 'readTime', type: 'number' }),
+        defineField({ name: 'templateId', type: 'string' }),
+        defineField({
+          name: 'faq', type: 'array',
+          of: [{ type: 'object', fields: [
+            defineField({ name: 'question', type: 'string' }),
+            defineField({ name: 'answer', type: 'text', rows: 2 }),
+          ] }],
+        }),
+        defineField({
+          name: 'comparisonRows', type: 'array',
+          of: [{ type: 'object', fields: [
+            defineField({ name: 'label', type: 'string' }),
+            defineField({ name: 'values', type: 'array', of: [{ type: 'string' }] }),
+          ] }],
+        }),
+        // Canh bao "mem" cua bo hau kiem — bai van duoc tao nhung nguoi duyet
+        // phai nhin thay. Vd: ten rieng khong co trong danh muc san pham.
+        defineField({ name: 'warnings', type: 'array', of: [{ type: 'string' }] }),
+        defineField({ name: 'generatedAt', type: 'datetime' }),
+        defineField({ name: 'model', type: 'string' }),
       ],
     }),
   ],

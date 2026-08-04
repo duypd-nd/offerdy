@@ -4,7 +4,8 @@ import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getPostBySlug, getPosts, getConfigContent, getConfigAuthor } from '@/sanity/queries'
+import { getPostBySlug, getPosts, getConfigContent, getConfigAuthor, getStoreRefForHtml } from '@/sanity/queries'
+import { catClass } from '@/lib/postCategory'
 import { posts as staticPosts } from '@/data/posts'
 
 export const revalidate = 60
@@ -22,26 +23,23 @@ function fmtDate(d: string) {
 
 const BASE = 'https://www.offerdy.com'
 
-const CAT_CLASS: Record<string, string> = {
-  'Tips & Guides': 'cat-tips',
-  'Deals Roundup': 'cat-roundup',
-  'Store Guide': 'cat-store',
-  'News': 'cat-news',
-}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
   const post = await getPostBySlug(slug)
   if (!post) return {}
-  const title = post.title
-  const description = post.excerpt ?? `Read ${post.title} on Offerdy.`
+  // ⚠️ `metaTitle` KHONG duoc chua chu "Offerdy": `titleTemplate` o layout tu them
+  // duoi thuong hieu, va truoc day 24 trang da tung in ra "... | Offerdy | Offerdy".
+  // OpenGraph thi nguoc lai — no KHONG di qua titleTemplate nen phai tu mang thuong hieu.
+  const title = post.metaTitle ?? post.title
+  const description = post.metaDescription ?? post.excerpt ?? `Read ${post.title} on Offerdy.`
   const url = `${BASE}/blog/${slug}`
   return {
     title,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title,
+      title: `${title} — Offerdy`,
       description,
       url,
       siteName: 'Offerdy',
@@ -68,6 +66,21 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   ])
 
   if (!post) notFound()
+
+  /**
+   * Gan tham so tiep thi vao MOI link trong than bai, giai luc render.
+   *
+   * ⚠️ Truoc 2026-08-05, `post.content` duoc do thang vao dangerouslySetInnerHTML —
+   * nghia la moi link merchant nguoi viet dan vao bai deu ra ngoai KHONG mang ma
+   * ref, tuc khong duoc ghi nhan hoa hong. `getStoreRefForHtml` da ton tai va da
+   * chay tot tu lau, nhung chi co dung MOT noi goi la trang review.
+   *
+   * Giai luc render chu khong luc luu: doi ma ref cua mot store la ca kho bai cu
+   * cap nhat theo, khong phai sua tay tung bai.
+   */
+  const articleHtml = await getStoreRefForHtml(
+    typeof (post as { content?: string }).content === 'string' ? (post as { content: string }).content : undefined
+  )
 
   const authorName = post.author || authorConfig.defaultName
   const authorTwitterUrl = authorConfig.twitterHandle
@@ -128,7 +141,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           {/* ── MAIN ARTICLE ── */}
           <article className="article-wrap">
             <div className="article-tag-row">
-              <span className={`blog-cat ${CAT_CLASS[post.category] ?? 'cat-tips'}`}>
+              <span className={`blog-cat ${catClass(post.category)}`}>
                 {post.category}
               </span>
             </div>
@@ -151,8 +164,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             </div>
 
             <div className="article-body">
-              {'content' in post && typeof (post as { content?: string }).content === 'string' && (post as { content: string }).content.length > 100 ? (
-                <div dangerouslySetInnerHTML={{ __html: (post as { content: string }).content }} />
+              {articleHtml && articleHtml.length > 100 ? (
+                <div dangerouslySetInnerHTML={{ __html: articleHtml }} />
               ) : 'body' in post && Array.isArray((post as { body?: unknown[] }).body) && (post as { body: unknown[] }).body.length > 0 ? (
                 <PortableBody body={(post as { body: unknown[] }).body} />
               ) : (

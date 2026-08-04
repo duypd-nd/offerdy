@@ -4,23 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Post } from '@/data/posts'
+import { POST_CATEGORIES, catClass } from '@/lib/postCategory'
 
 const PAGE_SIZE = 9
 
-const TABS = [
-  { label: 'All', value: 'all' },
-  { label: 'Tips & Guides', value: 'Tips & Guides' },
-  { label: 'Deals Roundup', value: 'Deals Roundup' },
-  { label: 'Store Guide', value: 'Store Guide' },
-  { label: 'News', value: 'News' },
-]
-
-const CAT_CLASS: Record<string, string> = {
-  'Tips & Guides': 'cat-tips',
-  'Deals Roundup': 'cat-roundup',
-  'Store Guide': 'cat-store',
-  'News': 'cat-news',
-}
+// Chip loc dung chung danh sach voi schema Sanity — xem src/lib/postCategory.ts.
+// Truoc 2026-08-05 danh sach nay duoc go tay va **thieu Comparison**, nen bai so
+// sanh khong co duong nao loc toi tu /blog.
+const TABS = [{ label: 'All', value: 'all' }, ...POST_CATEGORIES.map(c => ({ label: c, value: c }))]
 
 function PostMeta({ post }: { post: Post }) {
   return (
@@ -56,7 +47,14 @@ function Pagination({ page, totalPages, goTo }: { page: number; totalPages: numb
   )
 }
 
-export default function BlogPageContent({ posts, columns }: { posts: Post[]; columns?: number }) {
+/**
+ * `showTabs=false` cho cac trang da loc san (`/tips-guides`).
+ *
+ * ⚠️ Truoc 2026-08-05, `/tips-guides` dung chung component nay va hien du 5 chip
+ * tren mot tap CHI CO Tips & Guides — bam 4 chip kia luon ra "No articles in this
+ * category yet." Do khong phai bo loc, do la mot cai bay.
+ */
+export default function BlogPageContent({ posts, columns, showTabs = true }: { posts: Post[]; columns?: number; showTabs?: boolean }) {
   const [active, setActive] = useState('all')
   const [page, setPage] = useState(1)
 
@@ -77,7 +75,7 @@ export default function BlogPageContent({ posts, columns }: { posts: Post[]; col
 
   return (
     <>
-      <div className="filter-bar">
+      {showTabs && <div className="filter-bar">
         {TABS.map(tab => (
           <button
             key={tab.value}
@@ -87,7 +85,7 @@ export default function BlogPageContent({ posts, columns }: { posts: Post[]; col
             {tab.label}
           </button>
         ))}
-      </div>
+      </div>}
 
       <div className="blog-layout">
         {!featured && (
@@ -104,7 +102,7 @@ export default function BlogPageContent({ posts, columns }: { posts: Post[]; col
                 : featured.coverEmoji}
             </div>
             <div className="blog-featured-body">
-              <span className={`blog-cat ${CAT_CLASS[featured.category] ?? 'cat-tips'}`}>
+              <span className={`blog-cat ${catClass(featured.category)}`}>
                 {featured.category}
               </span>
               <div className="blog-featured-title">{featured.title}</div>
@@ -134,7 +132,7 @@ export default function BlogPageContent({ posts, columns }: { posts: Post[]; col
                       : post.coverEmoji}
                   </div>
                   <div className="blog-card-body">
-                    <span className={`blog-cat ${CAT_CLASS[post.category] ?? 'cat-tips'}`}>
+                    <span className={`blog-cat ${catClass(post.category)}`}>
                       {post.category}
                     </span>
                     <div className="blog-card-title">{post.title}</div>
