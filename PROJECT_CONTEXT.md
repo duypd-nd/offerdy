@@ -298,7 +298,19 @@ The two worst cards were the ones with the least behind them: **Travel had 1 sho
 
 ⚠️ **Counts are deliberately absent from the card text.** Writing "22 fashion brands" would recreate the drift the `{storeCount}` token was introduced to kill, one level down.
 
-📌 Two data oddities surfaced by the name check, both unfixed: the store **"Сottagecore clothes" begins with a Cyrillic С (U+0421)**, so any Latin-`C` search or name match silently misses it; and **"PET &amp; ME"** has an HTML entity stored literally in the name field.
+### Two corrupted store names — and the slugs they corrupted (fixed 2026-08-04)
+The name check above surfaced two bad records, and in both cases the damage had already leaked into the **public URL**:
+
+| Name as stored | Slug it produced |
+|---|---|
+| `Сottagecore clothes` — first letter is a **Cyrillic С (U+0421)** | `ottagecore-clothes` — the slugger dropped the non-Latin character, so the URL lost its first letter |
+| `PET &amp; ME` — HTML entity stored literally | `pet-amp-me` — the entity went straight into the URL |
+
+Both are now `Cottagecore Clothes` → `/stores/cottagecore-clothes` and `PET & ME` → `/stores/pet-me`. Checked Search Console over 90 days first: **neither old URL had a single impression**, so the rename cost nothing measurable, and the old URLs 404 — consistent with the project's keep-404s decision.
+
+⚠️ The Cyrillic character is the more instructive one: it is invisible on screen and defeats every Latin-`C` comparison silently. It was found only because a script compared prose against the store list character by character.
+
+Renaming also required fixing the **8 deals** whose `store` field held the raw domain `cottagecoreclothes.com`; the store page listed 0 deals before and 8 after — the same failure as Cloud Cushion Slides earlier the same day. When a store is renamed, `deal.store` values must be updated with it: they are matched by `includes()`, and they are what shoppers read as the shop's name.
 
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
