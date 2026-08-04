@@ -196,6 +196,34 @@ Every offer card carries `🔗 Link checked <date>` from `linkCheckedAt` next to
 - ⚠️ Trap when editing the GROQ blocks: **a backtick inside a `//` comment closes the surrounding template literal** (`TS1005`). Comments inside GROQ strings must avoid backticks.
 - ✅ **Resolved 2026-08-04**: `/flash-sales` filters on `defined(expiresAt) && expiresAt > now()`, and with `expiresAt` empty on every offer the page renders empty. The page itself is left alone — it is correct, it simply has no data yet. What was wrong was **advertising it**: `sitemap.ts` and `/llms.txt` now include it only when the same filter returns a row, so the URL comes back on its own the day a real expiry is set. See "Empty pages are not advertised" below.
 
+## ⚠️ The AI content engine has never produced anything in production
+Measured 2026-08-04: **`aiDraft` is absent on every document in the dataset** — 0 offers, 0 stores, 0 deals. `ai-content-nightly` has never written a single draft.
+
+Everything that could explain it checks out:
+
+| Checked | Result |
+|---|---|
+| Cron declared in `vercel.json` | Yes — `0 18 * * *` |
+| GROQ candidate filter matches | Yes — matched exactly the 103 offers missing a description |
+| `CRON_SECRET` reaches production | Yes — `dailyReport` has `triggeredBy: "cron"`, regenerated the same morning |
+| `ANTHROPIC_API_KEY` reaches production | Yes — the same report carries real AI text and `model: "claude-sonnet-5"` |
+
+The remaining suspect: the route fanned out **up to 60 parallel Anthropic calls in one invocation** (20 stores + 30 offers + 10 deals, three `Promise.all`s) with **no `maxDuration` set anywhere in the project**. The two crons that demonstrably work are far lighter — `daily-report` makes a single AI call. A killed function leaves no exception and no error log, only a cut-off request.
+
+### The rewrite (2026-08-04)
+
+Three changes, in order of how much they matter:
+
+1. **A time budget, not just a bigger ceiling.** `BUDGET_MS` (50s, under the 60s `maxDuration`) is checked **before each chunk**, never after — entering a chunk with seconds left guarantees being killed mid-item, and a killed item leaves nothing behind. When the budget runs out the route stops deliberately and reports `skipped`. The next night resumes exactly there, so the queue drains itself.
+2. **Chunks of 4 instead of one big fan-out.** Full parallelism was never meaningfully faster (you still wait on the slowest call) but made every night all-or-nothing: nothing is written until `Promise.all` resolves. Now each chunk that finishes is banked.
+3. **Failures go to Sentry, not `console.error`.** ⚠️ `sentry.server.config.ts` does **not** enable `captureConsoleIntegration`, so `console.error` reaches Vercel Logs only — which nobody opens daily. Sentry is already wired into `getRecentSentryIssues()` → AI Daily Report → `/admin/reports`, the one pipe the operator actually reads each morning. The route now calls `Sentry.captureMessage` on "candidates existed but nothing got made" (error) and on partial failures (warning). A silent cron for a month was the price of reporting to the wrong place.
+
+`AI_CONTENT_BUDGET_MS` is env-overridable for one specific reason: otherwise the stop-on-budget branch can only be read, never run. Lowering it to a few seconds makes it testable in a minute instead of requiring a real night with real candidates.
+
+Verified end to end on 2026-08-04 against a running server: 401 with no secret and with a wrong secret, 200 with the right one; one real candidate generated in 5s and landed as `pending`; and with 8 candidates at `AI_CONTENT_BUDGET_MS=6000` the run cut at **4 done / 4 skipped / 0 failed**, then a normal-budget run picked up the remaining 4.
+
+**Consequence for reading the data:** the 194 offer descriptions that exist did **not** come from this engine. They were written by an external AI filling spreadsheet columns at import time — which is why they are formulaic (`"Enjoy free shipping"` opens 26 of them, `"Save 10% on"` another 21, and only 17 of 194 mention a checkable condition). Do not treat their style as evidence of what `generateOfferContent.ts` produces.
+
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
 
