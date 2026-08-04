@@ -1,5 +1,12 @@
 # Offerdy — TODO
 
+## Chờ đo lại ⏳
+- **Đóng băng mốc đo tìm kiếm 04/08 — mở lại từ 18/08/2026.** Mọi số đo hôm nay đều nói về site **trước** khi sitemap được rã đông. 23 review đăng 03/08 mà Google chưa từng được báo cho tới 04/08 — một ngày thì chưa xếp hạng được. Tối ưu tiếp dựa trên số này là tối ưu cho một site không còn tồn tại, và sẽ không phân biệt được thay đổi nào có tác dụng.
+  - **Số phải vượt** (GSC 90 ngày, 03/05 → 01/08): toàn site **3.173 hiển thị · 28 bấm · CTR 0,88% · vị trí TB 22,8**. Trong top 20 trang: **trang sống 128 hiển thị / 0 bấm**, **trang chết 1.834 hiển thị / 12 bấm**. Trang sống tốt nhất là `/reviews`, vị trí **59,9**. Trang chết đứng trang 1: flashfish **8,2** (299 hiển thị), epz-audio **7,4**, friendship-lamps **8,8**, novita-ai **9,8**.
+  - ⚠️ **Đã kiểm chứ không đoán: 16/17 là xoá thật**, không còn thực thể tương ứng trong Sanity → không có gì để 301, quyết định giữ 404 vẫn đúng. Trường hợp trông như đổi slug (`z-ram-shop` → `bag-organizers-shop`) là **dương tính giả của phép đo**: nó lọc bỏ từ ≤3 ký tự nên `z-ram-shop` chỉ còn chữ `shop`. **Lần sau chạy lại phép so này phải đổi thước đo trước khi tin kết quả.**
+  - Nhu cầu thật đang gõ cửa URL chết: `$500 laptop` · `500 dollar laptop` · `13 inch laptops under 500` · `500 laptop reviews` — **21 hiển thị qua 4 biến thể**, đều trỏ `/reviews/best-laptops-under-500` (404). Thêm `adalysis` (37), `dasaita vivid 13 review` (4).
+  - **Người vận hành quyết: để chết, chờ 2 tuần.** Lần đo sau so ba thứ: (1) có review nào trong 23 cái lọt vào bảng hiển thị chưa · (2) CTR toàn site đã rời 0,88% chưa · (3) tỷ trọng hiển thị của trang chết có giảm không.
+
 ## Done ✅
 - **"500+ stores" trên /about và /partner — thôi gõ tay con số (2026-08-04)** — site có **80** store, mà con số nằm ở **bốn nơi và đã trôi bốn hướng**:
   - `configAbout` (heroLead/coverageHeading/stats) → **350+** · `configPartner` → **500+** · `about/page.tsx` dòng "Explore all … stores" → **500+** · `about/page.tsx` **FAQ JSON-LD** → **500+**.

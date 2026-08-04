@@ -312,6 +312,25 @@ Both are now `Cottagecore Clothes` → `/stores/cottagecore-clothes` and `PET & 
 
 Renaming also required fixing the **8 deals** whose `store` field held the raw domain `cottagecoreclothes.com`; the store page listed 0 deals before and 8 after — the same failure as Cloud Cushion Slides earlier the same day. When a store is renamed, `deal.store` values must be updated with it: they are matched by `includes()`, and they are what shoppers read as the shop's name.
 
+## Search baseline frozen 2026-08-04 — re-measure on or after 2026-08-18
+Everything measurable today describes the site **before** the sitemap was unfrozen. The 23 reviews were published 2026-08-03 and, because `sitemap.ts` was serving a build-time snapshot, Google was never told about them until 2026-08-04. One day is not enough to rank. Tuning SEO against these numbers would be optimising a site that no longer exists, and would make it impossible to tell which change did what.
+
+**The numbers to beat** (Search Console, 90 days, 2026-05-03 → 2026-08-01):
+
+| | Impressions | Clicks |
+|---|---:|---:|
+| Whole site | 3,173 | 28 (CTR 0.88%, avg position 22.8) |
+| Top-20 pages that are **live** | 128 | **0** |
+| Top-20 pages that are **404** | **1,834** | **12** |
+
+18 of the 20 most-shown pages are deleted. The best-performing live page is `/reviews` at position **59.9**. Several dead pages sit on page one: flashfish **8.2** (299 impressions), epz-audio **7.4**, friendship-lamps **8.8**, novita-ai **9.8**, beyond-marina **9.7**.
+
+⚠️ **Checked, not assumed: 16 of the 17 are genuine deletions**, with no equivalent entity left in Sanity — so there is nothing to 301 to, and the keep-404 decision stands. The one apparent slug-change (`z-ram-shop` → `bag-organizers-shop`) was a **false positive from the matching heuristic**: it drops words of ≤3 characters, which reduced `z-ram-shop` to the single word `shop`. Any future re-run of that comparison needs a better metric before its output is trusted.
+
+Real demand is arriving at dead URLs: `$500 laptop` / `500 dollar laptop` / `13 inch laptops under 500` / `500 laptop reviews` — **21 impressions across four query variants**, all pointing at `/reviews/best-laptops-under-500` (404). Also `adalysis` (37) and `dasaita vivid 13 review` (4).
+
+**Decision (operator, 2026-08-04): leave the dead pages dead and re-measure in two weeks.** What to compare on the next pass: whether any of the 23 current reviews has entered the impressions table at all; whether site-wide CTR has moved off 0.88%; and whether the dead-page share of impressions is falling as Google drops them.
+
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
 
