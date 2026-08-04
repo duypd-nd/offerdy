@@ -483,6 +483,22 @@ export async function getStoresByCategory(slug: string) {
   } catch { return [] }
 }
 
+/**
+ * So store dang hien tren trang cong khai — dung cho moi cho khoe con so.
+ *
+ * Cung dieu kien loc voi `/stores` va sitemap (`published != false`), de con so
+ * tren trang about khop dung voi so store nguoi doc bam vao xem duoc.
+ *
+ * Loi fetch -> tra 0, va noi goi phai bo cau van di thay vi in "0 stores". Khoe
+ * sai con so la dieu dang tranh nhat o day, ke ca khi sai xuong.
+ */
+export async function getPublishedStoreCount(): Promise<number> {
+  if (!isConfigured()) return 0
+  try {
+    return (await readClient.fetch<number>(`count(*[_type == "store" && published != false])`)) ?? 0
+  } catch { return 0 }
+}
+
 /** Tra ve slug cua nhung category doc THUC SU co it nhat 1 store.
  *  Dung cho sitemap: category rong thi khong nop cho Google (thin content),
  *  giong cach xu ly /comparisons. Trang category tu noindex rieng cua no.

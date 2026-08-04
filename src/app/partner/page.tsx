@@ -4,6 +4,8 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { getPartnerPage, type PartnerData, type Benefit } from '@/app/admin/partner/actions'
 import { isConfigured } from '@/sanity/client'
+import { getPublishedStoreCount } from '@/sanity/queries'
+import { fillStoreCount } from '@/lib/storeCount'
 
 export const dynamic = 'force-dynamic'
 const BASE = 'https://www.offerdy.com'
@@ -15,7 +17,7 @@ const DEFAULTS: Required<PartnerData> = {
   benefits: [
     { _key: 'b1', title: 'Engaged deal-seekers', desc: 'Our audience actively searches for coupons — high purchase intent, low bounce rate.' },
     { _key: 'b2', title: 'Verified placements', desc: 'Every deal is tested before going live. Your offers appear alongside trusted, working codes.' },
-    { _key: 'b3', title: 'Global reach', desc: 'Offerdy covers 500+ stores internationally. We reach shoppers from dozens of countries.' },
+    { _key: 'b3', title: 'Global reach', desc: 'Offerdy covers {storeCount} stores internationally. We reach shoppers from dozens of countries.' },
     { _key: 'b4', title: 'Performance-based', desc: 'We work on affiliate commission — you pay only for results, not impressions.' },
   ],
   ctaHeading: 'Ready to get started?',
@@ -52,7 +54,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function PartnerPage() {
-  const d = await get()
+  // Cung ly do voi /about: con so lay tu du lieu, khong go tay (src/lib/storeCount.ts).
+  const [d, storeCount] = await Promise.all([get(), getPublishedStoreCount()])
+  const n = (t: string) => fillStoreCount(t, storeCount)
   return (
     <>
       <HeaderWrapper />
@@ -74,7 +78,7 @@ export default async function PartnerPage() {
               {(d.benefits as Benefit[]).map(b => (
                 <div key={b._key} style={{ background: 'var(--white)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '22px 24px' }}>
                   <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', marginBottom: 6 }}>{b.title}</h3>
-                  <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.62 }}>{b.desc}</p>
+                  <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.62 }}>{n(b.desc)}</p>
                 </div>
               ))}
             </div>

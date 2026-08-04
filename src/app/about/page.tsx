@@ -4,6 +4,8 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { writeClient } from '@/sanity/writeClient'
 import { isConfigured } from '@/sanity/client'
+import { getPublishedStoreCount } from '@/sanity/queries'
+import { fillStoreCount } from '@/lib/storeCount'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,13 +29,13 @@ type AboutData = {
 
 const DEFAULTS: Required<AboutData> = {
   h1: 'Verified coupon codes you can actually use',
-  heroLead: 'Offerdy is a free deals platform covering 500+ stores worldwide. Every promo code and discount code listed here is tested before it goes live — so you never hit "Invalid code" at checkout.',
+  heroLead: 'Offerdy is a free deals platform covering {storeCount} stores worldwide. Every promo code and discount code listed here is tested before it goes live — so you never hit "Invalid code" at checkout.',
   storyQuote: '"I had a full cart, found a discount code online, typed it in — and got an error. The code had expired two weeks earlier. Nobody told me."',
   storyBody: "That moment is the entire reason Offerdy exists. Most coupon sites aggregate codes from anywhere and publish them without ever checking if they work. We do things differently. Every code you see here has been tested against a real store checkout. If it fails, it doesn't go live — full stop.",
   founderName: 'The Offerdy Team',
   foundingYear: '2026',
   stats: [
-    { _key: 's1', num: '500+', label: 'Stores worldwide' },
+    { _key: 's1', num: '{storeCount}', label: 'Stores worldwide' },
     { _key: 's2', num: '100%', label: 'Codes verified before publishing' },
     { _key: 's3', num: '$0',   label: 'Cost to use — forever free' },
   ],
@@ -44,7 +46,7 @@ const DEFAULTS: Required<AboutData> = {
     { _key: 'v2', title: 'We test it at a real checkout',  desc: "Every code is entered into the actual store checkout before we publish it. If it returns an error or gives less than advertised, it doesn't go live." },
     { _key: 'v3', title: 'We remove expired codes fast',   desc: "Active codes are rechecked regularly. When a deal expires, it's removed — not left to quietly fail on shoppers at the worst moment." },
   ],
-  coverageHeading: '500+ stores from around the world',
+  coverageHeading: '{storeCount} stores from around the world',
   categories: [
     { _key: 'c1', title: 'Fashion & Apparel',    desc: "Nike, ASOS, Zara, H&M, Levi's, and dozens of independent fashion brands with active discount codes." },
     { _key: 'c2', title: 'Tech & Electronics',   desc: 'Apple, Samsung, Lenovo, Anker, and more — promo codes for gadgets, accessories, and subscriptions.' },
@@ -110,7 +112,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AboutPage() {
-  const d = await getAbout()
+  // So store lay TU DU LIEU, khong go tay — xem src/lib/storeCount.ts de biet vi sao.
+  const [d, storeCount] = await Promise.all([getAbout(), getPublishedStoreCount()])
+  const n = (t: string) => fillStoreCount(t, storeCount)
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -135,7 +139,7 @@ export default async function AboutPage() {
         mainEntity: [
           { '@type': 'Question', name: 'Are coupon codes on Offerdy verified?', acceptedAnswer: { '@type': 'Answer', text: 'Yes. Every coupon code on Offerdy is tested at a real store checkout before it is published.' } },
           { '@type': 'Question', name: 'Is Offerdy free to use?', acceptedAnswer: { '@type': 'Answer', text: 'Offerdy is completely free for shoppers. We earn a small affiliate commission when you buy through our links.' } },
-          { '@type': 'Question', name: 'How many stores does Offerdy cover?', acceptedAnswer: { '@type': 'Answer', text: 'Offerdy covers 500+ stores worldwide, including fashion, electronics, travel, food delivery, and more.' } },
+          { '@type': 'Question', name: 'How many stores does Offerdy cover?', acceptedAnswer: { '@type': 'Answer', text: `Offerdy covers ${storeCount} stores worldwide, including fashion, electronics, travel, food delivery, and more.` } },
         ],
       },
     ],
@@ -157,7 +161,7 @@ export default async function AboutPage() {
             {d.h1}
           </h1>
           <p style={{ fontSize: 17, color: 'var(--muted)', lineHeight: 1.72, maxWidth: 560, marginBottom: 48 }}>
-            {d.heroLead}
+            {n(d.heroLead)}
           </p>
 
           {/* Story */}
@@ -181,7 +185,7 @@ export default async function AboutPage() {
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${d.stats.length},1fr)`, background: 'var(--white)', border: '1.5px solid var(--border)', borderRadius: 16, overflow: 'hidden', marginBottom: 52, boxShadow: '0 2px 8px rgba(15,25,41,.04)' }}>
               {d.stats.map((s, i) => (
                 <div key={s._key} style={{ padding: '28px 20px', textAlign: 'center', borderLeft: i > 0 ? '1px solid var(--border)' : 'none' }}>
-                  <div style={{ fontSize: 38, fontWeight: 900, color: 'var(--green-dark)', lineHeight: 1, letterSpacing: '-2px', marginBottom: 8, fontVariantNumeric: 'tabular-nums' }}>{s.num}</div>
+                  <div style={{ fontSize: 38, fontWeight: 900, color: 'var(--green-dark)', lineHeight: 1, letterSpacing: '-2px', marginBottom: 8, fontVariantNumeric: 'tabular-nums' }}>{n(s.num)}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, lineHeight: 1.4 }}>{s.label}</div>
                 </div>
               ))}
@@ -208,7 +212,7 @@ export default async function AboutPage() {
           {/* Coverage */}
           {d.showCoverage && (
             <section style={{ marginBottom: 52 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-.35px', textWrap: 'balance', marginBottom: 10 }}>{d.coverageHeading}</h2>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-.35px', textWrap: 'balance', marginBottom: 10 }}>{n(d.coverageHeading)}</h2>
               <p style={{ fontSize: 15, color: 'var(--muted)', lineHeight: 1.7, marginBottom: 22 }}>
                 From global household names to niche international retailers.{' '}
                 <Link href="/stores" style={{ color: 'var(--green-dark)', fontWeight: 600 }}>Browse all stores →</Link>
@@ -238,7 +242,7 @@ export default async function AboutPage() {
                 <p style={{ fontSize: 14, color: '#166534', lineHeight: 1.72 }}>{d.promiseBody}</p>
                 <div style={{ marginTop: 14, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                   <Link href="/deals"   style={{ fontSize: 13, fontWeight: 600, color: 'var(--green-dark)' }}>Browse active deals →</Link>
-                  <Link href="/stores"  style={{ fontSize: 13, fontWeight: 600, color: 'var(--green-dark)' }}>Explore all 500+ stores →</Link>
+                  <Link href="/stores"  style={{ fontSize: 13, fontWeight: 600, color: 'var(--green-dark)' }}>Explore all {storeCount} stores →</Link>
                   <Link href="/reviews" style={{ fontSize: 13, fontWeight: 600, color: 'var(--green-dark)' }}>Read store reviews →</Link>
                 </div>
               </div>

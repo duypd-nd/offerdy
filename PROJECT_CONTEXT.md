@@ -273,6 +273,24 @@ Offers and coupon codes matter here for a non-obvious reason: `store-hosts` carr
 
 Creating matters as much as editing: on 2026-08-04 a single new store was the only thing missing before 35 existing deals could attach their ref. All mutating actions across the three files call a revalidate helper — verified by reading each one; the remaining functions in `stores/actions.ts` are read-only or asset uploads that never change published data.
 
+## The store count is derived, never typed (`src/lib/storeCount.ts`)
+Public copy writes `{storeCount}` and the page substitutes the live count at render. Same convention as `{store}` in a store's `defaultDescription`.
+
+The reason is the failure it replaces. On 2026-08-04, with **80** published stores, the number appeared in four places and had drifted four different ways:
+
+| Where | Said | Editable in admin? |
+|---|---|---|
+| `configAbout.heroLead` / `coverageHeading` / `stats` | 350+ | yes |
+| `configPartner.benefits` | 500+ | yes |
+| `about/page.tsx` — "Explore all … stores" link | 500+ | **no, hardcoded** |
+| `about/page.tsx` — **FAQ JSON-LD** | 500+ | **no, hardcoded** |
+
+The operator had corrected the Sanity copy to 350+; the two hardcoded strings were unreachable from the admin and stayed at 500+. The last one is the worst of the four: structured data is a machine-readable claim handed straight to Google, and it overstated the catalogue by more than 6×.
+
+⚠️ **The cure is not typing the right number — it is not typing a number.** `getPublishedStoreCount()` uses the same `published != false` filter as `/stores` and the sitemap, so the boast matches the page a reader can actually click through to. On a fetch error it returns 0, and the caller is expected to drop the sentence rather than print "0 stores".
+
+📌 **Unresolved and larger than the count:** `/about`'s category cards name **Nike, ASOS, Zara, H&M, Levi's, Apple, Samsung, Lenovo, Anker, Booking.com, Agoda, Airbnb, DoorDash, Uber Eats, HelloFresh** as brands with active codes. Checked against the store list on 2026-08-04: **none of the 15 exists on the site.** The real catalogue is small DTC shops (cycleaddons, frizzlife, skinhubbeauty, cottagecore clothes…). This is a claim about inventory the site does not have, on the page whose stated purpose is trust — and it also argues against the site's own positioning, which is the long tail RetailMeNot does not cover.
+
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
 
