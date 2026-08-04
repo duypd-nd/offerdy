@@ -3,6 +3,37 @@
 import { revalidatePath } from 'next/cache'
 import { writeClient } from '@/sanity/writeClient'
 
+/**
+ * Lam moi MOI trang phu thuoc vao mot store — khong chi trang store.
+ *
+ * Vi sao rong hon ve truc quan: `getCachedStoreHosts()` trong queries.ts la mot
+ * BANG TRA CUU DUNG CHUNG (ten shop + ma ref theo domain). Tao, sua hay xoa mot
+ * store deu doi bang do, ma bang do duoc doc o **trang deal va trang review** —
+ * nhung noi truoc day khong he duoc nhac ten khi luu store.
+ *
+ * Hau qua do duoc ngay 2026-08-04: sau khi dien `affiliateLink` cho mot store,
+ * link ra ngoai tren trang deal van thieu ma ref. Do bang dong ho: nap cache luc
+ * 06:05:27, bam Luu luc 06:07:35, trang doi luc 06:10:13 — tuc no doi vi het cua
+ * so 300 giay, KHONG phai vi bam Luu. Nguoi van hanh sua ma ref roi mo trang ra
+ * xem thi thay y nguyen, va khong co cach nao ep.
+ *
+ * ⚠️ Danh sach nay phai bam theo cac trang THUC SU doc `store-hosts`. Them mot
+ * trang moi dung `getDealCoupon` / `getStoreRefForUrl` / `withDealRefs` thi phai
+ * them vao day, khong thi no lang le tre 5 phut.
+ */
+function revalidateStoreDependents() {
+  revalidatePath('/admin/stores')
+  revalidatePath('/stores')
+  revalidatePath('/stores/[slug]', 'page')
+  revalidatePath('/', 'page')
+  // Duoi day la cac trang gan ma ref theo domain qua `store-hosts`.
+  revalidatePath('/deals')
+  revalidatePath('/deals/[slug]', 'page')
+  revalidatePath('/links')
+  revalidatePath('/reviews')
+  revalidatePath('/reviews/[slug]', 'page')
+}
+
 export async function updateStore(id: string, patch: Record<string, unknown>) {
   // O trong phai co nghia la "tra ve mac dinh", nen tach thanh unset thay vi set.
   //
@@ -22,10 +53,7 @@ export async function updateStore(id: string, patch: Record<string, unknown>) {
   if (Object.keys(set).length) tx = tx.set(set)
   if (unset.length) tx = tx.unset(unset)
   await tx.commit()
-  revalidatePath('/admin/stores')
-  revalidatePath('/stores/[slug]', 'page')
-  revalidatePath('/stores')
-  revalidatePath('/', 'page')
+  revalidateStoreDependents()
 }
 
 export async function deleteStore(id: string): Promise<{ ok: boolean; error?: string; deletedOfferCount?: number }> {
@@ -39,9 +67,7 @@ export async function deleteStore(id: string): Promise<{ ok: boolean; error?: st
     tx.delete(id)
     await tx.commit()
 
-    revalidatePath('/admin/stores')
-    revalidatePath('/stores')
-    revalidatePath('/', 'page')
+    revalidateStoreDependents()
     revalidatePath('/admin/offers')
     revalidatePath('/admin/coupon-codes')
     revalidatePath('/coupon-codes')
@@ -68,9 +94,10 @@ export async function createStore(data: {
     ...data,
     slug: { _type: 'slug', current: data.slug },
   })
-  revalidatePath('/admin/stores')
-  revalidatePath('/stores')
-  revalidatePath('/', 'page')
+  // Tao store cung phai lam moi trang deal: mot store MOI co the la thu duy nhat
+  // con thieu de hang chuc deal san co duoc gan ma ref. Do dung 2026-08-04 —
+  // tao store Cloud Cushion Slides la 35 deal co san lap tuc gan duoc ref.
+  revalidateStoreDependents()
   return doc
 }
 

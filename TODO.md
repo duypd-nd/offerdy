@@ -1,6 +1,12 @@
 # Offerdy — TODO
 
 ## Done ✅
+- **Sửa link affiliate của store xong mà trang deal 5 phút sau mới đổi (2026-08-04)** — người vận hành tạo store `Cloud Cushion Slides`, điền `affiliateLink`, mà 35 deal vẫn ra ngoài không mang ref.
+  - **Đo bằng đồng hồ, hai lần, cả hai chiều** — không suy luận: nạp cache 06:05:27, bấm Lưu 06:07:35, trang đổi 06:10:13 → đổi vì hết cửa sổ 300 giây chứ **không phải** vì bấm Lưu. Sau khi sửa: Lưu 07:20:04 → đổi 07:20:09 (**5 giây**); gỡ lúc 07:22:29 → đổi 07:22:30 (**1 giây**). Cả hai lần sau, bản cache còn hạn vài phút nữa, nên hết hạn không giải thích được.
+  - **Nguyên nhân**: `getCachedStoreHosts()` là **bảng tra cứu dùng chung**, được đọc ở **trang deal và trang review** — chứ không phải trang store. Mà action lưu store chỉ nêu tên `/stores`, `/stores/[slug]`, `/`. Route **ghi** phải nêu tên route **đọc**, và điều đó không nhìn ra được nếu không đi tìm.
+  - ⚠️ **KHÔNG sửa bằng cách thêm `tags` vào `unstable_cache`.** Tài liệu Next 16 đi kèm ghi rõ `unstable_cache` "đã được thay thế bởi `use cache`", và `revalidateTag(tag)` thiếu tham số `profile` là **đã lỗi thời** ở bản này. Đi đường đó là chồng hai API lỗi thời; còn đường sạch (`'use cache'` + `cacheTag`) đòi bật Cache Components — đổi ngữ nghĩa cache của cả ứng dụng. Nêu tên đường dẫn tốn đúng một hàm và không đụng API lỗi thời nào.
+  - `revalidateStoreDependents()` dùng cho cả **tạo, sửa và xoá**. Tạo quan trọng ngang sửa: hôm nay một store mới là thứ duy nhất còn thiếu để 35 deal có sẵn gắn được ref.
+  - 📌 **Còn hai chỗ cùng lỗi, chưa sửa**: `admin/offers` và `admin/coupon-codes` đổi `store-hosts.couponCode` (mã nổi bật của shop, hiện trên trang deal qua `getDealCoupon`) nhưng không làm mới `/deals` lẫn `/deals/[slug]`.
 - **Tầng 2: xoá 6 bài blog chung chung, và chặn nốt 2 trang liệt kê vừa thành rỗng (2026-08-04)** — quyết định dựa trên Search Console chứ không theo cảm tính.
   - 90 ngày (03/05 → 01/08), trên nền toàn site 28 bấm / 3.173 hiển thị: **6 bài sống cộng lại được 7 hiển thị, 0 bấm** (0,2% hiển thị của site); 2 trong 6 bài chưa từng xuất hiện.
   - ⚠️ **Một bài ĐÃ XOÁ lại hơn cả 6 bài sống cộng lại gấp ~10 lần**: `/blog/browser-extensions-for-automatic-coupons` trả 404 mà vẫn được **67 hiển thị**. Khác biệt là CHỦ ĐỀ, không phải chất lượng văn: một câu hỏi cụ thể trong đúng lĩnh vực của site và sát lúc mua, so với "How to Save Money" cạnh tranh với cả internet. Trang đó không khôi phục được (Sanity history 403) nhưng chủ đề đã được chứng minh — đáng viết mới.

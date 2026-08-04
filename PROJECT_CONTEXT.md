@@ -252,6 +252,25 @@ Deleted docs are backed up to `.scratch/deleted-posts-backup.json` (gitignored) 
 
 **Consequence handled in the same change:** with zero posts, `/blog` and `/tips-guides` render empty, so both are now guarded out of `sitemap.ts` and `/llms.txt` (see the table below). Both still return 200 for humans.
 
+## `revalidatePath` clears `unstable_cache` — but only for paths you name
+Measured on 2026-08-04 with a stopwatch, twice, in both directions.
+
+`getCachedStoreHosts()` is a **shared lookup table** (store name + slug + ref params + top coupon code, keyed by domain). It is read on **deal pages and review pages** — not on store pages. The store save action revalidated `/stores`, `/stores/[slug]`, `/` and `/admin/stores`, and never `/deals/[slug]`. Result: editing a store's affiliate link left deal pages serving the old outbound URL for up to the cache's 300s.
+
+| | Save landed | Page changed | Lag |
+|---|---|---|---|
+| Before the fix | 06:07:35 | 06:10:13 | **158s** — and 286s after the cache was primed, i.e. it changed on natural expiry, not on save |
+| After (setting a param) | 07:20:04 | 07:20:09 | **5s** |
+| After (removing it) | 07:22:29 | 07:22:30 | **1s** |
+
+In both post-fix runs a valid cache entry still had minutes of TTL left, so expiry cannot explain the change. **The conclusion is the useful part: `revalidatePath` does reach `unstable_cache`, but the association is by path.** Caching a value in one module and consuming it in an unrelated route means the route that *writes* must name the routes that *read* — which is invisible unless you look for it.
+
+⚠️ **Do not "fix" this by adding `tags` to `unstable_cache`.** The bundled Next 16 docs say `unstable_cache` "has been replaced by `use cache`", and `revalidateTag(tag)` without the second `profile` argument is deprecated in this version. That route stacks two deprecated APIs, and the clean alternative (`'use cache'` + `cacheTag`) requires opting into Cache Components — an app-wide change to caching semantics. Naming the paths costs one function and no deprecated API.
+
+`revalidateStoreDependents()` in `src/app/admin/stores/actions.ts` is now used by create, update **and** delete. Creating matters as much as editing: on 2026-08-04 a single new store was the only thing missing before 35 existing deals could attach their ref.
+
+📌 **The same gap remains in two other actions**: `admin/offers` and `admin/coupon-codes` change `store-hosts.couponCode` (the shop's headline code, rendered on deal pages via `getDealCoupon`) but revalidate neither `/deals` nor `/deals/[slug]`.
+
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
 
