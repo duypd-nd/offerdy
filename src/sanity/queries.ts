@@ -571,10 +571,14 @@ const REVIEW_BY_SLUG_QUERY = `*[_type == "review" && slug.current == $slug && ${
 }`
 
 // ── Blog Posts ─────────────────────────────────────────────────
+// `storeSlug`: shop ma bai duoc viet ra tu danh muc cua no — tin hieu manh nhat de
+// chon "Related Posts" o sidebar bai viet (xem `pickSidebarPosts`). Bai cu khong co
+// `sourceStore` thi truong nay la null, va diem lien quan chi con dua vao chu de.
 const POSTS_QUERY = `*[_type == "post" && ${POST_VISIBLE_FILTER}] | order(publishedAt desc) {
   "id": _id, "slug": slug.current, title, excerpt, category,
   author, "date": publishedAt, coverEmoji, coverBg, readTime,
-  "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl)
+  "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl),
+  "storeSlug": sourceStore->slug.current
 }`
 
 const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${POST_VISIBLE_FILTER}][0] {

@@ -6,6 +6,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { getPostBySlug, getPosts, getConfigContent, getConfigAuthor, getStoreRefForHtml, getStoreTopCoupon } from '@/sanity/queries'
 import { renderPostTokens, priceNote, type RenderProduct } from '@/lib/postRender'
+import { pickSidebarPosts, type RelatablePost } from '@/lib/relatedPosts'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
 import { catClass } from '@/lib/postCategory'
 import { posts as staticPosts } from '@/data/posts'
@@ -24,6 +25,13 @@ function fmtDate(d: string) {
 }
 
 const BASE = 'https://www.offerdy.com'
+
+/** Bai o o ben canh. `getPosts` khong co kieu (GROQ), nen khai ro dung phan can dung. */
+type SidebarPost = RelatablePost & {
+  coverEmoji?: string
+  coverBg?: string
+  imageUrl?: string
+}
 
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -114,15 +122,19 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     ? `https://x.com/${authorConfig.twitterHandle.replace(/^@/, '')}`
     : undefined
 
-  let sidebarPosts = allPosts
-    .filter((p: { slug: string }) => p.slug !== slug)
-    .slice(0, 6)
-
-  if (sidebarPosts.length === 0) {
-    sidebarPosts = staticPosts
-      .filter(p => p.slug !== slug)
-      .slice(0, 6)
-  }
+  /**
+   * O ben canh: bai LIEN QUAN truoc, roi moi toi bai moi.
+   *
+   * "Recent Posts" hien y het nhau tren moi trang bai — no khong biet nguoi doc dang
+   * doc gi, nen khong dua duoc ai di dau. Cung cho ay ma hien bai cung shop / cung chu
+   * de thi moi cu bam la mot nguoi con dang trong con mua sam. Hai o rieng chu khong
+   * tron: xem `pickSidebarPosts` de biet vi sao.
+   */
+  const candidates: SidebarPost[] = allPosts.length ? allPosts : staticPosts
+  const sidebar = pickSidebarPosts(
+    { slug, title: post.title, category: post.category, storeSlug: article.sourceStore?.slug },
+    candidates
+  )
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -280,36 +292,39 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
           {/* ── SIDEBAR ── */}
           <aside className="article-sidebar">
-            {sidebarPosts.length > 0 && (
-              <div className="asb-box">
-                <div className="asb-title">Recent Posts</div>
-                {sidebarPosts.map((p: {
-                  slug: string
-                  title: string
-                  category?: string
-                  coverEmoji?: string
-                  coverBg?: string
-                  imageUrl?: string
-                }) => (
-                  <Link key={p.slug} href={`/blog/${p.slug}`} className="asb-card">
-                    <div className="asb-thumb asb-thumb--wide" style={{ background: p.imageUrl ? undefined : (p.coverBg ?? 'var(--bg)'), fontSize: 28 }}>
-                      {p.imageUrl
-                        ? <Image src={p.imageUrl} alt={p.title} fill sizes="128px" style={{ objectFit: 'cover' }} />
-                        : (p.coverEmoji ?? '📝')}
-                    </div>
-                    <div className="asb-info">
-                      <div className="asb-name">{p.title}</div>
-                      {p.category && <span className="asb-tag">{p.category}</span>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+            <SidebarBox title="Related Posts" posts={sidebar.related} />
+            <SidebarBox title="Recent Posts" posts={sidebar.recent} />
           </aside>
         </div>
       </main>
       <Footer />
     </>
+  )
+}
+
+/** Mot o trong cot ben. O rong thi khong dung the — khong de lai mot khung khong. */
+function SidebarBox({ title, posts }: { title: string; posts: SidebarPost[] }) {
+  if (!posts.length) return null
+  return (
+    <div className="asb-box">
+      <div className="asb-title">{title}</div>
+      {posts.map(p => (
+        <Link key={p.slug} href={`/blog/${p.slug}`} className="asb-card">
+          {/* Vuong 96px y nhu sidebar review. Khung 128x64 cu la khung BANNER: anh bia
+              gio la anh SAN PHAM, va o ngang det cat mat dau/chan mon hang — dung loi
+              ma anh bia trong than bai da phai sua. */}
+          <div className="asb-thumb" style={{ background: p.imageUrl ? undefined : (p.coverBg ?? 'var(--bg)'), fontSize: 28 }}>
+            {p.imageUrl
+              ? <Image src={p.imageUrl} alt={p.title} fill sizes="96px" style={{ objectFit: 'cover' }} />
+              : (p.coverEmoji ?? '📝')}
+          </div>
+          <div className="asb-info">
+            <div className="asb-name">{p.title}</div>
+            {p.category && <span className="asb-tag">{p.category}</span>}
+          </div>
+        </Link>
+      ))}
+    </div>
   )
 }
 
