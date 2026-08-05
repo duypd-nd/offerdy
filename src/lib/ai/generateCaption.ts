@@ -238,7 +238,10 @@ Use {price}${deal.priceOrig ? ', {was}' : ''} and {discount} where the numbers b
 // ── Kiem tra dau ra ────────────────────────────────────────────
 // Lop bao ve thu hai, doc lap voi prompt. Prompt co the bi phot lo; kiem tra thi
 // khong. Bat dung hai thu nguy hiem nhat: so tien va phan tram do AI tu viet.
-const MONEY_RE = /(?:[$£€₫]|USD|VND)\s?\d|(?<!\{)\b\d+(?:[.,]\d+)?\s?%/i
+// Export de bo hau kiem bai viet (`generateArticleContent.ts`) dung LAI chinh regex
+// nay thay vi chep mot ban thu hai: lich su chu thich cua no — vi sao co lookbehind
+// `(?<!\{)`, vi sao bat ca `USD`/`VND` — la thu mot ban chep se mat.
+export const MONEY_RE = /(?:[$£€₫]|USD|VND)\s?\d|(?<!\{)\b\d+(?:[.,]\d+)?\s?%/i
 const UNKNOWN_PLACEHOLDER_RE = /\{([a-z_]+)\}/gi
 
 export function findUnsafeText(

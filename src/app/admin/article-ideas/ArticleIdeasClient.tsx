@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { scanStoreIdeas, scanPastedUrls, nameScannedIdeas, type IdeaScanResult } from './actions'
+import Link from 'next/link'
+import { scanStoreIdeas, scanPastedUrls, nameScannedIdeas, writeArticleDraft, type IdeaScanResult, type WriteResult } from './actions'
 import type { StoreRow } from './page'
 
 type Named = { title: string; metaTitle: string }
@@ -30,11 +31,14 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
   const [nameRejected, setNameRejected] = useState<Record<string, string>>({})
   const [naming, setNaming] = useState(false)
   const [nameError, setNameError] = useState<string | null>(null)
+  const [writing, setWriting] = useState<string | null>(null)
+  const [wrote, setWrote] = useState<Record<string, WriteResult | undefined>>({})
 
   const resetNames = () => {
     setNames({})
     setNameRejected({})
     setNameError(null)
+    setWrote({})
   }
 
   const run = async (store: StoreRow) => {
@@ -54,6 +58,22 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
     resetNames()
     setScan(await scanPastedUrls(storeId, pasted))
     setScanning(null)
+  }
+
+  const runWrite = async (key: string) => {
+    if (!storeId) return
+    setWriting(key)
+    setWrote(w => ({ ...w, [key]: undefined as unknown as WriteResult }))
+    const usedPaste = scan?.ok && scan.source === 'manual'
+    const result = await writeArticleDraft({
+      storeId,
+      ideaKey: key,
+      title: names[key]?.title,
+      metaTitle: names[key]?.metaTitle,
+      pasted: usedPaste ? pasted : undefined,
+    })
+    setWriting(null)
+    setWrote(w => ({ ...w, [key]: result }))
   }
 
   const runNaming = async () => {
@@ -202,6 +222,7 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
           {scan.offered.map(idea => {
             const named = names[idea.key]
             const refused = nameRejected[idea.key]
+            const written = wrote[idea.key]
             return (
             <div key={idea.key} style={{ marginTop: 14, border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
               <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: '#fff', background: TEMPLATE_COLOR[idea.template] ?? '#64748b', padding: '2px 8px', borderRadius: 20 }}>
@@ -237,6 +258,49 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
                   ))}
                 </ul>
               </details>
+
+              <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button
+                  className="oa-btn"
+                  onClick={() => runWrite(idea.key)}
+                  disabled={writing !== null || naming || scanning !== null}
+                  style={{ padding: '5px 12px', fontSize: 12 }}
+                >
+                  {writing === idea.key ? 'Đang cào trang & viết…' : 'Viết bài'}
+                </button>
+                {writing === idea.key && (
+                  <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                    cào {idea.products.length} trang sản phẩm rồi mới gọi model — mất một hai phút
+                  </span>
+                )}
+              </div>
+
+              {written?.ok === true && (
+                <div style={{ marginTop: 8, padding: '10px 14px', background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, fontSize: 12, color: '#166534', lineHeight: 1.7 }}>
+                  ✓ Đã tạo <b>bản nháp</b> <code>{written.slug}</code> — <b>chưa lên site</b>, duyệt ở{' '}
+                  <Link href="/admin/ai-review" style={{ color: '#166534', textDecoration: 'underline' }}>/admin/ai-review</Link>.
+                  {written.droppedProducts.length > 0 && (
+                    <div style={{ marginTop: 4, color: '#b45309' }}>
+                      {written.droppedProducts.length} sản phẩm bị bỏ vì cào hỏng — cổng kiểm đã chạy lại và bài vẫn đủ ngưỡng.
+                    </div>
+                  )}
+                  {written.warnings.length > 0 && (
+                    <ul style={{ margin: '6px 0 0', paddingLeft: 18, color: '#b45309' }}>
+                      {written.warnings.map(w => <li key={w}>{w}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
+              {written?.ok === false && (
+                <div style={{ marginTop: 8, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#991b1b', lineHeight: 1.7 }}>
+                  {written.error}
+                  {written.hard && written.hard.length > 0 && (
+                    <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                      {written.hard.map(h => <li key={h}>{h}</li>)}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
             )
           })}

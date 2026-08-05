@@ -840,6 +840,20 @@ function offerCrossBrand(groups: ProductGroup[], ctx: IdeaContext): Verdict {
   }
 }
 
+/**
+ * So san pham TOI THIEU mot mau con dung duoc.
+ *
+ * Dung khi mot `scrapeProductPage` hong: bo san pham do di roi hoi lai cau nay. Bai
+ * "tot nhat trong 4" viet tren 3 san pham va mot lo hong la bai noi doi ve chinh noi
+ * dung cua no — thu khong ai kiem lai truoc khi dang.
+ */
+export function minProductsFor(template: TemplateId): number {
+  if (template === 'review') return 1
+  if (template === 'versus') return 2
+  if (template === 'line-compared') return MIN_LINE_MEMBERS
+  return MIN_GROUP_FOR_BEST
+}
+
 // ── Cong kiem ─────────────────────────────────────────────────────────
 
 /** Thu tu hien: mau nhieu bang chung nhat len truoc. */

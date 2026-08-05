@@ -414,6 +414,25 @@ A rejected name **falls back to the working title**; it is never repaired. A tit
 
 Result on Frizzlife, driven through real Chrome: **12 of 12 named, none rejected**, every `metaTitle` under 50 characters, about 60 seconds per run.
 
+## Writing the article (`src/lib/ai/generateArticleContent.ts`)
+`writeArticleDraft` in `/admin/article-ideas` runs the whole loop: re-run the gate → scrape each product page → re-check the template's minimum product count → call the model → post-check → create a `post` draft. Nothing reaches the site; the draft carries `publishedAt: 2099-01-01` **and** `aiReviewStatus: 'pending'`.
+
+⚠️ **No price ever enters the prompt.** The model is told `hasPrice: boolean` and writes `[PRICE:n]`; the real figure is captured into `articleProducts` with a `capturedAt` stamp and filled at render. Same principle already proven in `generateCaption`: the model writes words, the code fills numbers.
+
+Tags: `[IMAGE:n]` `[CTA:n]` `[PRODUCT:n]` `[TABLE]` `[PRICE:n]` `[WAS:n]` `[COUPON]`. **Every product must carry at least one `[CTA:n]`** — a five-product article with one buy button leaves four products unbuyable, and that loss is silent, which is the worst kind. `comparisonRows` returns structured data, not HTML, the way `prosAndCons` already does; cells with no source read `—`.
+
+A scrape failure drops that product and the template's minimum is re-checked. A "best of 4" written over 3 products and a hole is an article lying about its own contents.
+
+`findUnsafeArticle` splits **hard** from **soft** deliberately. Hard means unlivable — a figure the model typed makes the whole piece untrustworthy, so no draft is created at all. Soft means *the machine cannot decide*: an unfamiliar capitalised word might be an invented brand or might be "Reverse Osmosis". Auto-rejecting produces too many false alarms; showing it to a human is almost never wrong.
+
+**What running it for real changed:**
+
+- **The hard guard fired on the second live run** — the model typed `"450%"`, a figure in none of the shop's descriptions, and no draft was written. This is not theoretical: one run in three violated it.
+- **But the rule was too broad, and this is where an article differs from a caption.** A percentage that really is in the shop's description (*"removes 99% of chlorine"*) is the single most useful fact in the piece. A caption never needs one, so blocking all of them there is right; blocking all of them here loses the best information *and* turns a trustworthy filter into one that cries wolf. Now: **currency amounts are always blocked; a percentage is blocked only when the figure is absent from the source text.** Still the same `MONEY_RE`, exported rather than copied.
+- **Three soft-guard false alarms, found by reading the actual draft.** The bracket tokens themselves were counted as proper nouns (they are upper-case); `PD600-TAM3` was trimmed to `PD600-TAM`, a string that can never match anything in the source; and *"Check the price"* opening a `<p>` was treated as mid-sentence because the scanner only broke on full stops. The first draft carried **4 warnings, all four wrong**. After the fix: **0**. A list that always contains noise is a list nobody reads.
+
+Real output (Frizzlife, PD400 vs PD600-TAM3): a five-row table with honest `—` cells, six FAQ entries, 14 tokens, a 37-character metaTitle, and a cross-comparison line the shop's own pages never state — *the 1.5:1 drain-ratio claim made for the PD400 is not repeated anywhere in the PD600-TAM3 description, so it should not be assumed to carry over*. About 30 seconds per article. Leak check passed on all four routes: the draft URL returns 404 and appears in none of `/blog`, `/comparisons`, or the sitemap.
+
 Variant collapse errs deliberately towards merging: `PD600 Black` and `PD600 White` are one product, and over-merging shrinks a group (fewer ideas) while under-merging inflates one (an article that lies about how many things it compared). Known and accepted cost: two wrenches differing only in what they fit merge into one.
 
 ## Empty pages are not advertised
@@ -517,7 +536,7 @@ Two content groups that never referenced each other now do, both riding the doma
 - **`/links` shows working coupon codes** directly (`LinkInBioCodes`), 6 rows, **one per shop**: real data has one shop with two codes (Frizzlife), and repeating a shop on a 6-row page costs another brand its slot. Codes render **exactly as stored** — production has both `OFFERDY` and `offerdy`, and some checkouts are case-sensitive, so normalising could break a code. Not sorted by clicks: at current volume that would be sorting by noise.
 
 ## Tests (`npm test`)
-170 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, the AI caption guardrails, and the article honesty gate. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it, `PD600 Black` counted as a second product, `27 5 inch` read as 5 inches.
+195 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, the AI caption guardrails, and the article honesty gate. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it, `PD600 Black` counted as a second product, `27 5 inch` read as 5 inches.
 
 - Files: `tests/*.test.ts` using Node's built-in `node:test` + `node:assert`. **No test framework dependency.**
 - ⚠️ Run via `scripts/run-tests.mjs`, not `node --test tests/` directly. Node reads TypeScript fine, but Node's ESM demands **full file extensions** in imports (`./affiliateUrl.ts`), while the codebase uses extensionless `@/lib/...` bundler-style aliases. Changing the source to suit Node would risk the Next build, so the script bundles each test with esbuild (alias `@` → `src`, `packages: external`) into `node_modules/.cache/offerdy-tests` and runs `node --test` on the output. Tests therefore import exactly the way `src/` files import each other.

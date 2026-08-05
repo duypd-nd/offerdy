@@ -9,8 +9,20 @@ import {
   type IdeaProduct,
   type RejectedIdea,
 } from '@/lib/articleIdeas'
-import { nameArticleIdeas, type IdeaName } from '@/lib/ai/nameArticleIdeas'
+import { minProductsFor } from '@/lib/articleIdeas'
+import {
+  nameArticleIdeas,
+  findUnsafeIdea,
+  findUnsafeMetaTitle,
+  type IdeaName,
+} from '@/lib/ai/nameArticleIdeas'
 import { describeAiError } from '@/lib/ai/describeAiError'
+import { generateArticleContent, findUnsafeArticle } from '@/lib/ai/generateArticleContent'
+import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
+import { writeClient } from '@/sanity/writeClient'
+import { getStoreTopCoupon } from '@/sanity/queries'
+import { DRAFT_PUBLISHED_AT } from '@/lib/postDraft'
+import { revalidatePath } from 'next/cache'
 
 export type IdeaScanResult =
   | {
@@ -134,6 +146,198 @@ export async function nameScannedIdeas(storeId: string, pasted?: string): Promis
   } catch (err) {
     return { ok: false, error: describeAiError(err) }
   }
+}
+
+export type WriteResult =
+  | { ok: true; postId: string; slug: string; warnings: string[]; droppedProducts: string[] }
+  | { ok: false; error: string; hard?: string[] }
+
+function slugify(str: string): string {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+/**
+ * Viet mot bai va tao BAN NHAP trong Sanity. Khong dang gi len site.
+ *
+ * ⚠️ Ban nhap mang `publishedAt = DRAFT_PUBLISHED_AT` VA `aiReviewStatus: 'pending'`.
+ * Hai lop chan nay co y du thua — post khong co `publishedAt` la post CONG KHAI, va
+ * mot ban nhap rong lot ra `/blog` se render `PlaceholderBody`, doan van mau chung
+ * chung khong lien quan gi toi bai.
+ */
+export async function writeArticleDraft(input: {
+  storeId: string
+  ideaKey: string
+  /** Ten do AI dat, neu nguoi van hanh da bam "Đặt tên bằng AI". Van bi kiem lai o day. */
+  title?: string
+  metaTitle?: string
+  pasted?: string
+}): Promise<WriteResult> {
+  const { storeId, ideaKey, pasted } = input
+  const year = new Date().getFullYear()
+
+  const scan = pasted?.trim() ? await scanPastedUrls(storeId, pasted) : await scanStoreIdeas(storeId)
+  if (!scan.ok) return { ok: false, error: scan.error }
+
+  const idea = scan.offered.find(i => i.key === ideaKey)
+  // Cong van la nguon su that: y tuong khong con trong ket qua quet thi khong viet.
+  if (!idea) return { ok: false, error: 'Ý tưởng này không còn trong kết quả quét — danh mục shop đã đổi, hãy quét lại.' }
+
+  const store = await readClient.fetch<{ id: string; name: string; slug?: string } | null>(
+    `*[_type == "store" && _id == $storeId][0]{ "id": _id, name, "slug": slug.current }`,
+    { storeId }
+  )
+  if (!store) return { ok: false, error: 'Không tìm thấy store' }
+
+  // ── Cao tung trang san pham ──
+  const scraped: { url: string; title: string; description?: string; images: string[]; price?: string; priceOrig?: string; currency?: string }[] = []
+  const droppedProducts: string[] = []
+  for (const p of idea.products) {
+    const result = await scrapeProductPage(p.url)
+    if ('error' in result) {
+      droppedProducts.push(`${p.title} — ${result.error}`)
+      continue
+    }
+    scraped.push({
+      url: p.url,
+      title: result.title,
+      description: result.description,
+      images: result.images,
+      price: result.price,
+      priceOrig: result.priceOrig,
+      currency: result.currency,
+    })
+  }
+
+  // ⚠️ Chay lai nguong SAU khi bo san pham hong. Bai "tot nhat trong 4" viet tren 3
+  // san pham va mot lo hong la bai noi doi ve chinh noi dung cua no.
+  const min = minProductsFor(idea.template)
+  if (scraped.length < min) {
+    return {
+      ok: false,
+      error: `Chỉ cào được ${scraped.length}/${idea.products.length} trang sản phẩm, dưới ngưỡng ${min} của mẫu này. Không viết bài thiếu sản phẩm.`,
+      hard: droppedProducts,
+    }
+  }
+
+  // ── Ten bai: van kiem lai du da qua hau kiem o buoc dat ten ──
+  const nameCtx = {
+    storeName: store.name,
+    productTitles: scraped.map(p => p.title),
+    year,
+    productCount: scraped.length,
+    mustNameStore: idea.template === 'best-in-store' || idea.template === 'best-for',
+  }
+  // ⚠️ Ten den tu trinh duyet nen phai kiem lai o day. Hau kiem la nguon su that, khong
+  // phai client — va so san pham co the vua tut xuong vi mot trang cao hong, nen ca
+  // ten da hop le truoc do cung can hoi lai.
+  const title = input.title && !findUnsafeIdea(input.title, nameCtx) ? input.title : idea.workingTitle
+  const metaTitle =
+    input.metaTitle && !findUnsafeMetaTitle(input.metaTitle, nameCtx) ? input.metaTitle : undefined
+
+  const coupon = store.slug ? await getStoreTopCoupon(store.slug) : null
+
+  // ── Goi model ──
+  let content
+  try {
+    content = await generateArticleContent({
+      articleTitle: title,
+      templateId: idea.template,
+      storeName: store.name,
+      year,
+      hasCoupon: Boolean(coupon?.code),
+      products: scraped.map((p, i) => ({
+        n: i + 1,
+        title: p.title,
+        description: p.description,
+        // ⚠️ CHI co/khong. Con so tuyet doi khong di vao prompt.
+        hasPrice: Boolean(p.price),
+        hasWas: Boolean(p.priceOrig),
+        imageCount: p.images.length,
+      })),
+    })
+  } catch (err) {
+    return { ok: false, error: describeAiError(err) }
+  }
+
+  const problems = findUnsafeArticle(content, {
+    storeName: store.name,
+    productCount: scraped.length,
+    sourceText: scraped.flatMap(p => [p.title, p.description ?? '']),
+    imageCounts: scraped.map(p => p.images.length),
+    hasCoupon: Boolean(coupon?.code),
+    year,
+  })
+  if (problems.hard.length) {
+    return {
+      ok: false,
+      error: 'Bài không qua được hậu kiểm nên KHÔNG tạo bản nháp nào.',
+      hard: problems.hard,
+    }
+  }
+
+  // ── Slug khong duoc trung ──
+  const base = slugify(title) || slugify(idea.workingTitle) || `article-${Date.now()}`
+  let slug = base
+  for (let i = 2; i < 20; i++) {
+    const taken = await readClient.fetch<boolean>(`count(*[_type == "post" && slug.current == $slug]) > 0`, { slug })
+    if (!taken) break
+    slug = `${base}-${i}`
+  }
+
+  const capturedAt = new Date().toISOString()
+  const created = await writeClient.create({
+    _type: 'post',
+    title,
+    slug: { _type: 'slug', current: slug },
+    category: idea.template === 'review' ? 'Reviews' : 'Comparison',
+    // ⚠️ Hai lop chan ro ban nhap — xem chu thich cua `DRAFT_PUBLISHED_AT`.
+    publishedAt: DRAFT_PUBLISHED_AT,
+    aiReviewStatus: 'pending',
+    sourceStore: { _type: 'reference', _ref: store.id },
+    articleProducts: scraped.map(p => ({
+      _type: 'object',
+      _key: slugify(p.url).slice(-24) || Math.random().toString(36).slice(2),
+      url: p.url,
+      title: p.title,
+      imageUrl: p.images[0],
+      priceAtWriting: p.price,
+      currency: p.currency,
+      capturedAt,
+    })),
+    aiDraft: {
+      title: content.title,
+      excerpt: content.excerpt,
+      contentHtml: content.contentHtml,
+      metaTitle: metaTitle ?? content.metaTitle,
+      metaDescription: content.metaDescription,
+      coverEmoji: content.coverEmoji,
+      coverBg: content.coverBg,
+      readTime: content.readTime,
+      templateId: idea.template,
+      faq: content.faq.map((f, i) => ({ _type: 'object', _key: `faq${i}`, ...f })),
+      comparisonRows: content.comparisonRows.map((r, i) => ({ _type: 'object', _key: `row${i}`, ...r })),
+      warnings: [
+        ...problems.soft,
+        ...droppedProducts.map(d => `sản phẩm bị bỏ vì cào hỏng: ${d}`),
+        ...(content.crossComparisonInsight.trim()
+          ? [`câu đối chiếu model nêu: ${content.crossComparisonInsight.trim()}`]
+          : []),
+        ...content.notAnswered.map(q => `bài KHÔNG trả lời được: ${q}`),
+      ],
+      generatedAt: capturedAt,
+      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
+    },
+  })
+
+  revalidatePath('/admin/ai-review')
+  return { ok: true, postId: created._id, slug, warnings: problems.soft, droppedProducts }
 }
 
 function runGate(
