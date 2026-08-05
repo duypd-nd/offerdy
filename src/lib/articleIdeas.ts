@@ -99,8 +99,17 @@ export type IdeaContext = {
   /** Nam truyen vao chu khong `new Date()`: test phai tat dinh. */
   year: number
   /**
-   * So store trong Sanity CUNG NHOM HANG, ke ca store dang quet. Chi cong
+   * So store trong Sanity ban CUNG MOT NHOM HANG, ke ca store dang quet. Chi cong
    * `best-cross-brand` doc gia tri nay.
+   *
+   * ⚠️ KHONG duoc dien bang so store cung `store.category`. Truong do chi co 10 gia
+   * tri rat rong (`home`, `electronics`...) — Frizzlife ban may loc nuoc va mot shop
+   * ban ghe sofa deu la `home`. Dem theo do thi cong mo ra *"Best Reverse Osmosis
+   * Water 2026"* trong khi site chi co dung MOT hang may loc RO: dung lai su co
+   * `/about` da phai sua, chi o quy mo mot bai viet hoan chinh.
+   *
+   * Muon mo cong nay that thi phai biet shop kia ban gi — tuc phai co document
+   * `storeCatalog`. Ke hoach da co y hoan sang dot sau.
    */
   categoryStoreCount?: number
 }
@@ -732,7 +741,11 @@ function offerBestInStore(groups: ProductGroup[], ctx: IdeaContext): Verdict {
         ? `Có ${inRange.length} nhóm đủ kích cỡ nhưng nhóm nào cũng chỉ chung đúng 1 từ khoá ngoài tên shop — quá mỏng để gọi là một loại hàng.`
         : biggest > MAX_GROUP_FOR_BEST
           ? `Nhóm nào cũng quá rộng (lớn nhất ${biggest} sản phẩm) — từ khoá chung quá chung chung để xếp "tốt nhất".`
-          : `Nhóm sản phẩm so được lớn nhất chỉ có ${biggest} sản phẩm (cần ≥${MIN_GROUP_FOR_BEST}).`,
+          : biggest === 0
+            // Khong co nhom nao het thi "nhom lon nhat co 0 san pham" la mot cau vo
+            // nghia. Hay xay ra khi tieu de suy tu slug ma slug chi la ma SKU tran.
+            ? 'Không có hai sản phẩm nào chung một từ khoá nào — tên sản phẩm quá ngắn hoặc chỉ là mã SKU.'
+            : `Nhóm sản phẩm so được lớn nhất chỉ có ${biggest} sản phẩm (cần ≥${MIN_GROUP_FOR_BEST}).`,
       needed: `Cần một nhóm ${MIN_GROUP_FOR_BEST}–${MAX_GROUP_FOR_BEST} sản phẩm cùng loại, chung ≥${MIN_CATEGORY_KEYWORDS} từ khoá ngoài tên shop.`,
     },
   }
@@ -820,8 +833,9 @@ function offerCrossBrand(groups: ProductGroup[], ctx: IdeaContext): Verdict {
     ideas: [],
     reject: {
       template: 'best-cross-brand',
-      reason: `Chỉ có ${stores} store cùng nhóm hàng trong Sanity. Tiêu đề "tốt nhất" không kèm tên shop là lời hứa về cả thị trường mà site chưa có dữ liệu để giữ.`,
-      needed: 'Thêm ít nhất một store cùng nhóm hàng (và sản phẩm của nó) vào Sanity.',
+      reason: `Chỉ có ${stores} store bán cùng nhóm hàng này. Tiêu đề "tốt nhất" không kèm tên shop là lời hứa về cả thị trường mà site chưa có dữ liệu để giữ.`,
+      needed:
+        'Cần một store thứ hai bán cùng loại sản phẩm. ⚠️ Không tính bằng trường "Danh mục" của store — nó chỉ có 10 giá trị rất rộng, máy lọc nước và ghế sofa đều là "home". Phải biết shop kia thật sự bán gì (kế hoạch: document storeCatalog, đợt sau).',
     },
   }
 }
@@ -846,10 +860,21 @@ export function availableTemplates(raw: IdeaProduct[], ctx: IdeaContext): IdeaSc
   const { products, merged } = dedupeVariants(raw)
   const groups = groupCatalog(products)
 
+  // ⚠️ Dong model duoc tim tren CA danh muc, khong chi ben trong tung nhom token.
+  //
+  // Do that: dan 4 URL Frizzlife vao o dan tay -> slug la `pd600-tam3`, `px600`,
+  // `pd1000-n`, `pd800-n`, khong hai cai nao chung mot tu nao, nen khong co nhom nao
+  // ra doi va dong PD **tang hinh** — 0 y tuong tren mot tap hoan toan so duoc. Vi
+  // 17/28 shop suy tieu de tu slug, day khong phai truong hop hiem.
+  //
+  // An toan vi `ownModelCode` chi lay ma dau tien trong phan dinh danh: loi loc
+  // "ASR611 ... for PD1200" mang ma `asr611`, khong lot vao dong PD.
+  const lineGroups: ProductGroup[] = [...groups, { keywords: [], products }]
+
   const verdicts: Record<TemplateId, Verdict> = {
     review: offerReview(products, ctx),
     versus: offerVersus(groups, ctx),
-    'line-compared': offerLineCompared(groups, ctx),
+    'line-compared': offerLineCompared(lineGroups, ctx),
     'best-in-store': offerBestInStore(groups, ctx),
     'best-for': offerBestFor(groups, ctx),
     'best-cross-brand': offerCrossBrand(groups, ctx),

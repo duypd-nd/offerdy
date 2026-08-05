@@ -181,13 +181,37 @@ test('LOI THAT: ma VAT LIEU lap lai khong phai mot dong san pham', () => {
   )
 })
 
+test('LOI THAT: dong model phai thay duoc ca khi ten san pham chi la ma SKU', () => {
+  // O dan tay nhan URL Shopify -> tieu de suy tu slug la ma SKU tran, khong hai cai
+  // nao chung mot tu nao. Tim dong model chi ben trong nhom token thi dong PD tang
+  // hinh va tap 4 san pham hoan toan so duoc cho ra 0 y tuong.
+  const pasted: IdeaProduct[] = [
+    { title: 'pd600 tam3', url: 'https://www.frizzlife.com/products/pd600-tam3' },
+    { title: 'px600', url: 'https://www.frizzlife.com/products/px600' },
+    { title: 'pd1000 n', url: 'https://www.frizzlife.com/products/pd1000-n' },
+    { title: 'pd800 n', url: 'https://www.frizzlife.com/products/pd800-n' },
+  ]
+  const scan = availableTemplates(pasted, CTX)
+  const line = scan.offered.find(i => i.template === 'line-compared')
+  assert.ok(line, 'PD600/PD800/PD1000 van phai nhan ra la mot dong')
+  assert.equal(line!.products.length, 3)
+  // Va ly do tu choi cua best-in-store khong duoc noi cau vo nghia "0 san pham".
+  assert.match(
+    scan.rejected.find(r => r.template === 'best-in-store')!.reason,
+    /Không có hai sản phẩm nào chung một từ khoá/
+  )
+})
+
 test('⚠️ Best RO Filters 2026 (khong ten shop) BI TU CHOI, kem ly do', () => {
   const scan = availableTemplates(frizzlife, CTX)
   assert.ok(!scan.offered.some(i => i.template === 'best-cross-brand'))
   const reject = scan.rejected.find(r => r.template === 'best-cross-brand')
   assert.ok(reject, 'tu choi phai NOI RA, khong duoc im lang')
-  assert.match(reject!.reason, /store cùng nhóm hàng/)
-  assert.ok(reject!.needed.length > 0)
+  assert.match(reject!.reason, /Chỉ có 1 store/)
+  // Ly do phai canh bao thang chuyen dem bang truong "Danh muc" cua store: no chi co
+  // 10 gia tri rat rong, may loc nuoc va ghe sofa deu la "home". Dem theo do la mo
+  // mot cong dang le phai dong.
+  assert.match(reject!.needed, /Danh mục/)
 })
 
 test('cross-brand mo khi Sanity that su co store thu hai cung nhom', () => {

@@ -40,8 +40,14 @@ function baseUrl(website: string): string | null {
   }
 }
 
-/** `hydrating-creamy-face-wash` -> `hydrating creamy face wash` */
-function slugToTitle(slug: string): string {
+/**
+ * `hydrating-creamy-face-wash` -> `hydrating creamy face wash`
+ *
+ * Export ra ngoai vi o dan URL tay o `/admin/article-ideas` phai suy tieu de y HET
+ * cach nay — hai ban sao cua phep suy nay se lech, va luc do hai duong vao cung mot
+ * cong kiem se cho hai ket qua khac nhau.
+ */
+export function slugToTitle(slug: string): string {
   return decodeURIComponent(slug)
     .replace(/\.(html?|php)$/i, '')
     .replace(/[-_+]+/g, ' ')

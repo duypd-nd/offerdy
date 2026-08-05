@@ -48,6 +48,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/comparisons', label: 'Comparisons',  icon: '⚖️' },
       { href: '/admin/tips-guides', label: 'Tips & Guides', icon: '📖' },
       { href: '/admin/reviews',     label: 'Reviews',       icon: '⭐' },
+      { href: '/admin/article-ideas', label: 'Ý tưởng bài viết', icon: '💡' },
     ],
   },
   {
