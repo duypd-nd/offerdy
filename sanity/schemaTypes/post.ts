@@ -64,6 +64,33 @@ export const postType = defineType({
     }),
 
     // ── Bai do AI sinh tu mot store ──────────────────────────────
+    // ⚠️ Hai truong nay ton tai vi buoc DUYET go `aiDraft` di. Khong co cho chua
+    // chung o cap post thi FAQ va bang so sanh bien mat ngay khi bai duoc duyet —
+    // va do dung la hai thu trang bai can: `FAQPage` trong JSON-LD, va the [TABLE]
+    // trong than bai duoc dung lai luc goi trang.
+    defineField({
+      name: 'faq', title: 'FAQ', type: 'array', group: 'content',
+      of: [{
+        type: 'object',
+        fields: [
+          defineField({ name: 'question', title: 'Câu hỏi', type: 'string' }),
+          defineField({ name: 'answer', title: 'Câu trả lời', type: 'text', rows: 3 }),
+        ],
+        preview: { select: { title: 'question' } },
+      }],
+    }),
+    defineField({
+      name: 'comparisonRows', title: 'Bảng so sánh', type: 'array', group: 'content',
+      description: 'Dữ liệu có cấu trúc — trang tự dựng <table>. Số ô mỗi hàng khớp số sản phẩm trong bài.',
+      of: [{
+        type: 'object',
+        fields: [
+          defineField({ name: 'label', title: 'Tiêu chí', type: 'string' }),
+          defineField({ name: 'values', title: 'Giá trị', type: 'array', of: [{ type: 'string' }] }),
+        ],
+        preview: { select: { title: 'label' } },
+      }],
+    }),
     defineField({
       name: 'sourceStore', title: 'Store nguồn', type: 'reference', to: [{ type: 'store' }], group: 'content',
       description: 'Bài viết về sản phẩm của shop này. Dùng để lấy mã giảm giá và gắn link tiếp thị.',

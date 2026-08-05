@@ -6,6 +6,8 @@ import { generateStoreContent } from '@/lib/ai/generateStoreContent'
 import { generateOfferContent } from '@/lib/ai/generateOfferContent'
 import { generateDealContent } from '@/lib/ai/generateDealContent'
 import { renderAboutHtml, type AboutContent } from '@/lib/ai/aboutTemplate'
+import { PRODUCT_GRADIENTS } from '@/lib/ai/generateReviewContent'
+import { todayForPublish } from '@/lib/postDraft'
 
 function revalidateStore(slug?: string) {
   revalidatePath('/admin/ai-review')
@@ -260,6 +262,115 @@ export async function approveDealAiDraft(dealId: string, slug: string | undefine
 export async function rejectDealAiDraft(dealId: string) {
   await writeClient.patch(dealId).set({ aiReviewStatus: 'rejected' }).unset(['aiDraft']).commit()
   revalidateDeal()
+}
+
+// ── Bài viết (post) ─────────────────────────────────────────────
+// ⚠️ Tab này khác ba tab trên ở một điểm quyết định cách viết `reject`: ba loại kia
+// duyệt nội dung vào một document ĐÃ TỒN TẠI SẴN, còn bài viết thì do chính bước
+// sinh tạo ra. Xem chú thích của `rejectArticleAiDraft`.
+
+export type PostDraftFields = {
+  title: string
+  excerpt: string
+  contentHtml: string
+  metaTitle: string
+  metaDescription: string
+  coverEmoji?: string
+  coverBg?: string
+  readTime?: number
+  faq?: { question: string; answer: string }[]
+  comparisonRows?: { label: string; values: string[] }[]
+}
+
+function revalidateArticle(slug?: string) {
+  revalidatePath('/admin/ai-review')
+  revalidatePath('/admin/posts')
+  revalidatePath('/blog')
+  revalidatePath('/comparisons')
+  if (slug) revalidatePath(`/blog/${slug}`)
+  revalidatePath('/sitemap.xml')
+}
+
+/**
+ * `coverBg` trong draft la KHOA gradient (`home-green`), con truong tren post la
+ * chuoi CSS. Duyet ma quen doi thi trang bai lay nguyen chu "home-green" lam
+ * background va cai anh bia thanh mau trong suot.
+ */
+function resolveCoverBg(value?: string): string | undefined {
+  if (!value) return undefined
+  return PRODUCT_GRADIENTS[value] ?? (value.includes('gradient') ? value : undefined)
+}
+
+function articleFields(draft: PostDraftFields, firstImage?: string) {
+  return {
+    title: draft.title,
+    excerpt: draft.excerpt,
+    content: draft.contentHtml,
+    metaTitle: draft.metaTitle,
+    metaDescription: draft.metaDescription,
+    ...(draft.coverEmoji ? { coverEmoji: draft.coverEmoji } : {}),
+    ...(resolveCoverBg(draft.coverBg) ? { coverBg: resolveCoverBg(draft.coverBg) } : {}),
+    ...(draft.readTime ? { readTime: draft.readTime } : {}),
+    faq: draft.faq ?? [],
+    comparisonRows: draft.comparisonRows ?? [],
+    ...(firstImage ? { externalImageUrl: firstImage } : {}),
+    // ⚠️ Day moi la luc bai that su len song: ban nhap mang moc 2099, duyet moi
+    // dat ve hom nay. Quen dong nay thi bai duyet roi van vo hinh.
+    publishedAt: todayForPublish(),
+  }
+}
+
+export async function approveArticleAiDraft(
+  postId: string,
+  slug: string | undefined,
+  draft: PostDraftFields
+) {
+  const post = await writeClient.fetch<{ image?: string } | null>(
+    `*[_id == $postId][0]{ "image": articleProducts[0].imageUrl }`,
+    { postId }
+  )
+  await writeClient
+    .patch(postId)
+    .set({ ...articleFields(draft, post?.image), aiReviewStatus: 'approved' })
+    .unset(['aiDraft'])
+    .commit()
+  revalidateArticle(slug)
+}
+
+export async function approveArticleDraftsBulk(ids: string[]): Promise<BulkApproveResult> {
+  if (ids.length === 0) return { approved: 0, skipped: [] }
+  const posts = await writeClient.fetch<{
+    _id: string; title: string; image?: string; aiDraft?: PostDraftFields
+  }[]>(
+    `*[_type == "post" && _id in $ids]{ _id, title, "image": articleProducts[0].imageUrl, aiDraft }`,
+    { ids }
+  )
+
+  const result = await commitBulk(
+    posts.map(p => ({
+      _id: p._id,
+      label: p.title,
+      fields: p.aiDraft ? articleFields(p.aiDraft, p.image) : null,
+    }))
+  )
+  revalidateArticle()
+  return result
+}
+
+/**
+ * ⚠️ **XOÁ HẲN, không đặt trạng thái `rejected`.**
+ *
+ * Ba tab kia duyệt nội dung vào một document đã tồn tại sẵn: một store bị từ chối
+ * vẫn là một store, chỉ là chưa có mô tả AI. Còn một bài viết bị từ chối là một
+ * `post` RỖNG — không tiêu đề thật, không thân bài, không lý do tồn tại.
+ *
+ * Để lại là tích luỹ post ma: mỗi bài từ chối một cái, và chỉ cần MỘT truy vấn nào
+ * đó quên lọc `aiReviewStatus` là chúng lên trang công khai. Dự án đã dựng hai lớp
+ * chặn cho đúng rủi ro này; cách chắc chắn hơn cả hai là không để document tồn tại.
+ */
+export async function rejectArticleAiDraft(postId: string) {
+  await writeClient.delete(postId)
+  revalidateArticle()
 }
 
 export async function regenerateDealAiDraft(dealId: string): Promise<{ ok: boolean; error?: string }> {

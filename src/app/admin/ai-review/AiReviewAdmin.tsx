@@ -6,6 +6,7 @@ import {
   approveOfferAiDraft, rejectOfferAiDraft, regenerateOfferAiDraft,
   approveDealAiDraft, rejectDealAiDraft, regenerateDealAiDraft,
   approveStoreDraftsBulk, approveOfferDraftsBulk, approveDealDraftsBulk,
+  approveArticleAiDraft, rejectArticleAiDraft, approveArticleDraftsBulk,
 } from './actions'
 import { renderAboutHtml, type AboutCard, type AboutContent } from '@/lib/ai/aboutTemplate'
 
@@ -59,6 +60,36 @@ type PendingDeal = {
   store?: string
   slug?: string
   aiDraft?: DealAiDraft
+}
+
+type ComparisonRow = { label: string; values: string[] }
+
+type ArticleAiDraft = {
+  title?: string
+  excerpt?: string
+  contentHtml?: string
+  metaTitle?: string
+  metaDescription?: string
+  coverEmoji?: string
+  coverBg?: string
+  readTime?: number
+  templateId?: string
+  faq?: FaqItem[]
+  comparisonRows?: ComparisonRow[]
+  /** Cảnh báo "mềm" của bộ hậu kiểm + ghi chú bài KHÔNG trả lời được gì. */
+  warnings?: string[]
+  generatedAt?: string
+  model?: string
+}
+
+type PendingArticle = {
+  _id: string
+  title: string
+  slug?: string
+  category?: string
+  storeName?: string
+  productCount?: number
+  aiDraft?: ArticleAiDraft
 }
 
 function dealDraftForm(draft?: DealAiDraft) {
@@ -697,16 +728,231 @@ function DealReviewPanel({ initialDeals, onCountChange }: { initialDeals: Pendin
   )
 }
 
-export default function AiReviewAdmin({ initialStores, initialOffers, initialDeals }: {
-  initialStores: PendingStore[]; initialOffers: PendingOffer[]; initialDeals: PendingDeal[]
+function articleDraftForm(draft?: ArticleAiDraft) {
+  return {
+    title: draft?.title ?? '',
+    excerpt: draft?.excerpt ?? '',
+    contentHtml: draft?.contentHtml ?? '',
+    metaTitle: draft?.metaTitle ?? '',
+    metaDescription: draft?.metaDescription ?? '',
+    faqText: (draft?.faq ?? []).map(f => `${f.question}\n${f.answer}`).join('\n\n'),
+  }
+}
+type ArticleDraftForm = ReturnType<typeof articleDraftForm>
+
+function ArticleReviewPanel({ initialArticles, onCountChange }: {
+  initialArticles: PendingArticle[]; onCountChange: (n: number) => void
 }) {
-  const [tab, setTab] = useState<'stores' | 'offers' | 'deals'>(
-    initialStores.length > 0 ? 'stores' : initialOffers.length > 0 ? 'offers' : 'deals'
+  const [articles, setArticles] = useState(initialArticles)
+  const [selectedId, setSelectedId] = useState(initialArticles[0]?._id)
+  const { checkedIds, toggle, toggleAll, clear } = useChecked()
+  const [isPending, startTransition] = useTransition()
+  const [toast, setToast] = useState('')
+  const [confirmReject, setConfirmReject] = useState(false)
+
+  const selected = articles.find(a => a._id === selectedId)
+  const [form, setForm] = useState(() => articleDraftForm(selected?.aiDraft))
+  const set = <K extends keyof ArticleDraftForm>(key: K, value: ArticleDraftForm[K]) =>
+    setForm(f => ({ ...f, [key]: value }))
+
+  const selectArticle = (a: PendingArticle) => {
+    setSelectedId(a._id)
+    setForm(articleDraftForm(a.aiDraft))
+    setConfirmReject(false)
+  }
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 5000) }
+  const removeMany = (ids: Set<string>) => {
+    const rest = articles.filter(a => !ids.has(a._id))
+    setArticles(rest)
+    onCountChange(rest.length)
+    clear()
+    if (selectedId && ids.has(selectedId)) selectArticle(rest[0] ?? ({} as PendingArticle))
+  }
+
+  const approveOpenWithEdits = () => selected && approveArticleAiDraft(selected._id, selected.slug, {
+    title: form.title,
+    excerpt: form.excerpt,
+    contentHtml: form.contentHtml,
+    metaTitle: form.metaTitle,
+    metaDescription: form.metaDescription,
+    coverEmoji: selected.aiDraft?.coverEmoji,
+    coverBg: selected.aiDraft?.coverBg,
+    readTime: selected.aiDraft?.readTime,
+    faq: parseFaqText(form.faqText),
+    // Bảng so sánh không sửa được ở đây: nó là dữ liệu có cấu trúc và số ô phải
+    // khớp số sản phẩm. Sửa bằng ô chữ là cách nhanh nhất để lệch cột.
+    comparisonRows: selected.aiDraft?.comparisonRows,
+  })
+
+  const handleApprove = () => {
+    if (checkedIds.size === 0) {
+      if (!selected) return
+      startTransition(async () => {
+        await approveOpenWithEdits()
+        showToast(`Đã đăng "${form.title || selected.title}" — /blog/${selected.slug}`)
+        removeMany(new Set([selected._id]))
+      })
+      return
+    }
+    const ids = new Set(checkedIds)
+    startTransition(async () => {
+      let approved = 0
+      if (selected && ids.has(selected._id)) {
+        await approveOpenWithEdits()
+        approved++
+      }
+      const rest = [...ids].filter(id => id !== selected?._id)
+      const result = await approveArticleDraftsBulk(rest)
+      showToast(bulkToast('bài viết', approved + result.approved, result.skipped))
+      removeMany(ids)
+    })
+  }
+
+  // ⚠️ Từ chối ở tab này XOÁ HẲN bài, khác ba tab kia. Nên phải hỏi lại một nhịp —
+  // ba tab kia bấm nhầm thì chỉ mất bản nháp, ở đây bấm nhầm là mất cả document.
+  const handleReject = () => {
+    if (!selected) return
+    if (!confirmReject) { setConfirmReject(true); return }
+    startTransition(async () => {
+      await rejectArticleAiDraft(selected._id)
+      showToast(`Đã xoá hẳn bản nháp "${selected.title}"`)
+      removeMany(new Set([selected._id]))
+    })
+  }
+
+  if (articles.length === 0) {
+    return (
+      <div className="oa-empty" style={{ padding: 40 }}>
+        Không có bài viết nào đang chờ duyệt. Sinh bài mới ở <b>Ý tưởng bài viết</b>.
+      </div>
+    )
+  }
+
+  const draft = selected?.aiDraft
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 20, alignItems: 'start' }}>
+      {toast && <div className="oa-toast">{toast}</div>}
+      <PickList
+        items={articles}
+        selectedId={selectedId}
+        checkedIds={checkedIds}
+        onSelect={selectArticle}
+        onToggle={toggle}
+        onToggleAll={() => toggleAll(articles.map(a => a._id))}
+        primary={a => a.aiDraft?.title || a.title}
+        secondary={a => [a.storeName, a.productCount ? `${a.productCount} sản phẩm` : null].filter(Boolean).join(' · ')}
+      />
+
+      {selected && (
+        <div className="oa-table-wrap" style={{ padding: 20, maxWidth: 820 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700 }}>{selected.title}</h2>
+          <div style={{ fontSize: 12, color: '#9ca3af', margin: '4px 0 14px' }}>
+            {selected.storeName} · {selected.category} · {draft?.templateId}
+            {draft?.generatedAt && <> · tạo lúc {new Date(draft.generatedAt).toLocaleString('vi-VN')} — model {draft.model}</>}
+          </div>
+
+          {/* Cảnh báo mềm của bộ hậu kiểm là lý do tồn tại của bước duyệt tay —
+              đặt trên cùng, trước cả nội dung. */}
+          {draft?.warnings && draft.warnings.length > 0 && (
+            <div style={{ margin: '0 0 16px', padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#b45309' }}>
+                {draft.warnings.length} điều máy không tự quyết được
+              </div>
+              <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12, color: '#92400e', lineHeight: 1.7 }}>
+                {draft.warnings.map(w => <li key={w}>{w}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <label className="oa-label">Tiêu đề
+            <input className="oa-input" value={form.title} onChange={e => set('title', e.target.value)} />
+          </label>
+
+          <label className="oa-label" style={{ marginTop: 12 }}>Tóm tắt
+            <textarea className="oa-input oa-textarea" rows={2} value={form.excerpt} onChange={e => set('excerpt', e.target.value)} />
+          </label>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <label className="oa-label">Meta Title ({[...form.metaTitle].length}/50)
+              <input className="oa-input" value={form.metaTitle} onChange={e => set('metaTitle', e.target.value)} />
+            </label>
+            <label className="oa-label">Meta Description
+              <input className="oa-input" value={form.metaDescription} onChange={e => set('metaDescription', e.target.value)} />
+            </label>
+          </div>
+
+          {draft?.comparisonRows && draft.comparisonRows.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>
+                Bảng so sánh ({draft.comparisonRows.length} hàng) — sửa trong Sanity Studio nếu cần
+              </div>
+              <div style={{ overflowX: 'auto', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <tbody>
+                    {draft.comparisonRows.map(r => (
+                      <tr key={r.label} style={{ borderTop: '1px solid #e5e7eb' }}>
+                        <th style={{ padding: '6px 10px', textAlign: 'left', color: '#374151', whiteSpace: 'nowrap' }}>{r.label}</th>
+                        {r.values.map((v, i) => (
+                          <td key={i} style={{ padding: '6px 10px', color: '#4b5563' }}>{v}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <label className="oa-label" style={{ marginTop: 14 }}>
+            Thân bài (HTML — thẻ [IMAGE:n] [CTA:n] [PRODUCT:n] [TABLE] [PRICE:n] [COUPON] được thay lúc gọi trang)
+            <textarea
+              className="oa-input oa-textarea"
+              rows={14}
+              style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}
+              value={form.contentHtml}
+              onChange={e => set('contentHtml', e.target.value)}
+            />
+          </label>
+
+          <label className="oa-label" style={{ marginTop: 12 }}>FAQ (mỗi cặp cách nhau 1 dòng trống — dòng đầu là câu hỏi)
+            <textarea className="oa-input oa-textarea" rows={6} value={form.faqText} onChange={e => set('faqText', e.target.value)} />
+          </label>
+
+          <div className="oa-modal-footer" style={{ borderTop: 'none', paddingTop: 16 }}>
+            <span style={{ fontSize: 11, color: '#9ca3af' }}>
+              Duyệt là đăng ngay — ngày đăng đặt về hôm nay.
+            </span>
+            <div style={{ flex: 1 }} />
+            <button className="oa-btn oa-btn-red" onClick={handleReject} disabled={isPending}>
+              {confirmReject ? '✕ Chắc chắn xoá hẳn?' : '✕ Từ chối'}
+            </button>
+            <button className="oa-btn oa-btn-green" onClick={handleApprove} disabled={isPending}>
+              {isPending ? 'Đang lưu...' : checkedIds.size > 0 ? `✓ Duyệt ${checkedIds.size} bài đã chọn` : '✓ Duyệt & Đăng'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function AiReviewAdmin({ initialStores, initialOffers, initialDeals, initialArticles }: {
+  initialStores: PendingStore[]; initialOffers: PendingOffer[]; initialDeals: PendingDeal[]
+  initialArticles: PendingArticle[]
+}) {
+  const [tab, setTab] = useState<'stores' | 'offers' | 'deals' | 'articles'>(
+    initialStores.length > 0 ? 'stores'
+      : initialOffers.length > 0 ? 'offers'
+        : initialDeals.length > 0 ? 'deals'
+          : initialArticles.length > 0 ? 'articles' : 'stores'
   )
   // Số trên tab do panel báo lên sau mỗi lần duyệt — nếu vẫn đọc initial*.length
   // thì duyệt sạch 40 store xong tab vẫn hiện "Stores (40)".
   const [counts, setCounts] = useState({
     stores: initialStores.length, offers: initialOffers.length, deals: initialDeals.length,
+    articles: initialArticles.length,
   })
 
   return (
@@ -728,6 +974,9 @@ export default function AiReviewAdmin({ initialStores, initialOffers, initialDea
         <button className="oa-btn" style={tab === 'deals' ? { borderColor: '#16A34A', color: '#16A34A' } : undefined} onClick={() => setTab('deals')}>
           Deals ({counts.deals})
         </button>
+        <button className="oa-btn" style={tab === 'articles' ? { borderColor: '#16A34A', color: '#16A34A' } : undefined} onClick={() => setTab('articles')}>
+          Bài viết ({counts.articles})
+        </button>
       </div>
 
       {/* Cả ba panel luôn mounted, chỉ ẩn/hiện bằng CSS. Nếu render có điều kiện,
@@ -741,6 +990,9 @@ export default function AiReviewAdmin({ initialStores, initialOffers, initialDea
       </div>
       <div style={{ display: tab === 'deals' ? 'block' : 'none' }}>
         <DealReviewPanel initialDeals={initialDeals} onCountChange={n => setCounts(c => ({ ...c, deals: n }))} />
+      </div>
+      <div style={{ display: tab === 'articles' ? 'block' : 'none' }}>
+        <ArticleReviewPanel initialArticles={initialArticles} onCountChange={n => setCounts(c => ({ ...c, articles: n }))} />
       </div>
     </div>
   )
