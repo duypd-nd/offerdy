@@ -9,6 +9,7 @@ import ShareDeal from '@/components/ShareDeal'
 import { getDealBySlug, getConfigContent, getDealCoupon } from '@/sanity/queries'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
+import { parsePrice } from '@/lib/dealSchema'
 import { formatDealCode } from '@/lib/dealCode'
 
 export const revalidate = 60
@@ -90,8 +91,11 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
         offers: {
           '@type': 'Offer',
           url: `${BASE}/deals/${slug}`,
-          priceCurrency: 'USD',
-          price: parseFloat(deal.priceSale?.replace(/[^0-9.]/g, '') ?? '0') || undefined,
+          // ⚠️ Ca hai dong nay deu tung sai: `parseFloat` sau khi vut dau phay doc
+          // "€199,99" thanh 19999, con `priceCurrency` thi dong dinh USD du chinh
+          // chuoi gia mang ky hieu €. Khai lech gia thi rich-result bi loai.
+          priceCurrency: parsePrice(deal.priceSale)?.currency ?? 'USD',
+          price: parsePrice(deal.priceSale)?.amount,
           availability: 'https://schema.org/InStock',
           priceValidUntil: deal.expiresAt ?? undefined,
         },

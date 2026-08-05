@@ -8,6 +8,7 @@ import { useUrlPage } from '../_components/useUrlPage'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 import { isoToAdminInput, adminInputToIso, ADMIN_TIMEZONE_LABEL } from '@/lib/adminDateTime'
 import { matchStoreByUrl, applyStoreRefToDealUrl, type StoreHostRow } from '@/lib/dealStoreMatch'
+import { parsePriceAmount, priceSymbol, formatAmount } from '@/lib/priceAmount'
 
 function ReviewSearchInput({ reviews, value, onChange }: {
   reviews: ReviewOption[]; value: string; onChange: (id: string) => void
@@ -68,19 +69,27 @@ function ReviewSearchInput({ reviews, value, onChange }: {
 // la dang chinh: offerdy.com tran 308 sang no.
 const SHORT_LINK_BASE = 'https://www.offerdy.com'
 
+/**
+ * ⚠️ Đọc giá bằng `parsePriceAmount`, không tự bóc số.
+ *
+ * Bản cũ vứt dấu phẩy đi thay vì hiểu nó, nên `€199,99 → €149,99` ra **"€5000"** thay
+ * vì €50. Phần trăm thì sống sót qua lỗi đó vì nó là tỉ số — hai giá cùng bị nhân 100
+ * thì thương không đổi — nên lỗi nằm im cho tới khi ai đó bật "hiện theo số tiền".
+ */
 const calcDiscount = (orig: string, sale: string) => {
-  const o = parseFloat(orig.replace(/[^0-9.]/g, ''))
-  const s = parseFloat(sale.replace(/[^0-9.]/g, ''))
+  const o = parsePriceAmount(orig)
+  const s = parsePriceAmount(sale)
   if (!o || !s || s >= o) return 0
   return Math.round((1 - s / o) * 100)
 }
 
 const calcAmountSaved = (orig: string, sale: string) => {
-  const o = parseFloat(orig.replace(/[^0-9.]/g, ''))
-  const s = parseFloat(sale.replace(/[^0-9.]/g, ''))
-  if (!o || !s || s >= o) return '$0'
-  const currency = orig.match(/^[^0-9]+/)?.[0] ?? '$'
-  return `${currency}${Math.round(o - s)}`
+  const symbol = priceSymbol(orig)
+  const o = parsePriceAmount(orig)
+  const s = parsePriceAmount(sale)
+  if (!o || !s || s >= o) return `${symbol}0`
+  // Ký hiệu lấy từ chính ô giá gốc, và bỏ số 0 thừa: €50 chứ không phải $50.00.
+  return `${symbol}${formatAmount(o - s)}`
 }
 
 type AdminDeal = {
@@ -542,7 +551,9 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
             <label className="oa-label">Giá sale *
               <input className="oa-input" value={form.priceSale} onChange={e => { set('priceSale', e.target.value); set('discount', calcDiscount(form.priceOrig, e.target.value)) }} placeholder="$189" required />
             </label>
-            <label className="oa-label">{form.discountByAmount ? 'Giảm $ (tự tính)' : 'Giảm% (tự tính)'}
+            {/* Nhãn đi theo ký hiệu của chính ô "Giá gốc": deal bán bằng € thì đọc
+                "Giảm € (tự tính)", không phải "Giảm $". */}
+            <label className="oa-label">{form.discountByAmount ? `Giảm ${priceSymbol(form.priceOrig)} (tự tính)` : 'Giảm% (tự tính)'}
               <input
                 className="oa-input"
                 value={form.discountByAmount ? calcAmountSaved(form.priceOrig, form.priceSale) : form.discount}
@@ -551,7 +562,7 @@ function DealModal({ mode, initial, allReviews = [], allCategories = [], storeHo
               />
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, color: '#6b7280', marginTop: 6, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.discountByAmount} onChange={e => set('discountByAmount', e.target.checked)} />
-                Hiện theo số tiền (VD: $100 OFF)
+                Hiện theo số tiền (VD: {priceSymbol(form.priceOrig)}100 OFF)
               </label>
             </label>
           </div>

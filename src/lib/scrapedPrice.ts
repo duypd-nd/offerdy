@@ -9,6 +9,8 @@
  * ham async — mot helper dong bo o day se lam vo build. Va tach ra thi test duoc.
  */
 
+import { parsePriceAmount } from './priceAmount'
+
 const SYMBOL: Record<string, string> = {
   USD: '$', EUR: '€', GBP: '£', VND: '₫', CAD: 'CA$', AUD: 'A$',
 }
@@ -32,10 +34,11 @@ export function fromMinorUnits(value: unknown, minorUnit = 2): string | undefine
 
 export function formatScrapedPrice(price?: string, currency?: string): string | undefined {
   if (!price) return undefined
-  // Bo moi thu khong phai so/dau cham: gia co the den kem ky hieu, dau phay ngan
-  // cach nghin, hoac khoang trang khong ngat dong.
-  const n = Number(String(price).replace(/[^\d.]/g, ''))
-  if (!Number.isFinite(n) || n <= 0) return undefined
+  // ⚠️ Qua `parsePriceAmount` chu khong tu boc so. Ky hieu tien te, dau ngan nghin va
+  // **dau phay thap phan** deu co the co: mot shop chau Au ghi "199,99" ma bi vut dau
+  // phay di thi gia chup lai trong bai thanh 19999.
+  const n = parsePriceAmount(price)
+  if (n === null || !Number.isFinite(n) || n <= 0) return undefined
 
   // Giu 2 chu so thap phan chi khi thuc su co phan thap phan — "$399" doc de hon
   // "$399.00", con "$28.99" thi khong duoc lam tron.

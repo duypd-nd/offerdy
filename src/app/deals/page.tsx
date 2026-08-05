@@ -5,6 +5,7 @@ import DealsPageContent from '@/components/DealsPageContent'
 import { getAllDeals } from '@/sanity/queries'
 import type { Deal } from '@/data/deals'
 import { dealsItemListJsonLd } from '@/lib/dealSchema'
+import { parsePriceAmount } from '@/lib/priceAmount'
 
 export const revalidate = 60
 
@@ -79,10 +80,10 @@ export default async function DealsPage({ searchParams }: PageProps) {
   // Sap xep TRUOC khi phan trang, neu khong thi moi trang chi duoc sap trong
   // pham vi 24 deal cua chinh no. Gia la chuoi co ky hieu tien te (",499.00")
   // nen phai boc so ra; khong boc duoc thi day xuong cuoi thay vi doan bua.
-  const priceNum = (v?: string) => {
-    const n = parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''))
-    return Number.isFinite(n) ? n : Number.POSITIVE_INFINITY
-  }
+  //
+  // ⚠️ `parsePriceAmount` chu khong tu boc so: mot deal "€199,99" tung duoc doc thanh
+  // 19999 va bi day xuong tan cuoi danh sach sap theo gia.
+  const priceNum = (v?: string) => parsePriceAmount(v) ?? Number.POSITIVE_INFINITY
   const activeSort = sort === 'discount' || sort === 'price' ? sort : undefined
   const sorted = activeSort === 'discount'
     ? [...filtered].sort((a: Deal, b: Deal) => (b.discount ?? 0) - (a.discount ?? 0))

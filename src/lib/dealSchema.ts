@@ -1,11 +1,17 @@
+import { parsePriceAmount, priceSymbol } from './priceAmount'
+
 const CURRENCY_BY_SYMBOL: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '₫': 'VND', '¥': 'JPY' }
 
+/**
+ * ⚠️ Giá ở đây đi thẳng vào dữ liệu có cấu trúc gửi Google. Bản cũ tự bóc số nên một
+ * deal `"€199,99"` khai giá là **19999** — sai gấp trăm lần trong chính chỗ Google
+ * đối chiếu với giá thật trên trang shop, và lệch giá là lỗi rich-result.
+ */
 export function parsePrice(str?: string): { amount: number; currency: string } | null {
   if (!str) return null
-  const symbol = str.match(/^[^0-9]+/)?.[0]?.trim() ?? '$'
-  const amount = parseFloat(str.replace(/[^0-9.]/g, ''))
-  if (!Number.isFinite(amount)) return null
-  return { amount, currency: CURRENCY_BY_SYMBOL[symbol] ?? 'USD' }
+  const amount = parsePriceAmount(str)
+  if (amount === null) return null
+  return { amount, currency: CURRENCY_BY_SYMBOL[priceSymbol(str)] ?? 'USD' }
 }
 
 type SchemaDeal = {
