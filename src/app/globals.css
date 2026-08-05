@@ -849,20 +849,33 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .article-body figure{margin:28px auto;max-width:520px;text-align:center}
 .article-body img{max-width:100%;height:auto;display:block;margin:28px auto;border-radius:var(--r)}
 
-/* Khoi anh san pham noi, so le trai/phai — xem `renderPostTokens`.
-   Dung `float` vi model viet HTML tu do: chu dung sau the anh tu chay quanh no,
-   khong can biet doan nao thuoc san pham nao. */
-.article-figure{float:left;width:min(44%,300px);margin:6px 26px 20px 0;padding:0}
-.article-figure--right{float:right;margin:6px 0 20px 26px}
-.article-figure img{width:100%;aspect-ratio:1/1;object-fit:contain;background:#fff;
-  border:1px solid var(--border);border-radius:var(--r);margin:0;display:block}
-.article-figure figcaption{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px;text-align:center}
-/* Moi muc bat dau sach, khong bi anh cua muc truoc thoc sang. */
-.article-body h2,.article-body h3{clear:both}
-/* Man hinh hep: chu con lai qua it de chay canh anh -> tra ve mot cot. */
-@media(max-width:700px){
-  .article-figure,.article-figure--right{float:none;width:100%;margin:20px 0}
+/* ── THE SAN PHAM TRONG THAN BAI ──
+   Anh + ten + gia + nut mua trong MOT khoi chay het chieu ngang cot bai — xem
+   `renderProductCard`. Ban truoc tha anh noi (`float`) giua dong chu; bai chin san
+   pham thi anh cua mon nay trot nam canh doan noi ve mon khac, va chu thi ep sat vien
+   anh. Khoi tron chua ca hai loi do: khong con chu chay quanh anh, va ten mon hang
+   luon nam ngay canh chinh anh cua no. */
+.article-card{display:flex;gap:18px;align-items:center;margin:26px 0;padding:16px;
+  border:1px solid var(--border);border-radius:var(--r);background:var(--white)}
+.article-card-media{flex:0 0 132px;width:132px;aspect-ratio:1/1;border-radius:var(--r-sm);
+  overflow:hidden;background:#fff;border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center}
+/* Ghi de `.article-body img` (margin:28px auto) — trong the thi anh khong co le rieng. */
+.article-card-media img{width:100%;height:100%;object-fit:contain;margin:0;border-radius:0}
+.article-card-body{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
+.article-card-name{font-size:15px;font-weight:700;line-height:1.4;color:var(--text)}
+.article-card-price{font-size:15px;font-weight:700;color:var(--green-dark)}
+.article-card .article-cta{margin-top:8px}
+/* Man hinh hep: anh tren, chu duoi, nut trai ca chieu ngang cho de bam. */
+@media(max-width:560px){
+  .article-card{flex-direction:column;align-items:stretch;gap:14px}
+  .article-card-media{width:100%;flex-basis:auto;aspect-ratio:4/3}
+  .article-card .article-cta{width:100%;justify-content:center}
 }
+/* Nhac mon hang GIUA CAU: link chu, khong phai nut — nut chen giua cau be doi cau van. */
+.article-buylink{color:var(--green-dark);font-weight:600;text-decoration:underline;
+  text-underline-offset:2px;text-decoration-thickness:1px}
+.article-buylink:hover{color:var(--green)}
 .article-body figure img{margin:0 auto}
 .article-body figcaption{font-size:13px;color:var(--muted);margin-top:8px}
 .article-body a:not(.article-cta){color:var(--green-dark);text-decoration:underline;text-underline-offset:2px}

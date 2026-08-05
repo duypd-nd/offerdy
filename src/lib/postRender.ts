@@ -110,6 +110,78 @@ function productLink(p: RenderProduct, label: string, className: string): string
   return `<a class="${className}" href="${esc(p.url)}" target="_blank" rel="nofollow sponsored noopener">${esc(label)}</a>`
 }
 
+/**
+ * Anh + TEN + gia + nut mua, trong MOT khoi.
+ *
+ * ⚠️ Ten san pham nam ngay canh anh la ly do ton tai cua khoi nay. Ban truoc tha anh
+ * noi (`float`) giua dong chu: bai chin san pham thi anh cua san pham 2 trot nam canh
+ * doan noi ve san pham 5, va nguoi doc khong co cach nao biet minh dang nhin mon nao.
+ * Chu thich duoi anh khong cuu duoc — no o duoi, con doan chu thi o ben.
+ *
+ * Khoi nay chay het chieu ngang cot bai, nen khong con chu nao chay quanh anh, va
+ * khong con canh chu sat vien anh.
+ */
+function renderProductCard(p: RenderProduct, storeName?: string): string {
+  const price = formatPrice(p.priceAtWriting, p.currency)
+  const media = p.imageUrl
+    ? `<div class="article-card-media">` +
+      `<img src="${esc(cappedImageUrl(p.imageUrl))}" alt="${esc(p.title)}" loading="lazy" />` +
+      `</div>`
+    : ''
+  return (
+    `<div class="article-card">` +
+    media +
+    `<div class="article-card-body">` +
+    `<span class="article-card-name">${esc(p.title)}</span>` +
+    (price ? `<span class="article-card-price">${esc(price)}</span>` : '') +
+    // Nhan ngan: ten mon hang da nam ngay tren nut roi. Nhan cu ("Check <ca cai ten
+    // dai> at <shop>") lam nut dai bang ca dong van va bo cuc vo ra.
+    productLink(p, `Check price at ${storeName ?? 'the store'}`, 'article-cta article-card-cta') +
+    `</div>` +
+    `</div>`
+  )
+}
+
+/**
+ * Keo `[IMAGE:n]` RA KHOI doan van truoc khi dung the.
+ *
+ * The san pham la mot `<div>`, ma `<div>` nam trong `<p>` la HTML khong hop le: trinh
+ * duyet tu dong dong the `<p>` lai ngay truoc no va mo mot the moi sau — nua doan van
+ * bi nem ra ngoai vung `<p>`, mat luon khoang cach dong. Tu cat doan van thi minh biet
+ * duong cat o dau.
+ */
+function liftImageTokens(html: string): string {
+  return html.replace(/(<p\b[^>]*>)([\s\S]*?)<\/p>/gi, (whole, open: string, inner: string) => {
+    if (!/\[IMAGE:\d+\]/.test(inner)) return whole
+    return inner
+      .split(/(\[IMAGE:\d+\])/)
+      .map(part => (/^\[IMAGE:\d+\]$/.test(part) ? part : part.trim() ? `${open}${part}</p>` : ''))
+      .join('')
+  })
+}
+
+/**
+ * `[CTA:n]` DINH DUOI CUOI mot doan van khong phai la the giua cau — do la mot duong
+ * mua dung rieng, chi tinh co nam trong the `<p>`. Doi no thanh `[CTABLOCK:n]`.
+ *
+ * ⚠️ Phan biet duoc hai kieu nay moi la cho quan trong. Do that tren bai Babywonders:
+ * model ket doan bang `… purely visual. [CTA:3] [CTA:4]`, hai link chu dat canh nhau
+ * chi cach mot dau cach — doc ra thanh MOT chuoi ten dai vo nghia, khong ai biet no
+ * la hai link. Con `… for the same baby, [CTA:1] gets you there` thi lai la the giua
+ * cau that, va cai do phai giu nguyen dang link chu.
+ *
+ * Luat: dinh duoi cuoi -> khoi; con lai -> chu.
+ */
+function liftTrailingCtas(html: string): string {
+  return html.replace(/(<p\b[^>]*>)([\s\S]*?)<\/p>/gi, (whole, open: string, inner: string) => {
+    const tail = inner.match(/(?:\s*\[CTA:\d+\])+\s*$/)
+    if (!tail) return whole
+    const lifted = (tail[0].match(/\[CTA:\d+\]/g) ?? []).map(t => `[CTABLOCK:${t.slice(5)}`).join('')
+    const rest = inner.slice(0, tail.index).trim()
+    return (rest ? `${open}${rest}</p>` : '') + lifted
+  })
+}
+
 function renderTable(rows: { label: string; values: string[] }[], products: RenderProduct[]): string {
   if (!rows.length) return ''
   const head = products.map(p => `<th scope="col">${esc(p.title)}</th>`).join('')
@@ -143,26 +215,41 @@ export function renderPostTokens(html: string, opts: RenderOptions): string {
   out = out.replaceAll('[TABLE]', renderTable(opts.comparisonRows ?? [], products))
 
   /**
-   * Anh san pham ra mot khoi NOI, so le trai/phai theo so thu tu san pham.
+   * `[IMAGE:n]` -> the san pham (anh + ten + gia + nut mua), nam tren dong rieng.
    *
-   * Vi sao dung `float` chu khong phai grid: model viet HTML tu do, minh khong biet
-   * doan chu nao thuoc ve san pham nao. `float` khong doi biet dieu do — chu nao dung
-   * sau the anh se tu chay quanh no. San pham le nam trai, chan nam phai, thanh bo cuc
-   * zic-zac ma khong phai dong khuon cau truc bai.
-   *
-   * `<h2>`/`<h3>` duoc dat `clear:both` trong globals.css, nen moi muc bat dau sach.
+   * Ghi lai san pham nao da co the: buoc `[CTA:n]` ngay duoi can biet dieu do de khong
+   * do them mot nut thu hai cho cung mot mon.
    */
+  out = liftTrailingCtas(liftImageTokens(out))
+
+  const carded = new Set<number>()
+
   out = out.replace(/\[IMAGE:(\d+)\]/g, (_w, i: string) => {
     const n = Number(i)
     const p = products[n - 1]
     if (!p?.imageUrl) return ''
-    const side = n % 2 === 1 ? 'left' : 'right'
-    return (
-      `<figure class="article-figure article-figure--${side}">` +
-      `<img src="${esc(cappedImageUrl(p.imageUrl))}" alt="${esc(p.title)}" loading="lazy" />` +
-      `<figcaption>${esc(p.title)}</figcaption>` +
-      `</figure>`
-    )
+    carded.add(n)
+    return renderProductCard(p, opts.storeName)
+  })
+
+  /**
+   * Duong mua DUNG RIENG (`[CTABLOCK:n]`, xem `liftTrailingCtas`) -> cung thanh the.
+   *
+   * Do that tren bai Babywonders: model dat chin `[CTA:n]` lien tiep, ra chin thanh
+   * xanh chong len nhau khong ke gi nhau va khong nut nao noi ro no dan toi mon nao.
+   * Mot the mang du anh + ten + gia thay cho mot thanh chu tran.
+   *
+   * San pham DA co the roi thi bo han the nay di: hai nut cho cung mot mon la thu da
+   * lam bai truoc roi rac. San pham chua co the (thuong la khong cao duoc anh) thi
+   * dung the o day — the khong co phan anh, nhung van du ten, gia va duong mua, nen
+   * no khong bi thiet so voi cac mon co anh.
+   */
+  out = out.replace(/\[CTABLOCK:(\d+)\]/g, (_w, i: string) => {
+    const n = Number(i)
+    const p = products[n - 1]
+    if (!p || carded.has(n)) return ''
+    carded.add(n)
+    return renderProductCard(p, opts.storeName)
   })
 
   out = out.replace(/\[PRODUCT:(\d+)\]/g, (_w, i: string) => {
@@ -170,17 +257,25 @@ export function renderPostTokens(html: string, opts: RenderOptions): string {
     return p ? esc(p.title) : ''
   })
 
+  /**
+   * `[CTA:n]` con lai la the nam GIUA CAU — ra link chu, khong ra nut.
+   *
+   * Cau *"…neu ban cung can mot lop ao am, [CTA:1] dua ban toi do"* voi mot nut xanh
+   * chen giua thi cau van bi be doi: nut la khoi, chu chay quanh no thanh hai manh roi
+   * rac. Lay dung ten mon hang lam chu link thi cau doc lien mach, va van la mot duong
+   * mua co gan `rel="sponsored"` nhu nut.
+   */
   out = out.replace(/\[CTA:(\d+)\]/g, (_w, i: string) => {
     const p = products[Number(i) - 1]
     if (!p) return ''
-    return productLink(p, `Check ${p.title} at ${opts.storeName ?? 'the store'}`, 'article-cta')
+    return productLink(p, p.title, 'article-buylink')
   })
 
   out = renderPriceTokens(out, products)
   out = renderCouponToken(out, opts.coupon)
 
   // Doan van rong sinh ra sau khi go token — don di de bai khong co khoang trong la.
-  return out.replace(/<p>\s*<\/p>/gi, '')
+  return out.replace(/<p\b[^>]*>\s*<\/p>/gi, '')
 }
 
 /** Con the nao chua duoc thay khong — dung de khong bao gio de lo the ra mat nguoi doc. */

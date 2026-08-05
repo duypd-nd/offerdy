@@ -108,13 +108,96 @@ test('cat anh o CDN — nhung CHI khi biet chac CDN hieu tham so do', () => {
   assert.equal(cappedImageUrl('khong-phai-url'), 'khong-phai-url')
 })
 
-test('anh san pham ra khoi noi, SO LE trai/phai theo so thu tu', () => {
+test('⚠️ anh LUON di kem ten mon hang cua chinh no', () => {
+  // Ban truoc anh noi giua dong chu: anh cua san pham nay trot nam canh doan noi ve
+  // san pham khac va nguoi doc khong biet minh dang nhin mon nao.
   const withImages = [products[0], { ...products[1], imageUrl: 'https://cdn.shopify.com/pd600.png' }]
-  const out = renderPostTokens('<p>[IMAGE:1]</p><p>[IMAGE:2]</p>', { products: withImages })
-  assert.match(out, /article-figure article-figure--left/)
-  assert.match(out, /article-figure article-figure--right/)
-  // Ten san pham lam chu thich duoi anh.
-  assert.match(out, /<figcaption>Frizzlife PD400<\/figcaption>/)
+  const out = renderPostTokens('<p>[IMAGE:1]</p><p>[IMAGE:2]</p>', {
+    products: withImages, storeName: 'Frizzlife',
+  })
+  assert.ok(!out.includes('float') && !out.includes('article-figure'), 'khong con khoi noi')
+  for (const p of withImages) {
+    const card = out.split('<div class="article-card">').find(c => c.includes(p.imageUrl!))
+    assert.ok(card, `khong tim thay thẻ của ${p.title}`)
+    assert.ok(card.includes(p.title), `ảnh ${p.imageUrl} không kèm tên "${p.title}"`)
+    assert.ok(card.includes(p.url), `thẻ ${p.title} không có đường mua`)
+  }
+  // Gia chup luc viet hien ngay canh ten, khong bat nguoi doc doi chieu.
+  assert.match(out, /article-card-price">\$298\.75/)
+  // Nhan nut ngan: ten mon hang da nam ngay tren no roi.
+  assert.match(out, />Check price at Frizzlife</)
+})
+
+test('⚠️ [CTA:n] dung mot minh -> the san pham, KHONG phai mot thanh xanh tran', () => {
+  // Do that tren bai Babywonders: chin [CTA:n] lien tiep ra chin thanh xanh chong len
+  // nhau, khong nut nao noi ro no dan di dau.
+  const withImages = [products[0], { ...products[1], imageUrl: 'https://cdn.shopify.com/pd600.png' }]
+  const out = renderPostTokens('<p>[CTA:1]</p><p>[CTA:2]</p>', { products: withImages, storeName: 'Frizzlife' })
+  assert.equal(out.split('article-card"').length - 1, 2)
+  assert.match(out, /Frizzlife PD600-TAM3/)
+})
+
+test('⚠️ [CTA:n] DINH CUOI doan van la duong mua dung rieng, khong phai the giua cau', () => {
+  // Do that: `… purely visual. [CTA:1] [CTA:2]` ra hai link chu cach nhau mot dau cach
+  // — doc thanh MOT chuoi ten dai vo nghia, khong ai biet do la hai duong mua khac nhau.
+  const out = renderPostTokens('<p>The choice is visual. [CTA:1] [CTA:2]</p>', {
+    products, storeName: 'Frizzlife',
+  })
+  assert.ok(!out.includes('article-buylink'), 'dính cuối đoạn thì không ra link chữ')
+  assert.equal(out.split('article-card"').length - 1, 2, 'mỗi sản phẩm một thẻ riêng')
+  // Cau van con nguyen, va nam TRUOC cac the.
+  assert.ok(out.indexOf('The choice is visual.') < out.indexOf('article-card'))
+  assert.ok(!out.includes('visual. </p>'), 'không để lại khoảng trắng thừa cuối câu')
+})
+
+test('⚠️ san pham DA co the thi [CTA:n] rieng khong do them nut thu hai', () => {
+  const out = renderPostTokens('<p>[IMAGE:1]</p><p>[CTA:1]</p>', { products, storeName: 'Frizzlife' })
+  assert.equal(out.split('article-card"').length - 1, 1, 'chỉ một thẻ cho một sản phẩm')
+  assert.equal(out.split('article-cta').length - 1, 1, 'chỉ một nút mua')
+})
+
+test('san pham khong co anh van duoc mot the day du de mua', () => {
+  // Khong cao duoc anh la van de du lieu, khong phai ly do de mon hang mat duong mua.
+  const out = renderPostTokens('<p>[CTA:2]</p>', { products, storeName: 'Frizzlife' })
+  assert.ok(!out.includes('<img'), 'không dựng thẻ <img> rỗng')
+  assert.match(out, /article-card-name">Frizzlife PD600-TAM3/)
+  assert.match(out, /article-card-price">\$469\.99/)
+})
+
+test('⚠️ [CTA:n] GIUA CAU ra link chu — nut khoi se be doi cau van', () => {
+  const out = renderPostTokens(
+    '<p>If you also need a bigger unit, [CTA:2] gets you there.</p>',
+    { products, storeName: 'Frizzlife' }
+  )
+  assert.ok(!out.includes('article-card'), 'giữa câu thì không dựng thẻ')
+  assert.match(out, /class="article-buylink"[^>]*>Frizzlife PD600-TAM3<\/a>/)
+  // Van la duong mua that: co nofollow sponsored y nhu nut.
+  assert.match(out, /rel="nofollow sponsored noopener"/)
+  // Cau van con nguyen ca hai dau.
+  assert.match(out, /If you also need a bigger unit, .*gets you there\./)
+})
+
+test('⚠️ du the nam o dau, KHONG san pham nao mat duong mua', () => {
+  // Bo cuc doi thi de mat mot link — va mat link la mat hoa hong, kieu that thu am
+  // tham nhat vi khong ai phat hien. Ba the nay dai dien ba duong di khac nhau trong
+  // `renderPostTokens`: the (anh), the (dinh cuoi doan), link chu (giua cau).
+  const withImages = [products[0], { ...products[1], imageUrl: 'https://cdn.shopify.com/pd600.png' }]
+  const html = '<p>[IMAGE:1] intro.</p><p>Compare them. [CTA:1]</p><p>Or [CTA:2] instead.</p>'
+  const out = renderPostTokens(html, { products: withImages, storeName: 'Frizzlife' })
+  for (const p of withImages) {
+    assert.ok(out.includes(`href="${p.url}"`), `${p.title} không còn đường mua nào`)
+  }
+})
+
+test('⚠️ [IMAGE:n] giua doan van -> cat doan van, KHONG nhet <div> vao trong <p>', () => {
+  // <div> trong <p> la HTML khong hop le: trinh duyet dong the <p> lai ngay truoc no,
+  // nua doan van con lai bi nem ra ngoai vung <p> va mat luon khoang cach dong.
+  const out = renderPostTokens('<p>Before. [IMAGE:1] After.</p>', { products })
+  // "co mot the <p> chua dong nao dang mo ngay truoc the san pham khong".
+  const inside = /<p\b[^>]*>(?:(?!<\/p>)[\s\S])*<div class="article-card"/
+  assert.ok(!inside.test(out), 'thẻ không được nằm trong <p>: ' + out)
+  assert.match(out, /<p>Before\. <\/p>/)
+  assert.match(out, /<p> After\.<\/p>/)
 })
 
 test('[TABLE] dung kieu bang chung cua globals.css', () => {
