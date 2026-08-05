@@ -138,6 +138,8 @@ Shop discount code: ${input.hasCoupon ? 'the shop has a working code — you may
 
 There are ${input.products.length} source products. comparisonRows must have exactly ${input.products.length} values per row, in this order.
 
+REQUIRED TOKENS — the body is rejected outright if any of these is missing: ${input.products.map(p => `[CTA:${p.n}]`).join(', ')}. Each product needs its own buy button; without one, that product has no way to be bought.
+
 ${input.products.map(productBlock).join('\n\n')}`
 }
 

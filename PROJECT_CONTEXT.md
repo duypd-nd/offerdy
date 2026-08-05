@@ -433,6 +433,24 @@ A scrape failure drops that product and the template's minimum is re-checked. A 
 
 Real output (Frizzlife, PD400 vs PD600-TAM3): a five-row table with honest `—` cells, six FAQ entries, 14 tokens, a 37-character metaTitle, and a cross-comparison line the shop's own pages never state — *the 1.5:1 drain-ratio claim made for the PD400 is not repeated anywhere in the PD600-TAM3 description, so it should not be assumed to carry over*. About 30 seconds per article. Leak check passed on all four routes: the draft URL returns 404 and appears in none of `/blog`, `/comparisons`, or the sitemap.
 
+## Approving an article, and rendering it (`/admin/ai-review` tab 4 + `src/lib/postRender.ts`)
+Approval copies `aiDraft` onto the real fields, stamps `publishedAt` with today and drops `aiDraft`. ⚠️ **Rejection deletes the document**, unlike the other three tabs: a rejected store is still a store, but a rejected article is an empty `post` with no reason to exist, and leaving them accumulates ghost posts that one forgotten `aiReviewStatus` filter would publish. `faq` and `comparisonRows` had to be added to the `post` schema — approval unsets `aiDraft`, so without a home at post level both vanish exactly when the article goes live, and both are what the page needs (`FAQPage`, `[TABLE]`).
+
+⚠️ **`coverBg` in the draft is a gradient *key*; the post field is a CSS string.** Forget the mapping and the article header renders with the literal text `home-green` as its background.
+
+**Two failures, both found by shipping it and looking:**
+
+- **Approving before rendering existed published a broken page.** The first approval put the article live showing 12 raw tokens — `[CTA:1]`, `[TABLE]`, `[PRODUCT:n]` — to readers. Sanity is one dataset across local and production, so it was live on the real site. Reverted to draft immediately (404 confirmed) and the renderer was built before approving anything again. No guard can fix this: tokens live in the *stored* body and are only replaced at request time, so blocking them at approval would block forever.
+- **And the revert exposed a defect that blanks a live article.** A post back at `pending` whose `aiDraft` was already unset still appears in the queue, its form loads empty, and one click writes empty strings over title, excerpt, body, FAQ and table. Sanity's history API returns 403 on this plan, so the content was simply gone and the article had to be regenerated. The **bulk** path had guarded this from the start (`commitBulk` skips items with no draft); only the **single** path was missing it — two write paths for one thing, each carrying its own rules, for the third time in this project. Approval now refuses when there is no title or body to write.
+
+`renderPostTokens` is pure and tested. ⚠️ **Order is mandatory: replace tokens first, attach the affiliate ref second.** `[CTA:n]` is what *creates* the outbound `<a>` tags; running `getStoreRefForHtml` first would find nothing to tag and the whole article would link out bare — the exact bug that cost 8 of 23 reviews their commission. Verified live: both merchant links carry `?ref=offerdy&utm_source=affiliate`.
+
+⚠️ **An expired coupon removes the whole sentence, not just the token.** *"use code &nbsp; at checkout"* is worse than silence: it advertises something it then withholds. A prompt cannot cover this — the code was alive when the article was written — so only render-time resolution can. Prices always ship with a *"captured on YYYY-MM-DD"* line, the only honest way to show a figure that is not live.
+
+JSON-LD on the live page: **Article + BreadcrumbList + FAQPage + ItemList**, no `Review` (a multi-product comparison is not a one-product rating), and ⚠️ **`ItemList` carries no `offers`** — a price in structured data that disagrees with the shop's real price is a rich-result violation, and `priceAtWriting` starts drifting the day it is published.
+
+📌 Hard-guard rejection rate on real runs: **2 of 5** (an invented `450%`, and a missing `[CTA:2]`). The required tokens are now enumerated in each request's prompt rather than stated as a general rule — the same lesson as the naming stage.
+
 Variant collapse errs deliberately towards merging: `PD600 Black` and `PD600 White` are one product, and over-merging shrinks a group (fewer ideas) while under-merging inflates one (an article that lies about how many things it compared). Known and accepted cost: two wrenches differing only in what they fit merge into one.
 
 ## Empty pages are not advertised
@@ -536,7 +554,7 @@ Two content groups that never referenced each other now do, both riding the doma
 - **`/links` shows working coupon codes** directly (`LinkInBioCodes`), 6 rows, **one per shop**: real data has one shop with two codes (Frizzlife), and repeating a shop on a 6-row page costs another brand its slot. Codes render **exactly as stored** — production has both `OFFERDY` and `offerdy`, and some checkouts are case-sensitive, so normalising could break a code. Not sorted by clicks: at current volume that would be sorting by noise.
 
 ## Tests (`npm test`)
-195 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, the AI caption guardrails, and the article honesty gate. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it, `PD600 Black` counted as a second product, `27 5 inch` read as 5 inches.
+210 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, the AI caption guardrails, and the article honesty gate. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it, `PD600 Black` counted as a second product, `27 5 inch` read as 5 inches.
 
 - Files: `tests/*.test.ts` using Node's built-in `node:test` + `node:assert`. **No test framework dependency.**
 - ⚠️ Run via `scripts/run-tests.mjs`, not `node --test tests/` directly. Node reads TypeScript fine, but Node's ESM demands **full file extensions** in imports (`./affiliateUrl.ts`), while the codebase uses extensionless `@/lib/...` bundler-style aliases. Changing the source to suit Node would risk the Next build, so the script bundles each test with esbuild (alias `@` → `src`, `packages: external`) into `node_modules/.cache/offerdy-tests` and runs `node --test` on the output. Tests therefore import exactly the way `src/` files import each other.

@@ -4,7 +4,9 @@ import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getPostBySlug, getPosts, getConfigContent, getConfigAuthor, getStoreRefForHtml } from '@/sanity/queries'
+import { getPostBySlug, getPosts, getConfigContent, getConfigAuthor, getStoreRefForHtml, getStoreTopCoupon } from '@/sanity/queries'
+import { renderPostTokens, priceNote, type RenderProduct } from '@/lib/postRender'
+import ReviewCouponBox from '@/components/ReviewCouponBox'
 import { catClass } from '@/lib/postCategory'
 import { posts as staticPosts } from '@/data/posts'
 
@@ -68,19 +70,44 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound()
 
   /**
-   * Gan tham so tiep thi vao MOI link trong than bai, giai luc render.
+   * Than bai duoc dung LUC GOI TRANG, qua hai buoc, va **thu tu la bat buoc**:
    *
-   * ⚠️ Truoc 2026-08-05, `post.content` duoc do thang vao dangerouslySetInnerHTML —
-   * nghia la moi link merchant nguoi viet dan vao bai deu ra ngoai KHONG mang ma
-   * ref, tuc khong duoc ghi nhan hoa hong. `getStoreRefForHtml` da ton tai va da
-   * chay tot tu lau, nhung chi co dung MOT noi goi la trang review.
+   *   1. `renderPostTokens` — thay `[CTA:n]`, `[IMAGE:n]`, `[TABLE]`, `[PRICE:n]`...
+   *   2. `getStoreRefForHtml` — gan tham so tiep thi vao MOI the <a> trong bai.
    *
-   * Giai luc render chu khong luc luu: doi ma ref cua mot store la ca kho bai cu
-   * cap nhat theo, khong phai sua tay tung bai.
+   * ⚠️ Doi thu tu la hong: chinh `[CTA:n]` sinh ra cac the <a> ra merchant, nen gan
+   * ref truoc thi luc do chung chua ton tai va ca bai di ra ngoai KHONG mang ref —
+   * dung lai loi da lam 8/23 review mat hoa hong.
+   *
+   * Giai luc goi trang chu khong luc luu: doi ma ref cua mot store la ca kho bai cu
+   * cap nhat theo; ma giam het han thi cau nhac ma tu bien mat; gia thi luon di kem
+   * moc "chup luc nao". Bai luu san HTML la bai dong bang su that cua ngay viet.
    */
-  const articleHtml = await getStoreRefForHtml(
-    typeof (post as { content?: string }).content === 'string' ? (post as { content: string }).content : undefined
-  )
+  // `post` den tu GROQ nen khong co kieu — khai ro cac truong bai viet AI dung toi.
+  const article: {
+    content?: string
+    articleProducts?: RenderProduct[]
+    comparisonRows?: { label: string; values: string[] }[]
+    faq?: { question: string; answer: string }[]
+    sourceStore?: { name?: string; slug?: string }
+  } = post
+  const products: RenderProduct[] = article.articleProducts ?? []
+  const faq = article.faq ?? []
+  // Ma giam doc LUC GOI TRANG, khong phai luc viet bai: ma het han sau khi dang thi
+  // cau nhac ma tu bien mat cung the boc cua no.
+  const coupon = article.sourceStore?.slug ? await getStoreTopCoupon(article.sourceStore.slug) : null
+
+  const rendered = typeof article.content === 'string'
+    ? renderPostTokens(article.content, {
+        products,
+        comparisonRows: article.comparisonRows,
+        coupon,
+        storeName: article.sourceStore?.name,
+      })
+    : undefined
+
+  const articleHtml = await getStoreRefForHtml(rendered)
+  const capturedNote = priceNote(products)
 
   const authorName = post.author || authorConfig.defaultName
   const authorTwitterUrl = authorConfig.twitterHandle
@@ -118,6 +145,34 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           { '@type': 'ListItem', position: 3, name: post.title, item: `${BASE}/blog/${slug}` },
         ],
       },
+      // ⚠️ KHONG phat `Review`/`Product` o day. Loai `post` la mot bai so sanh nhieu
+      // san pham; khai `Review` la noi voi Google "day la danh gia MOT san pham, cham
+      // N sao" — sai su that va trai quy dinh review snippet. Xem muc "Category
+      // articles go in post / Comparison" trong file nay.
+      ...(faq.length
+        ? [{
+            '@type': 'FAQPage',
+            mainEntity: faq.map(f => ({
+              '@type': 'Question',
+              name: f.question,
+              acceptedAnswer: { '@type': 'Answer', text: f.answer },
+            })),
+          }]
+        : []),
+      ...(products.length
+        ? [{
+            '@type': 'ItemList',
+            itemListElement: products.map((p, i) => ({
+              '@type': 'ListItem',
+              position: i + 1,
+              // ⚠️ **KHONG co `offers`.** Gia trong du lieu co cau truc lech gia that
+              // cua shop la loi rich-result, ma `priceAtWriting` bat dau troi ngay tu
+              // hom dang. Gia hien trong HTML thi khac: da co dong "gia tai thoi diem
+              // viet" ganh.
+              item: { '@type': 'Product', name: p.title, url: p.url, image: p.imageUrl || undefined },
+            })),
+          }]
+        : []),
     ],
   }
 
@@ -163,6 +218,19 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 : post.coverEmoji}
             </div>
 
+            {/* Hop ma giam nam TREN than bai: nguoi doc toi tu Google thuong chi
+                cuon mot man hinh. Loi van noi dung muc do biet — day la ma TOAN SHOP,
+                khong phai ma rieng cho san pham nao trong bai. */}
+            {coupon?.code && (
+              <div style={{ padding: '0 clamp(16px, 4vw, 40px)' }}>
+                <ReviewCouponBox
+                  code={coupon.code}
+                  heading={`${article.sourceStore?.name ?? 'This shop'} discount code`}
+                  sub="Store-wide code — try it at checkout; some shops exclude items already on sale."
+                />
+              </div>
+            )}
+
             <div className="article-body">
               {articleHtml && articleHtml.length > 100 ? (
                 <div dangerouslySetInnerHTML={{ __html: articleHtml }} />
@@ -170,6 +238,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 <PortableBody body={(post as { body: unknown[] }).body} />
               ) : (
                 <PlaceholderBody category={post.category} />
+              )}
+              {/* Gia trong bai la gia CHUP LAI luc viet. Noi ro moc do la cach duy
+                  nhat hien gia ma khong gia vo do la gia thoi gian thuc. */}
+              {capturedNote && (
+                <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 18 }}>{capturedNote}</p>
               )}
             </div>
 

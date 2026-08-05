@@ -324,7 +324,25 @@ export async function approveArticleAiDraft(
   postId: string,
   slug: string | undefined,
   draft: PostDraftFields
-) {
+): Promise<{ ok: boolean; error?: string }> {
+  /**
+   * ⚠️ **Từ chối ghi khi không có gì để ghi.** Đây là một lỗi đã thực sự xảy ra và
+   * nó XOÁ TRẮNG một bài đang sống.
+   *
+   * Kịch bản: một `post` nằm lại ở `pending` mà `aiDraft` đã bị gỡ (duyệt một lần
+   * rồi bị đưa về nháp, hoặc một lượt ghi dở dang). Hàng đợi vẫn hiện nó, form nạp
+   * từ `aiDraft` nên rỗng trơn, và một cú bấm "Duyệt" ghi chuỗi rỗng đè lên tiêu đề,
+   * tóm tắt, thân bài, FAQ và bảng so sánh. Sanity không cho lấy lại nội dung cũ
+   * (API history trả 403 trên gói này), nên mất là mất hẳn.
+   *
+   * Đường duyệt HÀNG LOẠT đã có chốt này từ trước (`commitBulk` bỏ qua mục không còn
+   * draft) — chỉ đường đơn lẻ là thiếu. Đúng kiểu hai đường ghi cùng một thứ mà mỗi
+   * đường giữ một bộ luật riêng.
+   */
+  if (!draft.title.trim() || !draft.contentHtml.trim()) {
+    return { ok: false, error: 'Bản nháp trống (không còn aiDraft) — không ghi gì để khỏi xoá trắng bài đang có.' }
+  }
+
   const post = await writeClient.fetch<{ image?: string } | null>(
     `*[_id == $postId][0]{ "image": articleProducts[0].imageUrl }`,
     { postId }
@@ -335,6 +353,7 @@ export async function approveArticleAiDraft(
     .unset(['aiDraft'])
     .commit()
   revalidateArticle(slug)
+  return { ok: true }
 }
 
 export async function approveArticleDraftsBulk(ids: string[]): Promise<BulkApproveResult> {

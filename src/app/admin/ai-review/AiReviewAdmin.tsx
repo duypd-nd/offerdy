@@ -789,7 +789,8 @@ function ArticleReviewPanel({ initialArticles, onCountChange }: {
     if (checkedIds.size === 0) {
       if (!selected) return
       startTransition(async () => {
-        await approveOpenWithEdits()
+        const r = await approveOpenWithEdits()
+        if (r && !r.ok) { showToast(r.error ?? 'Không duyệt được'); return }
         showToast(`Đã đăng "${form.title || selected.title}" — /blog/${selected.slug}`)
         removeMany(new Set([selected._id]))
       })
@@ -799,8 +800,8 @@ function ArticleReviewPanel({ initialArticles, onCountChange }: {
     startTransition(async () => {
       let approved = 0
       if (selected && ids.has(selected._id)) {
-        await approveOpenWithEdits()
-        approved++
+        const r = await approveOpenWithEdits()
+        if (r?.ok) approved++
       }
       const rest = [...ids].filter(id => id !== selected?._id)
       const result = await approveArticleDraftsBulk(rest)
