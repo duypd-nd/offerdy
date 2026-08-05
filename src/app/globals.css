@@ -797,6 +797,17 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .ai-store-badge{float:right;font-size:10px;font-weight:700;color:#16a34a;background:#f0fdf4;
   border:1px solid #bbf7d0;border-radius:20px;padding:1px 6px;margin-left:6px}
 .ai-store-scanning{display:block;font-size:11px;color:#2563eb;margin-top:2px}
+/* Thanh dieu khien "viet ca me". Dinh theo man hinh vi mot me chay vai phut va danh
+   sach y tuong dai hon mot man — cuon xuong xem bai nao hong ma mat luon nut "Dung"
+   thi nguoi van hanh khong con duong can thiep. */
+.ai-batch-bar{position:sticky;top:8px;z-index:2;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  margin-top:12px;padding:10px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;
+  box-shadow:0 1px 3px rgba(15,23,42,.06)}
+.ai-batch-all{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#475569;cursor:pointer}
+.ai-batch-all input{width:16px;height:16px;cursor:pointer}
+.ai-batch-progress{font-size:12px;font-weight:700;color:#2563eb}
+.ai-batch-note{margin-top:10px;padding:9px 13px;border:1px solid #bfdbfe;background:#eff6ff;
+  border-radius:8px;font-size:12px;color:#1d4ed8;line-height:1.65}
 /* Man hinh hep: xep chong, cot chon shop thu lai va tu cuon trong khung thap. */
 @media(max-width:900px){
   .ai-split{grid-template-columns:1fr}

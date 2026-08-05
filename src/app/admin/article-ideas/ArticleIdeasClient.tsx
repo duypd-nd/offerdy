@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { scanStoreIdeas, scanPastedUrls, nameScannedIdeas, writeArticleDraft, type IdeaScanResult, type WriteResult } from './actions'
 import type { StoreRow } from './page'
@@ -34,6 +34,17 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
   const [writing, setWriting] = useState<string | null>(null)
   const [wrote, setWrote] = useState<Record<string, WriteResult | undefined>>({})
   const [query, setQuery] = useState('')
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  /** Hàng đợi đang chạy: `done/total`. `null` = không có mẻ nào đang chạy. */
+  const [batch, setBatch] = useState<{ total: number; done: number } | null>(null)
+  const [batchDone, setBatchDone] = useState<{ ok: number; failed: number; stopped: boolean } | null>(null)
+  /**
+   * Cờ "đã bấm dừng" phải sống ở HAI nơi, và đó không phải là thừa:
+   * `ref` cho vòng lặp đang chạy đọc được giá trị mới nhất (state trong closure của
+   * vòng lặp mãi mãi là giá trị cũ), `state` cho phần vẽ ra màn hình.
+   */
+  const cancelBatch = useRef(false)
+  const [stopping, setStopping] = useState(false)
 
   const q = query.trim().toLowerCase()
   const matched = q
@@ -53,6 +64,9 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
     setNameRejected({})
     setNameError(null)
     setWrote({})
+    // Quét lại là danh sách ý tưởng khác — giữ ô tích cũ là tích nhầm sang ý tưởng khác.
+    setSelected(new Set())
+    setBatchDone(null)
   }
 
   const run = async (store: StoreRow) => {
@@ -74,8 +88,8 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
     setScanning(null)
   }
 
-  const runWrite = async (key: string) => {
-    if (!storeId) return
+  const runWrite = async (key: string): Promise<WriteResult | null> => {
+    if (!storeId) return null
     setWriting(key)
     setWrote(w => ({ ...w, [key]: undefined as unknown as WriteResult }))
     const usedPaste = scan?.ok && scan.source === 'manual'
@@ -88,6 +102,58 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
     })
     setWriting(null)
     setWrote(w => ({ ...w, [key]: result }))
+    return result
+  }
+
+  const toggle = (key: string) => {
+    setSelected(s => {
+      const next = new Set(s)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  /**
+   * Viết cả mẻ: **tuần tự, mỗi bài một lượt gọi riêng**.
+   *
+   * ⚠️ Cố tình KHÔNG gom cả mẻ vào một server action. Dự án đã trả giá đúng một lần
+   * cho kiểu gom đó: cron `ai-content-nightly` từng bung hàng chục lượt gọi model
+   * trong MỘT function, hết giờ là function bị giết giữa chừng — không exception,
+   * không log, và **mất sạch** vì chưa mục nào kịp ghi. Ở đây mỗi bài là một request
+   * riêng, nên bài nào xong là chắc bài đó: đóng tab hay mất mạng giữa mẻ cũng chỉ
+   * mất phần chưa chạy.
+   *
+   * Tuần tự chứ không song song còn vì một lẽ nữa: mỗi bài cào vài trang của CÙNG một
+   * shop rồi mới gọi model. Bắn bốn mẻ cào cùng lúc vào một shop nhỏ là cách nhanh
+   * nhất để bị chặn IP — mà chặn xong thì không chỉ mẻ này hỏng, đường quét cũng hỏng.
+   *
+   * Một bài hỏng KHÔNG dừng cả mẻ: lỗi của nó hiện tại chỗ nó, các bài còn lại chạy tiếp.
+   */
+  const runBatch = async () => {
+    if (!storeId || !scan?.ok) return
+    const keys = scan.offered.map(i => i.key).filter(k => selected.has(k))
+    if (!keys.length) return
+
+    cancelBatch.current = false
+    setStopping(false)
+    setBatchDone(null)
+    setBatch({ total: keys.length, done: 0 })
+
+    let ok = 0
+    let failed = 0
+    for (const key of keys) {
+      if (cancelBatch.current) break
+      const result = await runWrite(key)
+      if (result?.ok) ok++
+      else failed++
+      setBatch(b => (b ? { ...b, done: b.done + 1 } : b))
+    }
+
+    const stopped = cancelBatch.current
+    setBatch(null)
+    setStopping(false)
+    setBatchDone({ ok, failed, stopped })
   }
 
   const runNaming = async () => {
@@ -142,7 +208,9 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
                 key={store.id}
                 className="ai-store-row"
                 aria-current={storeId === store.id}
-                disabled={scanning !== null}
+                // ⚠️ Khoá cả khi đang viết: đổi shop giữa chừng sẽ `resetNames()` và
+                // xoá sạch kết quả của mẻ đang chạy ngay trước mắt người vận hành.
+                disabled={scanning !== null || batch !== null || writing !== null}
                 onClick={() => run(store)}
               >
                 <span className="ai-store-name">{store.name}</span>
@@ -227,13 +295,77 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
               <button
                 className="oa-btn oa-btn-primary"
                 onClick={runNaming}
-                disabled={naming || scanning !== null}
+                disabled={naming || scanning !== null || batch !== null || writing !== null}
                 style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: 12 }}
               >
                 {naming ? 'Đang đặt tên…' : 'Đặt tên bằng AI'}
               </button>
             )}
           </div>
+
+          {/* ── Viết nhiều bài một lượt ── */}
+          {scan.offered.length > 1 && (
+            <div className="ai-batch-bar">
+              <label className="ai-batch-all">
+                <input
+                  type="checkbox"
+                  checked={selected.size === scan.offered.length}
+                  ref={el => { if (el) el.indeterminate = selected.size > 0 && selected.size < scan.offered.length }}
+                  disabled={batch !== null || writing !== null}
+                  onChange={e => setSelected(e.target.checked ? new Set(scan.offered.map(i => i.key)) : new Set())}
+                />
+                Chọn tất cả {scan.offered.length} ý tưởng
+              </label>
+
+              {batch ? (
+                <>
+                  <span className="ai-batch-progress">
+                    Đang viết bài {Math.min(batch.done + 1, batch.total)}/{batch.total}
+                    {stopping && ' — sẽ dừng sau bài này'}
+                  </span>
+                  <button
+                    className="oa-btn"
+                    style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: 12 }}
+                    disabled={stopping}
+                    // Không cắt ngang bài đang chạy: nó đã cào xong vài trang và có thể
+                    // đang ở giữa lượt gọi model. Dừng SAU bài hiện tại thì không phí
+                    // công đã bỏ ra, và cũng không để lại bản nháp dở dang nào.
+                    onClick={() => { cancelBatch.current = true; setStopping(true) }}
+                  >
+                    Dừng sau bài hiện tại
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="oa-btn oa-btn-primary"
+                  style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: 12, opacity: selected.size ? 1 : 0.4 }}
+                  disabled={selected.size === 0 || writing !== null || naming || scanning !== null}
+                  onClick={runBatch}
+                >
+                  {selected.size ? `Viết ${selected.size} bài đã chọn` : 'Tích chọn ý tưởng để viết cả mẻ'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {batch && (
+            <div className="ai-batch-note">
+              Mỗi bài cào vài trang sản phẩm rồi mới gọi model, mất một hai phút — cả mẻ chạy
+              <b> lần lượt</b>, không song song. <b>Đừng đóng tab</b>: bài nào xong là đã lưu chắc,
+              nhưng phần chưa chạy sẽ mất.
+            </div>
+          )}
+
+          {batchDone && (
+            <div className="ai-batch-note" style={{ background: batchDone.failed ? '#fffbeb' : '#f0fdf4', borderColor: batchDone.failed ? '#fde68a' : '#86efac', color: batchDone.failed ? '#b45309' : '#166534' }}>
+              {batchDone.stopped ? 'Đã dừng giữa mẻ. ' : 'Xong mẻ. '}
+              <b>{batchDone.ok}</b> bản nháp được tạo
+              {batchDone.failed > 0 && <>, <b>{batchDone.failed}</b> bài không qua — lý do nằm ngay dưới từng ý tưởng</>}.
+              {batchDone.ok > 0 && (
+                <> Duyệt ở <Link href="/admin/ai-review" style={{ color: 'inherit', textDecoration: 'underline' }}>AI Review Queue</Link>.</>
+              )}
+            </div>
+          )}
 
           {nameError && (
             <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b' }}>
@@ -252,10 +384,30 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
             const refused = nameRejected[idea.key]
             const written = wrote[idea.key]
             return (
-            <div key={idea.key} style={{ marginTop: 14, border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
-              <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: '#fff', background: TEMPLATE_COLOR[idea.template] ?? '#64748b', padding: '2px 8px', borderRadius: 20 }}>
-                {idea.label}
-              </span>
+            <div
+              key={idea.key}
+              style={{
+                marginTop: 14, border: '1px solid #e2e8f0', borderRadius: 10, padding: 16,
+                // Bài đang viết trong mẻ được tô rõ: mẻ chạy vài phút, nhìn vào phải
+                // thấy ngay nó đang ở đâu mà không cần dò.
+                ...(writing === idea.key ? { borderColor: '#16a34a', background: '#f0fdf4' } : null),
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {scan.offered.length > 1 && (
+                  <input
+                    type="checkbox"
+                    aria-label={`Chọn: ${named?.title ?? idea.workingTitle}`}
+                    checked={selected.has(idea.key)}
+                    disabled={batch !== null || writing !== null}
+                    onChange={() => toggle(idea.key)}
+                    style={{ width: 16, height: 16, flexShrink: 0, cursor: 'pointer' }}
+                  />
+                )}
+                <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: '#fff', background: TEMPLATE_COLOR[idea.template] ?? '#64748b', padding: '2px 8px', borderRadius: 20 }}>
+                  {idea.label}
+                </span>
+              </div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '8px 0 4px' }}>
                 {named?.title ?? idea.workingTitle}
               </div>
@@ -291,7 +443,7 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
                 <button
                   className="oa-btn"
                   onClick={() => runWrite(idea.key)}
-                  disabled={writing !== null || naming || scanning !== null}
+                  disabled={writing !== null || naming || scanning !== null || batch !== null}
                   style={{ padding: '5px 12px', fontSize: 12 }}
                 >
                   {writing === idea.key ? 'Đang cào trang & viết…' : 'Viết bài'}
