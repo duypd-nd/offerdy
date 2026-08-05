@@ -372,6 +372,25 @@ The reason: the list previously lived in four places and had already drifted. `C
 
 Same change fixed `/tips-guides`, which reused `BlogPageContent` and rendered all five chips over a Tips-only dataset — four of them guaranteed to show "No articles in this category yet." It now passes `showTabs={false}`.
 
+## The article honesty gate (`src/lib/articleIdeas.ts`)
+Deterministic code that runs **before** any model call and decides which article templates a shop's catalogue can actually support. It is code and not a line in a prompt for the reason already written at `generateCaption.ts:238` — *a prompt can be ignored; a check cannot*. Fixed order for the whole pipeline: **gate → model → post-check.**
+
+Pure: no fetch, no Sanity, no env, no `new Date()` (the year is passed in), same shape as `productMatch.ts`. `availableTemplates()` returns both the **offered** ideas and the **rejected** templates with a reason — a silent gate leaves the operator unable to tell "this shop doesn't fit" from "the feature is broken".
+
+⚠️ `Best X` is **two** templates, not one. `best-cross-brand` (*Best RO Filters 2026*) promises the whole market and stays locked until Sanity really holds ≥2 stores in that category; `best-in-store` (*Best RO Filters at Frizzlife 2026*) scopes the promise to what the data proves and opens at ≥3 comparable products. Locking the whole `Best…` family would leave the first shop with almost no ideas at all.
+
+**Everything below was found by running the gate against real catalogues, not by reading the code.** The six-product fixture passed every one of these.
+
+- **Cut a title at "for"/"fits", never at the comma.** *"ASR611 Replacement Filter Cartridge **for PD1200 Reverse Osmosis System**"* is a cartridge, yet every word that identifies an RO system is in its name — uncut, it joined the RO-system group and the PD model line. But cutting at the comma too was worse: Frizzlife puts the model code right there (*"…Under-Sink Water Filter System, **DW15**"*), so DW10 and DW15 became one product, and with them MD40/MD40-2F/MD40-4F, SS99/DS99, SP99/MP99. 179 catalogue rows collapsed to 160 by losing real SKUs.
+- **A "best of" article needs an upper bound.** Without one the gate offered *Best Replacement Cartridge at Frizzlife* over **75 products**. A group that large means the shared keyword is too generic, not that the shop has plenty of choice. Range is 3–12.
+- **Rank primary products above accessories, using the data.** Sorting by size alone put two replacement-housing groups ahead of the ten tankless RO systems — the one article worth writing. An accessory almost always has to say what it fits, so `mentionsCompatibility()` supplies the signal without a hardcoded English word list.
+- **Count distinct model codes, not products.** Nine Kyoku knives sharing **VG10** steel were reported as "9 models in the VG line". The article would have been fine; the explanation shown to the operator was false, and a gate that lies once is worth less every time after.
+- **One product may appear in at most one `versus` pair.** All four suggested pairs were otherwise "M800 vs …", because M800 differs measurably from every other system.
+- **`27 5 inch` is 27.5, not 5.** 17 of 28 shops have no `/products.json`, so titles are derived from slugs and the decimal point becomes a separator. Read naively, the gate announced *"INCH differs (24 vs 5)"* — a wrong number handed to the operator, and in stage 4 a wrong number handed to the model.
+- **A splitting attribute must be a minority feature.** Requiring only "present in ≥2, absent in ≥1" picked `cartridge` (9 of 11 products) and produced *"Best Replacement Filter Inside **for Cartridge**"*. A word that names the category is not a need.
+
+Variant collapse errs deliberately towards merging: `PD600 Black` and `PD600 White` are one product, and over-merging shrinks a group (fewer ideas) while under-merging inflates one (an article that lies about how many things it compared). Known and accepted cost: two wrenches differing only in what they fit merge into one.
+
 ## Empty pages are not advertised
 Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on-site nav. The first two are now **conditional on there being content**, using the exact same filter the page itself uses:
 
@@ -473,7 +492,7 @@ Two content groups that never referenced each other now do, both riding the doma
 - **`/links` shows working coupon codes** directly (`LinkInBioCodes`), 6 rows, **one per shop**: real data has one shop with two codes (Frizzlife), and repeating a shop on a 6-row page costs another brand its slot. Codes render **exactly as stored** — production has both `OFFERDY` and `offerdy`, and some checkouts are case-sensitive, so normalising could break a code. Not sorted by clicks: at current volume that would be sorting by noise.
 
 ## Tests (`npm test`)
-106 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, and the AI caption guardrails. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it.
+153 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, the AI caption guardrails, and the article honesty gate. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it, `PD600 Black` counted as a second product, `27 5 inch` read as 5 inches.
 
 - Files: `tests/*.test.ts` using Node's built-in `node:test` + `node:assert`. **No test framework dependency.**
 - ⚠️ Run via `scripts/run-tests.mjs`, not `node --test tests/` directly. Node reads TypeScript fine, but Node's ESM demands **full file extensions** in imports (`./affiliateUrl.ts`), while the codebase uses extensionless `@/lib/...` bundler-style aliases. Changing the source to suit Node would risk the Next build, so the script bundles each test with esbuild (alias `@` → `src`, `packages: external`) into `node_modules/.cache/offerdy-tests` and runs `node --test` on the output. Tests therefore import exactly the way `src/` files import each other.
