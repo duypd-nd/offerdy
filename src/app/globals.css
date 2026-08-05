@@ -776,6 +776,32 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .oa-row-save{width:28px;height:28px;background:#16A34A;color:white;border:none;border-radius:5px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .oa-row-del{width:28px;height:28px;background:#dc2626;color:white;border:none;border-radius:5px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .oa-empty{text-align:center;padding:40px;color:#9ca3af;font-size:14px}
+
+/* Bo cuc "chon ben trai - ket qua ben phai" cho /admin/article-ideas.
+   Dat o day chu khong nhoi <style> vao trang: cung ly le voi .article-table-wrap. */
+.ai-split{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start;margin-top:18px}
+.ai-split-side{position:sticky;top:16px;max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+  background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+.ai-side-head{padding:10px;border-bottom:1px solid #e2e8f0;background:#f8fafc;flex-shrink:0}
+.ai-side-count{font-size:11px;color:#94a3b8;margin-top:6px}
+.ai-split-list{overflow-y:auto;flex:1;min-height:0}
+.ai-split-main{min-width:0}
+.ai-store-row{display:block;width:100%;text-align:left;padding:9px 12px;border:0;border-top:1px solid #f1f5f9;
+  background:transparent;cursor:pointer;font:inherit}
+.ai-store-row:first-child{border-top:0}
+.ai-store-row:hover:not(:disabled){background:#f8fafc}
+.ai-store-row:disabled{cursor:default;opacity:.55}
+.ai-store-row[aria-current="true"]{background:#f0fdf4;box-shadow:inset 3px 0 0 #16a34a}
+.ai-store-name{display:block;font-size:13px;font-weight:600;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-store-host{display:block;font-size:11px;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-store-badge{float:right;font-size:10px;font-weight:700;color:#16a34a;background:#f0fdf4;
+  border:1px solid #bbf7d0;border-radius:20px;padding:1px 6px;margin-left:6px}
+.ai-store-scanning{display:block;font-size:11px;color:#2563eb;margin-top:2px}
+/* Man hinh hep: xep chong, cot chon shop thu lai va tu cuon trong khung thap. */
+@media(max-width:900px){
+  .ai-split{grid-template-columns:1fr}
+  .ai-split-side{position:static;max-height:300px}
+}
 .oa-footer{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;flex-wrap:wrap;gap:10px;border-top:1px solid #e5e7eb}
 .oa-count{font-size:13px;color:#6b7280;display:flex;align-items:center;gap:10px}
 .oa-size-select{height:32px;width:auto;min-width:92px}

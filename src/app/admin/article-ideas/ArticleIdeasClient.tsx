@@ -33,6 +33,20 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
   const [nameError, setNameError] = useState<string | null>(null)
   const [writing, setWriting] = useState<string | null>(null)
   const [wrote, setWrote] = useState<Record<string, WriteResult | undefined>>({})
+  const [query, setQuery] = useState('')
+
+  const q = query.trim().toLowerCase()
+  const matched = q
+    ? stores.filter(s => s.name.toLowerCase().includes(q) || (s.website ?? '').toLowerCase().includes(q))
+    : stores
+  /**
+   * Chỉ dựng tối đa 80 dòng.
+   *
+   * Danh sách hiện sắp theo "chưa có bài trước", nên 80 dòng đầu đúng là việc cần
+   * làm tiếp. Vài nghìn nút trong DOM làm ô lọc gõ bị khựng, mà cuộn qua vài nghìn
+   * dòng thì cũng chẳng ai tìm được gì — lọc mới là đường dùng thật.
+   */
+  const shown = matched.slice(0, 80)
 
   const resetNames = () => {
     setNames({})
@@ -92,54 +106,68 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
   }
 
   return (
-    <div style={{ padding: '32px 28px', maxWidth: 1100 }}>
+    <div style={{ padding: '32px 28px', maxWidth: 1400 }}>
       <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0 }}>Ý tưởng bài viết từ danh mục shop</h1>
       <p style={{ fontSize: 13, color: '#94a3b8', margin: '4px 0 0', lineHeight: 1.6 }}>
-        Quét danh mục sản phẩm công khai của một shop, rồi hỏi: <b>với dữ liệu này, bài nào viết được mà không phải bịa?</b>{' '}
-        Trang này <b>chỉ đọc</b> — chưa gọi AI, chưa ghi gì vào Sanity.
+        Quét danh mục sản phẩm công khai của một shop, rồi hỏi: <b>với dữ liệu này, bài nào viết được mà không phải bịa?</b>
       </p>
       <p style={{ fontSize: 12, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '9px 12px', margin: '12px 0 0', lineHeight: 1.6 }}>
-        Tiêu đề dưới đây <b>suy từ tên sản phẩm nên còn xấu</b>. Đó là chủ đích: việc của trang này là chứng minh cổng kiểm
-        mở/đóng đúng chỗ. Bước đặt tên tử tế là chặng sau.
+        Quét là <b>chỉ đọc</b>. Tiêu đề ban đầu suy từ tên sản phẩm nên còn xấu — bấm <b>Đặt tên bằng AI</b> để đặt lại.
+        Chỉ <b>Viết bài</b> mới gọi model và tạo bản nháp trong Sanity; bản nháp <b>chưa lên site</b> cho tới khi duyệt ở{' '}
+        <Link href="/admin/ai-review" style={{ color: '#b45309', textDecoration: 'underline' }}>AI Review Queue</Link>.
       </p>
 
-      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden', marginTop: 18 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: '#f1f5f9' }}>
-              <th style={{ padding: '9px 12px', textAlign: 'left', color: '#475569' }}>Store</th>
-              <th style={{ padding: '9px 12px', textAlign: 'left', color: '#475569' }}>Website</th>
-              <th style={{ padding: '9px 12px', textAlign: 'center', color: '#475569', whiteSpace: 'nowrap' }}>Đã có bài</th>
-              <th style={{ padding: '9px 12px' }} />
-            </tr>
-          </thead>
-          <tbody>
-            {stores.map(store => (
-              <tr key={store.id} style={{ borderTop: '1px solid #e2e8f0', background: storeId === store.id ? '#f8fafc' : undefined }}>
-                <td style={{ padding: '9px 12px', fontWeight: 600, color: '#0f172a' }}>{store.name}</td>
-                <td style={{ padding: '9px 12px', color: '#64748b' }}>
-                  <a href={store.website} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }}>
-                    {store.website?.replace(/^https?:\/\//, '')}
-                  </a>
-                </td>
-                <td style={{ padding: '9px 12px', textAlign: 'center', color: store.posts ? '#16a34a' : '#cbd5e1', fontWeight: 600 }}>
-                  {store.posts}
-                </td>
-                <td style={{ padding: '9px 12px', textAlign: 'right' }}>
-                  <button
-                    className="oa-btn"
-                    disabled={scanning !== null}
-                    onClick={() => run(store)}
-                    style={{ padding: '5px 12px', fontSize: 12 }}
-                  >
-                    {scanning === store.id ? 'Đang quét…' : 'Quét'}
-                  </button>
-                </td>
-              </tr>
+      <div className="ai-split">
+        {/* Cột chọn shop: dính theo màn hình và tự cuộn riêng. Bảng nằm TRÊN kết quả
+            thì với vài nghìn store người dùng phải cuộn qua cả danh sách mới thấy
+            phần AI — đúng cái người vận hành vừa gặp. */}
+        <aside className="ai-split-side">
+          <div className="ai-side-head">
+            <input
+              className="oa-input"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Lọc theo tên hoặc website…"
+            />
+            <div className="ai-side-count">
+              {query
+                ? `${matched.length}/${stores.length} store`
+                : `${stores.length} store có website`}
+            </div>
+          </div>
+
+          <div className="ai-split-list">
+            {shown.map(store => (
+              <button
+                key={store.id}
+                className="ai-store-row"
+                aria-current={storeId === store.id}
+                disabled={scanning !== null}
+                onClick={() => run(store)}
+              >
+                <span className="ai-store-name">{store.name}</span>
+                {store.posts > 0 && <span className="ai-store-badge">{store.posts} bài</span>}
+                <span className="ai-store-host">{store.website?.replace(/^https?:\/\//, '')}</span>
+                {scanning === store.id && <span className="ai-store-scanning">Đang quét…</span>}
+              </button>
             ))}
-          </tbody>
-        </table>
-      </div>
+            {matched.length === 0 && (
+              <div style={{ padding: 14, fontSize: 12, color: '#94a3b8' }}>Không có store nào khớp.</div>
+            )}
+            {matched.length > shown.length && (
+              <div style={{ padding: '10px 12px', fontSize: 12, color: '#94a3b8', borderTop: '1px solid #f1f5f9' }}>
+                Còn {matched.length - shown.length} store nữa — gõ thêm để lọc.
+              </div>
+            )}
+          </div>
+        </aside>
+
+        <div className="ai-split-main">
+      {!scan && !scanning && (
+        <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13, border: '1px dashed #e2e8f0', borderRadius: 10 }}>
+          Chọn một shop bên trái để quét danh mục.
+        </div>
+      )}
 
       {scan && !scan.ok && (
         <div style={{ marginTop: 20, padding: '12px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b' }}>
@@ -324,6 +352,8 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
           )}
         </div>
       )}
+        </div>
+      </div>
     </div>
   )
 }
