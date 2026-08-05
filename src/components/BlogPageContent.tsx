@@ -96,9 +96,9 @@ export default function BlogPageContent({ posts, columns, showTabs = true }: { p
 
         {featured && page === 1 && (
           <Link href={`/blog/${featured.slug}`} className="blog-featured">
-            <div className="blog-featured-img" style={{ background: featured.coverBg, overflow: 'hidden', padding: featured.imageUrl ? 0 : undefined }}>
+            <div className="blog-featured-img" style={{ background: featured.imageUrl ? '#fff' : featured.coverBg, overflow: 'hidden', padding: featured.imageUrl ? 0 : undefined }}>
               {featured.imageUrl
-                ? <Image src={featured.imageUrl} alt={featured.title} fill sizes="(max-width: 768px) 100vw, 600px" style={{ objectFit: 'cover' }} priority />
+                ? <Image src={featured.imageUrl} alt={featured.title} fill sizes="(max-width: 768px) 100vw, 600px" style={{ objectFit: 'contain' }} priority />
                 : featured.coverEmoji}
             </div>
             <div className="blog-featured-body">
@@ -126,9 +126,12 @@ export default function BlogPageContent({ posts, columns, showTabs = true }: { p
             <div className="blog-grid" style={{ gridTemplateColumns: `repeat(${columns ?? 3}, 1fr)` }}>
               {paginatedRest.map(post => (
                 <Link key={post.id} href={`/blog/${post.slug}`} className="blog-card">
-                  <div className="blog-card-img" style={{ background: post.coverBg, overflow: 'hidden', padding: post.imageUrl ? 0 : undefined }}>
+                  {/* Anh san pham thi de nen TRANG + `contain`: anh shop gan nhu luon
+                      chup tren nen trang, nen nhin lien mach, va khong bi cat. Khong co
+                      anh thi giu gradient lam nen cho emoji. */}
+                  <div className="blog-card-img" style={{ background: post.imageUrl ? '#fff' : post.coverBg, overflow: 'hidden', padding: post.imageUrl ? 0 : undefined }}>
                     {post.imageUrl
-                      ? <Image src={post.imageUrl} alt={post.title} fill sizes="(max-width: 768px) 33vw, 360px" style={{ objectFit: 'cover' }} />
+                      ? <Image src={post.imageUrl} alt={post.title} fill sizes="(max-width: 768px) 33vw, 360px" style={{ objectFit: 'contain' }} />
                       : post.coverEmoji}
                   </div>
                   <div className="blog-card-body">

@@ -925,9 +925,19 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 
 /* ── BLOG ── */
 .blog-layout{max-width:1280px;margin:0 auto;padding:0 24px 72px}
-.blog-featured{display:grid;grid-template-columns:1fr 1fr;gap:0;background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-top:36px;margin-bottom:36px;transition:box-shadow .25s,transform .25s}
+.blog-featured{display:grid;grid-template-columns:minmax(0,380px) 1fr;gap:0;background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-top:36px;margin-bottom:36px;transition:box-shadow .25s,transform .25s}
 .blog-featured:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px)}
-.blog-featured-img{height:100%;min-height:300px;display:flex;align-items:center;justify-content:center;font-size:100px;position:relative}
+/* ⚠️ Khung VUONG + anh `contain`, khong phai `cover`.
+   Anh trong bai la anh SAN PHAM lay tu shop. Khung 2:1 voi `cover` cat mat dau va
+   chan cai ao, cat doi chai son — tuc cat dung cai thu nguoi doc can nhin. San pham
+   tren Shopify gan nhu luon la anh vuong, nen khung vuong vua khop; con `contain` lo
+   not cac anh le ty le khac: tha de vien trang con hon cat mat mon hang. */
+/* ⚠️ `align-self:start` la phan bat buoc, khong phai trang tri. O grid, mac dinh
+   `align-items:stretch` KEO item cao bang hang, va luc do `aspect-ratio` bi bo qua —
+   do duoc luc 615x615 luc 615x339 tuy khi nao chu kip render xong. Ghim `start` thi
+   o anh moi that su vuong. Cot anh cung bi gioi han 380px: 1fr o layout 1280 cho ra
+   o vuong 615px, cao gap doi cot chu va de lai mot mang trong lon. */
+.blog-featured-img{aspect-ratio:1/1;height:auto;align-self:start;display:flex;align-items:center;justify-content:center;font-size:100px;position:relative}
 .blog-featured-body{padding:36px 36px 32px;display:flex;flex-direction:column;justify-content:center}
 .blog-cat{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:99px;margin-bottom:14px}
 .cat-tips{background:rgba(34,197,94,.1);color:var(--green-dark)}
@@ -946,7 +956,7 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .blog-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
 .blog-card{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;transition:box-shadow .25s,transform .25s,border-color .25s;display:flex;flex-direction:column}
 .blog-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-3px);border-color:transparent}
-.blog-card-img{aspect-ratio:2/1;height:auto;display:flex;align-items:center;justify-content:center;font-size:56px;position:relative}
+.blog-card-img{aspect-ratio:1/1;height:auto;display:flex;align-items:center;justify-content:center;font-size:56px;position:relative}
 .blog-card-body{padding:18px 20px 20px;flex:1;display:flex;flex-direction:column}
 .blog-card-title{font-family:var(--font-d),system-ui,sans-serif;font-size:15px;font-weight:800;letter-spacing:-.3px;color:var(--text);line-height:1.3;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .blog-card-excerpt{font-size:12px;color:var(--muted);line-height:1.65;flex:1;display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:14px}
@@ -971,7 +981,6 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
   .hero h1{letter-spacing:-1.5px}
   .footer-top{grid-template-columns:1fr 1fr}
   .blog-featured{grid-template-columns:1fr}
-  .blog-featured-img{min-height:200px}
   .blog-grid{grid-template-columns:repeat(2,1fr)!important}
 }
 @media(max-width:520px){

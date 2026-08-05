@@ -209,12 +209,16 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               <span>⏱ {post.readTime} min read</span>
             </div>
 
+            {/* ⚠️ Khung VUONG + `contain`. Truoc day la 21/9 + `cover` — mot ty le
+                phong canh ap len anh SAN PHAM, nen no cat mat dau va chan cai ao, cat
+                doi chai son. Anh Shopify gan nhu luon vuong nen khung vuong vua khop;
+                `contain` lo not cac anh le ty le khac. */}
             <div className="article-hero-img" style={post.imageUrl
-              ? { position: 'relative', aspectRatio: '21/9', overflow: 'hidden' }
+              ? { position: 'relative', aspectRatio: '1/1', overflow: 'hidden', background: '#fff' }
               : { background: post.coverBg }
             }>
               {post.imageUrl
-                ? <Image src={post.imageUrl} alt={post.title} fill sizes="(max-width: 900px) 100vw, 760px" style={{ objectFit: 'cover' }} priority />
+                ? <Image src={post.imageUrl} alt={post.title} fill sizes="(max-width: 900px) 100vw, 520px" style={{ objectFit: 'contain' }} priority />
                 : post.coverEmoji}
             </div>
 
