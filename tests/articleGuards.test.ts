@@ -28,7 +28,7 @@ function article(over: Partial<ArticleContent> = {}): ArticleContent {
     title: 'PD600-TAM3 vs PX600 Reverse Osmosis Systems',
     excerpt: 'Which tankless system fits your sink.',
     contentHtml:
-      '<h2>The choice</h2><p>[PRODUCT:1] and [PRODUCT:2] both run tankless. [IMAGE:1]</p>' +
+      '<h2>The choice</h2><p>[PRODUCT:1] and [PRODUCT:2] both run tankless. [IMAGE:1] [IMAGE:2]</p>' +
       '<p>[TABLE]</p><p>Buy [CTA:1] or [CTA:2] at [PRICE:1] and [PRICE:2].</p>',
     metaTitle: 'PD600-TAM3 vs PX600 Water Filters',
     metaDescription: 'A side by side look at two tankless systems.',
@@ -126,6 +126,26 @@ test('⚠️ san pham khong co [CTA:n] nao -> loi cung', () => {
     ctx
   )
   assert.match(p.hard.join(' '), /sản phẩm 2 không có \[CTA:n\] nào/)
+})
+
+test('⚠️ san pham cao duoc anh ma bai khong dat [IMAGE:n] -> loi cung', () => {
+  // Bai so sanh ma vai san pham khong co hinh thi nguoi doc khong so duoc bang mat —
+  // ma dat canh nhau chinh la ly do bai ton tai.
+  const p = findUnsafeArticle(
+    article({ contentHtml: '<p>[IMAGE:1] only. [CTA:1] [CTA:2] [PRICE:1]</p>' }),
+    ctx
+  )
+  assert.match(p.hard.join(' '), /sản phẩm 2 không có \[IMAGE:n\] nào dù đã cào được ảnh/)
+})
+
+test('san pham KHONG cao duoc anh nao -> canh bao mem, khong chan bai', () => {
+  // Do la van de du lieu, khong phai loi cua model.
+  const p = findUnsafeArticle(
+    article({ contentHtml: '<p>[IMAGE:1] x. [CTA:1] [CTA:2] [PRICE:1]</p>' }),
+    { ...ctx, imageCounts: [3, 0] }
+  )
+  assert.deepEqual(p.hard, [])
+  assert.match(p.soft.join(' '), /sản phẩm 2 không cào được ảnh nào/)
 })
 
 test('[IMAGE:n] cho san pham khong cao duoc anh -> loi cung', () => {

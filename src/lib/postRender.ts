@@ -81,6 +81,29 @@ export function renderPriceTokens(html: string, products: RenderProduct[]): stri
   })
 }
 
+/**
+ * Cat anh ngay tai CDN cua shop.
+ *
+ * Do that tren bai Frizzlife: anh goc **1614x1614** duoc do vao mot o rong **300px**.
+ * The `<img>` o day khong di qua `next/image` (no nam trong HTML sinh ra), nen khong
+ * ai cat ho — dung kieu ro ri ma du an da vet mot lan o anh Sanity.
+ *
+ * ⚠️ CHI them tham so khi biet chac CDN hieu no. Nhet mot tham so la vao URL anh la
+ * cach lam vo anh — chinh vi vay `getStoreRefForHtml` co y khong dung toi `<img src>`.
+ * `cdn.shopify.com` co `width` la tham so chinh thuc; host khac thi de nguyen.
+ */
+export function cappedImageUrl(url: string, width = 700): string {
+  try {
+    const u = new URL(url)
+    if (u.hostname !== 'cdn.shopify.com') return url
+    if (u.searchParams.has('width')) return url
+    u.searchParams.set('width', String(width))
+    return u.toString()
+  } catch {
+    return url
+  }
+}
+
 function productLink(p: RenderProduct, label: string, className: string): string {
   // Tham so tiep thi KHONG gan o day — `getStoreRefForHtml` chay sau va gan cho moi
   // <a> trong than bai. Gan hai noi la co hai cho de lech.
@@ -119,10 +142,27 @@ export function renderPostTokens(html: string, opts: RenderOptions): string {
 
   out = out.replaceAll('[TABLE]', renderTable(opts.comparisonRows ?? [], products))
 
+  /**
+   * Anh san pham ra mot khoi NOI, so le trai/phai theo so thu tu san pham.
+   *
+   * Vi sao dung `float` chu khong phai grid: model viet HTML tu do, minh khong biet
+   * doan chu nao thuoc ve san pham nao. `float` khong doi biet dieu do — chu nao dung
+   * sau the anh se tu chay quanh no. San pham le nam trai, chan nam phai, thanh bo cuc
+   * zic-zac ma khong phai dong khuon cau truc bai.
+   *
+   * `<h2>`/`<h3>` duoc dat `clear:both` trong globals.css, nen moi muc bat dau sach.
+   */
   out = out.replace(/\[IMAGE:(\d+)\]/g, (_w, i: string) => {
-    const p = products[Number(i) - 1]
+    const n = Number(i)
+    const p = products[n - 1]
     if (!p?.imageUrl) return ''
-    return `<img class="article-img" src="${esc(p.imageUrl)}" alt="${esc(p.title)}" loading="lazy" />`
+    const side = n % 2 === 1 ? 'left' : 'right'
+    return (
+      `<figure class="article-figure article-figure--${side}">` +
+      `<img src="${esc(cappedImageUrl(p.imageUrl))}" alt="${esc(p.title)}" loading="lazy" />` +
+      `<figcaption>${esc(p.title)}</figcaption>` +
+      `</figure>`
+    )
   })
 
   out = out.replace(/\[PRODUCT:(\d+)\]/g, (_w, i: string) => {

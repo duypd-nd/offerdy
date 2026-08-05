@@ -138,7 +138,10 @@ Shop discount code: ${input.hasCoupon ? 'the shop has a working code — you may
 
 There are ${input.products.length} source products. comparisonRows must have exactly ${input.products.length} values per row, in this order.
 
-REQUIRED TOKENS — the body is rejected outright if any of these is missing: ${input.products.map(p => `[CTA:${p.n}]`).join(', ')}. Each product needs its own buy button; without one, that product has no way to be bought.
+REQUIRED TOKENS — the body is rejected outright if any of these is missing: ${[
+    ...input.products.map(p => `[CTA:${p.n}]`),
+    ...input.products.filter(p => p.imageCount > 0).map(p => `[IMAGE:${p.n}]`),
+  ].join(', ')}. Each product needs its own buy button and its own picture: a product a reader cannot see and cannot buy is a product the article failed to cover.
 
 ${input.products.map(productBlock).join('\n\n')}`
 }
@@ -271,6 +274,7 @@ export function findUnsafeArticle(a: ArticleContent, ctx: ArticleGuardContext): 
 
   // ── The: ten hop le, chi so trong pham vi ──
   const ctaSeen = new Set<number>()
+  const imageSeen = new Set<number>()
   for (const m of a.contentHtml.matchAll(TAG_RE)) {
     const [whole, name, index] = m
     if (!(ARTICLE_TAGS as readonly string[]).includes(name)) {
@@ -294,12 +298,35 @@ export function findUnsafeArticle(a: ArticleContent, ctx: ArticleGuardContext): 
       hard.push(`thẻ "${whole}" nhưng sản phẩm ${n} không cào được ảnh nào`)
     }
     if (name === 'CTA') ctaSeen.add(n)
+    if (name === 'IMAGE') imageSeen.add(n)
   }
 
+  const everyProduct = Array.from({ length: ctx.productCount }, (_, i) => i + 1)
+
   // ⚠️ Moi san pham phai co it nhat mot duong mua.
-  const noCta = Array.from({ length: ctx.productCount }, (_, i) => i + 1).filter(n => !ctaSeen.has(n))
+  const noCta = everyProduct.filter(n => !ctaSeen.has(n))
   if (noCta.length) {
     hard.push(`sản phẩm ${noCta.join(', ')} không có [CTA:n] nào — người đọc không có đường mua`)
+  }
+
+  /**
+   * ⚠️ Va moi san pham phai co it nhat mot ANH RIENG.
+   *
+   * Bai so sanh ma vai san pham khong co hinh thi nguoi doc khong so duoc bang mat —
+   * chinh viec dat canh nhau la ly do bai ton tai. Day la loi CUNG vi model thoa man
+   * no chi bang cach dat them mot the, y het luat [CTA:n].
+   *
+   * Chi doi voi san pham CO anh cao duoc: khong cao duoc anh nao la van de du lieu,
+   * khong phai loi cua model — cai do bao mem o duoi.
+   */
+  const noImage = everyProduct.filter(n => (ctx.imageCounts[n - 1] ?? 0) > 0 && !imageSeen.has(n))
+  if (noImage.length) {
+    hard.push(`sản phẩm ${noImage.join(', ')} không có [IMAGE:n] nào dù đã cào được ảnh — người đọc không nhìn thấy món hàng`)
+  }
+
+  const noPhotoAtAll = everyProduct.filter(n => (ctx.imageCounts[n - 1] ?? 0) === 0)
+  if (noPhotoAtAll.length) {
+    soft.push(`sản phẩm ${noPhotoAtAll.join(', ')} không cào được ảnh nào — bài sẽ thiếu hình cho những sản phẩm đó`)
   }
 
   if (!ctx.hasCoupon && a.contentHtml.includes('[COUPON]')) {

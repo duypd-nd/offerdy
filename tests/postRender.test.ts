@@ -9,7 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   renderPostTokens, renderCouponToken, renderPriceTokens, remainingTokens,
-  formatPrice, priceNote, type RenderProduct,
+  formatPrice, priceNote, cappedImageUrl, type RenderProduct,
 } from '@/lib/postRender'
 
 const products: RenderProduct[] = [
@@ -91,6 +91,30 @@ test('[IMAGE:n] cho san pham khong co anh -> bien mat chu khong ra the <img> hon
   const out = renderPostTokens('<p>[IMAGE:2]</p>', { products })
   assert.ok(!out.includes('<img'))
   assert.ok(!out.includes('[IMAGE:2]'))
+})
+
+test('cat anh o CDN — nhung CHI khi biet chac CDN hieu tham so do', () => {
+  // Do that: anh goc 1614x1614 do vao o rong 300px, va the <img> nay khong di qua
+  // next/image nen khong ai cat ho.
+  assert.match(cappedImageUrl('https://cdn.shopify.com/s/files/1/x/PD400.png?v=17579'), /width=700/)
+  // Host khac thi de nguyen: nhet tham so la vao URL anh la cach lam vo anh.
+  assert.equal(cappedImageUrl('https://example.com/a.png'), 'https://example.com/a.png')
+  // Da co `width` san thi khong ghi de.
+  assert.equal(
+    cappedImageUrl('https://cdn.shopify.com/a.png?width=200'),
+    'https://cdn.shopify.com/a.png?width=200'
+  )
+  // URL rac thi tra ve nguyen ven, khong nem loi.
+  assert.equal(cappedImageUrl('khong-phai-url'), 'khong-phai-url')
+})
+
+test('anh san pham ra khoi noi, SO LE trai/phai theo so thu tu', () => {
+  const withImages = [products[0], { ...products[1], imageUrl: 'https://cdn.shopify.com/pd600.png' }]
+  const out = renderPostTokens('<p>[IMAGE:1]</p><p>[IMAGE:2]</p>', { products: withImages })
+  assert.match(out, /article-figure article-figure--left/)
+  assert.match(out, /article-figure article-figure--right/)
+  // Ten san pham lam chu thich duoi anh.
+  assert.match(out, /<figcaption>Frizzlife PD400<\/figcaption>/)
 })
 
 test('[TABLE] dung kieu bang chung cua globals.css', () => {
