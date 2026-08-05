@@ -395,6 +395,25 @@ Pure: no fetch, no Sanity, no env, no `new Date()` (the year is passed in), same
 
 ⚠️ The paste box immediately exposed a real hole: four Frizzlife URLs (`pd600-tam3`, `px600`, `pd1000-n`, `pd800-n`) produced **zero** ideas. Shopify handles are bare SKUs, so no two share a word, so no token group forms — and model-line detection only ever looked *inside* groups, which made the PD line invisible on a set that is entirely comparable. With 17 of 28 shops deriving titles from slugs this is not a corner case. Line detection now also runs over the whole catalogue; `ownModelCode` keeps it safe, since a cartridge named *"ASR611 … for PD1200"* carries `asr611`, not `pd1200`.
 
+## Naming the ideas — the first model call in the pipeline (`src/lib/ai/nameArticleIdeas.ts`)
+The gate decides *whether* an article may exist; the model only decides what it is *called*. One call per shop scan, not per idea — naming is the act of telling a set of articles apart, and calling them one at a time costs N times as much and yields N near-identical titles.
+
+The action **re-runs the gate server-side** rather than accepting the idea list back from the browser. It costs one extra catalogue read and it keeps the thing that matters: the model can never be handed an idea the gate did not approve. Accepting the list from the client would build a bypass into the middle of a `gate → model → post-check` architecture, and a bypass that exists eventually gets used.
+
+`findUnsafeIdea` requires **every word** of a title to trace back to a source product name, the shop name, the year, or a short list of connectives. It also rejects: the word "Offerdy" (the template appends the brand), a year that is not this year or next, a number that is neither in a source name nor the exact product count (*"The 5 Best…"* over four products is a false claim about the article's own contents), and — for `best-in-store` / `best-for` — a title that drops the shop name, which silently turns "the best this shop sells" into "the best on the market".
+
+A rejected name **falls back to the working title**; it is never repaired. A title just caught asserting something absent from the data is not trustworthy in its remaining parts — the same reasoning by which `generateCaptions` discards a whole variant.
+
+`metaTitle` is produced too, hard-capped at **50 characters**: `titleTemplate` is `%s | Offerdy` (10 characters) against Google's ~60. Counted in characters, not bytes — counting bytes once reported 32 over-long pages when the truth was 30.
+
+**Three failures found by running it for real, none visible from the code:**
+
+- **`max_tokens: 4096` was not enough for ~1000 tokens of output.** Sonnet 5 enables adaptive thinking when `thinking` is not declared, and `max_tokens` caps **thinking plus text together**. The first live run burned 35 seconds and returned `stop_reason: max_tokens` with nothing usable. Now 12000. Sizing this budget from the expected output length is the wrong method. It failed loudly only because `stop_reason` is checked — quietly accepting half an answer is the worst available outcome.
+- **The model dropped the shop name from all 3 of 3 `best-in-store` titles.** The rule was in the system prompt and was ignored completely; the post-check caught every one, which is the design working, but a template rejected 100% of the time ships nothing. The instruction now sits next to each idea's own data as a `REQUIRED:` line. This is the live proof of the note at `generateCaption.ts:238` — *a prompt can be ignored; a check cannot*.
+- **Two false alarms, both worse than they look.** Source titles write `600GPD` as one token, so a truthful *"600 vs 1000 GPD"* was refused; each token now also contributes its letter runs and digit runs. And `RO` was refused while the source spelled out *"Reverse Osmosis"* — an initialism of a phrase that really is in the source is now accepted. ⚠️ Initialisms are derived from **that article's own source products**, never from the whole catalogue: product names routinely mention rival brands in compatibility text (*"replaces Waterdrop WD-G3"*), and widening the vocabulary that far would licence naming an article after a brand the site does not sell.
+
+Result on Frizzlife, driven through real Chrome: **12 of 12 named, none rejected**, every `metaTitle` under 50 characters, about 60 seconds per run.
+
 Variant collapse errs deliberately towards merging: `PD600 Black` and `PD600 White` are one product, and over-merging shrinks a group (fewer ideas) while under-merging inflates one (an article that lies about how many things it compared). Known and accepted cost: two wrenches differing only in what they fit merge into one.
 
 ## Empty pages are not advertised
@@ -498,7 +517,7 @@ Two content groups that never referenced each other now do, both riding the doma
 - **`/links` shows working coupon codes** directly (`LinkInBioCodes`), 6 rows, **one per shop**: real data has one shop with two codes (Frizzlife), and repeating a shop on a 6-row page costs another brand its slot. Codes render **exactly as stored** — production has both `OFFERDY` and `offerdy`, and some checkouts are case-sensitive, so normalising could break a code. Not sorted by clicks: at current volume that would be sorting by noise.
 
 ## Tests (`npm test`)
-154 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, the AI caption guardrails, and the article honesty gate. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it, `PD600 Black` counted as a second product, `27 5 inch` read as 5 inches.
+170 assertions over the pure logic that carries the most risk: affiliate URL building, deal↔store matching, product-title matching, the AI caption guardrails, and the article honesty gate. **Every case corresponds to a bug that actually happened** — the per-shop ref codes, the cross-domain refusal, the `javascript:` scheme, the `PD1200`→`FCR100` mismatch, the model announcing a coupon without giving it, `PD600 Black` counted as a second product, `27 5 inch` read as 5 inches.
 
 - Files: `tests/*.test.ts` using Node's built-in `node:test` + `node:assert`. **No test framework dependency.**
 - ⚠️ Run via `scripts/run-tests.mjs`, not `node --test tests/` directly. Node reads TypeScript fine, but Node's ESM demands **full file extensions** in imports (`./affiliateUrl.ts`), while the codebase uses extensionless `@/lib/...` bundler-style aliases. Changing the source to suit Node would risk the Next build, so the script bundles each test with esbuild (alias `@` → `src`, `packages: external`) into `node_modules/.cache/offerdy-tests` and runs `node --test` on the output. Tests therefore import exactly the way `src/` files import each other.

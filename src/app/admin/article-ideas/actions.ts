@@ -9,6 +9,8 @@ import {
   type IdeaProduct,
   type RejectedIdea,
 } from '@/lib/articleIdeas'
+import { nameArticleIdeas, type IdeaName } from '@/lib/ai/nameArticleIdeas'
+import { describeAiError } from '@/lib/ai/describeAiError'
 
 export type IdeaScanResult =
   | {
@@ -102,6 +104,36 @@ export async function scanPastedUrls(storeId: string, pasted: string): Promise<I
   }
 
   return runGate(store.name, products, 'manual', products.length)
+}
+
+export type NameActionResult =
+  | { ok: true; named: IdeaName[]; rejected: { key: string; reason: string }[] }
+  | { ok: false; error: string }
+
+/**
+ * Dat ten cho nhung y tuong cong da mo. MOT lenh goi model cho ca lan quet.
+ *
+ * ⚠️ Chay lai cong kiem tu dau thay vi nhan danh sach y tuong tu trinh duyet gui
+ * len. Ton them mot lan doc danh muc, nhung giu duoc dieu quan trong nhat: **model
+ * khong bao gio duoc trao mot y tuong ma cong chua duyet.** Nhan danh sach tu client
+ * la de mot duong vong quanh cong ngay trong kien truc "cong kiem -> model -> hau
+ * kiem" — va mot duong vong ton tai thi som muon co nguoi di qua no.
+ */
+export async function nameScannedIdeas(storeId: string, pasted?: string): Promise<NameActionResult> {
+  const scan = pasted?.trim() ? await scanPastedUrls(storeId, pasted) : await scanStoreIdeas(storeId)
+  if (!scan.ok) return { ok: false, error: scan.error }
+  if (!scan.offered.length) return { ok: false, error: 'Không có ý tưởng nào để đặt tên.' }
+
+  try {
+    const result = await nameArticleIdeas({
+      ideas: scan.offered,
+      storeName: scan.storeName,
+      year: new Date().getFullYear(),
+    })
+    return { ok: true, named: result.named, rejected: result.rejected }
+  } catch (err) {
+    return { ok: false, error: describeAiError(err) }
+  }
 }
 
 function runGate(

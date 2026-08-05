@@ -5,6 +5,7 @@ import { writeClient } from '@/sanity/writeClient'
 import { uploadImageFromUrl } from '@/lib/safeFetch'
 import { scrapeProductPage, type ScrapedProduct } from '@/lib/ai/scrapeProductPage'
 import { generateReviewContent, PRODUCT_GRADIENTS } from '@/lib/ai/generateReviewContent'
+import { describeAiError } from '@/lib/ai/describeAiError'
 
 function revalidateReviews() {
   revalidatePath('/admin/reviews')
@@ -142,13 +143,3 @@ export async function generateReviewDraft(input: {
   }
 }
 
-function describeAiError(err: unknown): string {
-  const message = err instanceof Error ? err.message : String(err)
-  if (message.includes('Overloaded') || (err && typeof err === 'object' && 'status' in err && (err as { status?: number }).status === 529)) {
-    return 'Máy chủ AI đang quá tải, vui lòng thử lại sau ít phút.'
-  }
-  if (message.includes('Failed to parse structured output')) {
-    return 'AI trả về nội dung chưa đúng định dạng sau nhiều lần thử. Vui lòng bấm "Viết bài bằng AI" để thử lại.'
-  }
-  return `Không thể tạo bài viết bằng AI: ${message}`
-}

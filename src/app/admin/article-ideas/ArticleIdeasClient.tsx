@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { scanStoreIdeas, scanPastedUrls, type IdeaScanResult } from './actions'
+import { scanStoreIdeas, scanPastedUrls, nameScannedIdeas, type IdeaScanResult } from './actions'
 import type { StoreRow } from './page'
+
+type Named = { title: string; metaTitle: string }
 
 /** Mau nao ung mau nay — de nhin luot la phan biet duoc loai bai. */
 const TEMPLATE_COLOR: Record<string, string> = {
@@ -24,12 +26,23 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
   const [storeId, setStoreId] = useState<string | null>(null)
   const [pasted, setPasted] = useState('')
   const [showPaste, setShowPaste] = useState(false)
+  const [names, setNames] = useState<Record<string, Named>>({})
+  const [nameRejected, setNameRejected] = useState<Record<string, string>>({})
+  const [naming, setNaming] = useState(false)
+  const [nameError, setNameError] = useState<string | null>(null)
+
+  const resetNames = () => {
+    setNames({})
+    setNameRejected({})
+    setNameError(null)
+  }
 
   const run = async (store: StoreRow) => {
     setScanning(store.id)
     setStoreId(store.id)
     setScan(null)
     setShowPaste(false)
+    resetNames()
     setScan(await scanStoreIdeas(store.id))
     setScanning(null)
   }
@@ -38,8 +51,24 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
     if (!storeId) return
     setScanning(storeId)
     setScan(null)
+    resetNames()
     setScan(await scanPastedUrls(storeId, pasted))
     setScanning(null)
+  }
+
+  const runNaming = async () => {
+    if (!storeId) return
+    setNaming(true)
+    resetNames()
+    const usedPaste = scan?.ok && scan.source === 'manual'
+    const result = await nameScannedIdeas(storeId, usedPaste ? pasted : undefined)
+    setNaming(false)
+    if (!result.ok) {
+      setNameError(result.error)
+      return
+    }
+    setNames(Object.fromEntries(result.named.map(n => [n.key, { title: n.title, metaTitle: n.metaTitle }])))
+    setNameRejected(Object.fromEntries(result.rejected.map(r => [r.key, r.reason])))
   }
 
   return (
@@ -146,7 +175,23 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
             <div>
               <b style={{ color: scan.offered.length ? '#16a34a' : '#94a3b8' }}>{scan.offered.length}</b> ý tưởng
             </div>
+            {scan.offered.length > 0 && (
+              <button
+                className="oa-btn oa-btn-primary"
+                onClick={runNaming}
+                disabled={naming || scanning !== null}
+                style={{ marginLeft: 'auto', padding: '5px 12px', fontSize: 12 }}
+              >
+                {naming ? 'Đang đặt tên…' : 'Đặt tên bằng AI'}
+              </button>
+            )}
           </div>
+
+          {nameError && (
+            <div style={{ marginTop: 12, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b' }}>
+              {nameError}
+            </div>
+          )}
 
           {scan.offered.length === 0 && (
             <div style={{ marginTop: 16, fontSize: 13, color: '#64748b', lineHeight: 1.7 }}>
@@ -154,13 +199,31 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
             </div>
           )}
 
-          {scan.offered.map(idea => (
+          {scan.offered.map(idea => {
+            const named = names[idea.key]
+            const refused = nameRejected[idea.key]
+            return (
             <div key={idea.key} style={{ marginTop: 14, border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
               <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: '#fff', background: TEMPLATE_COLOR[idea.template] ?? '#64748b', padding: '2px 8px', borderRadius: 20 }}>
                 {idea.label}
               </span>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '8px 0 4px' }}>{idea.workingTitle}</div>
-              <div style={{ fontSize: 12, color: '#16a34a' }}>{idea.why}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', margin: '8px 0 4px' }}>
+                {named?.title ?? idea.workingTitle}
+              </div>
+              {named && (
+                <>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                    <span style={{ color: '#94a3b8' }}>metaTitle ({[...named.metaTitle].length}/50):</span> {named.metaTitle}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#cbd5e1', marginTop: 2 }}>tên tạm trước đó: {idea.workingTitle}</div>
+                </>
+              )}
+              {refused && (
+                <div style={{ fontSize: 12, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '6px 10px', margin: '6px 0 0', lineHeight: 1.6 }}>
+                  ⚠️ Tên do AI đặt <b>bị hậu kiểm loại</b>, giữ nguyên tên tạm — {refused}
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: '#16a34a', marginTop: 4 }}>{idea.why}</div>
               <details style={{ marginTop: 8 }}>
                 <summary style={{ fontSize: 12, color: '#64748b', cursor: 'pointer' }}>
                   {idea.products.length} sản phẩm nguồn
@@ -175,7 +238,8 @@ export default function ArticleIdeasClient({ stores }: { stores: StoreRow[] }) {
                 </ul>
               </details>
             </div>
-          ))}
+            )
+          })}
 
           {scan.rejected.length > 0 && (
             <div style={{ marginTop: 26 }}>
