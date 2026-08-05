@@ -810,6 +810,45 @@ The deal form used to tell the operator *"Giá gốc phải tự nhập, shop h�
 - `.adm-page`, `.adm-stat-row`, `.adm-two-col`, `.adm-health-grid` replace the hard-coded inline `grid-template-columns` on the dashboard and report pages — inline styles cannot be overridden by a media query
 - heights use `100dvh`, not `100vh` (mobile address bar)
 
+## ⚠️ One price parser, because there were five (`src/lib/priceAmount.ts`)
+Prices are stored as display strings (`"€199,99"`, `"$1,299.99"`, `"Rp4.961.899"`). Five places pulled the number out with `parseFloat(s.replace(/[^0-9.]/g,''))`, which **throws the comma away instead of reading it**. Measured on this project's own data:
+
+| stored | old label | truth |
+|---|---|---|
+| €199,99 → €149,99 | `Save €5000` | €50 |
+| ₫250.000 → ₫200.000 | `Save ₫50` | ₫50.000 |
+| Rp4.961.899 → Rp3.961.899 | `Save Rp1` | Rp1.000.000 |
+
+The wrong number did not stay in the admin form: `dealDiscountBadge` prints it on deal cards, OG images and social captions, and `parsePrice` feeds it to **structured data** (a price that disagrees with the shop's is a rich-result violation — and that call site also hard-coded `priceCurrency: 'USD'` for a deal priced in €).
+
+**Percentages survived the bug because they are a ratio** — both prices scaled by 100, so the quotient held. Right by luck, which is why it sat unnoticed until someone ticked "hiện theo số tiền".
+
+- decimal vs thousands rule is in the file; the one genuinely ambiguous case (`$1.500`) reads as thousands, because reading it the other way makes **every** VND/IDR price wrong by 1000×
+- unreadable → `null`, never `0`: a silent zero becomes `Save €200`
+- the symbol always comes from the price string itself, including the admin label (`Giảm € (tự tính)`)
+- **no `Math.round`** — rounding turned €50,50 into `Save €51`, overstating a discount in public
+
+## Article body: product cards, not floating images (`renderPostTokens`)
+`[IMAGE:n]` used to emit a `float`ed figure. In a 9-product article the image of one product lands beside prose about another, and the caption cannot fix it (it sits *below* the image, the text sits *beside* it). Now each `[IMAGE:n]` becomes a full-width card carrying image + **name** + price + buy button, so the pairing is unambiguous and no text hugs an image edge.
+
+`[CTA:n]` is split by position, and this is the part that matters:
+- **trailing at the end of a `<p>`** = a standalone buy path → its own card (or dropped if that product already has one; two buttons for one product is what made the old page a mess). Model output like `… purely visual. [CTA:3] [CTA:4]` used to render two text links separated by one space — read as a single meaningless name.
+- **genuinely mid-sentence** → an inline text link labelled with the product name, so the sentence still reads.
+
+`[IMAGE:n]` inside a paragraph splits the paragraph first: the card is a `<div>`, and a `<div>` inside `<p>` makes the browser close the `<p>` early, dumping the rest outside it.
+
+## Sidebar: related, not recent (`src/lib/relatedPosts.ts`)
+Same-store **+6** (the money signal — same shopping session, same coupon, same ref), real title-word overlap **+1 each, capped at 3** so a long title cannot outrank a same-store post, headline filler (`best`, `at`, `2026`) excluded.
+
+⚠️ **Same category alone is not related** — it is only a tie-breaker. The article pipeline files *every* post under `Comparison`, so scoring it made nail polish "related" to baby swimwear.
+
+Two boxes, never merged: "Related Posts" (disappears when empty) then "Recent Posts" fills the rest. Putting unrelated posts under a "Related" heading lies to the reader on their first click; leaving the column nearly empty leaves them nowhere to go — this repo hits both, since a store may have only two posts.
+
+Blog sidebar thumbs are now the same 96px square as review thumbs. The old 128×64 came from when blog covers were text banners; covers are product photos now, and a flat box crops the product's head and feet.
+
+## Batch article writing (`/admin/article-ideas`)
+Tick several ideas, write them in one go. **Deliberately not one server action for the whole batch**: `ai-content-nightly` already taught this project that bundling many model calls into one function means the function gets killed mid-run and *everything* is lost. Each article is its own request, so whatever finished is safely stored. Sequential, not parallel — every article scrapes several pages of the *same* shop, and four concurrent crawls is the fastest way to get the IP blocked. One failure does not stop the batch. "Dừng" stops *after* the current article rather than abandoning work already paid for.
+
 ## Shared Components
 - `src/app/admin/_legal/LegalForm.tsx` — shared admin form for all 4 legal pages
 - `src/app/admin/_legal/actions.ts` — `saveLegalPage(configId, pagePath, data)` / `getLegalPage(configId)`
