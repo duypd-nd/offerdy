@@ -330,3 +330,62 @@ test('moi tu trong tieu de tam deu truy nguoc duoc ve danh muc, ten shop hoac na
     }
   }
 })
+
+// ── Hai bai khong duoc dung chung mot bo san pham ─────────────────────
+//
+// ⚠️ Do that tren 48 bai da dang: ba cap bai dung BO SAN PHAM Y HET NHAU (HWWH 9/9,
+// Tova 8/8, Hunny Life 5/5), va ca ba deu la mot bai `best-in-store` di cung mot bai
+// `best-for` sinh ra tu chinh nhom do. Dat ten khac nhau cho hai trang cung noi dung
+// chi la giau chuyen do di — chung van canh tranh nhau tren cung mot truy van.
+
+/** Nhom 8 xe cung loai; 3 chiec mang them chu "dual" — dac diem thieu so. */
+const scooters: IdeaProduct[] = [
+  'dual drive smart adult electric scooter p5',
+  'dual drive smart adult electric scooter p10',
+  'dual drive smart adult electric scooter x9',
+  'smart adult electric scooter x14',
+  'smart adult electric scooter x7',
+  'smart adult electric scooter x5',
+  'smart adult electric scooter s3',
+  'smart adult electric scooter p3',
+].map((title, i) => ({ title: `HWWH ${title}`, url: `https://hwwh.com/products/s${i}` }))
+
+test('best-for viet tren TAP CON mang dac diem, khong phai ca nhom', () => {
+  const scan = availableTemplates(scooters, { storeName: 'HWWH', year: 2026 })
+  const bestFor = scan.offered.find(i => i.template === 'best-for')
+  const bestInStore = scan.offered.find(i => i.template === 'best-in-store')
+  if (!bestFor) return // shop nay khong mo mau do thi khong co gi de kiem
+  assert.ok(bestInStore, 'nhom nay phai mo duoc best-in-store')
+  assert.ok(
+    bestFor.products.length < bestInStore.products.length,
+    `best-for phai hep hon best-in-store, dang la ${bestFor.products.length} vs ${bestInStore.products.length}`
+  )
+})
+
+test('⚠️ khong bao gio co hai y tuong tren bo san pham y het nhau', () => {
+  for (const products of [scooters, frizzlife]) {
+    const scan = availableTemplates(products, { storeName: 'HWWH', year: 2026 })
+    const seen = new Map<string, string>()
+    for (const idea of scan.offered) {
+      const key = idea.products.map(p => p.url).sort().join('\n')
+      const prev = seen.get(key)
+      assert.equal(prev, undefined, `"${idea.workingTitle}" trùng bộ sản phẩm với "${prev}"`)
+      seen.set(key, idea.workingTitle)
+    }
+  }
+})
+
+test('cung mot mau thi bai nam gon trong bai khac bi loai', () => {
+  // Hai nhom cung ra `best-in-store`, mot nhom nam gon trong nhom kia — do that tren
+  // PRO TOUR (4 san pham va 3 san pham).
+  const scan = availableTemplates(scooters, { storeName: 'HWWH', year: 2026 })
+  const roundups = scan.offered.filter(i => i.template === 'best-in-store')
+  for (let i = 0; i < roundups.length; i++) {
+    for (let j = 0; j < roundups.length; j++) {
+      if (i === j) continue
+      const a = new Set(roundups[i].products.map(p => p.url))
+      const b = new Set(roundups[j].products.map(p => p.url))
+      assert.ok(![...a].every(u => b.has(u)), `"${roundups[i].workingTitle}" nằm gọn trong "${roundups[j].workingTitle}"`)
+    }
+  }
+})

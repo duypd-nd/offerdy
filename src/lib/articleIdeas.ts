@@ -769,25 +769,51 @@ function splitAttributes(group: ProductGroup): string[] {
     }
   }
   const half = Math.floor(group.products.length / 2)
+  // ⚠️ San duoi la MIN_GROUP_FOR_BEST chu khong phai 2: bai "tot nhat cho <nhu cau>"
+  // gio viet tren dung tap con mang dac diem do, nen tap con phai du lon de goi la
+  // "tot nhat". Nguong 2 cu khong sai o cho no chon nham tu — no sai o cho tap con
+  // khong bao gio duoc dung den.
   return [...count.entries()]
-    .filter(([, n]) => n >= 2 && n <= half)
+    .filter(([, n]) => n >= MIN_GROUP_FOR_BEST && n <= half)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([t]) => t)
 }
 
+/** Cac san pham trong nhom thuc su mang dac diem `attr` — dung cach `splitAttributes` dem. */
+function productsWithAttribute(group: ProductGroup, attr: string): IdeaProduct[] {
+  return group.products.filter(p =>
+    keywordTokens(p.title).some(t => t === attr && !group.keywords.includes(t))
+  )
+}
+
+/**
+ * ⚠️ Bai nay viet tren TAP CON mang dac diem, khong phai ca nhom.
+ *
+ * Do that tren 48 bai da dang: truoc day cho nay tra ve `group.products`, nen
+ * `best-for` va `best-in-store` cua cung mot nhom cho ra **hai bai tren bo san pham y
+ * het nhau**. Ba cap da len site that: HWWH *OFF Road TWO Wheel* vs *… for Dual*
+ * (9/9 san pham trung), Tova *Stud Earrings* vs *… for Heart* (8/8), Hunny Life
+ * *Necklace Pendant* vs *… for Gift* (5/5). Dat ten khac nhau cho hai trang cung noi
+ * dung chi la giau chuyen do di — chung van canh tranh nhau tren cung mot truy van.
+ *
+ * Va tieu de cu con noi sai: mot bai ten *"… for Dual"* liet ke ca 9 xe, ke ca xe mot
+ * dong co.
+ */
 function offerBestFor(groups: ProductGroup[], ctx: IdeaContext): Verdict {
   const ideas: ArticleIdea[] = []
   for (const group of [...groups].sort(byPrimaryFirst)) {
     if (!isCategoryGroup(group, ctx)) continue
     const splits = splitAttributes(group)
     if (!splits.length) continue
+    const products = productsWithAttribute(group, splits[0])
+    if (products.length < MIN_GROUP_FOR_BEST) continue
     ideas.push({
       template: 'best-for',
-      key: ideaKey('best-for', group.products),
+      key: ideaKey('best-for', products),
       workingTitle: `Best ${keywordPhrase(group.keywords, ctx.storeName)} for ${titleCaseToken(splits[0])} at ${ctx.storeName} (${ctx.year})`,
-      why: `${group.products.length} sản phẩm, chia được theo "${splits.slice(0, 3).join('", "')}".`,
+      why: `${products.length}/${group.products.length} sản phẩm của nhóm mang đặc điểm "${splits[0]}".`,
       keywords: [...group.keywords, splits[0]],
-      products: group.products,
+      products,
     })
     if (ideas.length >= CAP['best-for']) break
   }
@@ -896,9 +922,44 @@ export function availableTemplates(raw: IdeaProduct[], ctx: IdeaContext): IdeaSc
 
   const offered: ArticleIdea[] = []
   const rejected: RejectedIdea[] = []
+  // ⚠️ Hai y tuong khong duoc de ra hai bai tren cung mot bo san pham.
+  //
+  // Luat co hai muc, va chenh lech giua chung la co chu dich — hai test da bat duoc
+  // dung cho nay khi luat con qua rong:
+  //
+  //  - **Cung mot mau: loai TAP CON.** Do that tren PRO TOUR: hai nhom cung ra
+  //    `best-in-store`, mot bai 4 san pham va mot bai 3 san pham nam gon trong do.
+  //    `offerLineCompared` da co phep loc nay tu truoc nhung chi cho rieng no.
+  //  - **Khac mau: chi loai khi TRUNG Y HET.** Mot `line-compared` (so ca mot dong
+  //    model) nam gon trong mot `best-in-store` la chuyen binh thuong va la hai bai
+  //    khac han; loai theo tap con thi shop nao co bai "tot nhat" se mat sach bai so
+  //    dong. Cung ly le cho `best-for`: tap con hep hon cua mot nhom la mot bai hep
+  //    hon, khong phai bai trung.
+  //
+  // `versus` va `review` khong tham gia: mot bai doi dau hai san pham va mot bai
+  // review mot san pham gan nhu luon nam trong mot bai diem danh nao do.
+  //
+  // ⚠️ `best-cross-brand` cung khong tham gia: hom nay no muon tam bo san pham cua mot
+  // nhom trong chinh shop nay, nhung ngay no thuc su mo (can store thu hai) bo san
+  // pham cua no se trai nhieu shop. So mot tap nhieu shop voi mot tap mot shop la so
+  // hai thu khac nhau.
+  const DEDUPED: ReadonlySet<TemplateId> = new Set(['best-in-store', 'best-for', 'line-compared'])
+  const taken: { template: TemplateId; urls: Set<string> }[] = []
   for (const template of TEMPLATE_ORDER) {
     const v = verdicts[template]
-    offered.push(...v.ideas)
+    for (const idea of v.ideas) {
+      if (DEDUPED.has(idea.template)) {
+        const urls = new Set(idea.products.map(p => p.url))
+        const clash = taken.some(prev =>
+          prev.template === idea.template
+            ? [...urls].every(u => prev.urls.has(u))
+            : prev.urls.size === urls.size && [...urls].every(u => prev.urls.has(u))
+        )
+        if (clash) continue
+        taken.push({ template: idea.template, urls })
+      }
+      offered.push(idea)
+    }
     if (v.reject) rejected.push(v.reject)
   }
 
