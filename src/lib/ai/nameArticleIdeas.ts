@@ -57,7 +57,11 @@ ABSOLUTE RULES — these are not style preferences:
 5. NEVER promise something the products cannot answer: no "cheapest", no "fastest", no awards, no test results, no personal experience. Nothing was tested.
 6. Return one entry per key you were given, using the key exactly as supplied. Do not add keys, do not drop keys, do not merge articles.
 
-WHAT MAKES A GOOD TITLE HERE: it says what the reader will be able to decide after reading. Plain search-like wording beats clever wording — people type what they want, they do not type puns. The set of titles you return must be clearly different from one another; two articles about the same shop must not read as near-duplicates.
+CAPITALISATION AND GRAMMAR — the source is not a style guide:
+Shops capitalise erratically ("OFF Road TWO Wheel Electric Scooter", "Cowhide RUG Soft"). Copy the WORDS, not the shouting. Write ordinary English title case, and keep capitals only for genuine acronyms (LED, RO, ABS), model codes (P10, S24102, VG10) and the shop's own name as the shop writes it. Changing only the letter case of a source word introduces no new word and is expected of you.
+For the same reason, a title must read as a finished phrase and end on the thing being bought. "Best Off-Road Dual-Motor Scooters at HWWH" — not "Best OFF Road TWO Wheel for Dual at HWWH", which ends on a bare adjective and names no product. The category noun must itself come from the source product names.
+
+WHAT MAKES A GOOD TITLE HERE: it says what the reader will be able to decide after reading. Plain search-like wording beats clever wording — people type what they want, they do not type puns. The set of titles you return must be clearly different from one another; two articles about the same shop must not read as near-duplicates. Two ideas that differ only by one attribute word ("… Necklace Pendant" and "… Necklace Pendant for Gift") must be named so that a reader can tell from the titles alone which one answers their question — otherwise the two pages compete with each other for the same search.
 
 metaTitle is the <title> tag and is hard-limited to ${META_TITLE_MAX} characters. It may be a shortened form of title. Count characters, not words.
 
@@ -225,6 +229,63 @@ export function findUnsafeIdea(title: string, ctx: IdeaNameContext): string | nu
   }
 
   return null
+}
+
+/** Tu doi mot bo ngu dung sau no — ket tieu de bang mot trong nay la cum bo lung. */
+const DANGLING_TAIL = new Set([
+  'a', 'an', 'the', 'and', 'or', 'of', 'for', 'to', 'in', 'on', 'at', 'by', 'with',
+  'without', 'from', 'vs', 'vs.', 'versus', 'versus.', 'between',
+])
+
+/**
+ * Canh bao MEM ve cach doc cua tieu de. Khong bao gio loai bai.
+ *
+ * ⚠️ Vi sao mem chu khong cung: cai nay khong noi ve tinh dung/sai cua noi dung — moi
+ * tu o day deu da truy nguoc duoc ve nguon — ma noi ve chuyen no doc nhu may. Loai bai
+ * vi mot chu viet hoa la lui ve `workingTitle`, con xau hon.
+ *
+ * ⚠️ Va vi sao no dung CHINH CACH VIET CUA NGUON lam thuoc do, khong dung mot danh
+ * sach viet tat viet cung: shop viet hoa lung tung ("OFF Road TWO Wheel Electric
+ * Scooter", "Cowhide RUG Soft"), model chep y nguyen vi tuong phai giu nguyen tung chu,
+ * va tieu de ra `Best OFF Road TWO Wheel at HWWH`. Nhung `LED`, `RO`, `ABS`, `TDS` la
+ * viet tat THAT va phai giu hoa. Phan biet duoc hai loai bang mot tin hieu co san:
+ * **mot viet tat that thi trong nguon khong bao gio viet thuong**, con mot tu thuong
+ * ("off", "two", "rug", "soft") thi o dau do trong mo ta san pham se xuat hien o dang
+ * thuong. Bao dong gia dat hon ta tuong — danh sach nao cung co rac la danh sach khong
+ * ai doc nua — nen thuoc do phai lay tu du lieu chu khong tu tri nho.
+ *
+ * `sourceText` nen gom CA mo ta san pham chu khong chi ten: ten hang la cho chu hoa
+ * lung tung sinh ra, mo ta moi la van xuoi binh thuong de doi chieu.
+ */
+export function findAwkwardTitle(title: string, storeName: string, sourceText: string[]): string[] {
+  const notes: string[] = []
+  const storeTokens = new Set(tokenize(storeName))
+  const blob = sourceText.join(' ')
+
+  for (const raw of new Set(title.match(/[A-Za-z]{2,}/g) ?? [])) {
+    if (raw !== raw.toUpperCase()) continue
+    if (storeTokens.has(raw.toLowerCase())) continue
+    // Nguon co viet chu nay o dang khong-toan-hoa khong? Neu co thi no la tu thuong,
+    // khong phai viet tat — va chu hoa trong tieu de la chu hoa chep tu ten hang.
+    const lowered = [...blob.matchAll(new RegExp(`\\b${raw}\\b`, 'gi'))]
+      .some(m => m[0] !== m[0].toUpperCase())
+    if (lowered) {
+      notes.push(`tiêu đề giữ chữ hoa "${raw}" chép từ tên hàng của shop — nguồn cũng viết thường chữ này, nên nhiều khả năng nó là từ thường chứ không phải viết tắt`)
+    }
+  }
+
+  // Tieu de ket bang gioi tu/lien tu la mot cum bo lung: "… Scooters at", "… vs".
+  //
+  // ⚠️ KHONG dung ca `CONNECTIVES` lam thuoc do — chinh test da bat duoc: no chua
+  // `compared`, `guide`, `explained`, ma "… Scooters Compared" la khuon dat ten chuan
+  // cua du an (8/48 bai dang dung). Chi nhung tu that su doi mot bo ngu dung sau moi
+  // tinh la bo lung.
+  const lastWord = (title.trim().match(/[A-Za-z.]+$/)?.[0] ?? '').toLowerCase()
+  if (lastWord && DANGLING_TAIL.has(lastWord)) {
+    notes.push(`tiêu đề kết thúc bằng giới từ/liên từ "${lastWord}" — cụm bị bỏ lửng`)
+  }
+
+  return notes
 }
 
 /** Kiem rieng cho `metaTitle` — no la the <title>, chiu them rang buoc do dai. */

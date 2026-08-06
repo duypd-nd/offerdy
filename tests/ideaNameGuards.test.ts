@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { findUnsafeIdea, findUnsafeMetaTitle, META_TITLE_MAX, type IdeaNameContext } from '@/lib/ai/nameArticleIdeas'
+import { findAwkwardTitle, findUnsafeIdea, findUnsafeMetaTitle, META_TITLE_MAX, type IdeaNameContext } from '@/lib/ai/nameArticleIdeas'
 
 const ctx: IdeaNameContext = {
   storeName: 'Frizzlife',
@@ -110,4 +110,45 @@ test('do dai metaTitle dem theo KY TU, khong theo byte', () => {
   const emDashes = 'Best Water Filters — Frizzlife — 2026 — Compare'
   assert.ok([...emDashes].length <= META_TITLE_MAX)
   assert.equal(findUnsafeMetaTitle(emDashes, ctx), null)
+})
+
+// ── Canh bao MEM ve cach doc cua tieu de ──────────────────────────────
+//
+// ⚠️ Loai canh bao nay khong noi ve tinh dung/sai — moi tu deu truy nguoc duoc ve
+// nguon — ma noi ve chuyen tieu de doc nhu may. No la MEM co chu dich: loai bai vi
+// mot chu viet hoa la lui ve `workingTitle`, con xau hon cai dang sua.
+
+/** Nguon that cua HWWH: ten hang viet hoa lung tung, mo ta la van xuoi binh thuong. */
+const hwwhSource = [
+  'OFF Road TWO Wheel Electric Scooter Dual Motor',
+  'This off road scooter has two motors and an LED headlight for night riding.',
+  'Fitted with ABS brakes and a bright LED display.',
+]
+
+test('chu hoa chep tu ten hang -> canh bao mem', () => {
+  const notes = findAwkwardTitle('Best OFF Road TWO Wheel at HWWH (2026)', 'HWWH', hwwhSource)
+  assert.match(notes.join(' '), /OFF/)
+  assert.match(notes.join(' '), /TWO/)
+})
+
+test('⚠️ viet tat THAT khong bi bao oan', () => {
+  // Day la cho quyet dinh ca gia tri cua canh bao: `LED` va `ABS` khong bao gio duoc
+  // viet thuong trong nguon, con `off`/`two` thi co. Mot danh sach lan nao cung co rac
+  // la mot danh sach khong ai doc nua.
+  const notes = findAwkwardTitle('Best LED Scooter with ABS Brakes at HWWH', 'HWWH', hwwhSource)
+  assert.deepEqual(notes, [])
+})
+
+test('ten shop viet hoa la ten shop, khong phai loi', () => {
+  assert.deepEqual(findAwkwardTitle('Best Scooters at HWWH (2026)', 'HWWH', hwwhSource), [])
+})
+
+test('ma model co chu so khong bi bao', () => {
+  const src = ['HWWH P10 Electric Scooter', 'The p10 ships with a spare tyre.']
+  assert.deepEqual(findAwkwardTitle('HWWH P10 vs P3 Scooters Compared', 'HWWH', src), [])
+})
+
+test('tieu de ket bang lien tu -> canh bao mem', () => {
+  const notes = findAwkwardTitle('Best Electric Scooters at HWWH for', 'HWWH', hwwhSource)
+  assert.match(notes.join(' '), /bỏ lửng/)
 })
