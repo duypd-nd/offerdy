@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { suggestProducts, modelCodes, meaningfulTokens } from '@/lib/productMatch'
+import { suggestProducts, modelCodes, meaningfulTokens, type CatalogProduct } from '@/lib/productMatch'
 
 const frizzlife = [
   { title: 'Frizzlife FCR100+ Replacement RO Membrane Filter Cartridge For WB99 Countertop Reverse Osmosis Water Filter System', url: 'https://www.frizzlife.com/products/fcr100' },
@@ -68,4 +68,37 @@ test('cac ca da chay dung phai giu nguyen 100%', () => {
     { title: 'hydrating creamy face wash', url: 'https://consistentderma.com/product/hydrating-creamy-face-wash/' },
   ])
   assert.equal(wash[0].score, 1)
+})
+
+// ── Ten shop la NHIEU, khong phai thong tin ───────────────────────────
+//
+// ⚠️ Do that tren VisoOne Eyewear, thay bang mat tren /admin/deep-links: uu dai
+// *"20% Off On Your Order at VisoOne Eyewear with this exclusive offer"* — ap cho CA
+// SHOP — con lai dung hai token `visoone` + `eyewear`, du de KHONG bi coi la store-wide,
+// va bo goi y dua ra **bon cap kinh o muc 50%**. Mot cu bam met tay la khach cam ma giam
+// 20% toan shop bi dan toi mot cap kinh ngau nhien.
+
+const visoone: CatalogProduct[] = [
+  { url: 'https://www.visoone.com/products/mona', title: 'Mona' },
+  { url: 'https://www.visoone.com/products/rio', title: 'Rio' },
+  { url: 'https://www.visoone.com/products/calina', title: 'Calina' },
+]
+
+test('⚠️ ten shop bi loai khoi tu khoa co nghia', () => {
+  const title = '20% Off On Your Order at VisoOne Eyewear with this exclusive offer'
+  // Khong biet ten shop -> con `visoone` + `eyewear`, du 2 tu de bi coi la co the goi y.
+  assert.equal(meaningfulTokens(title).length >= 2, true)
+  // Biet ten shop -> khong con gi ca, va do moi la su that: uu dai nay ap cho ca shop.
+  assert.deepEqual(meaningfulTokens(title, 'VisoOne Eyewear'), [])
+})
+
+test('⚠️ uu dai ca shop KHONG duoc goi y san pham nao', () => {
+  const title = '20% Off On Your Order at VisoOne Eyewear with this exclusive offer'
+  assert.equal(suggestProducts(title, visoone).length > 0, true, 'chưa biết tên shop thì vẫn gợi ý bừa')
+  assert.deepEqual(suggestProducts(title, visoone, { storeName: 'VisoOne Eyewear' }), [])
+})
+
+test('offer co ten san pham that van goi y duoc du da loai ten shop', () => {
+  const out = suggestProducts('VisoOne Mona Sunglasses 20% Off', visoone, { storeName: 'VisoOne Eyewear' })
+  assert.equal(out[0]?.title, 'Mona')
 })

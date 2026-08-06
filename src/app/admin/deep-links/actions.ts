@@ -37,11 +37,13 @@ export type ScanResult =
  */
 export async function scanStoreCatalog(storeId: string): Promise<ScanResult> {
   const store = await writeClient.fetch<{
+    name?: string
     website?: string
     offers: { id: string; title: string }[]
     existing: { id: string; title: string; productUrl: string }[]
   } | null>(
     `*[_type == "store" && _id == $storeId][0]{
+      name,
       website,
       "offers": *[_type == "offer" && store._ref == ^._id && active == true && !defined(productUrl)]
         | order(_createdAt asc) { "id": _id, title },
@@ -65,8 +67,11 @@ export async function scanStoreCatalog(storeId: string): Promise<ScanResult> {
     offers: store.offers.map(offer => ({
       offerId: offer.id,
       offerTitle: offer.title,
-      storeWide: meaningfulTokens(offer.title).length < 2,
-      suggestions: suggestProducts(offer.title, catalog.products).map(s => ({
+      // ⚠️ Ten shop phai bi loai truoc khi quyet dinh — xem chu thich cua
+      // `meaningfulTokens`. Khong loai thi *"20% Off On Your Order at VisoOne Eyewear"*
+      // khong bi coi la uu dai ca shop va nhan bon goi y 50% vo nghia.
+      storeWide: meaningfulTokens(offer.title, store.name).length < 2,
+      suggestions: suggestProducts(offer.title, catalog.products, { storeName: store.name }).map(s => ({
         url: s.url,
         title: s.title,
         score: s.score,

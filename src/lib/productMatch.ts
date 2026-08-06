@@ -42,10 +42,18 @@ export function tokenize(text: string): string[] {
  * ("10% Off On Your Order at Venatos"), khong phai mot san pham — truong hop do
  * khong duoc goi y gi ca, vi mot goi y sai con te hon khong goi y.
  */
-export function meaningfulTokens(offerTitle: string): string[] {
+export function meaningfulTokens(offerTitle: string, storeName?: string): string[] {
+  // ⚠️ Ten shop la NHIEU, khong phai thong tin. Do that tren VisoOne Eyewear:
+  // *"20% Off On Your Order at VisoOne Eyewear with this exclusive offer"* — mot uu dai
+  // ap cho CA SHOP — con lai dung hai token `visoone` + `eyewear`, du de khong bi coi la
+  // store-wide, va bo goi y dua ra **bon cap kinh o muc 50%**. Nguoi van hanh met tay
+  // bam mot cai la khach cam ma giam 20% toan shop bi dan toi mot cap kinh ngau nhien.
+  // Khop tren ten shop la khop tren khong co gi: moi san pham cua shop deu "khop" nhu nhau.
+  const storeTokens = new Set(storeName ? tokenize(storeName) : [])
   const seen = new Set<string>()
   for (const t of tokenize(offerTitle)) {
     if (NOISE.has(t)) continue
+    if (storeTokens.has(t)) continue
     if (/^\d+$/.test(t)) continue // "20" trong "20% off"
     if (t.length < 2) continue
     seen.add(t)
@@ -81,9 +89,10 @@ export function modelCodes(tokens: string[]): string[] {
 export function suggestProducts(
   offerTitle: string,
   products: CatalogProduct[],
-  limit = 4
+  opts: { limit?: number; storeName?: string } = {}
 ): Suggestion[] {
-  const wanted = meaningfulTokens(offerTitle)
+  const limit = opts.limit ?? 4
+  const wanted = meaningfulTokens(offerTitle, opts.storeName)
   if (wanted.length < 2) return []
 
   // Neu tieu de offer co ma model, san pham PHAI mang dung ma do. Khong co thi
