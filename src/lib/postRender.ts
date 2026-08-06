@@ -8,6 +8,7 @@
  *
  * Ham thuan: khong fetch, khong Sanity, khong env — moi thu can biet duoc truyen vao.
  */
+import { shortProductNames } from '@/lib/productShortName'
 
 export type RenderProduct = {
   url: string
@@ -212,6 +213,10 @@ export function renderPostTokens(html: string, opts: RenderOptions): string {
   const { products } = opts
   let out = html
 
+  let cachedShort: string[] | null = null
+  const shortNames = () =>
+    (cachedShort ??= shortProductNames(products.map(p => p.title), { storeName: opts.storeName }))
+
   out = out.replaceAll('[TABLE]', renderTable(opts.comparisonRows ?? [], products))
 
   /**
@@ -252,9 +257,22 @@ export function renderPostTokens(html: string, opts: RenderOptions): string {
     return renderProductCard(p, opts.storeName)
   })
 
-  out = out.replace(/\[PRODUCT:(\d+)\]/g, (_w, i: string) => {
-    const p = products[Number(i) - 1]
-    return p ? esc(p.title) : ''
+  /**
+   * `[PRODUCT:n]` -> ten day du cua shop. `[PRODUCT:n|short]` -> ten ngan do code suy ra.
+   *
+   * ⚠️ Khoan dung CO CHU DICH voi bien the la: cong kiem luc GHI da chan moi bien the
+   * ngoai `short` roi, con luat cua tang render la "khong bao gio de lo the ra mat nguoi
+   * doc". Nem tra ve chuoi rong hay giu nguyen the thi mot bien the la se hien ra trang.
+   * Roi ve ten day du thi trong huong nao cung an toan.
+   *
+   * Ten ngan tinh MOT LAN cho moi lan goi (closure ghi nho): no phu thuoc ca lo san pham
+   * chu khong phai tung cai, va 42 bai cu khong he co `|short` nao nen khong ton gi.
+   */
+  out = out.replace(/\[PRODUCT:(\d+)(?:\|([A-Za-z]+))?\]/g, (_w, i: string, mod?: string) => {
+    const n = Number(i)
+    const p = products[n - 1]
+    if (!p) return ''
+    return esc(mod === 'short' ? shortNames()[n - 1] : p.title)
   })
 
   /**
@@ -278,7 +296,14 @@ export function renderPostTokens(html: string, opts: RenderOptions): string {
   return out.replace(/<p\b[^>]*>\s*<\/p>/gi, '')
 }
 
-/** Con the nao chua duoc thay khong — dung de khong bao gio de lo the ra mat nguoi doc. */
+/**
+ * Con the nao chua duoc thay khong — dung de khong bao gio de lo the ra mat nguoi doc.
+ *
+ * ⚠️ Bat rong co chu dich: viec cua ham nay chi la "con sot gi khong", nen no phai thay
+ * ca nhung the DI DANG (`[PRODUCT:3|SHORT]`, `[CTA:1|plural]`) chu khong chi cac the
+ * dung khuon. Bat hep thi mot the sai chinh ta se lot qua ca phep kiem nay lan phep thay
+ * the, roi hien nguyen dang cho nguoi doc.
+ */
 export function remainingTokens(html: string): string[] {
-  return [...new Set([...html.matchAll(/\[[A-Z]+(?::\d+)?\]/g)].map(m => m[0]))]
+  return [...new Set([...html.matchAll(/\[[A-Z][^\]\s]{0,24}\]/g)].map(m => m[0]))]
 }

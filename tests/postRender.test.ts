@@ -249,3 +249,49 @@ test('dong "gia tai thoi diem viet" chi hien khi that su co gia', () => {
   assert.equal(priceNote([{ url: 'https://x.com/a', title: 'A', capturedAt: '2026-08-05T00:00:00Z' }]), null)
   assert.equal(priceNote([]), null)
 })
+
+// ── `[PRODUCT:n|short]` ───────────────────────────────────────────────
+//
+// Ly do ton tai: bai PoshRug dang chay that co 12/12 doan mo dau bang mot chuoi
+// marketing muoi bon tu. Model khong co loi thoat nao vi `[PRODUCT:n]` chi co MOT dang.
+
+/** Ba cai tham co PHAN DINH DANH y het nhau — tap that, xem `productShortName.test.ts`. */
+const rugs: RenderProduct[] = [
+  { url: 'https://poshrug.com/a', title: 'Cowhide Area Rug – Brown & Black Modern Accent' },
+  { url: 'https://poshrug.com/b', title: 'Cowhide Area Rug – Handmade Black & White Accent' },
+  { url: 'https://poshrug.com/c', title: 'Cowhide Area Rug – Black & White Modern Accent Rug' },
+]
+
+test('[PRODUCT:n|short] in ten ngan, [PRODUCT:n] van in ten day du', () => {
+  const out = renderPostTokens('<p>[PRODUCT:1] rồi [PRODUCT:1|short]</p>', {
+    products: rugs, storeName: 'PoshRug',
+  })
+  assert.match(out, /Cowhide Area Rug – Brown &amp; Black Modern Accent/)
+  assert.match(out, /Brown &amp; Black Rug/)
+  assert.deepEqual(remainingTokens(out), [])
+})
+
+test('⚠️ bien the LA roi ve ten day du, khong bao gio lo the ra trang', () => {
+  // Cong kiem luc GHI da chan bien the la roi. Render la hang rao cuoi, va luat cua no
+  // la khong bao gio de nguoi doc nhin thay mot the — nen o day phai khoan dung.
+  const out = renderPostTokens('<p>[PRODUCT:2|plural]</p>', { products: rugs, storeName: 'PoshRug' })
+  assert.match(out, /Cowhide Area Rug – Handmade/)
+  assert.deepEqual(remainingTokens(out), [])
+})
+
+test('⚠️ remainingTokens bat ca the DI DANG', () => {
+  // Bat hep thi mot the sai chinh ta lot qua ca phep thay the lan phep kiem nay, roi
+  // hien nguyen dang cho nguoi doc.
+  assert.deepEqual(remainingTokens('<p>[PRODUCT:3|SHORT]</p>'), ['[PRODUCT:3|SHORT]'])
+  assert.deepEqual(remainingTokens('<p>[CTA:1|plural]</p>'), ['[CTA:1|plural]'])
+})
+
+test('the |short khong pha bo cuc: van tach anh va nang CTA cuoi doan', () => {
+  const out = renderPostTokens('<p>[PRODUCT:1|short] hợp phòng khách [CTA:1]</p>', {
+    products: rugs, storeName: 'PoshRug',
+  })
+  assert.match(out, /Brown &amp; Black Rug/)
+  // `[CTA:n]` dinh cuoi doan -> the san pham, va the mang ten DAY DU (mo neo dinh danh).
+  assert.match(out, /article-card-name">Cowhide Area Rug – Brown/)
+  assert.deepEqual(remainingTokens(out), [])
+})
