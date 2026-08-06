@@ -12,6 +12,7 @@ import {
 import { minProductsFor } from '@/lib/articleIdeas'
 import {
   nameArticleIdeas,
+  findAwkwardTitle,
   findUnsafeIdea,
   findUnsafeMetaTitle,
   type IdeaName,
@@ -226,6 +227,33 @@ export async function writeArticleDraft(input: {
     }
   }
 
+  // ── Bai da co roi thi khong viet lai ──
+  //
+  // ⚠️ Cong kiem la ham THUAN nen no chi thay duoc mot lan quet. Quet lai shop do vao
+  // hom sau la mot lan quet moi, va no de ra dung nhung y tuong cu — khong co gi trong
+  // `articleIdeas.ts` biet duoc dieu do. Do that: HWWH co *P10 P3 P4 P5 Compared* (5
+  // san pham) va *P10 P3 P5 P8 Compared* (4), PRO TOUR co hai bai xe dap chong nhau
+  // 3/4 — deu sinh ra tu hai lan quet khac nhau, va phep loc tap con trong cong kiem
+  // khong the nhin thay.
+  //
+  // So bang `articleProducts[].url` chu khong bang tieu de: hai tieu de khac nhau tren
+  // cung mot bo san pham van la mot bai viet hai lan.
+  const urls = new Set(scraped.map(p => p.url))
+  const existing = await readClient.fetch<{ title: string; slug?: string; urls?: string[] }[]>(
+    `*[_type == "post" && sourceStore._ref == $storeId]{ title, "slug": slug.current, "urls": articleProducts[].url }`,
+    { storeId }
+  )
+  const covered = existing.find(e => {
+    const have = new Set(e.urls ?? [])
+    return have.size > 0 && [...urls].every(u => have.has(u))
+  })
+  if (covered) {
+    return {
+      ok: false,
+      error: `Shop này đã có bài phủ đúng bộ sản phẩm đó: "${covered.title}"${covered.slug ? ` (/blog/${covered.slug})` : ''}. Hai bài trên cùng bộ sản phẩm sẽ cạnh tranh nhau trên cùng một truy vấn.`,
+    }
+  }
+
   // ── Ten bai: van kiem lai du da qua hau kiem o buoc dat ten ──
   const nameCtx = {
     storeName: store.name,
@@ -238,7 +266,7 @@ export async function writeArticleDraft(input: {
   // phai client — va so san pham co the vua tut xuong vi mot trang cao hong, nen ca
   // ten da hop le truoc do cung can hoi lai.
   const title = input.title && !findUnsafeIdea(input.title, nameCtx) ? input.title : idea.workingTitle
-  const metaTitle =
+  const namedMeta =
     input.metaTitle && !findUnsafeMetaTitle(input.metaTitle, nameCtx) ? input.metaTitle : undefined
 
   const coupon = store.slug ? await getStoreTopCoupon(store.slug) : null
@@ -274,11 +302,41 @@ export async function writeArticleDraft(input: {
     hasCoupon: Boolean(coupon?.code),
     year,
   })
+  // ⚠️ Doi chieu voi ca MO TA san pham chu khong chi ten: ten hang la cho chu hoa lung
+  // tung sinh ra, mo ta moi la van xuoi binh thuong de lam thuoc do.
+  const titleWarnings = findAwkwardTitle(
+    title,
+    store.name,
+    scraped.flatMap(p => [p.title, p.description ?? ''])
+  )
+
   if (problems.hard.length) {
     return {
       ok: false,
       error: 'Bài không qua được hậu kiểm nên KHÔNG tạo bản nháp nào.',
       hard: problems.hard,
+    }
+  }
+
+  // ── metaTitle: ban nao cung phai qua cong, ke ca ban do buoc viet bai tu de xuat ──
+  //
+  // ⚠️ Truoc day cho nay la `metaTitle ?? content.metaTitle` — ban du phong **khong qua
+  // cong nao**. Do that tren 48 bai da dang: 4 bai `best-in-store` phat the <title> bo
+  // mat ten shop ("Best Heart Stud Earrings Guide 2026" cho mot bai chi xep hang hang
+  // cua Tova Jewelry). Bo loc chi chay tren nhanh nay thi nhanh kia thanh duong vong.
+  //
+  // Khong qua duoc thi **bo trong**, khong sua chua: `generateMetadata` roi ve
+  // `metaTitle ?? title`, ma `title` la ten DA qua cong. Mot the <title> vua bi bat
+  // hua qua tay thi phan con lai cua no cung khong dang tin — dung cach Chang 3 lui ve
+  // `workingTitle` thay vi go lai vai chu.
+  const metaWarnings: string[] = []
+  let metaTitle = namedMeta
+  if (!metaTitle && content.metaTitle) {
+    const metaProblem = findUnsafeMetaTitle(content.metaTitle, nameCtx)
+    if (metaProblem) {
+      metaWarnings.push(`metaTitle do bước viết bài đề xuất đã bị loại (${metaProblem}) — trang sẽ dùng chính tiêu đề bài: "${content.metaTitle}"`)
+    } else {
+      metaTitle = content.metaTitle
     }
   }
 
@@ -312,10 +370,13 @@ export async function writeArticleDraft(input: {
       capturedAt,
     })),
     aiDraft: {
-      title: content.title,
+      // ⚠️ `title` — KHONG phai ban do buoc viet bai tra ve. Buoc do khong con tra ve
+      // ten nua (xem `ArticleSchema`): buoc duyet chep `aiDraft` de len truong that,
+      // nen mot ten chua qua cong nam o day se de len chinh ten da qua cong.
+      title,
       excerpt: content.excerpt,
       contentHtml: content.contentHtml,
-      metaTitle: metaTitle ?? content.metaTitle,
+      metaTitle,
       metaDescription: content.metaDescription,
       coverEmoji: content.coverEmoji,
       coverBg: content.coverBg,
@@ -323,13 +384,20 @@ export async function writeArticleDraft(input: {
       templateId: idea.template,
       faq: content.faq.map((f, i) => ({ _type: 'object', _key: `faq${i}`, ...f })),
       comparisonRows: content.comparisonRows.map((r, i) => ({ _type: 'object', _key: `row${i}`, ...r })),
+      // ⚠️ Truoc 06/08/2026 truong nay chi ton tai trong `warnings`, tuc no CHET o buoc
+      // duyet va khong bao gio len trang. Do la thu trung thuc nhat ca luong nay san
+      // xuat ra, va nguoi doc chua bao gio duoc thay.
+      notAnswered: content.notAnswered,
       warnings: [
         ...problems.soft,
+        ...metaWarnings,
+        ...titleWarnings,
         ...droppedProducts.map(d => `sản phẩm bị bỏ vì cào hỏng: ${d}`),
         ...(content.crossComparisonInsight.trim()
           ? [`câu đối chiếu model nêu: ${content.crossComparisonInsight.trim()}`]
           : []),
-        ...content.notAnswered.map(q => `bài KHÔNG trả lời được: ${q}`),
+        // Y nghia dong nay vua doi: no khong con la ghi chu noi bo nua.
+        ...content.notAnswered.map(q => `sẽ ĐĂNG CÔNG KHAI — bài không trả lời được: ${q}`),
       ],
       generatedAt: capturedAt,
       model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
@@ -337,7 +405,13 @@ export async function writeArticleDraft(input: {
   })
 
   revalidatePath('/admin/ai-review')
-  return { ok: true, postId: created._id, slug, warnings: problems.soft, droppedProducts }
+  return {
+    ok: true,
+    postId: created._id,
+    slug,
+    warnings: [...problems.soft, ...metaWarnings, ...titleWarnings],
+    droppedProducts,
+  }
 }
 
 function runGate(

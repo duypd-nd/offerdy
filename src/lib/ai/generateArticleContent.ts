@@ -15,6 +15,8 @@
  * GPD"* — no chi xuat hien khi dat bon san pham canh nhau. Prompt duoi day noi thang
  * dieu do voi model.
  */
+import { BANNED_PHRASES, MAX_PRODUCT_LED_PARAGRAPHS, findAiTells } from './aiTells'
+import { shortProductNames } from '@/lib/productShortName'
 import { z } from 'zod'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { getAnthropicClient } from './anthropicClient'
@@ -40,10 +42,32 @@ export type ArticleTag = (typeof ARTICLE_TAGS)[number]
 /** The khong mang chi so. */
 const UNINDEXED: ReadonlySet<string> = new Set(['TABLE', 'COUPON'])
 
-const TAG_RE = /\[([A-Z]+)(?::(\d+))?\]/g
+/** The nao nhan bien the, va bien the nao. */
+const MODIFIERS: Record<string, ReadonlySet<string>> = { PRODUCT: new Set(['short']) }
 
+/**
+ * ⚠️ Regex nhan MOI bien the bang chu cai, roi CODE moi loai cai la — chu khong de regex
+ * khong khop. Neu regex khong khop `[PRODUCT:3|SHORT]` thi chuoi do di qua cong nhu van
+ * xuoi binh thuong va ra thang trang that. Dung khuon `ARTICLE_TAGS` dang lam: thanh vien
+ * la mot phep kiem trong code, khong phai mot rang buoc cua regex.
+ */
+const TAG_RE = /\[([A-Z]+)(?::(\d+))?(?:\|([A-Za-z]+))?\]/g
+
+/**
+ * ⚠️ KHONG co truong `title` — co y, va day la mot lo hong da chay ra trang that.
+ *
+ * Ten bai duoc quyet o Chang 3 va di qua `findUnsafeIdea` (moi tu phai truy nguoc
+ * duoc ve ten san pham nguon / ten shop / lien tu cho phep). Truoc day schema nay
+ * cung co `title`, va `writeArticleDraft` ghi chinh ban do vao `aiDraft.title`; buoc
+ * duyet chep `aiDraft` de len truong that, nen **ban da qua cong bi ban chua qua cong
+ * de len**. Ket qua tren 48 bai that: 4 bai `best-in-store` phat the <title> bo mat
+ * ten shop — "Best Heart Stud Earrings Guide 2026" cho mot bai chi xep hang hang cua
+ * MOT shop — dung loai hua hao xuyen thuong hieu ma Chang 3 sinh ra de chan.
+ *
+ * Chua bang cach BO duong ghi thu hai chu khong them mot lop kiem nua: duong vong nao
+ * ton tai thi som muon co nguoi di qua. Nguoi viet than bai khong duoc dat lai ten.
+ */
 const ArticleSchema = z.object({
-  title: z.string(),
   excerpt: z.string().describe('1-2 sentences, used as the preview and meta description fallback.'),
   contentHtml: z.string().describe(
     'Article body as HTML using <h2>/<h3>/<p>/<ul>/<li>. Never write <a> or <img> yourself — ' +
@@ -98,15 +122,15 @@ export type ArticleInput = {
   hasCoupon: boolean
 }
 
-const SYSTEM_PROMPT = `You write buying-guide articles for an affiliate shopping site. Everything you are given was scraped from one shop's own product pages. You have nothing else, and you must not act as if you do.
+export const SYSTEM_PROMPT = `You write buying-guide articles for an affiliate shopping site. Everything you are given was scraped from one shop's own product pages. You have nothing else, and you must not act as if you do.
 
-WHERE THE VALUE COMES FROM — read this first:
-This article is worth publishing only if it says something no single product page says. Restating one product page in fresh words produces a page Google already has, and pages like that are exactly what recent core updates demoted. Your job is COMPARISON: put the products side by side and surface what only becomes visible that way — two models that turn out to share a specification, a step in the range where the price stops buying more capacity, a feature that only the smaller model has. If the data genuinely does not support such an observation, say so in notAnswered rather than inventing one.
+WHERE THE VALUE COMES FROM, read this first:
+This article is worth publishing only if it says something no single product page says. Restating one product page in fresh words produces a page Google already has, and pages like that are exactly what recent core updates demoted. Your job is COMPARISON: put the products side by side and surface what only becomes visible that way: two models that turn out to share a specification, a step in the range where the price stops buying more capacity, a feature that only the smaller model has. If the data genuinely does not support such an observation, say so in notAnswered rather than inventing one.
 
-ABSOLUTE RULES — these are not style preferences:
+ABSOLUTE RULES. These are not style preferences:
 
-1. NEVER write a price, a discount, a percentage off, a currency amount, a stock level, a rating, or a review count. You are not given any prices — only whether one exists. Write the token [PRICE:n] or [WAS:n] and the site fills in the real figure at render time. Writing a figure yourself is a claim you cannot support and it will be rejected outright.
-2. NEVER write <a> or <img> tags. Use tokens only: [IMAGE:n] to place a product image, [CTA:n] for the buy button of product n, [PRODUCT:n] for the product's name, [TABLE] for the comparison table, [COUPON] for the shop's discount code. Anything else in square brackets is rejected.
+1. NEVER write a price, a discount, a percentage off, a currency amount, a stock level, a rating, or a review count. You are not given any prices, only whether one exists. Write the token [PRICE:n] or [WAS:n] and the site fills in the real figure at render time. Writing a figure yourself is a claim you cannot support and it will be rejected outright.
+2. NEVER write <a> or <img> tags. Use tokens only: [IMAGE:n] to place a product image, [CTA:n] for the buy button of product n, [PRODUCT:n] for the product's full name, [PRODUCT:n|short] for its short name, [TABLE] for the comparison table, [COUPON] for the shop's discount code. Anything else in square brackets is rejected.
 3. EVERY product you were given must have at least one [CTA:n] somewhere in the body. A five-product article with one buy button leaves four products with no way to buy them.
 4. NEVER mention a brand, retailer, model, certification or standard that does not appear in the supplied product names or descriptions. The site does not sell it and cannot stand behind the claim.
 5. NEVER claim you tested, used, measured, owned or handled anything. Nothing was tested. Say what the shop states and attribute it that way.
@@ -114,14 +138,42 @@ ABSOLUTE RULES — these are not style preferences:
 7. NEVER write the site's own name. The site adds its brand automatically.
 8. Only use [COUPON] if you are told the shop has a code. If it does not, the token would render as nothing and the sentence around it would be meaningless.
 
-STRUCTURE: open by naming the decision the reader is making, not by introducing the shop. Put [TABLE] early, right after the framing — a reader who only reads the table should still get the answer. Then work through the products, then close with who each one suits. Use <h2> for sections. Keep paragraphs short.
+STRUCTURE. Vary it; do not follow a template:
+Open by naming the decision the reader is making, not by introducing the shop. Put [TABLE] early, right after the framing: a reader who only reads the table should still get the answer. Use <h2> for sections, in sentence case, not Title Case.
+Beyond that the shape is yours, and it must not be the same shape every time. Forty articles on this site already open with framing, walk the products in the order they were supplied, and close with a bulleted list of who each one suits. A reader who lands on two of them can see they came off one production line, and so can a search engine. Group the products by what actually separates them, or lead with the one that decides the article, or work down from the biggest gap in the table. A heading should say something specific, like "Where the extra money goes", not label a slot. Never write a section called Challenges, Future Outlook, Final Thoughts, Conclusion or Key Takeaways.
+
+WRITING. This is where the article stops sounding like a machine:
+
+1. PRODUCT NAMES. [PRODUCT:n] prints the shop's full title: a marketing string of eight to fourteen words. Use it once per product, at the first mention. After that use [PRODUCT:n|short], which prints a short name the site derives from that same title and hands you below. At most ${MAX_PRODUCT_LED_PARAGRAPHS} paragraphs in the whole article may OPEN with a product-name token. Twelve paragraphs each opening with a full marketing title read like a spreadsheet poured into sentences: that is a real published article on this site, and it is why this rule exists. Once it is clear which product you mean, an ordinary phrase built from the shop's own words also works: "the tankless one", "the smaller unit".
+2. DO NOT OPEN CONSECUTIVE SENTENCES THE SAME WAY. Three sentences in a row starting with a product name, or with "The", or with "It", is the loudest single signal that nobody wrote this. Start some on the condition ("If your cabinet is shallow…"), some on the contrast, some on the plain subject.
+3. VARY SENTENCE LENGTH ON PURPOSE. Six sentences all twenty words long read like a metronome. Follow a long comparative sentence with a short one. Some paragraphs are one sentence; most are three or four; none is nine.
+4. ATTRIBUTE THE SHOP ONCE PER CLUSTER OF CLAIMS, NOT ONCE PER SENTENCE. "described by the shop as", "the shop says", "what the shop calls" six times in one article makes the piece sound like it is arguing with its own source. Open the cluster with the attribution and let the sentences after it inherit that frame, or carry it in the verb: "the listing puts flow at…", "the description claims…", "per the product page". Vary the wording. Attribution is not optional, it is the whole difference between reporting and inventing, but it belongs once, where the claims start.
+5. CONTRACTIONS ARE NORMAL: doesn't, you'll, it's. A formal register does not make an affiliate guide more trustworthy; it makes it sound generated.
+6. DO NOT END A SECTION WITH A SENTENCE THAT RESTATES THE SECTION.
+7. WRITE PLAIN COPULAS. "The 2x3 is the smallest", not "serves as", "stands as", "functions as", "represents", "acts as". Replacing "is" with "serves as" is one of the most measurable machine habits there is.
+8. UNSUPPORTED ADJECTIVES ARE INVENTIONS, NOT STYLE. "Premium", "durable", "high-quality", "well-made", "reliable" are claims about an object nobody here has handled. If the shop's description says it, attribute it. If it does not, cut it. This is rule 5 of the ABSOLUTE RULES again, and "make it sound human" never loosens it.
+
+BANNED. Not style preferences: an article containing any of these is rejected outright and no draft is created.
+${BANNED_PHRASES.join(' | ')}
+Also banned: "not only … but also" and every variant of "it's not just X, it's Y" or "isn't just X" | "Despite its …, it faces several challenges" | "whether you're a … or a …" | the em dash character in the body, use a comma, a full stop or a colon | emoji in the body | Markdown, because you are writing HTML, so **bold**, ## heading and "- item" are literal text that ships to a reader | more than three <strong> in the whole article | Title Case headings | the rule of three ("sleek, modern and durable"), which is the most reliable machine fingerprint there is, so keep the one item the shop's description supports and cut the other two.
+You have exactly one source: this shop's own product pages. Never write "industry reports", "experts argue", "studies show" or any other vague authority. Name the shop or say nothing. And never address the reader as an assistant would: no "I hope this helps", no "as an AI", no "let me know if". You are producing a page, not a reply.
+
+COMMIT TO A RECOMMENDATION:
+The article must name ONE product as the default choice, the one most readers should buy, and then say who should choose differently, and why. "Who each one suits", spread evenly across every product, is not a recommendation; it is a refusal to have one, and it is currently the ending of every article on this site. A guide that will not choose has not helped anyone decide.
+Ground the choice in the supplied data and say out loud what grounds it: the capacity per unit of price the table makes visible, the one model that lists a specification the others leave blank, the smaller unit that does the same job when the reader's constraint is space. Then name the exception with the same precision.
+THIS IS NOT AN EXCEPTION TO THE ABSOLUTE RULES. A judgement is not a new fact. You may write: "the PX600 is the one to buy for most people. It lists the same 600 GPD rating as the PD600-TAM3, and the extra money on the PD600-TAM3 goes to the tap kit." Every fact there came from the supplied descriptions; the ranking is your reading of those facts, and reading facts is your job. You may NOT write "more reliable", "better built", "the best value on the market", "tested well" or "our top pick after testing": those are claims about things you were not given and did not observe. The test is mechanical. For every clause in the recommendation, point at the supplied line that produces it; if you cannot point at one, delete the clause. If the data genuinely does not separate the products enough to pick one, say exactly that, say what a reader would have to check for themselves, and put the missing thing in notAnswered.
 
 Write in English. Plain and specific: a reader deciding between two water filters wants the difference stated, not adjectives.`
 
-function productBlock(p: ArticleProductInput): string {
+function productBlock(p: ArticleProductInput, short: string): string {
   return [
     `--- product ${p.n} ---`,
     `name: ${p.title}`,
+    // ⚠️ Model duoc biet HINH DANG cua chuoi se in ra, khong bao gio duoc go no. Cung
+    // ky luat voi `hasPrice: boolean` — model viet chu, code dien ten va so.
+    ...(short === p.title
+      ? [`short name: this title has no shorter form, so [PRODUCT:${p.n}|short] prints the full name`]
+      : [`short name (what [PRODUCT:${p.n}|short] prints — you cannot type it yourself): ${short}`]),
     `description from the shop: ${p.description?.trim() || 'the shop published no description — do not invent one, and say so if it matters'}`,
     `price: ${p.hasPrice ? `known — write [PRICE:${p.n}], never a figure` : 'not published — do not reference a price for this product'}`,
     `previous price: ${p.hasWas ? `known — write [WAS:${p.n}]` : 'not published'}`,
@@ -129,11 +181,28 @@ function productBlock(p: ArticleProductInput): string {
   ].join('\n')
 }
 
+/**
+ * ⚠️ Cau lenh giu pham vi dat NGAY CANH du lieu, khong gop vao luat chung o system
+ * prompt — dung bai hoc da tra gia o Chang 3 (`nameArticleIdeas.ts`): luat "giu nguyen
+ * pham vi" nam trong system prompt va model bo mat ten shop o ca 3/3 bai.
+ */
+function metaScopeLine(input: ArticleInput): string[] {
+  if (input.templateId !== 'best-in-store' && input.templateId !== 'best-for') return []
+  return [
+    `REQUIRED: metaTitle must contain the shop name "${input.storeName}". This article ranks only what this one shop sells; a <title> without the shop name promises the best on the market and will be rejected.`,
+  ]
+}
+
 function buildUserPrompt(input: ArticleInput): string {
-  return `Article title (already approved — write to it, do not change the subject): ${input.articleTitle}
+  // ⚠️ Tinh o day chu KHONG nhan qua mot truong moi cua `ArticleProductInput`: dau prompt
+  // va dau render phai goi CUNG mot ham tren CUNG mot mang theo CUNG thu tu, neu khong
+  // ten model nhin thay va ten trang in ra se troi khoi nhau.
+  const shorts = shortProductNames(input.products.map(p => p.title), { storeName: input.storeName })
+  return `Article headline (FIXED — it has already passed a separate honesty check. Write to it, do not change the subject, and do not return a headline of your own): ${input.articleTitle}
 Article type: ${input.templateId}
 Shop: ${input.storeName}
 Year: ${input.year}
+${metaScopeLine(input).join('\n')}
 Shop discount code: ${input.hasCoupon ? 'the shop has a working code — you may use [COUPON] once, at a natural point' : 'none — NEVER write [COUPON]'}
 
 There are ${input.products.length} source products. comparisonRows must have exactly ${input.products.length} values per row, in this order.
@@ -143,7 +212,7 @@ REQUIRED TOKENS — the body is rejected outright if any of these is missing: ${
     ...input.products.filter(p => p.imageCount > 0).map(p => `[IMAGE:${p.n}]`),
   ].join(', ')}. Each product needs its own buy button and its own picture: a product a reader cannot see and cannot buy is a product the article failed to cover.
 
-${input.products.map(productBlock).join('\n\n')}`
+${input.products.map((p, i) => productBlock(p, shorts[i])).join('\n\n')}`
 }
 
 // ── Hau kiem ──────────────────────────────────────────────────────────
@@ -203,16 +272,27 @@ function stripHtml(html: string): string {
     .replace(/\s+/g, ' ')
 }
 
-/** Moi doan chu trong ca bai — de soi tien va soi the. */
-function allText(a: ArticleContent): string {
+/**
+ * Chu do model viet, KHONG ke `comparisonRows`.
+ *
+ * ⚠️ Tach ra la bat buoc, khong phai cho gon: o bang khong co nguon **PHAI** ghi dau
+ * `—` (ABSOLUTE RULE 6 ngay tren kia), ma dau `—` lai la mot trong nhung dau hieu van
+ * may ro nhat. Quet dau gach tren ca `comparisonRows` se chan MOI bai co mot o trong,
+ * tuc gan nhu moi bai — mot bo kiem chan het thi khong ai bat no chay lan thu hai.
+ */
+function proseText(a: ArticleContent): string {
   return [
-    a.title, a.excerpt, a.metaTitle, a.metaDescription,
+    a.excerpt, a.metaTitle, a.metaDescription,
     a.contentHtml,
     a.crossComparisonInsight,
     ...a.notAnswered,
     ...a.faq.flatMap(f => [f.question, f.answer]),
-    ...a.comparisonRows.flatMap(r => [r.label, ...r.values]),
   ].join('\n')
+}
+
+/** Moi doan chu trong ca bai — de soi tien va soi the. */
+function allText(a: ArticleContent): string {
+  return [proseText(a), ...a.comparisonRows.flatMap(r => [r.label, ...r.values])].join('\n')
 }
 
 /**
@@ -253,8 +333,10 @@ export function findUnsafeArticle(a: ArticleContent, ctx: ArticleGuardContext): 
     break
   }
 
-  if (/offerdy/i.test(a.title) || /offerdy/i.test(a.metaTitle)) {
-    hard.push('tiêu đề chứa chữ "Offerdy" — titleTemplate đã nối hậu tố rồi')
+  // Ten bai khong den tu day nua (xem chu thich cua `ArticleSchema`), nen chi con
+  // `metaTitle` la thu buoc nay tu viet ra va co the mang chu "Offerdy".
+  if (/offerdy/i.test(a.metaTitle)) {
+    hard.push('metaTitle chứa chữ "Offerdy" — titleTemplate đã nối hậu tố rồi')
   }
 
   // Nam: bai de nam sai la bai tu khai minh cu ngay hom dang.
@@ -276,10 +358,24 @@ export function findUnsafeArticle(a: ArticleContent, ctx: ArticleGuardContext): 
   const ctaSeen = new Set<number>()
   const imageSeen = new Set<number>()
   for (const m of a.contentHtml.matchAll(TAG_RE)) {
-    const [whole, name, index] = m
+    const [whole, name, index, modifier] = m
     if (!(ARTICLE_TAGS as readonly string[]).includes(name)) {
       hard.push(`thẻ lạ "${whole}"`)
       continue
+    }
+    // ⚠️ Kiem bien the TRUOC nhanh `UNINDEXED` (de bat ca `[TABLE|short]`) nhung ROI
+    // XUYEN sang phep kiem chi so ben duoi khi bien the hop le — nho vay
+    // `[PRODUCT:99|short]` van chet dung cho no phai chet: chi so ngoai pham vi.
+    if (modifier !== undefined) {
+      const allowed = MODIFIERS[name]
+      if (!allowed) {
+        hard.push(`thẻ "${whole}" không nhận biến thể — chỉ [PRODUCT:n|short] mới có`)
+        continue
+      }
+      if (!allowed.has(modifier)) {
+        hard.push(`thẻ "${whole}" mang biến thể lạ "${modifier}" — chỉ nhận: ${[...allowed].join(', ')}`)
+        continue
+      }
     }
     if (UNINDEXED.has(name)) {
       if (index !== undefined) hard.push(`thẻ "${whole}" không được mang chỉ số`)
@@ -332,6 +428,17 @@ export function findUnsafeArticle(a: ArticleContent, ctx: ArticleGuardContext): 
   if (!ctx.hasCoupon && a.contentHtml.includes('[COUPON]')) {
     hard.push('dùng [COUPON] nhưng shop này không có mã giảm nào')
   }
+
+  // ── Dau hieu van do may viet ──
+  //
+  // ⚠️ `dashText` la `proseText`, KHONG phai `text`: xem chu thich cua `proseText`.
+  const tells = findAiTells({
+    dashText: proseText(a),
+    wordText: text,
+    contentHtml: a.contentHtml,
+  })
+  hard.push(...tells.hard)
+  soft.push(...tells.soft)
 
   // ── Bang so sanh: so o phai khop so san pham ──
   for (const row of a.comparisonRows) {

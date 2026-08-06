@@ -24,8 +24,10 @@ const ctx: ArticleGuardContext = {
 
 /** Bai sach toi thieu — moi test chi doi mot cho. */
 function article(over: Partial<ArticleContent> = {}): ArticleContent {
+  // ⚠️ Khong co `title`: buoc viet than bai KHONG dat lai ten bai. Ten den tu Chang 3
+  // va da qua `findUnsafeIdea`; de buoc nay tra ve mot ten nua la mo mot duong ghi
+  // vong qua cong — dung lo hong da phat 4 the <title> bo mat ten shop ra trang that.
   return {
-    title: 'PD600-TAM3 vs PX600 Reverse Osmosis Systems',
     excerpt: 'Which tankless system fits your sink.',
     contentHtml:
       '<h2>The choice</h2><p>[PRODUCT:1] and [PRODUCT:2] both run tankless. [IMAGE:1] [IMAGE:2]</p>' +
@@ -169,8 +171,8 @@ test('the khong chi so ma mang chi so -> loi cung', () => {
   assert.match(p.hard.join(' '), /không được mang chỉ số/)
 })
 
-test('tieu de chua Offerdy -> loi cung', () => {
-  const p = findUnsafeArticle(article({ title: 'Best Filters | Offerdy' }), ctx)
+test('metaTitle chua Offerdy -> loi cung', () => {
+  const p = findUnsafeArticle(article({ metaTitle: 'Best Filters | Offerdy' }), ctx)
   assert.match(p.hard.join(' '), /Offerdy/)
 })
 
@@ -247,4 +249,62 @@ test('tu co trong ten/mo ta san pham thi khong bi bao', () => {
 test('bai nhieu san pham ma khong co cau doi chieu -> canh bao MEM', () => {
   const p = findUnsafeArticle(article({ crossComparisonInsight: '  ' }), ctx)
   assert.match(p.soft.join(' '), /không nêu được câu đối chiếu nào/)
+})
+
+// ── Bien the the va dau hieu van may ─────────────────────────────────
+
+test('⚠️ o bang ghi "—" KHONG bi coi la dau hieu van may', () => {
+  // ABSOLUTE RULE 6 cua chinh prompt bat o khong co nguon phai ghi `—`, ma `—` lai la
+  // mot dau hieu van may. Neu phep quet chay tren ca `comparisonRows` thi gan nhu MOI
+  // bai bi chan — tinh nang chet ngay tu lan chay dau. Day la ly do `proseText` va
+  // `allText` la hai ham rieng.
+  const p = findUnsafeArticle(
+    article({ comparisonRows: [{ label: 'Noise level', values: ['—', '—'] }] }),
+    ctx
+  )
+  assert.deepEqual(p.hard, [])
+})
+
+test('[PRODUCT:n|short] hop le', () => {
+  const p = findUnsafeArticle(article({
+    contentHtml: '<p>[PRODUCT:1] and [PRODUCT:2|short] both run tankless. [IMAGE:1] [IMAGE:2]</p>' +
+      '<p>[TABLE]</p><p>Buy [CTA:1] or [CTA:2].</p>',
+  }), ctx)
+  assert.deepEqual(p.hard, [])
+})
+
+test('the khac KHONG nhan bien the', () => {
+  const p = findUnsafeArticle(article({
+    contentHtml: '<p>[PRODUCT:1] [PRODUCT:2] [IMAGE:1] [IMAGE:2] [TABLE] [CTA:1|short] [CTA:2]</p>',
+  }), ctx)
+  assert.match(p.hard.join(' '), /không nhận biến thể/)
+})
+
+test('bien the la bi chan', () => {
+  const p = findUnsafeArticle(article({
+    contentHtml: '<p>[PRODUCT:1|plural] [PRODUCT:2] [IMAGE:1] [IMAGE:2] [TABLE] [CTA:1] [CTA:2]</p>',
+  }), ctx)
+  assert.match(p.hard.join(' '), /biến thể lạ "plural"/)
+})
+
+test('⚠️ bien the hop le van phai qua phep kiem CHI SO', () => {
+  // Phep kiem bien the phai ROI XUYEN sang phep kiem chi so, khong duoc `continue` som.
+  const p = findUnsafeArticle(article({
+    contentHtml: '<p>[PRODUCT:99|short] [IMAGE:1] [IMAGE:2] [TABLE] [CTA:1] [CTA:2]</p>',
+  }), ctx)
+  assert.match(p.hard.join(' '), /trỏ tới sản phẩm 99/)
+})
+
+test('⚠️ doan van day viet tat KHONG sinh canh bao "ten rieng la"', () => {
+  // Luat van phong moi khuyen khich viet tat, va bo quet ten rieng la thu duy nhat co
+  // the no oan vi no soi tu viet hoa. Da lan theo code: no bo tu dau cau va bo manh <2
+  // ky tu, nen `doesn't` -> `doesn`/`t` khong bao gio toi duoc phep kiem. Test nay de
+  // mot thay doi tuong lai khong am tham pha luat van phong.
+  const p = findUnsafeArticle(article({
+    contentHtml:
+      '<p>[PRODUCT:1] doesn\'t need a tank. You\'ll notice it\'s quieter, and it won\'t ' +
+      'crowd the cabinet. [IMAGE:1] [IMAGE:2]</p><p>[TABLE]</p><p>Buy [CTA:1] or [CTA:2].</p>',
+  }), ctx)
+  assert.deepEqual(p.hard, [])
+  assert.deepEqual(p.soft.filter(s => /tên riêng lạ/.test(s)), [])
 })
