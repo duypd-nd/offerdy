@@ -963,6 +963,15 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .article-disclaimer a{color:#2563eb!important;text-decoration:none!important;font-size:inherit}
 .article-disclaimer-meta{font-size:12px!important;color:var(--light)!important;margin-top:14px!important;font-style:italic!important;display:block}
 
+/* Bai KHONG tra loi duoc gi. Nhe hon .article-disclaimer co chu dich: hai khoi xam
+   xep chong nhau doc thanh mot mang xam, va khoi nay la NOI DUNG chu khong phai
+   dieu khoan. */
+.article-unanswered{margin-top:36px;padding:16px 20px;border:1px solid var(--border);border-radius:var(--r-sm)}
+.article-unanswered h2{font-size:17px!important;margin:0 0 8px!important;color:var(--navy)}
+.article-unanswered p{font-size:13px!important;color:var(--muted)!important;margin:0 0 10px!important;line-height:1.7!important}
+.article-unanswered ul{margin:0!important;padding-left:20px!important}
+.article-unanswered li{font-size:14px!important;color:var(--text)!important;line-height:1.8!important}
+
 /* ── BLOG ── */
 .blog-layout{max-width:1280px;margin:0 auto;padding:0 24px 72px}
 .blog-featured{display:grid;grid-template-columns:minmax(0,380px) 1fr;gap:0;background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin-top:36px;margin-bottom:36px;transition:box-shadow .25s,transform .25s}

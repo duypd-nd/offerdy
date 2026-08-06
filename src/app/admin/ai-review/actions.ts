@@ -280,6 +280,7 @@ export type PostDraftFields = {
   readTime?: number
   faq?: { question: string; answer: string }[]
   comparisonRows?: { label: string; values: string[] }[]
+  notAnswered?: string[]
 }
 
 function revalidateArticle(slug?: string) {
@@ -313,6 +314,7 @@ function articleFields(draft: PostDraftFields, firstImage?: string) {
     ...(draft.readTime ? { readTime: draft.readTime } : {}),
     faq: draft.faq ?? [],
     comparisonRows: draft.comparisonRows ?? [],
+    notAnswered: draft.notAnswered ?? [],
     ...(firstImage ? { externalImageUrl: firstImage } : {}),
     // ⚠️ Day moi la luc bai that su len song: ban nhap mang moc 2099, duyet moi
     // dat ve hom nay. Quen dong nay thi bai duyet roi van vo hinh.

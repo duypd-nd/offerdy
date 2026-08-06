@@ -76,7 +76,9 @@ type ArticleAiDraft = {
   templateId?: string
   faq?: FaqItem[]
   comparisonRows?: ComparisonRow[]
-  /** Cảnh báo "mềm" của bộ hậu kiểm + ghi chú bài KHÔNG trả lời được gì. */
+  /** Câu bài KHÔNG trả lời được — HIỆN CÔNG KHAI cuối bài, không phải ghi chú nội bộ. */
+  notAnswered?: string[]
+  /** Cảnh báo "mềm" của bộ hậu kiểm. */
   warnings?: string[]
   generatedAt?: string
   model?: string
@@ -783,6 +785,10 @@ function ArticleReviewPanel({ initialArticles, onCountChange }: {
     // Bảng so sánh không sửa được ở đây: nó là dữ liệu có cấu trúc và số ô phải
     // khớp số sản phẩm. Sửa bằng ô chữ là cách nhanh nhất để lệch cột.
     comparisonRows: selected.aiDraft?.comparisonRows,
+    // ⚠️ Quên dòng này thì đường duyệt-mở-form âm thầm đánh rơi trường trong khi duyệt
+    // hàng loạt vẫn giữ — đúng lớp lỗi "hai đường ghi cùng một thứ mà mỗi đường giữ một
+    // bộ luật riêng" mà file actions.ts của chính tab này đã ghi, và đã lặp ba lần.
+    notAnswered: selected.aiDraft?.notAnswered,
   })
 
   const handleApprove = () => {
@@ -906,8 +912,19 @@ function ArticleReviewPanel({ initialArticles, onCountChange }: {
             </div>
           )}
 
+          {draft?.notAnswered && draft.notAnswered.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>
+                Bài KHÔNG trả lời được ({draft.notAnswered.length} câu) — <strong>hiện công khai cuối bài</strong>, sửa trong Sanity Studio nếu cần
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#4b5563', lineHeight: 1.7 }}>
+                {draft.notAnswered.map(q => <li key={q}>{q}</li>)}
+              </ul>
+            </div>
+          )}
+
           <label className="oa-label" style={{ marginTop: 14 }}>
-            Thân bài (HTML — thẻ [IMAGE:n] [CTA:n] [PRODUCT:n] [TABLE] [PRICE:n] [COUPON] được thay lúc gọi trang)
+            Thân bài (HTML — thẻ [IMAGE:n] [CTA:n] [PRODUCT:n] [PRODUCT:n|short] [TABLE] [PRICE:n] [COUPON] được thay lúc gọi trang)
             <textarea
               className="oa-input oa-textarea"
               rows={14}

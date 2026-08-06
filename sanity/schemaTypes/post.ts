@@ -92,6 +92,13 @@ export const postType = defineType({
       }],
     }),
     defineField({
+      name: 'notAnswered', title: 'Bài KHÔNG trả lời được', type: 'array', group: 'content',
+      description:
+        'Câu hỏi người mua sẽ hỏi mà trang sản phẩm của shop không trả lời được. HIỆN CÔNG KHAI cuối bài — ' +
+        'đây là thứ trung thực nhất luồng này sản xuất ra, và trước 06/08/2026 nó chết trong aiDraft.warnings.',
+      of: [{ type: 'string' }],
+    }),
+    defineField({
       name: 'sourceStore', title: 'Store nguồn', type: 'reference', to: [{ type: 'store' }], group: 'content',
       description: 'Bài viết về sản phẩm của shop này. Dùng để lấy mã giảm giá và gắn link tiếp thị.',
     }),
@@ -147,6 +154,10 @@ export const postType = defineType({
             defineField({ name: 'values', type: 'array', of: [{ type: 'string' }] }),
           ] }],
         }),
+        // ⚠️ Phai co ban sao o CA HAI cap. Buoc duyet `.unset(['aiDraft'])`, nen thu gi
+        // khong co cho o cap post se bien mat dung luc bai duoc duyet — dung ly do `faq`
+        // va `comparisonRows` da phai them vao cap post truoc do.
+        defineField({ name: 'notAnswered', type: 'array', of: [{ type: 'string' }] }),
         // Canh bao "mem" cua bo hau kiem — bai van duoc tao nhung nguoi duyet
         // phai nhin thay. Vd: ten rieng khong co trong danh muc san pham.
         defineField({ name: 'warnings', type: 'array', of: [{ type: 'string' }] }),

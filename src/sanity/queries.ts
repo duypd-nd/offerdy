@@ -586,7 +586,7 @@ const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${POST
   author, "date": publishedAt, "updatedAt": _updatedAt, coverEmoji, coverBg, readTime, body, content,
   metaTitle, metaDescription,
   "imageUrl": coalesce(image.asset->url + ${IMG}, externalImageUrl),
-  faq, comparisonRows, articleProducts,
+  faq, comparisonRows, notAnswered, articleProducts,
   "sourceStore": sourceStore->{ name, "slug": slug.current }
 }`
 

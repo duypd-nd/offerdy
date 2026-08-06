@@ -97,10 +97,12 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     articleProducts?: RenderProduct[]
     comparisonRows?: { label: string; values: string[] }[]
     faq?: { question: string; answer: string }[]
+    notAnswered?: string[]
     sourceStore?: { name?: string; slug?: string }
   } = post
   const products: RenderProduct[] = article.articleProducts ?? []
   const faq = article.faq ?? []
+  const notAnswered = article.notAnswered ?? []
   // Ma giam doc LUC GOI TRANG, khong phai luc viet bai: ma het han sau khi dang thi
   // cau nhac ma tu bien mat cung the boc cua no.
   const coupon = article.sourceStore?.slug ? await getStoreTopCoupon(article.sourceStore.slug) : null
@@ -261,6 +263,28 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 18 }}>{capturedNote}</p>
               )}
             </div>
+
+            {/*
+              Bai KHONG tra loi duoc gi.
+              ⚠️ Cau dan la chuoi CO DINH do code viet, khong bao gio do model — mot cau
+              co dinh thi khong the bia, va no noi ra phuong phap, dung viec ma
+              `priceNote()` dang lam cho gia.
+              ⚠️ Va no KHONG di vao `FAQPage` JSON-LD: `acceptedAnswer` bat buoc phai co
+              cau tra loi, ma day theo dinh nghia la cau KHONG co cau tra loi.
+              Rong thi khong dung the — khong de lai mot khung khong (41 bai cu deu rong).
+            */}
+            {notAnswered.length > 0 && (
+              <div className="article-unanswered">
+                <h2>What this guide can&rsquo;t tell you</h2>
+                <p>
+                  Everything above comes from {article.sourceStore?.name ?? 'the shop'}&rsquo;s own
+                  product pages. These are the questions those pages don&rsquo;t answer:
+                </p>
+                <ul>
+                  {notAnswered.map(q => <li key={q}>{q}</li>)}
+                </ul>
+              </div>
+            )}
 
             {(globalConfig.articleDisclaimer || globalConfig.articleReviewedBy) && (
               <div className="article-disclaimer">
