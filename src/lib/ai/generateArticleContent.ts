@@ -193,7 +193,12 @@ function metaScopeLine(input: ArticleInput): string[] {
   ]
 }
 
-function buildUserPrompt(input: ArticleInput): string {
+/**
+ * Export CHI de script do ngan sach token goi duoc (`.scratch/diag-tokens*.mjs`) —
+ * khong cho nao trong app dung. Chinh phep do nay lat nguoc gia thuyet ve `effort`
+ * va tim ra tran 12000 la thu pham; giu duong vao do de lan sau khong phai do lai tu dau.
+ */
+export function buildUserPrompt(input: ArticleInput): string {
   // ⚠️ Tinh o day chu KHONG nhan qua mot truong moi cua `ArticleProductInput`: dau prompt
   // va dau render phai goi CUNG mot ham tren CUNG mot mang theo CUNG thu tu, neu khong
   // ten model nhin thay va ten trang in ra se troi khoi nhau.
@@ -495,7 +500,10 @@ function isRetryable(err: unknown): boolean {
     const status = (err as { status?: number }).status
     if (status && [429, 500, 502, 503, 529].includes(status)) return true
   }
-  if (err instanceof Error && err.message.includes('Failed to parse structured output')) return true
+  // Model tra JSON hong hoac lech schema la chuyen ngau nhien, thu lai co the qua.
+  // ⚠️ Bai BI CAT thi KHONG nam o day — no la loi cung, xem `generateArticleContent`.
+  if (err instanceof SyntaxError) return true
+  if (err && typeof err === 'object' && 'issues' in err) return true // ZodError
   return false
 }
 
@@ -504,25 +512,39 @@ export async function generateArticleContent(
   attempt = 1
 ): Promise<ArticleContent> {
   try {
-    const response = await getAnthropicClient().messages.parse({
+    // ⚠️ **Streaming + tu parse, KHONG dung `messages.parse`.** Hai ly do, ca hai deu
+    // do duoc chu khong phai phong doan:
+    //
+    // (1) `max_tokens` chan **thinking + chu cong lai**, va khi tran chat model dot
+    //     sach ngan sach vao thinking roi bi cat. Do tren chinh bai PoshRug: **3/3 lan
+    //     chay o 12000 tra ve 12000 token thinking va KHONG MOT CHU NAO**; nang len
+    //     32000 thi no xong bang ~5k token tong. Tran cao khong ton them tien — chi
+    //     tinh theo token that dung — nen de rong la mien phi.
+    // (2) `messages.parse` PARSE TRUOC khi ta doc duoc `stop_reason`. Bai bi cat no ra
+    //     `Failed to parse structured output` — mot loi khai sai nguyen nhan, va hang
+    //     rao `stop_reason === 'max_tokens'` ben duoi khong bao gio chay toi duoc.
+    //     Te hon: `isRetryable` bat loi parse do, nen no thu lai 3 lan × 2 phut cho
+    //     mot loi khong bao gio tu lanh.
+    //
+    // Tren 16000 token thi bat buoc phai streaming, neu khong request chet vi timeout.
+    const stream = getAnthropicClient().messages.stream({
       model: MODEL,
-      // ⚠️ Sonnet 5 bat adaptive thinking mac dinh, va `max_tokens` chan **thinking +
-      // chu cong lai**. Chang 3 da tra gia cho bai hoc nay: 4096 cho mot dau ra ~1000
-      // token van bi cat. Bai tong hop dai hon review nhieu.
-      max_tokens: 12000,
+      max_tokens: 64000,
       system: SYSTEM_PROMPT,
       output_config: { format: zodOutputFormat(ArticleSchema) },
       messages: [{ role: 'user', content: buildUserPrompt(input) }],
     })
+    const response = await stream.finalMessage()
 
     // ⚠️ Bai bi cat VAN parse thanh JSON hop le — cho toi luc khong. Am tham dang
     // nua bai la ket cuc te nhat co the, nen coi day la loi cung.
     if (response.stop_reason === 'max_tokens') {
       throw new Error('Bài bị cắt giữa chừng (stop_reason=max_tokens) — không dùng được')
     }
-    const parsed = response.parsed_output
-    if (!parsed) throw new Error(`Không sinh được bài (stop_reason=${response.stop_reason})`)
-    return parsed
+    let json = ''
+    for (const block of response.content) if (block.type === 'text') json += block.text
+    if (!json) throw new Error(`Không sinh được bài (stop_reason=${response.stop_reason})`)
+    return ArticleSchema.parse(JSON.parse(json))
   } catch (err) {
     if (isRetryable(err) && attempt < MAX_ATTEMPTS) {
       await new Promise(r => setTimeout(r, attempt * 1500))
