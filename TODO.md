@@ -1,5 +1,32 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-10 — đọc trước khi làm gì
+
+Repo sạch, `main` sync với `origin/main` ở **`8a2323e`**. Test **334/334**, `tsc` + lint + `build` sạch.
+Ba commit hôm nay: `a4e5947` (deal vô hình) · `8a2323e` (máy tính quảng cáo) · `e49cf08` (docs), cộng `5a93f06`/`53830f3` hôm 09/08.
+
+**Việc của user, code không làm hộ được:**
+
+1. **Search Console → bấm *Yêu cầu lập chỉ mục*, ưu tiên `/blog` TRƯỚC.** Bò được trang liệt kê đó là Google có đường tới cả 42 bài. Hạn mức ~10 URL/ngày. API lập chỉ mục của Google chỉ dùng cho tin tuyển dụng và video trực tiếp — không dùng được cho bài viết, bắt buộc bấm tay.
+2. **Nộp lại sitemap trong GSC** — lần nộp gần nhất là 01/07, hơn một tháng. Và xem **1 cảnh báo** trên sitemap (API không trả chi tiết, phải mở giao diện).
+3. **Điền `% hoa hồng`** trong Sanity Studio → store → tab 💰 Kinh tế affiliate. **Chỉ 3–5 shop định chạy thật, đừng gõ đủ 85.** Đây là số duy nhất không suy ra được.
+4. **Đọc điều khoản PPC của từng shop trước khi tiêu đồng nào** — phần lớn chương trình cấm đấu giá từ khoá thương hiệu merchant; vi phạm thường bị chấm dứt **và mất hoa hồng đã tích**. Ghi lại vào trường `allowsPaidTraffic`.
+5. ⚠️ **Kiểm giá WoWGadgets99**: đơn TB đo được là **$1.256,95** — cao bất thường. Nếu có deal nhập sai giá thì kết luận "shop này có cửa chạy quảng cáo" đảo ngược hoàn toàn.
+
+**Số đã đo rồi, đừng đo lại:**
+- GA4 30 ngày: **~1.000 lượt xem trang/tháng**, 167 phiên, 68,5% khách từ Việt Nam. **82/84 lượt bấm affiliate đến từ Việt Nam** — gần như chắc là user và người quen, nên mọi tỉ lệ tính trên đó đều lạc quan giả.
+- URL Inspection: **4/12 trang đã vào chỉ mục**. `/`, `/reviews`, `/stores`, `/deals` đã vào nhưng Google bò lần cuối **11–15 ngày trước**; `/blog`, `/categories` và 6 bài mới **chưa bao giờ được bò**. Sitemap khoẻ: đã nộp, Google tải 08/08, 345 URL, 0 lỗi. **Nút thắt là Google chỉ ghé ~2 lần/tháng, không phải cấu hình.**
+- Giá trị đơn TB theo store (21 store có số): WoWGadgets99 $1256,95 · Dowinx $149,54 · Bag Organizers $86,99 · Cottagecore $65,45 · Cloud Cushion $47,80 · Hunny Life $39,82 · Estarer $33,85.
+
+**Vẫn đang đóng băng:** không làm SEO gì tới **18/08/2026** (còn 8 ngày). Đăng bài mới và bấm yêu cầu lập chỉ mục thì **được** — đó là đẩy nhanh khám phá, không phải sửa nội dung/cấu trúc.
+
+**Bẫy mới học hôm nay:**
+- Đếm link trong payload RSC của Next: **chuỗi bị chia đôi giữa hai chunk** `__next_f.push` — regex bắt phải slug cụt và đếm thừa.
+- `new URL('https://Dowinx')` **parse được** → muốn nhận biết tên miền phải bắt buộc có dấu chấm, không thì tên thương hiệu thật bị thay oan.
+- `Date.now()` gọi trong lúc render là **lỗi lint cứng** (`react-hooks/purity`) — truyền `now` từ trên xuống, hoặc lấy trong event handler.
+- URL Inspection API: **hạn ngạch 2000 URL/ngày cho cả site** → không được gọi khi render trang.
+- Kết quả URL Inspection **không ổn định tuyệt đối giữa hai lần gọi** (`/blog` ra `unknown` rồi `Discovered` cách nhau vài phút). Đọc một lần đo là ảnh chụp, không phải phán quyết.
+
 ## Chờ đo lại ⏳
 - **Đóng băng mốc đo tìm kiếm 04/08 — mở lại từ 18/08/2026.** Mọi số đo hôm nay đều nói về site **trước** khi sitemap được rã đông. 23 review đăng 03/08 mà Google chưa từng được báo cho tới 04/08 — một ngày thì chưa xếp hạng được. Tối ưu tiếp dựa trên số này là tối ưu cho một site không còn tồn tại, và sẽ không phân biệt được thay đổi nào có tác dụng.
   - **Số phải vượt** (GSC 90 ngày, 03/05 → 01/08): toàn site **3.173 hiển thị · 28 bấm · CTR 0,88% · vị trí TB 22,8**. Trong top 20 trang: **trang sống 128 hiển thị / 0 bấm**, **trang chết 1.834 hiển thị / 12 bấm**. Trang sống tốt nhất là `/reviews`, vị trí **59,9**. Trang chết đứng trang 1: flashfish **8,2** (299 hiển thị), epz-audio **7,4**, friendship-lamps **8,8**, novita-ai **9,8**.
