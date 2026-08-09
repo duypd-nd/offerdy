@@ -1,4 +1,5 @@
 import { client as readClient } from '@/sanity/client'
+import { writeClient } from '@/sanity/writeClient'
 import { dealBelongsToStore } from '@/lib/dealStoreMatch'
 import { parsePriceAmount } from '@/lib/priceAmount'
 import { estimateAvgOrderValue } from '@/lib/adPlanner'
@@ -22,12 +23,24 @@ export const dynamic = 'force-dynamic'
  */
 export default async function AdPlannerPage() {
   const [stores, deals] = await Promise.all([
-    readClient.fetch<{
-      name: string; slug: string; website?: string; affiliateLink?: string
+    // ⚠️ `writeClient` (khong qua CDN) cho store, KHONG phai `readClient`.
+    //
+    // Trang nay SUA bon truong ngay tren bang, nen no bat buoc phai thay thu vua
+    // ghi xong. `readClient` di qua CDN cua Sanity va cache ~60s: do duoc bang
+    // cach lai Chrome that — go 7 vao o hoa hong, bam Luu (Sanity nhan 7), tai lai
+    // trang thi o hien TRONG. Nguoi van hanh se doc thanh "luu hong", go lai, va
+    // con te hon: khong the xoa mot gia tri go nham vi o luon hien trong nen
+    // khong co gi de "sua", nut Luu khong bao gio xuat hien.
+    //
+    // Dung luat da ghi o `src/sanity/queries.ts`: readClient cho trang cong khai,
+    // writeClient khi bat buoc phai co du lieu vua ghi. Danh sach deal ben duoi
+    // thi khong doi tu trang nay nen van dung readClient cho re.
+    writeClient.fetch<{
+      id: string; name: string; slug: string; website?: string; affiliateLink?: string
       commissionRate?: number; avgOrderValue?: number
       cookieWindowDays?: number; allowsPaidTraffic?: string
     }[]>(`*[_type == "store" && published != false] | order(name asc) {
-      name, "slug": slug.current, website, affiliateLink,
+      "id": _id, name, "slug": slug.current, website, affiliateLink,
       commissionRate, avgOrderValue, cookieWindowDays, allowsPaidTraffic
     }`),
     readClient.fetch<{ store?: string; dealUrl?: string; priceSale?: string }[]>(
@@ -41,6 +54,7 @@ export default async function AdPlannerPage() {
       .map(d => parsePriceAmount(d.priceSale))
     const est = estimateAvgOrderValue(prices)
     return {
+      id: s.id,
       name: s.name,
       slug: s.slug,
       commissionRate: s.commissionRate ?? null,
