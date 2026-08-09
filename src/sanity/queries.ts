@@ -27,7 +27,7 @@ import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
 import { DEAL_CODE_START } from '@/lib/dealCode'
 import { resolveOfferUrl } from '@/lib/affiliateUrl'
-import { applyStoreRefToHtmlLinks, couponForDealUrl, resolveDealLink, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
+import { applyStoreRefToHtmlLinks, couponForDealUrl, dealBelongsToStore, displayStoreName, resolveDealLink, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
 import type { StoreHealthInput } from '@/lib/merchantHealth'
 
 /**
@@ -165,11 +165,13 @@ export async function getAllDeals() {
   } catch { return [] }
 }
 
-export async function getDealsByStore(storeName: string) {
+/**
+ * Deal cua mot store. Nhan CA store chu khong chi ten: phep khop chay tren domain
+ * cua `dealUrl`, nen can `website`/`affiliateLink`. Xem `dealBelongsToStore`.
+ */
+export async function getDealsByStore(store: { name: string; website?: string; affiliateLink?: string }) {
   const allDeals = await getAllDeals()
-  return allDeals.filter((d: { store?: string }) =>
-    d.store?.toLowerCase().includes(storeName.toLowerCase())
-  )
+  return allDeals.filter((d: { store?: string; dealUrl?: string }) => dealBelongsToStore(d, store))
 }
 
 const DEAL_BY_SLUG_QUERY = `*[_type == "deal" && slug.current == $slug][0] {
@@ -379,9 +381,9 @@ function applyDealResolution<T>(row: T, stores: StoreHostRow[]): T {
   return {
     ...d,
     dealUrl: r.dealUrl,
-    // `||` chu khong phai `??`: chuoi rong cung tinh la trong. Va khong bao gio
-    // ghi de ten shop nguoi van hanh da go.
-    store: d.store || r.storeName,
+    // Giu chu nguoi van hanh da go, TRU khi do la mot ten mien tran do duong nhap
+    // ghi ra — xem `displayStoreName`.
+    store: displayStoreName(d.store, d.dealUrl, r.storeName),
     // Chi de link noi bo sang trang store — deal khong luu field nay.
     storeSlug: r.storeSlug,
   } as T

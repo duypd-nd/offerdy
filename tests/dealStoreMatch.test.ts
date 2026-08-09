@@ -8,7 +8,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   matchStoreByUrl, couponForDealUrl, applyStoreRefToDealUrl, resolveDealLink,
-  applyStoreRefToHtmlLinks,
+  applyStoreRefToHtmlLinks, dealBelongsToStore, displayStoreName,
   type StoreHostRow,
 } from '@/lib/dealStoreMatch'
 
@@ -153,4 +153,116 @@ test('shop KHONG co ma -> null (khong hien hop coupon rong)', () => {
 
 test('shop khong khop -> null', () => {
   assert.equal(couponForDealUrl('https://amazon.com/dp/B01', stores), null)
+})
+
+// ── Deal thuộc về store nào (trang /stores/[slug]) ───────────────
+//
+// ⚠️ Bốn ca đầu là dữ liệu THẬT trên production ngày 2026-08-10, không phải
+// fixture tự dựng. Phép khớp cũ — `deal.store.includes(store.name)` — làm
+// **85/175 deal vô hình** trên chính trang store của chúng. Fixture tự dựng cho
+// qua hết; chỉ tên thật mới lộ ra lỗi.
+
+test('⚠️ deal.store là TÊN MIỀN còn store.name có dấu cách — 35 deal từng biến mất', () => {
+  const store = { name: 'Cloud Cushion Slides', affiliateLink: 'https://cloudcushionslides.com/?ref=offerdy' }
+  const deal = { store: 'cloudcushionslides.com', dealUrl: 'https://cloudcushionslides.com/products/x' }
+  // Phép cũ: "cloudcushionslides.com".includes("cloud cushion slides") === false
+  assert.equal(deal.store.toLowerCase().includes(store.name.toLowerCase()), false)
+  assert.equal(dealBelongsToStore(deal, store), true)
+})
+
+test('⚠️ deal.store ngắn hơn store.name — 22 deal Dowinx từng biến mất', () => {
+  const store = { name: 'dowinx-gaming-chair.EU', affiliateLink: 'https://eu.dowinx.com/?ref=offerdy' }
+  const deal = { store: 'Dowinx', dealUrl: 'https://eu.dowinx.com/products/chair' }
+  assert.equal(deal.store.toLowerCase().includes(store.name.toLowerCase()), false)
+  assert.equal(dealBelongsToStore(deal, store), true)
+})
+
+test('ca duy nhất phép cũ chạy đúng vẫn phải chạy đúng — tên viết liền', () => {
+  const store = { name: 'WoWGadgets99', affiliateLink: 'https://wowgadgets99.com/?ref=offerdy' }
+  const deal = { store: 'wowgadgets99.com', dealUrl: 'https://wowgadgets99.com/products/y' }
+  assert.equal(dealBelongsToStore(deal, store), true)
+})
+
+test('deal của shop KHÁC không được lọt sang — hậu quả nặng hơn cả việc mất deal', () => {
+  const store = { name: 'Cloud Cushion Slides', affiliateLink: 'https://cloudcushionslides.com/?ref=offerdy' }
+  const deal = { store: 'Cloud Cushion Slides', dealUrl: 'https://kyokuknives.com/products/santoku' }
+  // Chuỗi khớp hoàn hảo, nhưng URL trỏ shop khác. Domain thắng — nếu không,
+  // khách bấm deal ở trang shop A và bị đưa sang shop B.
+  assert.equal(dealBelongsToStore(deal, store), false)
+})
+
+test('www. và tham số ref không được làm lệch phép khớp', () => {
+  const store = { name: 'Estarer', website: 'estarer.com' }
+  assert.equal(
+    dealBelongsToStore({ dealUrl: 'https://www.estarer.com/p/1?ref=offerdy&utm_source=affiliate' }, store),
+    true
+  )
+})
+
+test('khớp cả website lẫn affiliateLink — hai field không luôn cùng host', () => {
+  const store = { name: 'X', website: 'https://x-shop.com', affiliateLink: 'https://go.partner.com/x' }
+  assert.equal(dealBelongsToStore({ dealUrl: 'https://x-shop.com/p' }, store), true)
+  assert.equal(dealBelongsToStore({ dealUrl: 'https://go.partner.com/x/p' }, store), true)
+})
+
+test('không có dealUrl -> quay về khớp chuỗi (đường lùi, không phải đường chính)', () => {
+  const store = { name: 'Hunny Life', website: 'hunnylife.com' }
+  assert.equal(dealBelongsToStore({ store: 'Hunny Life' }, store), true)
+  assert.equal(dealBelongsToStore({ store: 'Shop khac' }, store), false)
+  assert.equal(dealBelongsToStore({}, store), false)
+})
+
+test('store chưa khai website lẫn affiliateLink -> không khớp bừa', () => {
+  assert.equal(dealBelongsToStore({ dealUrl: 'https://bat-ky-dau.com/p' }, { name: 'Store Trong' }), false)
+})
+
+// ── Tên shop hiện cho khách ──────────────────────────────────────
+//
+// ⚠️ 87 deal trên production có `deal.store` là một tên miền trần. Nó đi ra HAI
+// chỗ người ngoài nhìn thấy: thẻ shop dưới tiêu đề deal, và `brand.name` trong
+// JSON-LD gửi Google — tức khai với Google rằng thương hiệu tên là
+// "cloudcushionslides.com".
+
+test('⚠️ tên miền trần bị thay bằng tên store thật — ca đã hiện ra trước mặt khách', () => {
+  assert.equal(
+    displayStoreName('cloudcushionslides.com', 'https://cloudcushionslides.com/products/x', 'Cloud Cushion Slides'),
+    'Cloud Cushion Slides'
+  )
+})
+
+test('⚠️ "Dowinx" KHÔNG được coi là tên miền — new URL("https://Dowinx") vẫn parse được', () => {
+  // Không có chặn "phải có dấu chấm" thì một tên thương hiệu thật bị thay oan.
+  assert.equal(
+    displayStoreName('Dowinx', 'https://eu.dowinx.com/p', 'dowinx-gaming-chair.EU'),
+    'Dowinx'
+  )
+})
+
+test('tên người vận hành gõ luôn được giữ', () => {
+  assert.equal(
+    displayStoreName('Bag Organizers Shop', 'https://bagorganizers.shop/p', 'Bag Organizers Shop'),
+    'Bag Organizers Shop'
+  )
+  assert.equal(
+    displayStoreName('Tên Tiếng Việt', 'https://x.com/p', 'X Store'),
+    'Tên Tiếng Việt'
+  )
+})
+
+test('tên miền TRỎ SHOP KHÁC thì giữ nguyên, không thay bừa', () => {
+  assert.equal(
+    displayStoreName('shopkhac.com', 'https://cloudcushionslides.com/p', 'Cloud Cushion Slides'),
+    'shopkhac.com'
+  )
+})
+
+test('deal.store trống -> lấy tên suy ra được (hành vi cũ, không được mất)', () => {
+  assert.equal(displayStoreName(undefined, 'https://x.com/p', 'X Store'), 'X Store')
+  assert.equal(displayStoreName('', 'https://x.com/p', 'X Store'), 'X Store')
+  assert.equal(displayStoreName('   ', 'https://x.com/p', 'X Store'), 'X Store')
+})
+
+test('không suy ra được store -> giữ nguyên chuỗi, kể cả khi nó là tên miền', () => {
+  assert.equal(displayStoreName('lashop.com', 'https://lashop.com/p', undefined), 'lashop.com')
+  assert.equal(displayStoreName(undefined, 'https://lashop.com/p', undefined), undefined)
 })

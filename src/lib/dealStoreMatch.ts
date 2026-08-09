@@ -148,6 +148,75 @@ export function resolveDealLink(
   }
 }
 
+/**
+ * Deal nay co thuoc ve store nay khong — dung cho trang `/stores/[slug]`.
+ *
+ * ⚠️ **Khop theo DOMAIN cua `dealUrl`, khong theo chuoi `deal.store`.** Truoc day
+ * cho nay so `deal.store.includes(store.name)`, va no hong hai lan vi cung mot ly
+ * do: `deal.store` la chuoi TU DO do duong nhap dien, con `store.name` la ten
+ * nguoi van hanh dat — hai thu khong co gi bat chung phai bang nhau. Do tren
+ * production 2026-08-10: **85/175 deal khong khop store nao**, trang store hien 0
+ * deal trong khi kho co 35 (`cloudcushionslides.com` vs "Cloud Cushion Slides"),
+ * 22 (`Dowinx` vs "dowinx-gaming-chair.EU"), 8 (`cottagecoreclothes.com` vs
+ * "Cottagecore Clothes")… WoWGadgets99 thoat duy nhat vi ten viet lien khong dau
+ * cach nen tinh co nam trong chuoi ten mien.
+ *
+ * Sua bang cach doi phep so sanh chu KHONG sua du lieu: 175/175 deal deu co
+ * `dealUrl`, va ca 175 khop dung mot store qua domain. Sua tay `deal.store` thi
+ * lan nhap sau lai hong tiep — dung chuyen da xay ra voi Cloud Cushion Slides,
+ * sua ngay 04/08 roi quay lai.
+ *
+ * Day cung la nguyen tac da ghi o dau file nay: suy ra duoc mot cach xac dinh thi
+ * dung suy ra, dung bat nguoi go tay.
+ */
+export function dealBelongsToStore(
+  deal: { store?: string; dealUrl?: string },
+  store: { name: string; website?: string; affiliateLink?: string }
+): boolean {
+  const host = hostKey(deal.dealUrl)
+  if (host) {
+    // `applyTrackingParams` chi THEM query param, khong bao gio doi host — nen so
+    // tren `dealUrl` da gan ref van dung.
+    return hostKey(store.website) === host || hostKey(store.affiliateLink) === host
+  }
+  // Khong co `dealUrl` (hien tai: 0 deal) — quay ve khop chuoi nhu cu. Giu lai de
+  // mot deal nhap thieu URL khong biem mat hoan toan, chu khong phai vi no dung.
+  const name = store.name.trim().toLowerCase()
+  if (!name) return false
+  return deal.store?.toLowerCase().includes(name) ?? false
+}
+
+/**
+ * Ten shop de HIEN cho khach tren the deal / trang deal / JSON-LD.
+ *
+ * ⚠️ `deal.store` la chuoi tu do va duong nhap dang ghi TEN MIEN vao do. Do tren
+ * production 2026-08-10: 87 deal co `deal.store` la mot ten mien tran
+ * (`cloudcushionslides.com`, `cottagecoreclothes.com`, `wowgadgets99.com`), va no
+ * di thang ra hai cho nguoi ngoai nhin thay:
+ *   - the "shop" duoi tieu de deal: hien `cloudcushionslides.com` thay vi
+ *     "Cloud Cushion Slides"
+ *   - `brand.name` trong JSON-LD gui Google — tuc ta dang khai voi Google rang
+ *     THUONG HIEU cua san pham ten la "cloudcushionslides.com"
+ *
+ * Nen khi `deal.store` la mot ten mien TRO DUNG shop da khop, uu tien ten store
+ * that. Moi truong hop khac giu nguyen chu nguoi van hanh go — do van la nguyen
+ * tac cu, chi la mot ten mien do may dien khong phai "chu nguoi van hanh go".
+ */
+export function displayStoreName(
+  dealStore: string | undefined,
+  dealUrl: string | undefined,
+  resolvedName: string | undefined
+): string | undefined {
+  const typed = dealStore?.trim()
+  if (!typed) return resolvedName
+  if (!resolvedName) return typed
+  // Phai co dau cham va khong co khoang trang moi coi la ten mien. Khong co chan
+  // nay thi `new URL('https://Dowinx')` parse duoc va "Dowinx" bi coi la domain —
+  // mot ten thuong hieu that se bi thay oan.
+  if (!/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$/i.test(typed)) return typed
+  return hostKey(typed) === hostKey(dealUrl) ? resolvedName : typed
+}
+
 export type DealCoupon = {
   code: string
   storeName: string

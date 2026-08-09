@@ -102,9 +102,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
   const [offers, globalContent, storeDeals] = await Promise.all([
     getOffersByStore(slug),
     getConfigContent(),
-    // Deal cua chinh shop nay. Khop theo TEN store — chi hoat dong duoc tu khi
-    // `deal.store` tu dien tu domain cua dealUrl (truoc do 22/22 deal de trong).
-    getDealsByStore(store.name),
+    // Deal cua chinh shop nay, khop theo DOMAIN cua `dealUrl` — khong theo chuoi
+    // `deal.store` nua. Khop chuoi tung lam 85/175 deal vo hinh; xem
+    // `dealBelongsToStore`.
+    getDealsByStore(store),
   ])
 
   const shortDesc = store.shortDescription ?? 'Deals & coupons verified daily — tested before going live.'
