@@ -75,26 +75,51 @@ function isRetryable(err: unknown): boolean {
     const status = (err as { status?: number }).status
     if (status && [429, 500, 502, 503, 529].includes(status)) return true
   }
-  // Model tra ve output khong dat schema (vd thieu FAQ) — thu lai thuong se ra ket qua khac
-  if (err instanceof Error && err.message.includes('Failed to parse structured output')) return true
+  // Model tra JSON hong hoac lech schema (vd thieu FAQ) la chuyen ngau nhien, thu lai co the qua.
+  // ⚠️ Bai BI CAT thi KHONG nam o day — no la loi cung, xem `callAnthropic` ben duoi.
+  if (err instanceof SyntaxError) return true
+  if (err && typeof err === 'object' && 'issues' in err) return true // ZodError
   return false
 }
 
 async function callAnthropic(input: ReviewContentInput, attempt = 1): Promise<ReviewContent> {
   try {
-    const response = await getAnthropicClient().messages.parse({
+    // ⚠️ **Streaming + tu parse, KHONG dung `messages.parse`.** Cung mot quat mim
+    // da no o `generateArticleContent` va `nameArticleIdeas` — chep nguyen cach chua:
+    //
+    // (1) `max_tokens` chan **thinking + chu cong lai**. Sonnet 5 bat adaptive thinking
+    //     mac dinh khi khong khai `thinking`, va khi tran chat model dot sach ngan sach
+    //     vao thinking roi bi cat. Do that tren `nameArticleIdeas` (2026-08-05): 4096 chay
+    //     35 giay roi tra ve `stop_reason: max_tokens` va KHONG MOT CHU NAO — ma viec do
+    //     chi la dat 12 cai ten ngan. Bai review dai kem FAQ thi dau ra nang hon nhieu.
+    //     Uoc luong tran theo do dai dau ra la sai phuong phap. Tran cao khong ton them
+    //     tien — chi tinh theo token that dung — nen de rong la mien phi.
+    // (2) `messages.parse` PARSE TRUOC khi ta doc duoc `stop_reason`. Bai bi cat no ra
+    //     `Failed to parse structured output` — mot loi khai sai nguyen nhan, va hang rao
+    //     `stop_reason === 'max_tokens'` ben duoi khong bao gio chay toi duoc.
+    //
+    // Tren 16000 token thi bat buoc phai streaming, neu khong request chet vi timeout.
+    const stream = getAnthropicClient().messages.stream({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 64000,
       system: SYSTEM_PROMPT,
       output_config: { format: zodOutputFormat(ReviewContentSchema) },
       messages: [{ role: 'user', content: buildUserPrompt(input) }],
     })
+    const response = await stream.finalMessage()
 
-    const parsed = response.parsed_output
-    if (!parsed) {
-      throw new Error(`AI review generation failed: no parsed output (stop_reason=${response.stop_reason})`)
+    // ⚠️ Bai bi cat VAN parse thanh JSON hop le — cho toi luc khong. Am tham dang nua
+    // bai review len site la ket cuc te nhat co the, nen coi day la loi cung: khong
+    // retry (khong bao gio tu lanh), khong tra ve mot nua.
+    if (response.stop_reason === 'max_tokens') {
+      throw new Error('Bài review bị cắt giữa chừng (stop_reason=max_tokens) — không dùng được')
     }
-    return parsed
+    let json = ''
+    for (const block of response.content) if (block.type === 'text') json += block.text
+    if (!json) {
+      throw new Error(`AI review generation failed: no output (stop_reason=${response.stop_reason})`)
+    }
+    return ReviewContentSchema.parse(JSON.parse(json))
   } catch (err) {
     if (isRetryable(err) && attempt < MAX_ATTEMPTS) {
       await new Promise(r => setTimeout(r, attempt * 1500))
