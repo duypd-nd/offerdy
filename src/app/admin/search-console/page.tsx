@@ -3,6 +3,8 @@ import {
   getSearchConsoleData, listSearchConsoleSites, isSearchConsoleConfigured, findDeadPages,
   type GscRow, type DeadPageReport,
 } from '@/lib/searchConsole'
+import { getSitemapStatus, type SitemapStatus } from '@/lib/urlInspection'
+import IndexStatusClient from './IndexStatusClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,20 +16,56 @@ export const dynamic = 'force-dynamic'
  * thu hai cho cung mot cau hoi va hai ben se lech nhau ngay lan sua tiep theo.
  * Doc production ke ca khi chay o may local, vi day la ban ma Google that su doc.
  */
-async function sitemapUrlCount(): Promise<number | null> {
+type SitemapEntry = { loc: string; lastmod: string | null }
+
+async function readSitemap(): Promise<SitemapEntry[] | null> {
   try {
     const res = await fetch('https://www.offerdy.com/sitemap.xml', { next: { revalidate: 3600 } })
     if (!res.ok) return null
-    return ((await res.text()).match(/<loc>/g) ?? []).length
+    const xml = await res.text()
+    const entries: SitemapEntry[] = []
+    for (const block of xml.match(/<url>[\s\S]*?<\/url>/g) ?? []) {
+      const loc = block.match(/<loc>([^<]*)<\/loc>/)?.[1]
+      if (!loc) continue
+      entries.push({ loc, lastmod: block.match(/<lastmod>([^<]*)<\/lastmod>/)?.[1] ?? null })
+    }
+    return entries
   } catch { return null }
+}
+
+/** Trang dau moi: bo duoc mot trang nay la Google co duong di toi ca danh sach ben duoi no. */
+const HUB_PATHS = ['/', '/blog', '/reviews', '/stores', '/deals', '/categories']
+
+/**
+ * Chon URL de hoi Google — **lay tu chinh sitemap production**, khong dem lai bang GROQ.
+ *
+ * Cung ly do da ghi o `readSitemap`: hoi Google ve mot URL ma ta chua he nop cho
+ * no thi cau tra loi luon la "unknown", va do la loi cua phep do chu khong phai
+ * cua site. Chi hoi dung nhung gi ta da bao voi Google.
+ *
+ * Sau trang dau moi + sau bai moi nhat = 12 URL. Du de tra loi "Google con ghe
+ * khong, va noi dung moi da toi tai no chua" ma khong dot han ngach 2000/ngay.
+ */
+function pickUrlsToInspect(entries: SitemapEntry[]): string[] {
+  const path = (u: string) => u.replace(/^https?:\/\/[^/]+/, '') || '/'
+  const hubs = HUB_PATHS.map(p => entries.find(e => path(e.loc) === p)?.loc).filter((u): u is string => !!u)
+  const newestPosts = entries
+    .filter(e => path(e.loc).startsWith('/blog/'))
+    .sort((a, b) => (b.lastmod ?? '').localeCompare(a.lastmod ?? ''))
+    .slice(0, 6)
+    .map(e => e.loc)
+  return [...hubs, ...newestPosts]
 }
 
 export default async function SearchConsolePage() {
   const now = new Date()
-  const [data, sitemapCount] = await Promise.all([
+  const [data, entries, sitemapStatus] = await Promise.all([
     getSearchConsoleData(now),
-    sitemapUrlCount(),
+    readSitemap(),
+    getSitemapStatus(now),
   ])
+  const sitemapCount = entries?.length ?? null
+  const urlsToInspect = entries ? pickUrlsToInspect(entries) : []
   // Chi hoi danh sach site khi that bai — de chi ra gia tri dung cho GSC_SITE_URL
   const sites = data ? null : await listSearchConsoleSites(now)
   const dead = data ? await findDeadPages(data.allPages) : null
@@ -58,6 +96,15 @@ export default async function SearchConsolePage() {
 
           {/* ── Trang chết mà Google vẫn xếp hạng — vấn đề lớn nhất, để lên đầu ── */}
           {dead && dead.pages.length > 0 && <DeadPagesCard report={dead} />}
+
+          {/* ── Google đã thấy chưa: câu hỏi đứng TRƯỚC mọi câu hỏi về thứ hạng ── */}
+          <Card title="🔎 Google đã thấy trang của mình chưa"
+            note="Bảng số phía trên chỉ kể những trang ĐÃ TỪNG hiện trong kết quả tìm kiếm. Một trang Google chưa hề biết tới và một trang đã vào chỉ mục nhưng chưa khớp truy vấn nào — cả hai đều vắng mặt như nhau ở đó. Chỉ hỏi thẳng từng URL mới phân biệt được, và hai trường hợp ấy dẫn tới hai việc khác hẳn nhau.">
+            {sitemapStatus && sitemapStatus.length > 0 && <SitemapCard rows={sitemapStatus} now={now} />}
+            {urlsToInspect.length > 0
+              ? <IndexStatusClient urls={urlsToInspect} />
+              : <div style={{ padding: '16px', fontSize: 13, color: '#94a3b8' }}>Không đọc được sitemap production nên chưa biết nên hỏi URL nào.</div>}
+          </Card>
 
           {/* ── Độ phủ chỉ mục ── */}
           <Card title="📄 Bao nhiêu trang thực sự xuất hiện trên Google">
@@ -207,6 +254,51 @@ function Card({ title, note, accent, children }: {
         )}
         {children}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Trang thai sitemap.
+ *
+ * ⚠️ Con so co nghia la `lastDownloaded` — lan Google THAT SU tai ve — chu khong
+ * phai `lastSubmitted`. Nop mot lan roi de do la du; cai can biet la Google con
+ * quay lai doc khong. Du an nay da mat 22/23 bai review vi mot sitemap dong bang
+ * ma khong ai nhin thay, nen con so nay phai nam tren man hinh.
+ */
+function SitemapCard({ rows, now }: { rows: SitemapStatus[]; now: Date }) {
+  // `now` di tu tren xuong chu khong goi `Date.now()` tai cho: goi ham khong thuan
+  // trong luc render la loi lint co that (react-hooks/purity), va mot moc thoi gian
+  // duy nhat cho ca trang cung tranh duoc chuyen hai dong cach nhau vai mili giay
+  // lai quy ra hai so ngay khac nhau.
+  const ago = (iso: string | null) => {
+    if (!iso) return null
+    const d = Math.floor((now.getTime() - new Date(iso).getTime()) / 86_400_000)
+    return d <= 0 ? 'hôm nay' : d === 1 ? 'hôm qua' : `${d} ngày trước`
+  }
+  return (
+    <div style={{ padding: '14px 16px 0' }}>
+      {rows.map(s => {
+        const downloaded = ago(s.lastDownloaded)
+        const stale = !s.lastDownloaded || (now.getTime() - new Date(s.lastDownloaded).getTime()) / 86_400_000 > 7
+        return (
+          <div key={s.path} style={{
+            border: `1px solid ${stale ? '#fde68a' : '#e5e7eb'}`, background: stale ? '#fffbeb' : '#f8fafc',
+            borderRadius: 8, padding: '10px 12px', marginBottom: 8,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', overflowWrap: 'anywhere' }}>{s.path}</div>
+            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 4, lineHeight: 1.8 }}>
+              Google tải về lần cuối:{' '}
+              {downloaded
+                ? <b style={{ color: stale ? '#b45309' : '#15803d' }}>{downloaded}</b>
+                : <b style={{ color: '#b91c1c' }}>chưa bao giờ</b>}
+              {' · '}{s.submittedUrls} URL đã nộp
+              {s.errors > 0 && <span style={{ color: '#b91c1c' }}> · {s.errors} lỗi</span>}
+              {s.warnings > 0 && <span style={{ color: '#b45309' }}> · {s.warnings} cảnh báo</span>}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
