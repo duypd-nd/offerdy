@@ -10,6 +10,7 @@ export const storeType = defineType({
     { name: 'events',  title: '📅 Events' },
     { name: 'seo',     title: '🔍 SEO' },
     { name: 'ai',      title: '🤖 AI Content' },
+    { name: 'ads',     title: '💰 Kinh tế affiliate' },
   ],
   fields: [
     // ── Trạng thái ─────────────────────────────────────────────
@@ -98,6 +99,62 @@ export const storeType = defineType({
       validation: r => r.min(3).max(5).precision(1),
       description: 'Để trống = hiện 4.8. Nhập 3 đến 5, một chữ số thập phân — VD: 4.5',
     }),
+    // ── Kinh te affiliate ────────────────────────────────────────────────
+    // Bon truong nay KHONG hien tren site. Chung ton tai de tra loi mot cau hoi
+    // duy nhat truoc khi tieu tien quang cao: "bo ra $X mua luot bam thi co cua
+    // lai khong". Xem `/admin/ad-planner`.
+    //
+    // ⚠️ Chi dien cho nhung shop that su dinh chay quang cao. Ngoi go du 85 shop
+    // de phuc vu mot quyet dinh chua chac xay ra la lang phi vai gio.
+    defineField({
+      name: 'commissionRate',
+      title: '% hoa hồng',
+      type: 'number',
+      group: 'ads',
+      validation: r => r.min(0).max(100),
+      description: 'Lấy từ cổng affiliate GoAffPro của chính shop này. VD: 10 → 10% mỗi đơn. KHÔNG đoán — đây là số duy nhất không suy ra được từ đâu khác.',
+    }),
+    defineField({
+      // Vi sao khong bat buoc go tay: 175/175 deal deu co gia ban, nen
+      // `/admin/ad-planner` uoc luong san tu chinh deal cua shop. O nay de ghi de
+      // khi nguoi van hanh biet con so that tu bao cao GoAffPro — so that luon
+      // thang so uoc luong.
+      name: 'avgOrderValue',
+      title: 'Giá trị đơn trung bình (USD)',
+      type: 'number',
+      group: 'ads',
+      validation: r => r.min(0),
+      description: 'Để trống = dùng số ước lượng từ giá các deal của shop này. Chỉ điền khi có số thật từ GoAffPro.',
+    }),
+    defineField({
+      name: 'cookieWindowDays',
+      title: 'Thời hạn cookie (ngày)',
+      type: 'number',
+      group: 'ads',
+      validation: r => r.min(0),
+      description: 'Sau khi khách bấm, bao nhiêu ngày nữa họ mua thì vẫn tính công mình. Dân săn coupon hiếm khi mua ngay, nên 7 ngày và 30 ngày khác nhau rất nhiều.',
+    }),
+    defineField({
+      // Truong PHU QUYET. Bang "no" thi ba truong tren vo nghia — va vi pham dieu
+      // khoan PPC thuong dan toi cham dut chuong trinh VA mat phan hoa hong da
+      // tich, nen mac dinh phai la "chua xac minh" chu khong phai "cho phep".
+      name: 'allowsPaidTraffic',
+      title: 'Cho chạy quảng cáo trả tiền?',
+      type: 'string',
+      group: 'ads',
+      initialValue: 'unknown',
+      options: {
+        list: [
+          { title: '❓ Chưa xác minh', value: 'unknown' },
+          { title: '✅ Cho phép', value: 'yes' },
+          { title: '⚠️ Cho, TRỪ từ khoá thương hiệu', value: 'brand_excluded' },
+          { title: '🚫 Không cho', value: 'no' },
+        ],
+        layout: 'radio',
+      },
+      description: 'Đọc điều khoản chương trình; không ghi rõ thì phải email hỏi merchant. Chưa xác minh ≠ được phép.',
+    }),
+
     defineField({
       name: 'website',
       title: 'Website URL (domain gốc)',
