@@ -201,6 +201,12 @@ Ba commit hôm nay: `a4e5947` (deal vô hình) · `8a2323e` (máy tính quảng 
   - **Chặng tiếp**: `articleIdeas.ts` + cổng kiểm tính trung thực (hàm thuần, có test) — xem kế hoạch.
 
 ## Done ✅
+- **Ảnh chết trắng trên production — hết hạn mức tối ưu ảnh của Vercel (2026-08-13)** — test **334 → 340**, `build` sạch, đã kiểm trên trang thật ở `next start`.
+  - Triệu chứng user thấy: `/deals` chỉ còn chữ alt to đùng thay cho ảnh sản phẩm.
+  - **Đo trước khi sửa**: 448/448 ảnh gốc trên `cdn.sanity.io` trả **200**; nhưng **181/182** biến thể `/_next/image` trên production trả **402 `OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`**. Ảnh không hỏng — hạn mức Vercel cạn. Cái duy nhất còn sống chỉ là cái đã nằm sẵn trong cache.
+  - Cách sửa: `images.loader: 'custom'` + `src/lib/imageLoader.ts` — đổi kích thước bằng CDN của Sanity, **không đi qua `/_next/image` nữa**. Đã xác nhận: 7 trang chính render **0** URL `_next/image`.
+  - ⚠️ **Không chọn `unoptimized: true`** vì nó bắn ảnh 1200px nguyên bản vào mọi thẻ — đúng thứ đợt tối ưu 02/08 vừa cắt đi (`/deals` 1232KB → 982KB).
+  - ⚠️ **Bài học đắt nhất: build sạch, `tsc` sạch, test xanh, mọi trang trả 200 — mà site vẫn không có ảnh.** Không phép kiểm nào của dự án nhìn thấy được; chỉ có gọi thật một URL ảnh mới lộ.
 - **Bài Comparison đầu tiên: so 4 hệ thống RO của Frizzlife (2026-08-05)** — bắt đầu vá lỗ hổng lớn nhất về nội dung: site có **thân phễu** (23 review từng SKU) và **đáy phễu** (trang store, mã giảm) nhưng **không có đỉnh phễu**. Không ai gõ "Frizzlife PX600" khi chưa biết Frizzlife là ai — họ gõ *"best tankless reverse osmosis system"*.
   - `/blog/frizzlife-tankless-ro-systems-compared` · `post` + category `Comparison`. **Lắp 100% từ 4 review đã có**, không thêm một thông số nào từ ngoài.
   - ⚠️ **KHÔNG đăng vào `/reviews`.** Loại `review` bắt buộc có `stars` và trang phát `@type: Review` + `itemReviewed: Product` — tức khai với Google "đây là đánh giá MỘT sản phẩm, chấm N sao". Bài so 4 model đăng vào đó là sai sự thật và trái quy định review snippet. Loại `post` phát `@type: Article`, đúng loại. **Đã kiểm trên trang thật: chỉ có Article + BreadcrumbList, không có Review/Rating giả.**

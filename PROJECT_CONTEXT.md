@@ -548,6 +548,16 @@ See the comment block atop `src/sanity/queries.ts`. Short version: **public read
 - ⚠️ **`/admin/ai-review` also bypasses the CDN** (2026-08-01), via `client.withConfig({ useCdn: false })` rather than `writeClient` — a read path should not carry a write token. Reported as "approving offers succeeds but they are still there after a reload": the writes were correct (0 pending, 180 approved) and the CDN was simply still serving the pre-write answer. It looked like only offers were affected because the stores had been approved minutes earlier and the CDN had caught up by then — same bug, different timing. On a **queue**, a stale read is not cosmetic: it invites approving the same thing twice, or concluding the write failed. Cost of the fix is 3 API requests per page view.
 - Writes still need the API but never break the user journey: `trackShortLink` and `AffiliateLink` swallow their own errors by design, so during the outage `/d/`, `/g/` and every Get Deal button kept working — only the click statistics were lost.
 
+## Images: resized by Sanity's CDN, never by Vercel (2026-08-13)
+`next.config.ts` sets `images.loader: 'custom'` pointing at `src/lib/imageLoader.ts`. `/_next/image` is no longer used anywhere on the site.
+
+- What broke: every image on `/deals` rendered as giant alt text. Measured, not guessed — **181 of 182 image variants on production returned `402 OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED`**, while all **448 source images on `cdn.sanity.io` returned 200**. Vercel's image-optimization allowance was spent; the images themselves were fine. The one variant that still answered was simply already in cache.
+- Why this fix and not `unoptimized: true`: the site's images already live on Sanity's CDN, which resizes and re-encodes on its own (`?w=&q=&auto=format`) and is billed under the Sanity plan, not Vercel's. Turning optimization off entirely would have shipped the full 1200px original to every card — the opposite of the work done on 2026-08-02 to cut `/deals` from 1232KB to 982KB.
+- The loader only rewrites `cdn.sanity.io` URLs. Anything else — a post/review `externalImageUrl` on a merchant domain, a file in `/public`, a data URI — is returned untouched: those hosts do not understand Sanity's parameters, and appending them can break a signed URL. Trade-off accepted: those few images ship at full size.
+- `fit=max` is set so Sanity never upscales. It matters because `next/image` generates a srcset up to 3840w from `deviceSizes`, and most product photos are 800×800.
+- `queries.ts` still appends `?w=1200&auto=format&q=75` to every `imageUrl` (the `IMG` constant). That is deliberate: the loader overrides `w`/`q` for `next/image`, and the suffix remains the sane default for the places that use the URL raw — OG images, JSON-LD, admin tables.
+- ⚠️ **A dead image is invisible to every check the project has.** The build was clean, `tsc` was clean, all tests passed, and every page returned 200 throughout. `tests/imageLoader.test.ts` covers the loader itself; the outage it came from could only be seen by requesting an actual image URL.
+
 ## Reviews: affiliate ref and coupon resolved at render
 `/reviews/[slug]` attaches the shop's tracking params to the CTA by domain (`getStoreRefForUrl`) and falls back to that shop's coupon code when the review has none.
 

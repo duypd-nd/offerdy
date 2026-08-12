@@ -3,6 +3,11 @@ import { withSentryConfig } from '@sentry/nextjs'
 
 const nextConfig: NextConfig = {
   images: {
+    // Toi uu anh chay tren CDN cua Sanity, khong qua /_next/image — xem
+    // src/lib/imageLoader.ts de biet ly do (han muc anh cua Vercel).
+    loader: 'custom',
+    loaderFile: './src/lib/imageLoader.ts',
+    // remotePatterns chi con tac dung neu quay lai bo toi uu cua Next.
     remotePatterns: [
       { protocol: 'https', hostname: 'cdn.sanity.io' },
       // Admin co the dan link anh ngoai (externalImageUrl / dealUrl) tu bat ky domain nao
