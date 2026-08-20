@@ -5,25 +5,43 @@ import { getCategorySlugsWithStores } from '@/sanity/queries'
 const BASE = 'https://www.offerdy.com'
 
 /**
- * ⚠️ KHONG DUOC BO DONG NAY.
+ * ⚠️ KHONG DUOC BO DONG NAY, VA KHONG DUOC DOI NO VE `revalidate`.
  *
  * `sitemap.ts` la mot Route Handler **duoc cache mac dinh** — khong khai bao gi
- * thi Next sinh no MOT LAN luc build roi dong bang vinh vien. Ket qua do duoc
- * ngay 2026-08-04: sitemap tren production van la anh chup cua lan deploy cuoi
- * (~26/07), nen **22 trong 23 bai review — toan bo so viet ngay 03/08 cho dung
- * cac shop doi tac — chua bao gio duoc bao cho Google**, trong khi sitemap van
- * moi Google vao **14 trang store da bi xoa** (nay tra 404).
+ * thi Next sinh no MOT LAN luc build roi dong bang vinh vien. Do duoc ngay
+ * 2026-08-04: sitemap production van la anh chup cua lan deploy cuoi (~26/07),
+ * nen **22 trong 23 bai review viet ngay 03/08 chua bao gio duoc bao cho
+ * Google**, trong khi no van moi Google vao 14 trang store da bi xoa.
  *
- * Doi lai: noi dung moi vo hinh voi tim kiem cho den lan deploy sau, va Google
- * hoc duoc rang sitemap nay dan toi trang chet — dung thu can phai tranh nhat
- * khi 93% hien thi cua site da roi vao 404.
+ * Lan do 2026-08-04 chua `revalidate = 3600`. **LAN DO 2026-08-20 cho thay ban
+ * va do KHONG chay**, va bang chung khong the choi cai duoc:
  *
- * 3600 chu khong phai 60 nhu cac trang noi dung: Google doc sitemap khoang mot
- * lan moi ngay, con moi lan sinh lai ton 8 luot truy van Sanity. Mot gio la du
- * tuoi cho tim kiem ma van chan duoc kha nang ai do goi lien tuc /sitemap.xml
- * lam cham han ngach.
+ *   - Cac URL trang tinh dung `lastModified: new Date()`. Tren production chung
+ *     mang `2026-08-12T18:04:57Z` — dung 2 phut sau commit `7b38f06`
+ *     (18:02:41Z), tuc **thoi diem build**. Khong mot URL nao mang ngay hom nay.
+ *     `new Date()` khong phai loi goi mang, khong qua cache nao — no dong bang
+ *     nghia la **than ham chua chay lai lan nao suot 8 ngay**.
+ *   - 27 store nhap luc 18:34Z ngay 12/08 (32 phut SAU lan deploy) vang mat khoi
+ *     sitemap, trong khi trang `/stores` — ISR binh thuong — co du chung.
+ *   - Goi kem chuoi pha cache (`?cb=...`) van `x-vercel-cache: HIT`, noi dung y het.
+ *
+ * Vi sao doi sang `force-dynamic` chu khong phai chi va them
+ * `revalidatePath('/sitemap.xml')` vao duong nhap lieu: co che ISR o route nay
+ * **da hong hai lan** (04/08, roi 20/08) va lan nay khong giai thich duoc bang
+ * gi. Va mot co che da thua hai lan la dat cuoc lai. `force-dynamic` khong
+ * co cai gi de om — moi lan Google hoi la mot lan doc that.
+ *
+ * Chi phi da can: 8 truy van Sanity moi request, VA CHUNG DI QUA CDN CUA SANITY
+ * (`readClient`, `useCdn: true`) nen **khong tinh vao han muc "API Requests"** —
+ * chinh la ly do noi lo "ai do goi lien tuc /sitemap.xml" trong ban ghi 04/08
+ * khong con dung. Google doc sitemap khoang mot lan moi ngay.
+ *
+ * 📌 CACH KIEM SAU KHI DEPLOY (mot lenh, khong doan): tai
+ * `https://www.offerdy.com/sitemap.xml` hai lan cach nhau vai giay va doc
+ * `<lastmod>` cua URL trang chu — no phai la **thoi diem hien tai va khac nhau
+ * giua hai lan**. Con dung yen la ban va lai hong.
  */
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let stores: { slug: string; _updatedAt: string }[] = []
@@ -31,7 +49,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let reviews: { slug: string; _updatedAt: string }[] = []
   let pages: { slug: string; _updatedAt: string }[] = []
   let categories: { slug: string; _updatedAt: string }[] = []
-  let deals: { slug: string; _updatedAt: string }[] = []
   // Dem rieng bai Comparison de quyet dinh co dua /comparisons vao sitemap khong.
   // Neu fetch loi -> giu 0 -> loai URL ra, dung huong an toan: tha bo sot mot URL
   // hop le (Google se crawl lai) con hon nop mot trang rong cho Google index.
@@ -50,13 +67,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let categoriesWithStores: Set<string> = new Set()
 
   try {
-    ;[stores, posts, reviews, pages, categories, deals, comparisonCount, flashSaleCount, tipsGuidesCount] = await Promise.all([
+    ;[stores, posts, reviews, pages, categories, comparisonCount, flashSaleCount, tipsGuidesCount] = await Promise.all([
       readClient.fetch(`*[_type == "store" && published != false]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "post" && defined(publishedAt) && publishedAt <= now() && aiReviewStatus != "pending"]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "review" && (!defined(publishedAt) || publishedAt <= now())]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "page" && published != false]{ "slug": slug.current, _updatedAt }`),
       readClient.fetch(`*[_type == "category"]{ "slug": slug.current, _updatedAt }`),
-      readClient.fetch(`*[_type == "deal"]{ "slug": slug.current, _updatedAt }`),
+      // ⚠️ KHONG co truy van deal o day, va do la CO Y — xem khoi chu thich
+      // "451 trang deal" o cuoi ham truoc khi them lai.
       // Cung dieu kien loc voi COMPARISON_POSTS_QUERY trong src/sanity/queries.ts —
       // hai cho phai khop nhau, neu doi filter o do thi doi ca o day.
       readClient.fetch(`count(*[_type == "post" && category == "Comparison" && (!defined(publishedAt) || publishedAt <= now()) && aiReviewStatus != "pending"])`),
@@ -137,11 +155,38 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly' as const,
       priority: 0.7,
     })),
-    ...deals.filter(d => d.slug).map(d => ({
-      url: `${BASE}/deals/${d.slug}`,
-      lastModified: d._updatedAt,
-      changeFrequency: 'weekly' as const,
-      priority: 0.6,
-    })),
+    // ── 451 trang deal KHONG vao sitemap (quyet dinh 2026-08-20) ────────────
+    //
+    // ⚠️ Day la mot QUYET DINH da can nhac, khong phai cho bi quen. Doc het
+    // truoc khi them lai.
+    //
+    // So do trong 90 ngay (2026-05-21 -> 08-18, GSC):
+    //   - 451 URL deal = **73% toan bo sitemap**
+    //   - trong 90 ngay chi **6 trang** tung xuat hien tren Google
+    //   - **16 luot hien thi** — 0,5% cua site — va **0 luot bam**
+    // Doi chieu: 65 trang noi dung that (42 bai blog + 23 review) thi
+    // **CHUA MOT TRANG NAO tung duoc Google bo** (URL Inspection 20/08: 6/6 bai
+    // blog, 3/3 review lay mau deu `chua tung duoc bo`). Google ghe site khoang
+    // 2 lan/thang. Nop 451 URL chua bao gio kiem duoc mot luot bam, trong khi
+    // 65 trang dang cho, la tu pha loang lan ghe hiem hoi do.
+    //
+    // Cung mot phep suy nghi da dung san trong ham nay: `/flash-sales` bi loai
+    // khi khong co offer sap het han, `/tips-guides` bi loai khi khong con bai,
+    // category khong co store thi bi loai. Luat chung la **dung moi Google vao
+    // trang khong dang mot luot bo**. Deal la truong hop lon nhat cua luat do.
+    //
+    // 📌 Bo khoi sitemap **KHONG phai** `noindex`, cung khong xoa trang. Trang
+    // deal van song, van tra 200, van duoc link tu `/deals` va tu trang store —
+    // Google van bo toi duoc neu no muon. Chi la ta khong con chu dong doi nua.
+    // `/deals` (trang dau moi) van nam trong sitemap voi priority 0.9.
+    //
+    // 📌 Deal con la thu CHONG THAY DOI NHANH (deal het han, deal moi vao moi
+    // tuan). Mot sitemap phan lon la URL mau doi day Google toi ket luan sitemap
+    // nay khong dang tin — dung dieu can tranh nhat luc dang cho duoc bo lai.
+    //
+    // 📌 CACH DAO NGUOC neu phep do sau nay noi khac: them lai mot dong
+    // `readClient.fetch('*[_type == "deal"]{ "slug": slug.current, _updatedAt }')`
+    // vao `Promise.all` (dung thu tu destructuring!) va mot khoi map o day.
+    // Moc de so: truoc khi cat, sitemap co **648 URL**; sau khi cat con **197**.
   ]
 }

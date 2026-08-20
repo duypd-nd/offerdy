@@ -1,5 +1,185 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-20 — đợt đo sau đóng băng, đọc trước khi làm gì
+
+Repo sạch, `main` sync `origin/main` ở **`7b38f06`**. **Không sửa một dòng code nào hôm nay** — cả buổi là đo.
+Đợt đóng băng đo đạc (04/08 → 18/08) đã hết. Dưới đây là kết quả, và nó **phủ nhận giả định trung tâm** của kế hoạch cũ.
+
+### Thiết kế phép đo — đọc trước khi tin bất kỳ con số nào bên dưới
+
+Mốc cũ là 90 ngày (03/05 → 01/08). Nếu chỉ lấy lại 90 ngày kết thúc hôm nay thì hai cửa sổ **chồng nhau ~80%**: số có nhúc nhích cũng không tách được là do ngày mới hay do 74 ngày cũ vẫn nằm trong đó. Nên đo **ba** cửa sổ, và cửa sổ 90 ngày chỉ dùng để nối mạch chứ không dùng để kết luận.
+
+| Cửa sổ | Hiển thị | Bấm | CTR | Vị trí TB |
+|---|---|---|---|---|
+| **Mốc cũ** 03/05→01/08 (90 ngày) | 3.173 | 28 | 0,88% | 22,8 |
+| A. 21/05→18/08 (90 ngày) | 3.130 | 28 | 0,89% | 22,9 |
+| **B. sau ra đông** 04/08→18/08 (15 ngày) | **38** | **0** | **0%** | 25,5 |
+| **C. trước đó** 20/07→03/08 (15 ngày) | **721** | 6 | 0,83% | 27,6 |
+
+Cửa sổ A gần như trùng khít mốc cũ — **đúng như dự đoán, và đó là lý do nó vô dụng**. Tín hiệu thật nằm ở B so với C.
+
+### Phát hiện 1 — vách sụt rơi vào 31/07, KHÔNG phải 04/08
+
+Chuỗi theo ngày: 66 hiển thị (30/07) → **4** (31/07) → không bao giờ hồi, nay 0–6/ngày. Ra đông sitemap ngày 04/08 **không phải nguyên nhân** — nó xảy ra sau vách 4 ngày.
+
+Vách này là **Google gỡ 160 trang đã xoá khỏi chỉ mục**. Đó là kết cục đã chọn từ trước khi quyết "giữ 404", nên **không phải sự cố**.
+
+### Phát hiện 2 — cái quan trọng: trang sống CHƯA BAO GIỜ có lưu lượng
+
+Tách trang sống / trang chết bằng cách gọi HTTP thật từng URL:
+
+| | 16–30/07 (trước vách) | 04–18/08 (sau) |
+|---|---|---|
+| Trang **sống** | 9 trang · 55 hiển thị · **3,7/ngày** · **0 bấm** | 11 trang · 32 hiển thị · **2,1/ngày** · **0 bấm** |
+| Trang **chết** | 132 trang · 1.034 hiển thị · 11 bấm | 13 trang · 34 hiển thị · 0 bấm |
+
+⚠️ **Toàn bộ 11 lượt bấm trước vách đều rơi vào trang 404.** Trang sống ăn **0 bấm suốt cả 30 ngày** — trước lẫn sau vách. Con số 0,88% CTR trong mốc cũ **là di sản của trang chết**, không phải một thành tích để giữ.
+
+Nói thẳng: **sự hiện diện của site trên Google gần như toàn bộ là những trang đã xoá.** Nay chúng biến mất và lộ ra bên dưới không có gì.
+
+### Phát hiện 3 — 65 trang nội dung thật CHƯA TỪNG được Google bò
+
+URL Inspection trên 15 URL lấy từ chính sitemap production:
+
+- **Đã vào chỉ mục: 3/15** — `/` (bò 25/07), `/reviews` (28/07), `/comparisons` (07/08).
+- `/blog` — *Discovered – currently not indexed*, **chưa từng được bò**. (Ngày 10/08 còn là `unknown`; nhích được một bậc nhưng vẫn chưa ai ghé.)
+- `/categories` — vẫn **unknown to Google**.
+- **6/6 bài blog** lấy mẫu: chưa từng được bò. **3/3 review**: chưa từng được bò. **1/1 store**: chưa từng được bò.
+
+Đây là lời giải đầy đủ cho "2,1 hiển thị/ngày": không phải nội dung dở, không phải sai cấu hình — **Google chưa đọc chúng lần nào.**
+
+### Phát hiện 4 — không phải lỗi đường link, nên đừng đi sửa link
+
+Đếm `href` của thẻ `<a>` trên 6 trang đầu mối (đã cắt payload RSC trước khi đếm, theo đúng bẫy đã ghi):
+
+- `/blog` được link từ **cả 6/6** trang đầu mối. Đường bò tồn tại.
+- `/comparisons` **đã vào chỉ mục, được bò 07/08, và link tới đủ 42 bài blog.**
+
+Tức Google **đã cầm sẵn đường tới cả 42 bài từ một trang nó vừa bò**, và vẫn không bò. Vậy nút thắt là **hạn mức bò / đánh giá chất lượng site**, không phải khám phá. Mọi việc thêm link nội bộ sẽ không đổi được con số này.
+
+⚠️ Và một nghi vấn mới: **`/blog` chỉ liệt kê 10 bài, `/comparisons` liệt kê cả 42** — hai trang phủ nhau. Rất có thể Google coi `/blog` là bản trùng của `/comparisons` và đó là lý do nó không thèm bò. Chưa kiểm chứng.
+
+### Phát hiện 5 — sitemap phình từ 345 lên 621 URL, gần như toàn deal
+
+621 URL: **451 deal** · 80 store · 42 blog · 23 review. **→ ĐÃ XỬ LÝ cùng ngày, xem mục ✂️ QUYẾT ĐỊNH bên dưới.** (Con số 80 store ở đây cũng chính là triệu chứng của lỗi đóng băng sitemap — Sanity có 107.) Trong khi Google ghé site vài lần một tháng. **Thêm URL không giúp khám phá, nó pha loãng.** Chưa đo được tác động, nhưng tỉ lệ 451 trang mỏng / 65 trang nội dung là con số đáng ngờ nhất còn lại.
+
+### Phát hiện 6 — GA4: sụt 97% hiển thị chỉ đổi lấy 2 phiên
+
+| 15 ngày | Lượt xem | Phiên | Người dùng | Tìm kiếm tự nhiên |
+|---|---|---|---|---|
+| 16–30/07 | 622 | 73 | 33 | **6 phiên** |
+| 04–18/08 | 427 | 44 | 22 | **4 phiên** |
+
+Hiển thị tìm kiếm mất 97% mà **chỉ mất 2 phiên tự nhiên trong 15 ngày**. Xác nhận lại từ phía độc lập: tìm kiếm tự nhiên **chưa bao giờ đóng góp gì**. Lưu lượng vẫn là Direct (37/44) — tức người quen, đúng như đã ghi 10/08.
+
+### Trả lời ba câu hỏi đã đăng ký trước
+
+1. **Có review nào trong 23 cái lọt vào bảng hiển thị chưa?** → **Không một cái nào.** Mọi URL `/reviews/*` có hiển thị đều là trang 404 đã xoá.
+2. **CTR toàn site đã rời 0,88% chưa?** → 90 ngày: 0,89%, đứng yên. Nhưng sau ra đông: **0%** (0 bấm / 38 hiển thị). Câu hỏi này đặt sai ngay từ đầu — 0,88% đo trang chết.
+3. **Tỷ trọng hiển thị của trang chết có giảm không?** → **Giảm rất mạnh**: 95% → 52% tỷ trọng, tuyệt đối **68,9 → 2,3 hiển thị/ngày**. Kế hoạch "giữ 404, chờ hai tuần" **đã chạy đúng như thiết kế**.
+
+### Kết luận — và nó đổi thứ tự ưu tiên
+
+Kế hoạch cũ giả định site có nền tảng tìm kiếm cần phục hồi. Đo xong: **không có nền tảng nào cả.** Trang chết đi rồi, còn lại 3 trang trong chỉ mục và 65 trang nội dung Google chưa đọc lần nào.
+
+Nên **mốc cần vượt phải viết lại**. Mốc cũ (3.173 hiển thị / 28 bấm) là mốc của trang đã xoá, đuổi theo nó là đuổi theo một site không còn tồn tại. Mốc thật từ hôm nay:
+
+> **Trang sống: 2,1 hiển thị/ngày · 0 bấm · 3 URL trong chỉ mục · 0/65 trang nội dung được bò.**
+
+Câu hỏi đáng tiền duy nhất còn lại: **làm sao để Google chịu bò 65 trang nội dung.** Chưa có câu trả lời đã kiểm chứng — đừng đoán.
+
+### 🔧 SỬA 2026-08-20 — sitemap đóng băng ở thời điểm build, 8 ngày không ai biết
+
+Đi tìm lời giải cho "tại sao Google không bò" thì vấp phải một lỗi **nặng hơn và chắc chắn hơn** giả thuyết đang đuổi. Test **340/340**, `tsc` + lint + `build` sạch, **đã chạy thật bản production tại chỗ**.
+
+**Triệu chứng đo được:** sitemap production có **80 store**, Sanity có **107**. 27 store thiếu, tất cả tạo ngày 12/08.
+
+**Bằng chứng đóng đinh — không phải suy luận:**
+- Các URL trang tĩnh dùng `lastModified: new Date()`. Trên production chúng mang **`2026-08-12T18:04:57Z`** — đúng 2 phút sau commit `7b38f06` (18:02:41Z), tức **thời điểm build**. **0 URL mang ngày hôm nay.** `new Date()` không phải lời gọi mạng, không qua cache nào — nó đứng yên nghĩa là **thân hàm chưa chạy lại lần nào suốt 8 ngày**.
+- 27 store được nhập lúc **18:34Z ngày 12/08**, tức **32 phút SAU** lần deploy. Đúng khoảng thời gian mà một ảnh chụp lúc build sẽ bỏ lỡ.
+- Deal mới nhất 11/08, post 06/08, review 03/08 — **đều trước lúc build**, nên chúng đủ mặt và che mất lỗi. Thứ duy nhất tạo sau build chính là 27 store đó.
+- Trang `/stores` (ISR bình thường) **có** `midas`, `venetio` — nên ISR không hỏng toàn site, chỉ hỏng ở route này.
+- Gọi kèm chuỗi phá cache (`?cb=...`) vẫn `x-vercel-cache: HIT`, nội dung y hệt.
+
+⚠️ **Đây là lỗi đã "sửa xong" ngày 04/08 quay lại.** Bản vá hôm đó là `revalidate = 3600`. Nó **không chạy**. Lý do nó trông như đã khỏi suốt 8 ngày: mỗi lần deploy lại sinh sitemap mới, che mất việc cơ chế tự làm mới chưa bao giờ hoạt động. Chỉ lộ ra khi có nội dung được thêm **sau** một lần deploy mà sau đó không deploy nữa.
+
+**Cách sửa: `export const dynamic = 'force-dynamic'`**, bỏ hẳn `revalidate`.
+
+⚠️ **Vì sao không chọn cách rẻ hơn là thêm `revalidatePath('/sitemap.xml')` vào đường nhập liệu** (toàn repo hiện chỉ có **đúng một** chỗ gọi nó, ở `admin/ai-review/actions.ts:292`, và đường nhập liệu **không** nằm trong số đó): cơ chế ISR ở route này **đã thua hai lần** (04/08, rồi 20/08) và lần này không giải thích được bằng gì. Vá cho một cơ chế đã thua hai lần là đặt cược lại. `force-dynamic` không có gì để ôm — mỗi lần Google hỏi là một lần đọc thật.
+
+📌 **Chi phí đã cân, không phải bỏ qua**: 8 truy vấn Sanity mỗi request, **và chúng đi qua CDN của Sanity** (`readClient`, `useCdn: true`) nên **không tính vào hạn mức "API Requests"** — chính là lý do nỗi lo "ai đó gọi liên tục `/sitemap.xml`" ghi ngày 04/08 không còn đúng. Google đọc sitemap khoảng một lần mỗi ngày.
+
+📌 **Đã chạy thật bản build production tại chỗ, không đoán theo bảng build:**
+
+| | production hiện tại | bản sửa (chạy tại chỗ) |
+|---|---|---|
+| Tổng URL | 621 | **648** |
+| Store | 80 | **107** |
+| `lastmod` trang chủ | 2026-08-12T18:04:57Z (đứng yên) | **đổi giữa hai lần gọi** (12:23:10 → 12:23:28) |
+| 4 store từng thiếu | 0/4 | **4/4** |
+
+Bảng build cũng đổi: `/sitemap.xml` từ tĩnh sang **`ƒ (Dynamic)`**. `/robots.txt` giữ nguyên tĩnh — đúng, vì nó là hằng số.
+
+📌 **CÁCH KIỂM SAU KHI DEPLOY** (một lệnh, không đoán): tải `https://www.offerdy.com/sitemap.xml` hai lần cách nhau vài giây, đọc `<lastmod>` của URL trang chủ. Phải là **thời điểm hiện tại và khác nhau giữa hai lần**. Còn đứng yên là bản vá lại hỏng.
+
+⚠️ **Bài học, quan trọng hơn bản vá**: build sạch, `tsc` sạch, test xanh, sitemap trả 200 với 621 URL trông hoàn toàn khoẻ mạnh — **và nó đã sai suốt 8 ngày**. Cùng họ với sự cố ảnh chết ngày 13/08. Thứ lộ ra lỗi là **so dấu thời gian trong dữ liệu với dấu thời gian của commit**, không phép kiểm nào trong dự án làm việc đó.
+
+📌 **Lỗ hổng cùng họ, ĐÃ THẤY nhưng CHƯA sửa** (ghi lại để khỏi quên, chưa đo hậu quả): `importPosts` chỉ gọi `revalidatePath('/admin/posts')` và `importReviews` chỉ gọi `revalidatePath('/admin/reviews')` — **không** làm mới `/blog`, `/comparisons`, `/reviews`. Các trang đó có `revalidate` riêng nên tự lành, nên đây là chậm chứ chưa chắc là hỏng. Cần đo trước khi động vào.
+
+### ✂️ QUYẾT ĐỊNH 2026-08-20 — cắt 451 trang deal khỏi sitemap
+
+Test **340/340**, `tsc` + lint + `build` sạch, **đã chạy thật bản production tại chỗ và đếm trên XML thật**.
+
+**Số đã đo, không phải cảm tính** (GSC 90 ngày, 21/05 → 18/08):
+- 451 URL deal = **73% toàn bộ sitemap**
+- trong 90 ngày chỉ **6 trang** từng xuất hiện trên Google
+- **16 lượt hiển thị** (0,5% của site) và **0 lượt bấm**
+
+Đối chiếu: 65 trang nội dung thật (42 blog + 23 review) thì **chưa một trang nào từng được Google bò**. Google ghé site khoảng 2 lần/tháng. Mời nó vào 451 URL chưa bao giờ kiếm được một lượt bấm, trong khi 65 trang đang chờ, là tự pha loãng lần ghé hiếm hoi đó.
+
+📌 **Không phải luật mới.** Hàm sitemap đã dùng sẵn phép suy nghĩ này: loại `/flash-sales` khi không có offer sắp hết hạn, loại `/tips-guides` khi hết bài, loại category không có store. Luật chung là **đừng mời Google vào trang không đáng một lượt bò**. Deal chỉ là trường hợp lớn nhất của luật đó.
+
+⚠️ **Bỏ khỏi sitemap KHÔNG phải `noindex`, cũng không xoá trang.** Đã kiểm trên bản build thật: trang deal vẫn **HTTP 200**, vẫn `<meta name="robots" content="index, follow">`, `/deals` vẫn link tới **20 trang deal** mỗi trang phân trang. Google vẫn bò tới được nếu nó muốn — chỉ là ta không chủ động đòi nữa. `/deals` (trang đầu mối) vẫn nằm trong sitemap với priority 0.9.
+
+📌 Deal còn là thứ **thay đổi nhanh** (hết hạn, deal mới vào mỗi tuần). Một sitemap phần lớn là URL mau đổi đẩy Google tới kết luận sitemap này không đáng tin — đúng điều cần tránh nhất lúc đang chờ được bò lại.
+
+📌 **Cũng bỏ luôn truy vấn lấy deal** khỏi `Promise.all`: route giờ chạy theo từng request, không việc gì hỏi Sanity về 451 tài liệu rồi vứt đi. Còn 8 truy vấn thay vì 9.
+
+**Kết quả đếm trên XML thật:**
+
+| | trước | sau |
+|---|---|---|
+| Tổng URL | 648 | **197** |
+| `/deals/*` | 451 | **0** |
+| `/stores/*` | 107 | 107 |
+| `/blog/*` | 42 | 42 |
+| `/reviews/*` | 23 | 23 |
+| `/categories/*` | 7 | 7 |
+| `/deals`, `/blog`, `/comparisons` (đầu mối) | có | **vẫn có** |
+
+📌 **Cách đảo ngược** nếu phép đo sau nói khác: thêm lại một dòng `readClient.fetch('*[_type == "deal"]{...}')` vào `Promise.all` (đúng thứ tự destructuring) và một khối map ở cuối hàm. Toàn bộ lý do đã ghi ngay tại chỗ cắt trong `src/app/sitemap.ts`.
+
+⚠️ **Đây là một GIẢ THUYẾT có số đỡ lưng, không phải điều đã chứng minh.** Không ai chứng minh được trước rằng cắt bớt sitemap sẽ làm Google chịu bò 65 trang nội dung. **Phép đo phán quyết, sau 2 tuần kể từ ngày deploy**: `/blog` đã được bò lần nào chưa (URL Inspection — hiện là *Discovered, chưa từng bò*), và số trang nội dung được bò có rời khỏi **0/65** không. Nếu không đổi thì nút thắt nằm chỗ khác và phải trả deal về.
+
+### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
+
+0. 🆕 **Deploy bản sửa sitemap, rồi kiểm ngay**: gọi `https://www.offerdy.com/sitemap.xml` hai lần cách nhau vài giây — `<lastmod>` của URL trang chủ phải là **thời điểm hiện tại và khác nhau giữa hai lần**, tổng URL phải là **197** chứ không phải 621, và phải có đủ **107 store**. Đứng yên là bản vá lại hỏng.
+1. ⚠️ **Search Console → *Yêu cầu lập chỉ mục* cho `/blog`.** Ngày 10/08 nó là `unknown`, nay là `Discovered` nhưng **vẫn chưa được bò** — nếu anh đã bấm thì Google chưa hành động, nếu chưa bấm thì đây vẫn là việc số 1. Hạn mức ~10 URL/ngày.
+2. **Nộp lại sitemap trong GSC** — lần nộp gần nhất 01/07. Và xem 1 cảnh báo trên sitemap.
+3. Điền **% hoa hồng** trên `/admin/ad-planner`, chỉ 3–5 shop định chạy thật.
+4. Đọc điều khoản PPC từng shop trước khi tiêu tiền quảng cáo.
+5. ⚠️ Kiểm giá **WoWGadgets99** — đơn TB $1.256,95 cao bất thường.
+
+### Bẫy học được hôm nay
+
+- ⚠️ **Cửa sổ đo chồng nhau thì con số đẹp là con số nói dối.** Cửa sổ 90 ngày ra 3.130/28/0,89% — trùng khít mốc cũ, trông như "không có gì thay đổi", trong khi thực tế site đã sụt 97%. Chỉ cửa sổ không chồng mới lộ.
+- ⚠️ **Đừng dùng ngày mình đoán làm mốc so sánh.** Đã đặt sẵn 04/08 (ngày ra đông) làm vách, nhưng vẽ chuỗi theo ngày mới thấy vách thật là **31/07**. Nếu bỏ qua bước vẽ chuỗi thì đã gán nhầm nguyên nhân cho việc ra đông sitemap.
+- ⚠️ **Heredoc của shell nuốt dấu gạch chéo ngược đôi**: `/\\n/g` viết vào file thành `/\n/g`, khoá riêng không được giải mã, OpenSSL báo `DECODER routines::unsupported` — thông báo lỗi không nhắc gì tới escape. Cách né: giá trị trong `.env.local` vốn là **chuỗi JSON hợp lệ**, dùng `JSON.parse` là xong, không cần viết dấu gạch chéo ngược nào. Cùng họ với bẫy backtick trong heredoc đã ghi từ trước.
+- ⚠️ **URL Inspection ~7 giây/URL** — 16 URL vượt quá 2 phút. Chạy cả loạt phải nới thời gian chờ hoặc chia mẻ.
+- 📌 Số liệu GSC chín tới **18/08** (trễ 2 ngày, không phải 3 như hằng số `LAG_DAYS` đang giả định). Nên dò ngày cuối thực sự có dữ liệu thay vì trừ cứng.
+- 📌 Dữ liệu thô đã lưu: `.scratch/gsc-0820.json` · `gsc-0820-daily.json` · `gsc-0820-cliff.json` · `gsc-0820-index.json` · `ga4-0820.json` · `links-0820.json`.
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-10 — đọc trước khi làm gì
 
 Repo sạch, `main` sync với `origin/main` ở **`8a2323e`**. Test **334/334**, `tsc` + lint + `build` sạch.
@@ -28,6 +208,7 @@ Ba commit hôm nay: `a4e5947` (deal vô hình) · `8a2323e` (máy tính quảng 
 - Kết quả URL Inspection **không ổn định tuyệt đối giữa hai lần gọi** (`/blog` ra `unknown` rồi `Discovered` cách nhau vài phút). Đọc một lần đo là ảnh chụp, không phải phán quyết.
 
 ## Chờ đo lại ⏳
+- ✅ **ĐÃ ĐO XONG 20/08/2026 — đợt đóng băng khép lại, xem mục ĐIỂM DỪNG 2026-08-20 ở đầu file.** Ba câu hỏi đăng ký trước đều đã có câu trả lời, và **mốc "số phải vượt" bên dưới đã bị bãi bỏ**: nó đo trang 404, không đo site. Giữ đoạn dưới làm hồ sơ, đừng dùng làm mục tiêu.
 - **Đóng băng mốc đo tìm kiếm 04/08 — mở lại từ 18/08/2026.** Mọi số đo hôm nay đều nói về site **trước** khi sitemap được rã đông. 23 review đăng 03/08 mà Google chưa từng được báo cho tới 04/08 — một ngày thì chưa xếp hạng được. Tối ưu tiếp dựa trên số này là tối ưu cho một site không còn tồn tại, và sẽ không phân biệt được thay đổi nào có tác dụng.
   - **Số phải vượt** (GSC 90 ngày, 03/05 → 01/08): toàn site **3.173 hiển thị · 28 bấm · CTR 0,88% · vị trí TB 22,8**. Trong top 20 trang: **trang sống 128 hiển thị / 0 bấm**, **trang chết 1.834 hiển thị / 12 bấm**. Trang sống tốt nhất là `/reviews`, vị trí **59,9**. Trang chết đứng trang 1: flashfish **8,2** (299 hiển thị), epz-audio **7,4**, friendship-lamps **8,8**, novita-ai **9,8**.
   - ⚠️ **Đã kiểm chứ không đoán: 16/17 là xoá thật**, không còn thực thể tương ứng trong Sanity → không có gì để 301, quyết định giữ 404 vẫn đúng. Trường hợp trông như đổi slug (`z-ram-shop` → `bag-organizers-shop`) là **dương tính giả của phép đo**: nó lọc bỏ từ ≤3 ký tự nên `z-ram-shop` chỉ còn chữ `shop`. **Lần sau chạy lại phép so này phải đổi thước đo trước khi tin kết quả.**
