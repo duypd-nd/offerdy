@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { canAccess, ROLE_LABEL, type AdminRole } from '@/lib/adminAuth'
+import { logout } from './login/actions'
 
 type NavItem = { href: string; label: string; icon: string }
 type NavGroup = {
@@ -128,8 +130,18 @@ const BADGE_TONE: Record<string, 'amber' | 'red'> = {
   '/admin/link-checker': 'red',
 }
 
-export default function AdminNav({ badges = {} }: { badges?: Record<string, number> }) {
+export default function AdminNav({ badges = {}, role }: { badges?: Record<string, number>; role: AdminRole }) {
   const path = usePathname()
+
+  // Thanh dieu huong chi hien nhung gi vai nay VAO DUOC — dung chung ham
+  // `canAccess` voi proxy.ts, khong viet lai dieu kien lan thu hai.
+  //
+  // ⚠️ Day la chuyen GIAO DIEN, khong phai vong chan bao mat. Vong chan that
+  // nam o proxy.ts, chan ca GET lan POST cua Server Action. Giau link chi de
+  // nguoi dung khong bam vao thu chac chan se bi tu choi.
+  const nav = NAV
+    .map(g => ({ ...g, items: g.items.filter(i => canAccess(role, i.href, 'GET')) }))
+    .filter(g => g.items.length > 0)
 
   // Duoi 900px thanh ben thanh ngan keo. Dong lai bang chinh cu bam vao link
   // (xem `closeDrawer` duoi day) chu khong bang useEffect theo `path`: dat
@@ -141,7 +153,7 @@ export default function AdminNav({ badges = {} }: { badges?: Record<string, numb
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {}
-    for (const g of NAV) {
+    for (const g of nav) {
       const hasActive = g.items.some(item => path.startsWith(item.href))
       init[g.key] = g.defaultOpen || hasActive
     }
@@ -185,7 +197,7 @@ export default function AdminNav({ badges = {} }: { badges?: Record<string, numb
       </a>
 
       <nav className="adm-nav">
-        {NAV.map(group => {
+        {nav.map(group => {
           const isOpen = openGroups[group.key]
           const hasActive = group.items.some(item => path.startsWith(item.href))
           // Nhom dong lai van phai to cao viec ben trong, khong thi gap lai la
@@ -238,6 +250,24 @@ export default function AdminNav({ badges = {} }: { badges?: Record<string, numb
       </nav>
 
       <div className="adm-sidebar-footer">
+        {/* Vai hien ra ngoai co chu dich: nguoi dung phai biet minh dang o quyen
+            nao, neu khong thi mot muc bi an se giong het mot loi giao dien. */}
+        <div className="adm-whoami">
+          <span className="adm-role-pill">{ROLE_LABEL[role]}</span>
+          <form action={logout}>
+            <button type="submit" className="adm-logout">Đăng xuất</button>
+          </form>
+        </div>
+
+        {canAccess(role, '/admin/users', 'GET') && (
+          <Link href="/admin/users" className="adm-back-link" onClick={closeDrawer} style={{ marginBottom: 8 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            </svg>
+            Người dùng
+          </Link>
+        )}
+
         <a href="/" className="adm-back-link">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <polyline points="15 18 9 12 15 6" />

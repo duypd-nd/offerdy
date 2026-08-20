@@ -374,6 +374,70 @@ Vì sao phải hẹp đến vậy: sự cố **Cycleaddons 26/07** — một nh�
 
 Kiểm lại hai URL bằng cách **copy chuỗi đã bị cắt ngắn từ dòng in ra console** (`…press-on` thay vì `…press-on-nails`). URL cụt đó không tồn tại → ra 404 → suýt kết luận ngược hẳn rằng phép đo gốc sai. **Đừng bao giờ kiểm lại từ chuỗi đã bị cắt để hiển thị** — in đủ, hoặc đọc lại từ file JSON đã lưu.
 
+### 🔐 2026-08-20 (đợt 6) — đăng nhập admin, quản lý người dùng, phân quyền 3 vai
+
+Test **353 → 374**, `tsc` + lint (vẫn 49, không thêm) + `build` sạch. Đã chạy thật bản production tại chỗ và kiểm từng ô của ma trận quyền.
+
+⛔ **CHƯA DEPLOY ĐƯỢC — còn 3 việc tay của user, xem cuối mục.**
+
+#### Điều quyết định toàn bộ kiến trúc
+
+⚠️ **Dataset `production` của Sanity đang ở chế độ PUBLIC.** Đo ngày 20/08: gọi API **không kèm token** vẫn trả về mọi tài liệu (107 store · 423 offer · 47 click). Nên **không được để bản băm mật khẩu ở đó** — đó là phát cho cả internet một bản sao để mang về dò offline.
+
+📌 Kiểm luôn xem hiện đang lộ gì: `couponAlert` **0** bản ghi, `shortLink` **0**, `click` chỉ lưu tham chiếu offer. **Không có dữ liệu cá nhân nào đang lộ.** Cái lộ là toàn bộ catalog — đối thủ cào được, khó chịu chứ chưa nguy hiểm.
+
+→ Tài khoản quản trị nằm ở **dataset riêng `admin`, chế độ private**, chỉ đọc được bằng token phía máy chủ. Cộng thêm **pepper** làm lớp hai: kể cả khi dataset đó lỡ bị đặt public, bản băm vẫn vô dụng nếu không có `AUTH_PEPPER`.
+
+#### Kiến trúc
+
+| Lớp | Việc | Vì sao |
+|---|---|---|
+| `proxy.ts` | Chỉ kiểm **chữ ký** cookie | Chạy trước MỌI request vào `/admin`; một lượt đọc Sanity là ~350ms cộng vào từng cú bấm chuột |
+| `layout.tsx` | Gọi `requireAdmin()` — **đọc Sanity thật** | Layout chạy cho cả **44 trang** admin, nên một chỗ này phủ hết. Tài khoản vừa bị tắt bị đẩy ra ngay lần tải trang kế tiếp, không đợi hết 8 tiếng |
+| `users/actions.ts` | Gọi `requireOwner()` lại từ đầu | Mất quyền kiểm soát tài khoản là mất tất cả |
+
+📌 **Chặn theo đường dẫn chặn được cả Server Action** — Next gọi Server Action bằng POST về **chính URL của trang**. Nên không phải sửa 27 file action, và không lách được bằng cách gọi thẳng endpoint. Đã kiểm: POST từ vai chỉ-xem trả **403** ở mọi trang.
+
+#### Ba vai, đã kiểm từng ô trên bản build thật
+
+| Đường dẫn | Chủ | Biên tập | Chỉ xem |
+|---|---|---|---|
+| `/admin`, `/admin/reports`, `/admin/search-console` | ✓ | ✓ | ✓ |
+| `/admin/offers`, `/admin/deals`, `/admin/import` | ✓ | ✓ | ✗ |
+| `/admin/users`, `/admin/config` | ✓ | ✗ | ✗ |
+| **POST** bất kỳ đâu | ✓ | ✓ (trừ owner-only) | **✗ 403** |
+
+Vai chỉ-xem dùng **danh sách cho phép**, không phải danh sách cấm: thêm một trang admin mới thì mặc định họ **không** vào được — hướng an toàn.
+
+#### ⚠️ Bốn lỗi thật trong chính code em viết, đều do đo mới lộ
+
+1. **Lỗ hổng phân quyền.** `/admin` nằm trong danh sách cho phép của vai chỉ-xem, mà phép khớp là *tiền tố* — nên `/admin/offers` cũng lọt và **vai chỉ-xem đọc được toàn bộ khu quản trị**. Test bắt được trước khi kịp chạy thật. Đã tách `VIEWER_EXACT` khỏi `VIEWER_SUBTREE`. **Bài học cho mọi allowlist: một mục là gốc của cây đường dẫn thì phép khớp tiền tố biến cả danh sách thành "cho tất".**
+2. **500 trên `/admin/users`.** `requireAdmin()` gọi `endSession()` trong lúc render trang — Next chỉ cho sửa cookie trong Server Action / Route Handler.
+3. **Vòng lặp chuyển hướng vô tận.** Cookie chữ ký còn hợp lệ nhưng tài khoản đã bị xoá: trang đẩy sang `/admin/login`, trang đăng nhập thấy chữ ký hợp lệ nên đẩy ngược vào trong. Sửa: trang đăng nhập **kiểm lại với Sanity** trước khi tự động đưa vào, không tin mỗi chữ ký.
+4. **Trang đăng nhập tự đẩy về chính nó.** Proxy thoát sớm ở đường dẫn login nên không gắn header `x-admin-path`; layout không biết mình đang ở trang đăng nhập nên vẫn chạy `requireAdmin()`. Chỉ lộ khi curl thật — `tsc`, lint, test, build đều xanh.
+
+#### Những chỗ khác đáng ghi
+
+- **Một thông báo duy nhất cho mọi kiểu đăng nhập hỏng** (email không tồn tại / sai mật khẩu / tài khoản bị tắt). Tách ra là tặng người dò một công cụ kiểm tra email nào có thật.
+- **Chặn dò mật khẩu**: đếm theo IP, 8 lần / 10 phút. ⚠️ Giữ trong bộ nhớ tiến trình nên **không dùng chung giữa các máy chủ** — chặn được kiểu dò liên tục, không phải hàng rào chắc tay. Trước đó Basic Auth **không đếm gì cả** (nợ ghi trong TODO từ 07/2026).
+- **`?next=` chỉ nhận đường dẫn nội bộ**. Không lọc thì `?next=https://kẻ-giả-mạo…` biến trang đăng nhập của chính mình thành một bước chuyển hướng đáng tin.
+- **Không tự hạ quyền / tự tắt / tự xoá chính mình**, và không hạ được **Chủ cuối cùng** — khoá cửa từ bên trong thì không ai mở được `/admin/users` nữa.
+- **Xoá người dùng bắt gõ lại email** để xác nhận. Không có thùng rác.
+- ⚠️ **Đổi mật khẩu KHÔNG cắt phiên đang mở** của người đó (cookie tự ký, còn hiệu lực tối đa 8 tiếng). Muốn cắt ngay: vô hiệu hoá rồi bật lại. Đã ghi thẳng trong thông báo cho người vận hành.
+- `adminClient.ts` có `import 'server-only'`: ai vô tình import nó vào component chạy ở trình duyệt thì **build hỏng ngay**, thay vì âm thầm gửi `SANITY_API_TOKEN` xuống máy khách.
+- Thiếu cấu hình thì trang đăng nhập **nói rõ thiếu biến nào**, không phải một chữ "chưa cấu hình" giống nhau cho bốn nguyên nhân khác hẳn — đúng bài học đã trả học phí với GA4 và Search Console.
+- **Hỏng thì đóng, không mở**: thiếu `AUTH_SECRET` ⇒ mọi phiên đều không hợp lệ ⇒ không ai vào được. Không có đường nào "lỡ mở toang".
+
+#### ⛔ Ba việc của user, làm theo ĐÚNG thứ tự này rồi mới deploy
+
+1. **Tạo dataset riêng.** `sanity.io/manage/project/ns0upb1t/datasets` → Add dataset → tên `admin` → **Private**. (Token robot không có quyền này — em thử, Sanity trả `401 missing grant sanity.project.datasets/create`.)
+2. **Đặt `AUTH_SECRET` và `AUTH_PEPPER` trên Vercel.** Hai giá trị đã sinh sẵn trong `.env.local`; copy đúng nguyên văn sang Vercel. ⚠️ **Đổi `AUTH_PEPPER` sau này = mọi mật khẩu hiện có đều không mở được nữa**, phải đặt lại từng tài khoản.
+3. **Tạo tài khoản Chủ đầu tiên**: `node scripts/create-admin.mjs`. Không có bước này thì không ai đăng nhập được — `/admin/users` đòi phải đã là Chủ, đó là cánh cửa khoá từ bên trong.
+
+📌 `ADMIN_USERNAME` / `ADMIN_PASSWORD` **không còn được dùng**. Xoá khỏi Vercel sau khi đăng nhập mới chạy được.
+
+⚠️ **Chưa kiểm được luồng đăng nhập thật** vì dataset chưa tồn tại. Thứ đã kiểm trên bản build thật: chặn đường dẫn, ma trận ba vai (kể cả POST), API trả 401 JSON thay vì trang HTML, trang đăng nhập render không kèm thanh điều hướng, và vòng lặp chuyển hướng đã dứt. Thứ **chưa** kiểm: nhập đúng mật khẩu rồi vào được — cần làm sau khi có dataset.
+
 ### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
 
 1. ⚠️ **Search Console → *Yêu cầu lập chỉ mục* cho `/blog`.** Ngày 10/08 nó là `unknown`, nay là `Discovered` nhưng **vẫn chưa được bò** — nếu anh đã bấm thì Google chưa hành động, nếu chưa bấm thì đây vẫn là việc số 1. Hạn mức ~10 URL/ngày.
