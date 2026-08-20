@@ -118,6 +118,15 @@ if (doc) {
   ok('Chua co kho — se tao moi')
 }
 
+// Lenh nay hoi mat khau nen bat buoc phai co ban phim that. Khong co TTY thi
+// readline doc EOF va Node bao "unsettled top-level await" — mot thong bao
+// khong lien quan gi den nguyen nhan.
+if (!stdin.isTTY) {
+  bad('Lenh nay can chay truc tiep trong terminal (co ban phim).')
+  console.log('\n  Dung `node scripts/create-admin.mjs`, khong dan qua ong dan hay chay trong CI.\n')
+  process.exit(1)
+}
+
 const rl = readline.createInterface({ input: stdin, output: stdout })
 const email = (await rl.question('  Email        : ')).trim().toLowerCase()
 const name = (await rl.question('  Ten hien thi : ')).trim()
