@@ -224,3 +224,21 @@ test('MIN_PASSWORD_LENGTH la mot hang duy nhat, dung gia tri dang dat', () => {
   assert.equal(MIN_PASSWORD_LENGTH, 10)
   assert.equal(typeof MIN_PASSWORD_LENGTH, 'number')
 })
+
+test('⚠️ DANG XUAT phai mo cho MOI vai — ke ca chi-xem, ke ca POST', () => {
+  // Loi that 2026-08-21: vai chi-xem bi chan moi POST (dung theo thiet ke), ma
+  // nut Dang xuat cung la mot POST — nen ho dang nhap duoc nhung KHONG THE dang
+  // xuat, bam vao chi ra trang loi. Bo test dau-cuoi khong bat duoc vi no chi
+  // thu dang xuat voi vai Chu.
+  for (const role of ROLES) {
+    assert.equal(canAccess(role, '/admin/logout', 'POST'), true, `${role} phai dang xuat duoc`)
+    assert.equal(canAccess(role, '/admin/logout', 'GET'), true, role)
+  }
+})
+
+test('mo /admin/logout khong lam ho cac duong khac', () => {
+  // Vong chan chi mo DUNG mot duong dan, khong mo ca nhanh con
+  assert.equal(canAccess('viewer', '/admin/logout/tat-ca', 'POST'), false)
+  assert.equal(canAccess('viewer', '/admin/offers', 'POST'), false)
+  assert.equal(canAccess('editor', '/admin/users', 'POST'), false)
+})

@@ -205,8 +205,20 @@ const under = (pathname: string, base: string) => pathname === base || pathname.
  * `method` co mat vi vai chi-xem duoc phan biet bang no: cung mot trang, GET thi
  * cho, POST thi chan. Server Action luon la POST.
  */
+/**
+ * ⚠️ Dang xuat phai mo cho MOI vai va moi phuong thuc.
+ *
+ * Do that 2026-08-21: vai chi-xem bi chan moi POST (dung theo thiet ke), ma nut
+ * Dang xuat cung la mot POST — nen ho **dang nhap duoc nhung khong the dang
+ * xuat**, bam vao chi ra trang loi. Dang xuat khong bao gio duoc phep phu thuoc
+ * vao quyen han: no la duong THOAT, khong phai mot hanh dong quan tri.
+ */
+const ALWAYS_ALLOWED = ['/admin/logout']
+
 export function canAccess(role: AdminRole, pathname: string, method: string): boolean {
   const isRead = method === 'GET' || method === 'HEAD'
+
+  if (ALWAYS_ALLOWED.includes(pathname)) return true
 
   if (role === 'owner') return true
 

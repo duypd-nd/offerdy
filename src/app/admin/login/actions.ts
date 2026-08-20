@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { verifyPassword, landingPath } from '@/lib/adminAuth'
-import { startSession, endSession, vaultPepper } from '@/lib/adminSession'
+import { startSession, vaultPepper } from '@/lib/adminSession'
 import { readVault, writeVault } from '@/lib/adminVault'
 import { missingAuthConfig } from '@/lib/adminConfig'
 
@@ -101,7 +101,6 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   redirect(safeNext)
 }
 
-export async function logout() {
-  await endSession()
-  redirect('/admin/login')
-}
+// Dang xuat da chuyen sang Route Handler `/admin/logout` — KHONG de o day nua.
+// Server Action goi ve chinh URL trang dang mo, ma vai chi-xem bi chan moi POST,
+// nen ho se khong the dang xuat. Xem app/admin/logout/route.ts.

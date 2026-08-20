@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { canAccess, ROLE_LABEL, type AdminRole } from '@/lib/adminAuth'
-import { logout } from './login/actions'
 
 type NavItem = { href: string; label: string; icon: string }
 type NavGroup = {
@@ -254,7 +253,10 @@ export default function AdminNav({ badges = {}, role }: { badges?: Record<string
             nao, neu khong thi mot muc bi an se giong het mot loi giao dien. */}
         <div className="adm-whoami">
           <span className="adm-role-pill">{ROLE_LABEL[role]}</span>
-          <form action={logout}>
+          {/* POST thang toi Route Handler, KHONG dung Server Action: Server
+              Action goi ve chinh URL trang dang mo, ma vai chi-xem bi chan moi
+              POST — nen ho se khong the dang xuat. Xem app/admin/logout/route.ts */}
+          <form action="/admin/logout" method="post">
             <button type="submit" className="adm-logout">Đăng xuất</button>
           </form>
         </div>
