@@ -161,9 +161,21 @@ Test **340/340**, `tsc` + lint + `build` sạch, **đã chạy thật bản prod
 
 ⚠️ **Đây là một GIẢ THUYẾT có số đỡ lưng, không phải điều đã chứng minh.** Không ai chứng minh được trước rằng cắt bớt sitemap sẽ làm Google chịu bò 65 trang nội dung. **Phép đo phán quyết, sau 2 tuần kể từ ngày deploy**: `/blog` đã được bò lần nào chưa (URL Inspection — hiện là *Discovered, chưa từng bò*), và số trang nội dung được bò có rời khỏi **0/65** không. Nếu không đổi thì nút thắt nằm chỗ khác và phải trả deal về.
 
+### ✅ ĐÃ DEPLOY VÀ KIỂM TRÊN PRODUCTION (2026-08-20)
+
+Commit `c7952b9` đã push, Vercel deploy xong. **Phép kiểm đã ghi sẵn trong code chạy đúng:**
+
+- `lastmod` trang chủ **đổi mỗi lần gọi**: 13:28:04 → 13:28:09 → 13:28:15. `Age: 0`, `X-Vercel-Cache: MISS` cả ba lần — **không còn cache nào**. Đây là bằng chứng bản vá sống, đối lập với dấu thời gian đứng yên 8 ngày trước đó.
+- Thành phần: **197 URL** — 107 store · 42 blog · 23 review · 7 category · 18 tĩnh · **0 deal**. Ba trang đầu mối `/deals`, `/blog`, `/comparisons` đều còn.
+- 4 store từng thiếu (`ibiz-jewel`, `midas`, `venetio`, `beverly-rug`): **có trong sitemap, trang trả 200**.
+- Trang deal mẫu: **HTTP 200**, vẫn `index, follow`, và **0** lần xuất hiện trong sitemap — đúng ý định, bỏ khỏi sitemap chứ không chặn lập chỉ mục.
+
+📌 Deploy mất khoảng 3 phút (lần đo thứ 6, mỗi lần cách 30 giây). Trước đó production vẫn trả 621 URL / 80 store.
+
+⏳ **Còn lại là chờ Google.** Phép đo phán quyết vẫn là mốc 2 tuần: `/blog` đã được bò lần nào chưa, và số trang nội dung được bò có rời khỏi **0/65** không.
+
 ### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
 
-0. 🆕 **Deploy bản sửa sitemap, rồi kiểm ngay**: gọi `https://www.offerdy.com/sitemap.xml` hai lần cách nhau vài giây — `<lastmod>` của URL trang chủ phải là **thời điểm hiện tại và khác nhau giữa hai lần**, tổng URL phải là **197** chứ không phải 621, và phải có đủ **107 store**. Đứng yên là bản vá lại hỏng.
 1. ⚠️ **Search Console → *Yêu cầu lập chỉ mục* cho `/blog`.** Ngày 10/08 nó là `unknown`, nay là `Discovered` nhưng **vẫn chưa được bò** — nếu anh đã bấm thì Google chưa hành động, nếu chưa bấm thì đây vẫn là việc số 1. Hạn mức ~10 URL/ngày.
 2. **Nộp lại sitemap trong GSC** — lần nộp gần nhất 01/07. Và xem 1 cảnh báo trên sitemap.
 3. Điền **% hoa hồng** trên `/admin/ad-planner`, chỉ 3–5 shop định chạy thật.
