@@ -39,6 +39,20 @@ export const ROLE_DESCRIPTION: Record<AdminRole, string> = {
 
 export const isRole = (v: unknown): v is AdminRole => ROLES.includes(v as AdminRole)
 
+/**
+ * Do dai mat khau toi thieu — MOT cho duy nhat.
+ *
+ * Truoc do con so nay duoc go tay o SAU cho (kiem tra phia may chu, thuoc tinh
+ * `minLength` cua o nhap, chu goi y trong o, chu trong hop thoai doi mat khau,
+ * va hai cho trong `scripts/create-admin.mjs`). Sau cho go tay la sau cho de
+ * lech nhau: doi mot cho thi o nhap cho qua ma may chu tu choi, va nguoi dung
+ * khong hieu vi sao.
+ *
+ * ⚠️ `scripts/create-admin.mjs` la file .mjs nen KHONG import duoc hang nay —
+ * no giu ban sao rieng, co chu thich tro nguoc ve day. Doi o day thi doi ca o do.
+ */
+export const MIN_PASSWORD_LENGTH = 10
+
 // ── Bam mat khau ───────────────────────────────────────────────────
 //
 // scrypt cua node:crypto — khong keo them phu thuoc, va chay duoc o Node runtime

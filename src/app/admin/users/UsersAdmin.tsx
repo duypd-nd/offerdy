@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { ROLES, ROLE_LABEL, ROLE_DESCRIPTION, type AdminRole } from '@/lib/adminAuth'
+import { ROLES, ROLE_LABEL, ROLE_DESCRIPTION, MIN_PASSWORD_LENGTH, type AdminRole } from '@/lib/adminAuth'
 import { createUser, setRole, setActive, resetPassword, deleteUser, type ActionResult } from './actions'
 import type { AdminUser } from '@/lib/adminSession'
 
@@ -47,7 +47,7 @@ export default function UsersAdmin({ users, meId }: { users: AdminUser[]; meId: 
               </select>
             </label>
             <label>Mật khẩu
-              <input name="password" type="password" required minLength={12} placeholder="ít nhất 12 ký tự" />
+              <input name="password" type="password" required minLength={MIN_PASSWORD_LENGTH} placeholder={`ít nhất ${MIN_PASSWORD_LENGTH} ký tự`} />
             </label>
           </div>
           <p className="usr-hint">
@@ -93,7 +93,7 @@ export default function UsersAdmin({ users, meId }: { users: AdminUser[]; meId: 
                   <button
                     disabled={pending}
                     onClick={() => {
-                      const pw = prompt(`Mật khẩu mới cho ${u.email} (ít nhất 12 ký tự):`)
+                      const pw = prompt(`Mật khẩu mới cho ${u.email} (ít nhất ${MIN_PASSWORD_LENGTH} ký tự):`)
                       if (pw) run(() => resetPassword(u.id, pw))
                     }}
                   >Đổi mật khẩu</button>

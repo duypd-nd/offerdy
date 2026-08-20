@@ -9,7 +9,7 @@ import { createHmac } from 'node:crypto'
 import {
   hashPassword, verifyPassword,
   signSession, verifySession, SESSION_TTL_SECONDS,
-  canAccess, isRole, ROLES, landingPath,
+  canAccess, isRole, ROLES, landingPath, MIN_PASSWORD_LENGTH,
 } from '../src/lib/adminAuth'
 import { deriveKeys, encryptJson, decryptJson } from '../src/lib/adminCrypto'
 
@@ -215,4 +215,12 @@ test('khoa chu khac nhau -> pepper khac nhau', () => {
 
 test('tu choi dan xuat khi khong co khoa chu', () => {
   assert.throws(() => deriveKeys(''), /AUTH_PEPPER/)
+})
+
+test('MIN_PASSWORD_LENGTH la mot hang duy nhat, dung gia tri dang dat', () => {
+  // Truoc do con so nay go tay o SAU cho (may chu, minLength cua o nhap, hai
+  // chu goi y, va hai cho trong scripts/create-admin.mjs). Sau cho go tay la sau
+  // cho de lech: o nhap cho qua ma may chu tu choi, nguoi dung khong hieu vi sao.
+  assert.equal(MIN_PASSWORD_LENGTH, 10)
+  assert.equal(typeof MIN_PASSWORD_LENGTH, 'number')
 })

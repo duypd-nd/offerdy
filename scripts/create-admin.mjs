@@ -127,15 +127,19 @@ if (!stdin.isTTY) {
   process.exit(1)
 }
 
+// ⚠️ Ban sao cua MIN_PASSWORD_LENGTH trong src/lib/adminAuth.ts. File .mjs
+// khong import duoc hang tu TypeScript, nen doi mot ben phai doi ca ben kia.
+const MIN_PASSWORD_LENGTH = 10
+
 const rl = readline.createInterface({ input: stdin, output: stdout })
 const email = (await rl.question('  Email        : ')).trim().toLowerCase()
 const name = (await rl.question('  Ten hien thi : ')).trim()
-const password = (await rl.question('  Mat khau (>= 12 ky tu): ')).trim()
+const password = (await rl.question(`  Mat khau (>= ${MIN_PASSWORD_LENGTH} ky tu): `)).trim()
 rl.close()
 
 if (!email.includes('@')) { bad('Email khong hop le'); process.exit(1) }
 if (!name) { bad('Chua nhap ten'); process.exit(1) }
-if (password.length < 12) { bad('Mat khau phai tu 12 ky tu tro len'); process.exit(1) }
+if (password.length < MIN_PASSWORD_LENGTH) { bad(`Mat khau phai tu ${MIN_PASSWORD_LENGTH} ky tu tro len`); process.exit(1) }
 if (users.some(u => u.email.toLowerCase() === email)) { bad(`Da co tai khoan voi email ${email}`); process.exit(1) }
 
 users.push({

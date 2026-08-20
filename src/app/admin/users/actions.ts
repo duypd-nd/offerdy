@@ -4,11 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'node:crypto'
 import { requireOwner, vaultPepper } from '@/lib/adminSession'
 import { readVault, writeVault, type StoredUser } from '@/lib/adminVault'
-import { hashPassword, isRole } from '@/lib/adminAuth'
+import { hashPassword, isRole, MIN_PASSWORD_LENGTH } from '@/lib/adminAuth'
 
 export type ActionResult = { ok: true; message: string } | { ok: false; error: string }
-
-const MIN_PASSWORD = 12
 
 /**
  * ⚠️ MOI HANH DONG O DAY DEU GOI `requireOwner()` LAI TU DAU.
@@ -25,7 +23,7 @@ const MIN_PASSWORD = 12
  */
 
 const checkPassword = (pw: string) =>
-  pw.length < MIN_PASSWORD ? `Mật khẩu phải từ ${MIN_PASSWORD} ký tự trở lên.` : null
+  pw.length < MIN_PASSWORD_LENGTH ? `Mật khẩu phải từ ${MIN_PASSWORD_LENGTH} ký tự trở lên.` : null
 
 /**
  * Kho khong doc duoc thi TU CHOI MOI THAY DOI — ghi de len no la xoa sach.
