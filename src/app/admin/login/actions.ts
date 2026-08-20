@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { verifyPassword, landingPath } from '@/lib/adminAuth'
-import { findByEmail, startSession, endSession, vaultPepper } from '@/lib/adminSession'
+import { startSession, endSession, vaultPepper } from '@/lib/adminSession'
 import { readVault, writeVault } from '@/lib/adminVault'
 import { missingAuthConfig } from '@/lib/adminConfig'
 
@@ -55,7 +55,23 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
     return { error: 'Sai quá nhiều lần. Thử lại sau 10 phút.' }
   }
 
-  const user = await findByEmail(email)
+  // ⚠️ Kho khong giai ma duoc thi PHAI noi that, khong duoc gop vao "sai mat
+  // khau". Truong hop nay xay ra khi `AUTH_PEPPER` tren may chu khac voi luc tao
+  // kho — dan lech mot ky tu la du. Gop vao thi nguoi van hanh se ngoi doi lai
+  // mat khau hang chuc lan cho mot loi cau hinh, dung kieu "chua cau hinh" mo ho
+  // ma du an nay da tra hoc phi hai lan (GA4, Search Console).
+  //
+  // Noi ra khong lam lo gi cho ke tan cong: no chi cho biet may chu dang sai cau
+  // hinh, khong he noi ve tai khoan nao.
+  const vault = await readVault()
+  if (vault.unreadable) {
+    return { error: 'Không đọc được kho tài khoản. Gần như chắc chắn AUTH_PEPPER trên máy chủ khác với giá trị lúc tạo tài khoản — kiểm tra lại biến môi trường.' }
+  }
+
+  // Tim trong ban vua doc, khong goi `findByEmail` (ham do tu doc kho lan nua):
+  // ba luot doc Sanity cho mot lan bam nut dang nhap la thua hai luot.
+  const target = email.trim().toLowerCase()
+  const user = vault.users.find(u => u.email.toLowerCase() === target) ?? null
   const pepper = vaultPepper() ?? ''
 
   // ⚠️ Mot thong bao duy nhat cho MOI truong hop that bai — email khong ton tai,
@@ -70,13 +86,11 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   await startSession(user)
 
   try {
-    const { users, rev, unreadable } = await readVault()
-    if (!unreadable) {
-      await writeVault(
-        users.map(u => (u.id === user.id ? { ...u, lastLoginAt: new Date().toISOString() } : u)),
-        rev
-      )
-    }
+    // Dung lai ban da doc o tren — khong goi Sanity lan thu hai cho cung mot viec
+    await writeVault(
+      vault.users.map(u => (u.id === user.id ? { ...u, lastLoginAt: new Date().toISOString() } : u)),
+      vault.rev
+    )
   } catch {
     // Ghi moc dang nhap that bai khong duoc phep chan viec dang nhap
   }
