@@ -238,7 +238,7 @@ Ghi chép cũ còn treo "108 offer thiếu mô tả" ở vài chỗ (bộ nhớ 
 | Tổng offer | **423** (lúc ghi chép cũ là 297) |
 | Có mô tả | **423 / 423** |
 | Thiếu | **0** |
-| Chờ duyệt () | **0** — cả 423 đều  |
+| Chờ duyệt (`aiReviewStatus: pending`) | **0** — cả 423 đều `approved` |
 | Mô tả trùng lặp | **0** |
 | Độ dài | 59 – 208 ký tự, giữa **113**, không cái nào dưới 40 |
 
