@@ -43,6 +43,47 @@ export type LinkCheckResult = {
    * duoc / sai protocol).
    */
   indeterminate?: boolean
+  /** URL cuoi cung sau khi di het chuoi chuyen huong. Dung cho `landedOnRoot`. */
+  finalUrl?: string
+}
+
+/**
+ * "Chet mem": trang san pham da bi go, va shop lang le day ve TRANG GOC roi tra
+ * 200. Khach bam "mua mon nay" den noi thay trang chu, va **khong co gi bao loi**.
+ *
+ * Do that 2026-08-20 tren 181 deep-link dang bat: 0 cai tra >= 400, nhung 2 cai
+ * ket thuc o trang goc cua shop
+ * (`clawsienails.com/products/ondine-short-almond-press-on-nails` va
+ * `newurtopia.de/products/urtopia-bundle-carbon-1-pro-carbon-fusion`).
+ * Luat "chi ket luan broken khi status >= 400" khong the thay chung.
+ *
+ * Hau qua that: `resolveOfferUrl` co san van an toan — thay `linkStatus ===
+ * 'broken'` thi lui ve link shop — nhung no **khong bao gio kich hoat** dung cho
+ * truong hop no duoc sinh ra de xu ly.
+ *
+ * ⚠️ VONG CHAN CO TINH HEP, va day la phan quan trong nhat cua ham nay:
+ *   - Chi tinh khi URL ban dau CO duong dan that. Kiem chinh trang goc cua shop
+ *     ma bao "bi day ve trang goc" la vo nghia.
+ *   - Chi tinh khi dich la duong dan RONG. Nhieu shop day san pham het hang sang
+ *     trang DANH MUC — do van la dich hop ly, khach thay hang tuong tu. Gop ca
+ *     hai vao la gan nhan hong cho shop dang chay tot, dung thiet hai da xay ra
+ *     voi Cycleaddons 26/07.
+ *   - Chi ap cho `productUrl`, KHONG ap cho link shop — noi goi tu quyet, xem
+ *     `isProduct` trong cron. Link shop von tro ve trang goc la binh thuong.
+ */
+export function landedOnRoot(originalUrl: string, finalUrl?: string): boolean {
+  if (!finalUrl) return false
+  let from: URL, to: URL
+  try {
+    from = new URL(originalUrl)
+    to = new URL(finalUrl)
+  } catch {
+    return false
+  }
+  const path = (u: URL) => u.pathname.replace(/\/+$/, '')
+  // URL ban dau phai tro toi mot trang cu the, khong phai chinh trang goc
+  if (path(from) === '') return false
+  return path(to) === ''
 }
 
 /**
@@ -92,7 +133,9 @@ export async function checkUrl(url: string): Promise<LinkCheckResult> {
     if (res.status === 405 || res.status === 501) {
       res = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal })
     }
-    return { ok: res.status < 400, status: res.status }
+    // `res.url` la URL cuoi sau khi di het chuoi chuyen huong (redirect:
+    // 'follow'). Noi goi can no de nhan ra "chet mem" — xem `landedOnRoot`.
+    return { ok: res.status < 400, status: res.status, finalUrl: res.url }
   } catch (err) {
     const isTimeout = err instanceof Error && err.name === 'AbortError'
     return {

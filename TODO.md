@@ -331,6 +331,49 @@ Sao lưu: `.scratch/title-fix-backup.json`.
 
 📌 **Bốn trang tĩnh còn lại vẫn lặp chữ "Offerdy"** (`/about`, `/contact`, `/author`, `/partner`) — cố ý không động: ở đó chữ đầu nằm trong cụm tự nhiên (*"About Offerdy — …"*), xấu chứ chưa sai, và sửa là viết lại nội dung của người vận hành.
 
+### 🔧 SỬA 2026-08-20 (đợt 5) — deep-link "chết mềm": trả 200 mà dẫn khách về trang chủ
+
+Test **345 → 353**, `tsc` + lint + `build` sạch, **đã chạy luật mới trên toàn bộ 181 deep-link thật trước khi commit**.
+
+#### Đo trước
+
+181 offer đang bật có deep-link sản phẩm. Kiểm từng cái:
+
+| | |
+|---|---|
+| Trả lỗi ≥ 400 | **0** |
+| Trả **200 nhưng kết thúc ở trang gốc của shop** | **2** |
+
+- `clawsienails.com/products/ondine-short-almond-press-on-nails` → `clawsienails.com/`
+- `newurtopia.de/products/urtopia-bundle-carbon-1-pro-carbon-fusion` → `newurtopia.de/`
+
+Sản phẩm đã bị gỡ, shop lặng lẽ chuyển hướng về trang chủ. Khách bấm *"mua bộ Urtopia €4.798"* và đến một trang chủ — **không có gì báo lỗi**.
+
+⚠️ **Luật cũ không thể thấy chúng**: `checkUrl` chỉ kết luận `broken` khi status ≥ 400. Hệ quả nặng hơn số liệu: `resolveOfferUrl` có sẵn van an toàn (thấy `linkStatus === 'broken'` thì lùi về link shop) nhưng **nó không bao giờ kích hoạt** đúng cho trường hợp nó được sinh ra để xử lý.
+
+#### Cách sửa
+
+`checkUrl` giờ trả thêm `finalUrl` (URL cuối sau chuỗi chuyển hướng). Hàm thuần `landedOnRoot(originalUrl, finalUrl)` quyết định "chết mềm". Cron truyền thêm `isProduct` để biết đang kiểm trang sản phẩm hay link shop.
+
+⚠️ **Vòng chặn cố tình hẹp — đây là phần quan trọng nhất, không phải phần bắt lỗi:**
+- Chỉ tính khi URL ban đầu **có đường dẫn thật**. Kiểm chính trang gốc mà báo "bị đẩy về trang gốc" là vô nghĩa.
+- Chỉ tính khi đích có đường dẫn **rỗng**. Nhiều shop đẩy sản phẩm hết hàng sang trang **danh mục** — đó vẫn là đích hợp lý, khách thấy hàng tương tự. Gộp vào là gắn nhãn hỏng cho shop đang chạy tốt.
+- Chỉ áp cho `productUrl`, **không** áp cho link shop. Link shop trỏ về trang gốc là bình thường.
+
+Vì sao phải hẹp đến vậy: sự cố **Cycleaddons 26/07** — một nhãn hỏng oan đã tắt deep-link của store nhiều click nhất site.
+
+#### Chạy thật trên 181 link trước khi commit
+
+**Đúng 2 cái bị gắn nhãn, 179 cái còn lại không bị đụng, 0 dương tính giả.** Cả hai đều đọc được và đều đúng.
+
+📌 **8 test mới**, và nhóm *"KHÔNG được bắt"* nhiều hơn nhóm *"bắt được"*: đổi slug sản phẩm, đẩy sang trang danh mục, URL ban đầu vốn là trang gốc, thiếu `finalUrl`, URL hỏng, sang tên miền khác mà vẫn có đường dẫn. Nhóm đó mới là thứ giữ cho bản vá không lặp lại Cycleaddons.
+
+📌 Không sửa dữ liệu: cron đêm sẽ tự gắn nhãn 2 offer đó, rồi `resolveOfferUrl` lùi về link shop có mã ref. Việc quyết định gỡ `productUrl` hay tìm sản phẩm thay thế là của người vận hành.
+
+#### ⚠️ Bốn lần chính em đo hỏng trong ngày — cái thứ tư ở ngay đợt này
+
+Kiểm lại hai URL bằng cách **copy chuỗi đã bị cắt ngắn từ dòng in ra console** (`…press-on` thay vì `…press-on-nails`). URL cụt đó không tồn tại → ra 404 → suýt kết luận ngược hẳn rằng phép đo gốc sai. **Đừng bao giờ kiểm lại từ chuỗi đã bị cắt để hiển thị** — in đủ, hoặc đọc lại từ file JSON đã lưu.
+
 ### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
 
 1. ⚠️ **Search Console → *Yêu cầu lập chỉ mục* cho `/blog`.** Ngày 10/08 nó là `unknown`, nay là `Discovered` nhưng **vẫn chưa được bò** — nếu anh đã bấm thì Google chưa hành động, nếu chưa bấm thì đây vẫn là việc số 1. Hạn mức ~10 URL/ngày.
