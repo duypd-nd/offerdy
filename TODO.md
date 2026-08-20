@@ -246,6 +246,44 @@ Ghi chép cũ còn treo "108 offer thiếu mô tả" ở vài chỗ (bộ nhớ 
 
 ⚠️ **Bộ nhớ đã sửa** để thôi nhắc việc này. Bài học nhỏ: khi ba nguồn ghi ba con số khác nhau cho cùng một việc thì không nguồn nào đáng tin — đo lại rẻ hơn đọc lại.
 
+### 🔍 RÀ SOÁT 2026-08-20 (đợt 3) — nợ lint, lỗi hydration được cho là có, và title
+
+Không sửa dòng code nào. Ba câu hỏi, ba câu trả lời — hai trong số đó **bác bỏ** thứ đang được ghi là đúng.
+
+#### A. 49 lỗi lint tồn đọng — phần lớn KHÔNG phải lỗi, và 9 chỗ TUYỆT ĐỐI đừng sửa
+
+| Quy tắc | Số | Đánh giá |
+|---|---|---|
+| `@next/next/no-html-link-for-pages` | 14 | Thật nhưng nhẹ — `<a>` thay `<Link>` gây tải lại cả trang. 13 file, gần hết là admin. |
+| `react-hooks/set-state-in-effect` | 9 | ⚠️ **ĐỪNG SỬA — xem dưới** |
+| `react/no-unescaped-entities` | 5 | Thuần hình thức, không ảnh hưởng chạy |
+| 21 cảnh báo còn lại | 21 | `no-img-element` (11) là **cố ý** — dự án đã bỏ `/_next/image` từ 13/08 |
+
+⚠️ **9 chỗ `set-state-in-effect` ở phía người dùng là MẪU ĐÚNG ĐỂ TRÁNH lỗi hydration, không phải nguyên nhân gây ra nó.** Sửa cho vừa lòng linter là **tạo ra** đúng cái lỗi chúng đang tránh:
+- `StoreOfferList:23` đọc `localStorage` trong effect — bắt buộc, vì máy chủ không có `localStorage`. Đọc lúc render mới gây lệch.
+- `ExpiringBand:12` và `FlashSalesContent:13` cho `secs` khởi đầu `null` (máy chủ vẽ `--:--`), effect mới tính giờ thật. Đồng hồ đếm ngược render lúc SSR thì **chắc chắn** lệch.
+
+#### B. ⚠️ "Lỗi hydration có sẵn ở `StoreOfferList`" — KHÔNG tái hiện được trên production
+
+Lái Chrome thật qua CDP, bắt `Runtime.consoleAPICalled` + `Log.entryAdded` + `Runtime.exceptionThrown`, chờ hydrate 9 giây. Trên `/stores/cloud-cushion-slides` và `/flash-sales`: **0 lỗi hydration, 0 lỗi console.**
+
+⚠️ **Nhưng chưa đóng được hoàn toàn.** Bản production của React nén bớt cảnh báo mà bản dev in ra đầy đủ. Bộ lọc có bắt cả `Minified React error #418/423/425` (mã hydration của bản production) và vẫn ra 0 — nên **trên production là sạch**. Khẳng định cũ nhiều khả năng quan sát trên `next dev`. Muốn đóng dứt điểm phải chạy dev server, mà việc đó có bẫy riêng (worker Turbopack không chết theo).
+
+#### C. Title — nhỏ, nhưng có thật
+
+Quét `<title>` của **cả 197 URL** trong sitemap:
+
+- **5 title lặp chữ "Offerdy" hai lần.** Bốn cái là trang tĩnh, chữ đầu nằm trong cụm tự nhiên (*"About Offerdy — … | Offerdy"*) — xấu chứ chưa sai. Cái thứ năm là lỗi dữ liệu rõ ràng: `/stores/cloud-cushion-slides` ra **`Cloud Cushion Slides Coupons & Deals | Offerdy | Offerdy`** — `metaTitle` trong Sanity đã tự kèm `| Offerdy` rồi `titleTemplate` nối thêm lần nữa. **1/107 store**, sửa bằng một ô trong Sanity.
+- **5 title dài quá 60 ký tự.** Nặng nhất là `/blog/frizzlife-tankless-ro-systems-compared` ở **93 ký tự** — Google sẽ cắt. Bốn cái còn lại 61–65, biên.
+
+📌 Ghi chép cũ nói *"118 URL, 0 trang vượt 60 ký tự"* — số đó **đã cũ**, nội dung thêm vào sau đó chưa qua cổng kiểm nào.
+
+#### D. ⚠️ Ba lần chính em đo hỏng trong đợt này — ghi lại vì đều là bẫy sẽ lặp
+
+1. **Bộ thu console bật SAU khi trang đã tải** → ra "0 thông báo console", và em suýt báo "không có lỗi". Một phép đo không bắt được gì thì **không phải bằng chứng vắng mặt**. Đã thêm bước **tự kiểm**: bắn một `console.error` rồi đợi thấy lại; không thấy thì báo *hỏng phép đo*, không báo *không có lỗi*.
+2. **Lấy mẫu 25 store đầu sitemap** → báo `/stores/*` có **0** title lặp, trong khi `cloud-cushion-slides` (không nằm trong 25 cái đó) đang lặp. Quét toàn bộ mới ra sự thật. **Mẫu thuận tiện không phải mẫu đại diện.**
+3. **Đo độ dài title trên HTML thô, chưa giải mã thực thể** → báo **13** title quá 60 ký tự, thật ra là **5**. `&quot;` chiếm 6 ký tự trong HTML nhưng hiện ra **1**. Đếm ký tự cho người đọc thì phải đếm trên chuỗi đã giải mã.
+
 ### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
 
 1. ⚠️ **Search Console → *Yêu cầu lập chỉ mục* cho `/blog`.** Ngày 10/08 nó là `unknown`, nay là `Discovered` nhưng **vẫn chưa được bò** — nếu anh đã bấm thì Google chưa hành động, nếu chưa bấm thì đây vẫn là việc số 1. Hạn mức ~10 URL/ngày.
