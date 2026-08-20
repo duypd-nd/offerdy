@@ -1,15 +1,20 @@
 /**
  * Lop loi cua dang nhap admin: bam mat khau, ky phien, va bang phan quyen.
  *
- * ⚠️ VI SAO KHONG CAT TAI KHOAN TRONG DATASET `production`: do ngay 2026-08-20,
- * dataset do o che do **public** — goi API khong kem token van tra ve moi tai
- * lieu (107 store, 423 offer, 47 click). De ban bam mat khau o do la phat cho
- * ca internet mot ban sao de mang ve do offline. Tai khoan admin nam trong
- * dataset rieng `admin` (aclMode: private), chi doc duoc khi co token phia may
- * chu — xem `src/sanity/adminClient.ts`.
+ * ⚠️ TAI KHOAN NAM TRONG DATASET CONG KHAI, NHUNG DA MA HOA CA KHOI.
  *
- * Pepper la lop thu hai, khong phai lop duy nhat: ngay ca khi dataset rieng bi
- * cau hinh nham thanh public, ban bam van vo dung neu khong co `AUTH_PEPPER`.
+ * Do ngay 2026-08-20: dataset `production` o che do **public** — goi API khong
+ * kem token van tra ve moi tai lieu (107 store, 423 offer, 47 click). Dataset
+ * **rieng tu** la tinh nang tra phi, goi hien tai khong co (Sanity bao thang:
+ * "Private datasets are not available on your current plan").
+ *
+ * Nen ca danh sach tai khoan nam trong MOT tai lieu, ma hoa AES-256-GCM bang
+ * khoa dan xuat tu `AUTH_PEPPER` — xem `src/lib/adminVault.ts` va
+ * `src/lib/adminCrypto.ts`. Nguoi la tai duoc tai lieu do nhung chi thay chuoi
+ * rac: khong email, khong vai, khong ban bam.
+ *
+ * Pepper van giu nguyen vai tro cua no o day: bam mat khau la lop trong cung,
+ * doc lap voi viec khoi du lieu co duoc ma hoa hay khong.
  *
  * File nay CO Y khong import gi ngoai `node:crypto` — de test chay duoc ma
  * khong can dung Sanity hay Next.

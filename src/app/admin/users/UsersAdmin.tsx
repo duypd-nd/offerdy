@@ -69,17 +69,17 @@ export default function UsersAdmin({ users, meId }: { users: AdminUser[]; meId: 
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u._id} className={u.active ? '' : 'usr-off'}>
+              <tr key={u.id} className={u.active ? '' : 'usr-off'}>
                 <td>
                   <b>{u.name}</b>
-                  {u._id === meId && <span className="usr-you">bạn</span>}
+                  {u.id === meId && <span className="usr-you">bạn</span>}
                   <br /><span className="usr-email">{u.email}</span>
                 </td>
                 <td>
                   <select
                     value={u.role}
                     disabled={pending}
-                    onChange={e => run(() => setRole(u._id, e.target.value as AdminRole))}
+                    onChange={e => run(() => setRole(u.id, e.target.value as AdminRole))}
                   >
                     {ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
                   </select>
@@ -87,24 +87,24 @@ export default function UsersAdmin({ users, meId }: { users: AdminUser[]; meId: 
                 <td>{u.active ? <span className="usr-on-pill">Đang bật</span> : <span className="usr-off-pill">Đã tắt</span>}</td>
                 <td className="usr-when">{fmt(u.lastLoginAt)}</td>
                 <td className="usr-actions">
-                  <button disabled={pending} onClick={() => run(() => setActive(u._id, !u.active))}>
+                  <button disabled={pending} onClick={() => run(() => setActive(u.id, !u.active))}>
                     {u.active ? 'Vô hiệu hoá' : 'Bật lại'}
                   </button>
                   <button
                     disabled={pending}
                     onClick={() => {
                       const pw = prompt(`Mật khẩu mới cho ${u.email} (ít nhất 12 ký tự):`)
-                      if (pw) run(() => resetPassword(u._id, pw))
+                      if (pw) run(() => resetPassword(u.id, pw))
                     }}
                   >Đổi mật khẩu</button>
                   <button
                     className="usr-danger"
-                    disabled={pending || u._id === meId}
+                    disabled={pending || u.id === meId}
                     onClick={() => {
                       // Xoa la khong hoan tac duoc va khong co thung rac — hoi
                       // bang chinh email de khong ai bam nham qua loa.
                       const typed = prompt(`Xoá vĩnh viễn ${u.email}?\nGõ lại email để xác nhận:`)
-                      if (typed?.trim().toLowerCase() === u.email.toLowerCase()) run(() => deleteUser(u._id))
+                      if (typed?.trim().toLowerCase() === u.email.toLowerCase()) run(() => deleteUser(u.id))
                       else if (typed !== null) setMsg({ ok: false, error: 'Email gõ lại không khớp — chưa xoá gì.' })
                     }}
                   >Xoá</button>

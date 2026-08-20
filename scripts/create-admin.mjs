@@ -5,8 +5,11 @@
  * `/admin/users` lai doi phai dang nhap bang mot tai khoan Chu. Do la mot canh
  * cua khoa tu ben trong. Lenh nay la chia khoa duy nhat mo no lan dau.
  *
- * Sau khi da co mot Chu, moi tai khoan tiep theo nen tao tren giao dien
- * `/admin/users` — o do co kiem tra quyen, con lenh nay thi khong.
+ * Sau khi da co mot Chu, moi tai khoan tiep theo nen tao tren `/admin/users` —
+ * o do co kiem tra quyen, con lenh nay thi khong.
+ *
+ * ⚠️ Thuat toan o day phai KHOP TUNG BIT voi src/lib/adminCrypto.ts va
+ * src/lib/adminAuth.ts. Doi mot ben ma quen ben kia la kho khong mo duoc nua.
  *
  * ⚠️ KHONG IN MAT KHAU ra man hinh hay ghi vao file nao.
  */
@@ -15,12 +18,10 @@ import path from 'node:path'
 import readline from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { createHmac, scryptSync, randomBytes } from 'node:crypto'
+import { createHmac, scryptSync, randomBytes, randomUUID, hkdfSync, createCipheriv, createDecipheriv } from 'node:crypto'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-// Doc .env.local: gia tri trong file la chuoi JSON hop le khi co dau nhay, nen
-// JSON.parse tra ve dung chuoi that — khong phai tu viet phep doi "\n".
 function loadEnv() {
   const file = path.join(root, '.env.local')
   const out = {}
@@ -45,76 +46,107 @@ const bad = m => console.log(`  \x1b[31m✗\x1b[0m ${m}`)
 
 console.log('\nTao tai khoan quan tri Offerdy\n')
 
-const need = ['NEXT_PUBLIC_SANITY_PROJECT_ID', 'SANITY_API_TOKEN', 'AUTH_PEPPER']
+const need = ['NEXT_PUBLIC_SANITY_PROJECT_ID', 'NEXT_PUBLIC_SANITY_DATASET', 'SANITY_API_TOKEN', 'AUTH_PEPPER']
 const missing = need.filter(k => !env[k])
 if (missing.length) {
   bad(`Thieu bien moi truong: ${missing.join(', ')}`)
-  console.log('\n  Dat chung trong .env.local roi chay lai.')
-  console.log('  Sinh AUTH_SECRET / AUTH_PEPPER bang:')
+  console.log('\n  Sinh AUTH_SECRET / AUTH_PEPPER bang:')
   console.log('    node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64url\'))"\n')
   process.exit(1)
 }
 ok('Da co du bien moi truong')
 
 const PID = env.NEXT_PUBLIC_SANITY_PROJECT_ID
-const DS = 'admin'
+const DS = env.NEXT_PUBLIC_SANITY_DATASET
 const H = { Authorization: `Bearer ${env.SANITY_API_TOKEN}`, 'Content-Type': 'application/json' }
+const DOC_ID = 'adminVault'
 
-// Dataset rieng phai ton tai truoc — tao dataset can quyen project admin ma
-// token robot khong co (do 2026-08-20: tra 401 missing grant
-// sanity.project.datasets/create).
-const probe = await fetch(`https://${PID}.api.sanity.io/v2024-01-01/data/query/${DS}?query=${encodeURIComponent('count(*[])')}`, { headers: H })
-if (!probe.ok) {
-  bad(`Chua co dataset rieng "${DS}" (Sanity tra HTTP ${probe.status})`)
-  console.log('\n  Tao no mot lan, bang MOT trong hai cach:')
-  console.log(`    1. https://www.sanity.io/manage/project/${PID}/datasets -> Add dataset -> ten "admin" -> Private`)
-  console.log('    2. npx sanity dataset create admin --visibility private\n')
-  console.log('  ⚠️ Phai chon Private. De Public la ban bam mat khau nam cong khai.\n')
-  process.exit(1)
-}
-ok(`Dataset rieng "${DS}" da san sang`)
+// ── Y HET src/lib/adminCrypto.ts ──────────────────────────────────
+const SALT = 'offerdy-admin-v1'
+const pepper = Buffer.from(hkdfSync('sha256', env.AUTH_PEPPER, SALT, 'password-pepper', 32)).toString('base64url')
+const encKey = Buffer.from(hkdfSync('sha256', env.AUTH_PEPPER, SALT, 'vault-encryption', 32))
 
-// Canh bao neu dataset lo cau hinh thanh public
-const anon = await fetch(`https://${PID}.api.sanity.io/v2024-01-01/data/query/${DS}?query=${encodeURIComponent('count(*[])')}`)
-if (anon.ok) {
-  bad('⚠️ NGUY HIEM: dataset "admin" dang o che do PUBLIC — nguoi la doc duoc ban bam mat khau.')
-  console.log(`  Doi sang Private tai https://www.sanity.io/manage/project/${PID}/datasets roi chay lai.\n`)
-  process.exit(1)
+const encryptJson = value => {
+  const iv = randomBytes(12)
+  const c = createCipheriv('aes-256-gcm', encKey, iv)
+  const body = Buffer.concat([c.update(JSON.stringify(value), 'utf8'), c.final()])
+  return ['v1', iv.toString('base64url'), c.getAuthTag().toString('base64url'), body.toString('base64url')].join('.')
 }
-ok('Dataset khong doc duoc tu ben ngoai (dung nhu mong doi)')
+const decryptJson = payload => {
+  if (!payload) return null
+  const p = payload.split('.')
+  if (p.length !== 4 || p[0] !== 'v1') return null
+  try {
+    const d = createDecipheriv('aes-256-gcm', encKey, Buffer.from(p[1], 'base64url'))
+    d.setAuthTag(Buffer.from(p[2], 'base64url'))
+    return JSON.parse(Buffer.concat([d.update(Buffer.from(p[3], 'base64url')), d.final()]).toString('utf8'))
+  } catch { return null }
+}
+
+// ── Y HET src/lib/adminAuth.ts ────────────────────────────────────
+const SCRYPT_N = 32768, SCRYPT_r = 8, SCRYPT_p = 1, KEY_LEN = 64
+const MAXMEM = 128 * SCRYPT_N * SCRYPT_r * 2
+const hashPassword = pw => {
+  const salt = randomBytes(16)
+  const h = scryptSync(createHmac('sha256', pepper).update(pw, 'utf8').digest(), salt, KEY_LEN,
+    { N: SCRYPT_N, r: SCRYPT_r, p: SCRYPT_p, maxmem: MAXMEM })
+  return `scrypt$${SCRYPT_N}$${SCRYPT_r}$${SCRYPT_p}$${salt.toString('base64url')}$${h.toString('base64url')}`
+}
+
+// ── Doc kho hien co ───────────────────────────────────────────────
+const q = `*[_id == "${DOC_ID}"][0]{ data, _rev }`
+const res = await fetch(`https://${PID}.api.sanity.io/v2024-01-01/data/query/${DS}?query=${encodeURIComponent(q)}`, { headers: H })
+if (!res.ok) { bad(`Khong doc duoc Sanity (HTTP ${res.status})`); process.exit(1) }
+const doc = (await res.json()).result
+
+let users = []
+let rev = null
+if (doc) {
+  rev = doc._rev ?? null
+  const decoded = decryptJson(doc.data)
+  if (decoded === null) {
+    // ⚠️ Ghi de len kho khong giai ma duoc = XOA VINH VIEN moi tai khoan, chi vi
+    // mot bien moi truong dat nham. Dung lai, khong doan.
+    bad('Kho tai khoan da ton tai nhung KHONG GIAI MA DUOC.')
+    console.log('\n  Gan nhu chac chan la AUTH_PEPPER khac voi luc tao kho.')
+    console.log('  Dat lai dung gia tri cu roi chay lai. KHONG ghi de — lam vay la mat sach tai khoan.\n')
+    process.exit(1)
+  }
+  users = decoded
+  ok(`Kho hien co ${users.length} tai khoan`)
+} else {
+  ok('Chua co kho — se tao moi')
+}
 
 const rl = readline.createInterface({ input: stdin, output: stdout })
-const email = (await rl.question('  Email      : ')).trim().toLowerCase()
-const name = (await rl.question('  Ten hien thi: ')).trim()
+const email = (await rl.question('  Email        : ')).trim().toLowerCase()
+const name = (await rl.question('  Ten hien thi : ')).trim()
 const password = (await rl.question('  Mat khau (>= 12 ky tu): ')).trim()
 rl.close()
 
 if (!email.includes('@')) { bad('Email khong hop le'); process.exit(1) }
 if (!name) { bad('Chua nhap ten'); process.exit(1) }
 if (password.length < 12) { bad('Mat khau phai tu 12 ky tu tro len'); process.exit(1) }
+if (users.some(u => u.email.toLowerCase() === email)) { bad(`Da co tai khoan voi email ${email}`); process.exit(1) }
 
-const exists = await (await fetch(
-  `https://${PID}.api.sanity.io/v2024-01-01/data/query/${DS}?query=${encodeURIComponent(`count(*[_type == "adminUser" && lower(email) == "${email}"])`)}`,
-  { headers: H })).json()
-if (exists.result > 0) { bad(`Da co tai khoan voi email ${email}`); process.exit(1) }
-
-// Y HET src/lib/adminAuth.ts — doi mot ben la ben kia khong mo duoc
-const SCRYPT_N = 32768, SCRYPT_r = 8, SCRYPT_p = 1, KEY_LEN = 64
-const MAXMEM = 128 * SCRYPT_N * SCRYPT_r * 2
-const salt = randomBytes(16)
-const pepperedPw = createHmac('sha256', env.AUTH_PEPPER).update(password, 'utf8').digest()
-const hash = scryptSync(pepperedPw, salt, KEY_LEN, { N: SCRYPT_N, r: SCRYPT_r, p: SCRYPT_p, maxmem: MAXMEM })
-const passwordHash = `scrypt$${SCRYPT_N}$${SCRYPT_r}$${SCRYPT_p}$${salt.toString('base64url')}$${hash.toString('base64url')}`
-
-const res = await fetch(`https://${PID}.api.sanity.io/v2024-01-01/data/mutate/${DS}`, {
-  method: 'POST', headers: H,
-  body: JSON.stringify({
-    mutations: [{ create: { _type: 'adminUser', email, name, role: 'owner', active: true, passwordHash, createdAt: new Date().toISOString() } }],
-  }),
+users.push({
+  id: randomUUID(), email, name, role: 'owner', active: true,
+  passwordHash: hashPassword(password), createdAt: new Date().toISOString(),
 })
-const body = await res.json()
-if (!res.ok) { bad(`Khong tao duoc: ${JSON.stringify(body).slice(0, 220)}`); process.exit(1) }
+
+const data = encryptJson(users)
+const mutations = rev
+  ? [{ patch: { id: DOC_ID, ifRevisionID: rev, set: { data } } }]
+  : [{ createOrReplace: { _id: DOC_ID, _type: 'adminVault', data } }]
+
+const w = await fetch(`https://${PID}.api.sanity.io/v2024-01-01/data/mutate/${DS}`, {
+  method: 'POST', headers: H, body: JSON.stringify({ mutations }),
+})
+if (!w.ok) { bad(`Khong luu duoc: ${JSON.stringify(await w.json()).slice(0, 220)}`); process.exit(1) }
 
 ok(`Da tao tai khoan Chu: ${email}`)
 console.log('\n  Vao /admin/login de dang nhap.')
 console.log('  Cac tai khoan sau nen tao o /admin/users, khong dung lenh nay nua.\n')
+console.log('  ⚠️ Tai lieu "adminVault" nam trong dataset CONG KHAI nhung noi dung da ma hoa.')
+console.log('     Nguoi la tai duoc no nhung chi thay chuoi rac. Dung bao gio doi AUTH_PEPPER')
+console.log('     neu khong muon mat het tai khoan.\n')

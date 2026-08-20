@@ -11,6 +11,7 @@ import {
   signSession, verifySession, SESSION_TTL_SECONDS,
   canAccess, isRole, ROLES, landingPath,
 } from '../src/lib/adminAuth'
+import { deriveKeys, encryptJson, decryptJson } from '../src/lib/adminCrypto'
 
 const PEPPER = 'pepper-cho-test-khong-dung-that'
 const SECRET = 'secret-cho-test-khong-dung-that'
@@ -155,4 +156,63 @@ test('chi-xem duoc dua thang toi bao cao sau khi dang nhap', () => {
   assert.equal(landingPath('viewer'), '/admin/reports')
   assert.equal(landingPath('owner'), '/admin')
   assert.equal(landingPath('editor'), '/admin')
+})
+
+// ── Ma hoa kho tai khoan ───────────────────────────────────────────
+//
+// Kho nam trong dataset CONG KHAI cua Sanity (dataset rieng tu la tinh nang tra
+// phi, goi hien tai khong co). Nen phep ma hoa nay la thu duy nhat dung giua
+// danh sach quan tri vien va bat ky ai tren internet.
+
+test('ma hoa roi giai ma lai ra dung du lieu', () => {
+  const { encKey } = deriveKeys('khoa-chu-test')
+  const users = [{ id: 'a', email: 'a@x.com', role: 'owner', passwordHash: 'scrypt$...' }]
+  assert.deepEqual(decryptJson(encryptJson(users, encKey), encKey), users)
+})
+
+test('⚠️ SAI KHOA thi khong giai ma duoc — day la ca ly do kho ton tai', () => {
+  const a = deriveKeys('khoa-mot').encKey
+  const b = deriveKeys('khoa-hai').encKey
+  assert.equal(decryptJson(encryptJson({ bi: 'mat' }, a), b), null)
+})
+
+test('⚠️ SUA MOT KY TU trong ban ma la giai ma that bai (GCM co the xac thuc)', () => {
+  const { encKey } = deriveKeys('khoa-chu-test')
+  const enc = encryptJson([{ role: 'viewer' }], encKey)
+  const parts = enc.split('.')
+  // Doi mot ky tu trong phan than
+  const body = parts[3]
+  const sua = (body[0] === 'A' ? 'B' : 'A') + body.slice(1)
+  assert.equal(decryptJson([parts[0], parts[1], parts[2], sua].join('.'), encKey), null,
+    'khong co the xac thuc thi ke tan cong co the sua ban ghi de tu nang len vai Chu')
+})
+
+test('dinh dang rac thi tra null, khong nem loi', () => {
+  const { encKey } = deriveKeys('khoa-chu-test')
+  for (const bad of [undefined, '', 'khong-phai', 'v1.a.b', 'v2.a.b.c', 'v1....']) {
+    assert.equal(decryptJson(bad, encKey), null, `"${bad}"`)
+  }
+})
+
+test('moi lan ma hoa ra chuoi khac nhau (IV ngau nhien)', () => {
+  const { encKey } = deriveKeys('khoa-chu-test')
+  const a = encryptJson({ x: 1 }, encKey)
+  const b = encryptJson({ x: 1 }, encKey)
+  assert.notEqual(a, b, 'IV lap lai la mot loi nghiem trong voi AES-GCM')
+})
+
+test('⚠️ pepper va khoa ma hoa la HAI khoa khac nhau tu cung mot khoa chu', () => {
+  const k = deriveKeys('khoa-chu-test')
+  // Dung chung mot khoa cho hai viec la thu nen tranh; HKDF voi hai nhan `info`
+  // khac nhau cho hai khoa doc lap ve mat mat ma.
+  assert.notEqual(k.pepper, k.encKey.toString('base64url'))
+  assert.equal(k.encKey.length, 32)
+})
+
+test('khoa chu khac nhau -> pepper khac nhau', () => {
+  assert.notEqual(deriveKeys('mot').pepper, deriveKeys('hai').pepper)
+})
+
+test('tu choi dan xuat khi khong co khoa chu', () => {
+  assert.throws(() => deriveKeys(''), /AUTH_PEPPER/)
 })

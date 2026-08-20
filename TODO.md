@@ -374,69 +374,77 @@ Vì sao phải hẹp đến vậy: sự cố **Cycleaddons 26/07** — một nh�
 
 Kiểm lại hai URL bằng cách **copy chuỗi đã bị cắt ngắn từ dòng in ra console** (`…press-on` thay vì `…press-on-nails`). URL cụt đó không tồn tại → ra 404 → suýt kết luận ngược hẳn rằng phép đo gốc sai. **Đừng bao giờ kiểm lại từ chuỗi đã bị cắt để hiển thị** — in đủ, hoặc đọc lại từ file JSON đã lưu.
 
-### 🔐 2026-08-20 (đợt 6) — đăng nhập admin, quản lý người dùng, phân quyền 3 vai
+### 🔐 2026-08-20 → 21 — đăng nhập admin, quản lý người dùng, phân quyền 3 vai
 
-Test **353 → 374**, `tsc` + lint (vẫn 49, không thêm) + `build` sạch. Đã chạy thật bản production tại chỗ và kiểm từng ô của ma trận quyền.
+Test **353 → 382**, `tsc` + lint (vẫn 49, không thêm) + `build` sạch. **19/19 phép kiểm đầu-cuối trên Chrome thật đều đạt.**
 
-⛔ **CHƯA DEPLOY ĐƯỢC — còn 3 việc tay của user, xem cuối mục.**
+#### Ràng buộc quyết định toàn bộ kiến trúc
 
-#### Điều quyết định toàn bộ kiến trúc
+⚠️ **Dataset `production` của Sanity ở chế độ PUBLIC.** Đo 20/08: gọi API **không kèm token** vẫn trả về mọi tài liệu (107 store · 423 offer · 47 click).
 
-⚠️ **Dataset `production` của Sanity đang ở chế độ PUBLIC.** Đo ngày 20/08: gọi API **không kèm token** vẫn trả về mọi tài liệu (107 store · 423 offer · 47 click). Nên **không được để bản băm mật khẩu ở đó** — đó là phát cho cả internet một bản sao để mang về dò offline.
+⚠️ **Và dataset riêng tư là tính năng TRẢ PHÍ** — Sanity nói thẳng khi bấm tạo: *"Private datasets are not available on your current plan"*. Kế hoạch ban đầu (cất tài khoản ở dataset `admin` private) **chết ở đây**.
 
-📌 Kiểm luôn xem hiện đang lộ gì: `couponAlert` **0** bản ghi, `shortLink` **0**, `click` chỉ lưu tham chiếu offer. **Không có dữ liệu cá nhân nào đang lộ.** Cái lộ là toàn bộ catalog — đối thủ cào được, khó chịu chứ chưa nguy hiểm.
+📌 Kiểm luôn hiện đang lộ gì: `couponAlert` **0** bản ghi, `shortLink` **0**, `click` chỉ lưu tham chiếu offer. **Không có dữ liệu cá nhân nào đang lộ.**
 
-→ Tài khoản quản trị nằm ở **dataset riêng `admin`, chế độ private**, chỉ đọc được bằng token phía máy chủ. Cộng thêm **pepper** làm lớp hai: kể cả khi dataset đó lỡ bị đặt public, bản băm vẫn vô dụng nếu không có `AUTH_PEPPER`.
+**Cách giải: mã hoá cả khối.** Toàn bộ danh sách tài khoản nằm trong **một** tài liệu Sanity (`adminVault`), mã hoá **AES-256-GCM**. Người lạ tải được tài liệu đó nhưng chỉ thấy chuỗi rác — đã kiểm bằng cách gọi API không token: **không lộ email, không lộ vai, không lộ bản băm**.
 
-#### Kiến trúc
+📌 **Một khoá chủ, hai khoá con qua HKDF** (`AUTH_PEPPER` → pepper cho mật khẩu + khoá mã hoá kho). Dùng chung một khoá cho hai việc là thứ nên tránh; bắt người vận hành giữ ba bí mật riêng thì dễ nhầm hơn là an toàn hơn.
+
+⚠️ **Đánh đổi phải nói rõ**: mất `AUTH_PEPPER` là **mất tất cả tài khoản**, không có đường khôi phục. Và hai Chủ sửa cùng lúc thì người sau nhận lỗi phiên bản, phải tải lại — đã xử lý bằng `ifRevisionID`, không ghi đè mù quáng.
+
+#### Kiến trúc hai tầng
 
 | Lớp | Việc | Vì sao |
 |---|---|---|
-| `proxy.ts` | Chỉ kiểm **chữ ký** cookie | Chạy trước MỌI request vào `/admin`; một lượt đọc Sanity là ~350ms cộng vào từng cú bấm chuột |
-| `layout.tsx` | Gọi `requireAdmin()` — **đọc Sanity thật** | Layout chạy cho cả **44 trang** admin, nên một chỗ này phủ hết. Tài khoản vừa bị tắt bị đẩy ra ngay lần tải trang kế tiếp, không đợi hết 8 tiếng |
-| `users/actions.ts` | Gọi `requireOwner()` lại từ đầu | Mất quyền kiểm soát tài khoản là mất tất cả |
+| `proxy.ts` | Chỉ kiểm **chữ ký** cookie | Chạy trước MỌI request vào `/admin`; một lượt đọc Sanity ở đó là ~350ms cộng vào từng cú bấm chuột |
+| `layout.tsx` | `requireAdmin()` — **đọc kho thật** | Layout chạy cho cả **44 trang** admin, nên một chỗ phủ hết. Tài khoản vừa bị tắt bị đẩy ra ngay lần tải trang kế tiếp |
+| `users/actions.ts` | `requireOwner()` lại từ đầu | Mất quyền kiểm soát tài khoản là mất tất cả |
 
-📌 **Chặn theo đường dẫn chặn được cả Server Action** — Next gọi Server Action bằng POST về **chính URL của trang**. Nên không phải sửa 27 file action, và không lách được bằng cách gọi thẳng endpoint. Đã kiểm: POST từ vai chỉ-xem trả **403** ở mọi trang.
+📌 **Chặn theo đường dẫn chặn được cả Server Action** — Next gọi Server Action bằng POST về **chính URL của trang**. Không phải sửa 27 file action, không lách được.
 
-#### Ba vai, đã kiểm từng ô trên bản build thật
+#### Ba vai — đã kiểm từng ô trên bản build thật
 
 | Đường dẫn | Chủ | Biên tập | Chỉ xem |
 |---|---|---|---|
 | `/admin`, `/admin/reports`, `/admin/search-console` | ✓ | ✓ | ✓ |
-| `/admin/offers`, `/admin/deals`, `/admin/import` | ✓ | ✓ | ✗ |
-| `/admin/users`, `/admin/config` | ✓ | ✗ | ✗ |
-| **POST** bất kỳ đâu | ✓ | ✓ (trừ owner-only) | **✗ 403** |
+| `/admin/offers`, `/deals`, `/import` | ✓ | ✓ | ✗ |
+| `/admin/users`, `/admin/config`, `/admin/migrate` | ✓ | ✗ | ✗ |
+| **POST** bất kỳ đâu | ✓ | ✓ | **✗ 403** |
 
-Vai chỉ-xem dùng **danh sách cho phép**, không phải danh sách cấm: thêm một trang admin mới thì mặc định họ **không** vào được — hướng an toàn.
+Vai chỉ-xem dùng **danh sách cho phép**: thêm trang admin mới thì mặc định họ **không** vào được.
 
-#### ⚠️ Bốn lỗi thật trong chính code em viết, đều do đo mới lộ
+#### 19 phép kiểm đầu-cuối trên Chrome thật
 
-1. **Lỗ hổng phân quyền.** `/admin` nằm trong danh sách cho phép của vai chỉ-xem, mà phép khớp là *tiền tố* — nên `/admin/offers` cũng lọt và **vai chỉ-xem đọc được toàn bộ khu quản trị**. Test bắt được trước khi kịp chạy thật. Đã tách `VIEWER_EXACT` khỏi `VIEWER_SUBTREE`. **Bài học cho mọi allowlist: một mục là gốc của cây đường dẫn thì phép khớp tiền tố biến cả danh sách thành "cho tất".**
-2. **500 trên `/admin/users`.** `requireAdmin()` gọi `endSession()` trong lúc render trang — Next chỉ cho sửa cookie trong Server Action / Route Handler.
-3. **Vòng lặp chuyển hướng vô tận.** Cookie chữ ký còn hợp lệ nhưng tài khoản đã bị xoá: trang đẩy sang `/admin/login`, trang đăng nhập thấy chữ ký hợp lệ nên đẩy ngược vào trong. Sửa: trang đăng nhập **kiểm lại với Sanity** trước khi tự động đưa vào, không tin mỗi chữ ký.
-4. **Trang đăng nhập tự đẩy về chính nó.** Proxy thoát sớm ở đường dẫn login nên không gắn header `x-admin-path`; layout không biết mình đang ở trang đăng nhập nên vẫn chạy `requireAdmin()`. Chỉ lộ khi curl thật — `tsc`, lint, test, build đều xanh.
+Sai mật khẩu · email không tồn tại · **tài khoản đã tắt dù đúng mật khẩu** · đăng nhập đúng · cookie `httpOnly` + `SameSite=Lax` · **JS trong trang không đọc được cookie** · Chủ mở được trang Người dùng · **bản băm không lọt ra HTML** · đăng xuất xoá cookie · Biên tập không vào được `/admin/users` nhưng vào được `/admin/offers` · thanh bên không hiện mục Người dùng cho Biên tập.
+
+📌 Ba thông báo đăng nhập hỏng (sai mật khẩu / email không có / tài khoản bị tắt) ra **y hệt nhau** — đã kiểm bằng máy, không phải đọc code rồi tin.
+
+#### ⚠️ Bốn lỗi thật trong chính code này, đều do đo mới lộ
+
+1. **Lỗ hổng phân quyền.** `/admin` nằm trong danh sách cho phép của vai chỉ-xem mà phép khớp là *tiền tố* → `/admin/offers` cũng lọt: **vai chỉ-xem đọc được toàn bộ khu quản trị.** Test bắt được trước khi kịp chạy thật. **Luật chung: một mục là GỐC của cây đường dẫn thì phép khớp tiền tố biến cả allowlist thành "cho tất".**
+2. **500 trên `/admin/users`** — `requireAdmin()` gọi `endSession()` trong lúc render trang; Next chỉ cho sửa cookie trong Server Action / Route Handler.
+3. **Vòng lặp chuyển hướng vô tận** — cookie chữ ký hợp lệ + tài khoản đã xoá. Sửa: trang đăng nhập **kiểm lại với kho** trước khi tự đưa vào.
+4. **Trang đăng nhập tự đẩy về chính nó** — proxy thoát sớm ở đường dẫn login nên không gắn header `x-admin-path`. **Chỉ lộ khi curl thật; `tsc`, lint, test, build đều xanh.**
 
 #### Những chỗ khác đáng ghi
 
-- **Một thông báo duy nhất cho mọi kiểu đăng nhập hỏng** (email không tồn tại / sai mật khẩu / tài khoản bị tắt). Tách ra là tặng người dò một công cụ kiểm tra email nào có thật.
-- **Chặn dò mật khẩu**: đếm theo IP, 8 lần / 10 phút. ⚠️ Giữ trong bộ nhớ tiến trình nên **không dùng chung giữa các máy chủ** — chặn được kiểu dò liên tục, không phải hàng rào chắc tay. Trước đó Basic Auth **không đếm gì cả** (nợ ghi trong TODO từ 07/2026).
-- **`?next=` chỉ nhận đường dẫn nội bộ**. Không lọc thì `?next=https://kẻ-giả-mạo…` biến trang đăng nhập của chính mình thành một bước chuyển hướng đáng tin.
-- **Không tự hạ quyền / tự tắt / tự xoá chính mình**, và không hạ được **Chủ cuối cùng** — khoá cửa từ bên trong thì không ai mở được `/admin/users` nữa.
-- **Xoá người dùng bắt gõ lại email** để xác nhận. Không có thùng rác.
-- ⚠️ **Đổi mật khẩu KHÔNG cắt phiên đang mở** của người đó (cookie tự ký, còn hiệu lực tối đa 8 tiếng). Muốn cắt ngay: vô hiệu hoá rồi bật lại. Đã ghi thẳng trong thông báo cho người vận hành.
-- `adminClient.ts` có `import 'server-only'`: ai vô tình import nó vào component chạy ở trình duyệt thì **build hỏng ngay**, thay vì âm thầm gửi `SANITY_API_TOKEN` xuống máy khách.
-- Thiếu cấu hình thì trang đăng nhập **nói rõ thiếu biến nào**, không phải một chữ "chưa cấu hình" giống nhau cho bốn nguyên nhân khác hẳn — đúng bài học đã trả học phí với GA4 và Search Console.
-- **Hỏng thì đóng, không mở**: thiếu `AUTH_SECRET` ⇒ mọi phiên đều không hợp lệ ⇒ không ai vào được. Không có đường nào "lỡ mở toang".
+- **Một thông báo duy nhất** cho mọi kiểu đăng nhập hỏng — tách ra là tặng người dò một công cụ kiểm tra email nào có thật.
+- **Chặn dò mật khẩu** 8 lần/10 phút theo IP. ⚠️ Giữ trong bộ nhớ tiến trình nên **không dùng chung giữa các máy chủ** — chặn được kiểu dò liên tục, không phải hàng rào chắc tay. Trước đó Basic Auth **không đếm gì cả**.
+- **`?next=` chỉ nhận đường dẫn nội bộ** — không lọc thì trang đăng nhập của chính mình thành một bước chuyển hướng đáng tin cho kẻ giả mạo.
+- **Không tự hạ quyền / tự tắt / tự xoá chính mình**, và không hạ được **Chủ cuối cùng**.
+- **Kho không giải mã được thì TỪ CHỐI MỌI THAY ĐỔI** — ghi đè lên nó là xoá vĩnh viễn mọi tài khoản chỉ vì một biến môi trường đặt nhầm.
+- ⚠️ **Đổi mật khẩu KHÔNG cắt phiên đang mở** (cookie tự ký, tối đa 8 tiếng). Muốn cắt ngay: vô hiệu hoá rồi bật lại. Đã ghi thẳng trong thông báo.
+- **Hỏng thì đóng, không mở**: thiếu `AUTH_SECRET` ⇒ mọi phiên đều không hợp lệ ⇒ không ai vào được.
+- Thiếu cấu hình thì trang đăng nhập **nói rõ thiếu biến nào**.
 
-#### ⛔ Ba việc của user, làm theo ĐÚNG thứ tự này rồi mới deploy
+#### ⛔ Hai việc của user, rồi mới push
 
-1. **Tạo dataset riêng.** `sanity.io/manage/project/ns0upb1t/datasets` → Add dataset → tên `admin` → **Private**. (Token robot không có quyền này — em thử, Sanity trả `401 missing grant sanity.project.datasets/create`.)
-2. **Đặt `AUTH_SECRET` và `AUTH_PEPPER` trên Vercel.** Hai giá trị đã sinh sẵn trong `.env.local`; copy đúng nguyên văn sang Vercel. ⚠️ **Đổi `AUTH_PEPPER` sau này = mọi mật khẩu hiện có đều không mở được nữa**, phải đặt lại từng tài khoản.
-3. **Tạo tài khoản Chủ đầu tiên**: `node scripts/create-admin.mjs`. Không có bước này thì không ai đăng nhập được — `/admin/users` đòi phải đã là Chủ, đó là cánh cửa khoá từ bên trong.
+1. **Đặt `AUTH_SECRET` và `AUTH_PEPPER` trên Vercel.** Hai giá trị đã sinh sẵn trong `.env.local`, copy nguyên văn. ⚠️ Đổi `AUTH_PEPPER` sau này = **mọi mật khẩu hiện có hỏng hết**.
+2. **`node scripts/create-admin.mjs`** — tạo tài khoản Chủ đầu tiên. Không có bước này thì không ai đăng nhập được: `/admin/users` đòi phải đã là Chủ.
 
-📌 `ADMIN_USERNAME` / `ADMIN_PASSWORD` **không còn được dùng**. Xoá khỏi Vercel sau khi đăng nhập mới chạy được.
+📌 `ADMIN_USERNAME` / `ADMIN_PASSWORD` **không còn được dùng** — xoá khỏi Vercel sau khi đăng nhập mới chạy được.
 
-⚠️ **Chưa kiểm được luồng đăng nhập thật** vì dataset chưa tồn tại. Thứ đã kiểm trên bản build thật: chặn đường dẫn, ma trận ba vai (kể cả POST), API trả 401 JSON thay vì trang HTML, trang đăng nhập render không kèm thanh điều hướng, và vòng lặp chuyển hướng đã dứt. Thứ **chưa** kiểm: nhập đúng mật khẩu rồi vào được — cần làm sau khi có dataset.
+📌 **Không còn cần nâng gói Sanity.**
 
 ### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
 

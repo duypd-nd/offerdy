@@ -12,5 +12,5 @@ export default async function UsersPage() {
   const me = await requireOwner()
   const users = await listAdminUsers()
 
-  return <UsersAdmin users={users} meId={me._id} />
+  return <UsersAdmin users={users} meId={me.id} />
 }

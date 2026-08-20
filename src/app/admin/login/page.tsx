@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import LoginForm from './LoginForm'
 import { readSession, getAdminUser } from '@/lib/adminSession'
 import { landingPath } from '@/lib/adminAuth'
-import { missingAuthConfig } from '@/sanity/adminClient'
+import { missingAuthConfig } from '@/lib/adminConfig'
 
 export const metadata: Metadata = {
   title: 'Đăng nhập — Offerdy Admin',

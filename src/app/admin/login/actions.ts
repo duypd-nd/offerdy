@@ -3,8 +3,9 @@
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { verifyPassword, landingPath } from '@/lib/adminAuth'
-import { findByEmail, startSession, endSession } from '@/lib/adminSession'
-import { adminClient, missingAuthConfig } from '@/sanity/adminClient'
+import { findByEmail, startSession, endSession, vaultPepper } from '@/lib/adminSession'
+import { readVault, writeVault } from '@/lib/adminVault'
+import { missingAuthConfig } from '@/lib/adminConfig'
 
 export type LoginState = { error?: string }
 
@@ -55,7 +56,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   }
 
   const user = await findByEmail(email)
-  const pepper = process.env.AUTH_PEPPER ?? ''
+  const pepper = vaultPepper() ?? ''
 
   // ⚠️ Mot thong bao duy nhat cho MOI truong hop that bai — email khong ton tai,
   // sai mat khau, tai khoan bi tat. Tach ra la tang khong cho ke do mot cong cu
@@ -69,7 +70,13 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   await startSession(user)
 
   try {
-    await adminClient.patch(user._id).set({ lastLoginAt: new Date().toISOString() }).commit()
+    const { users, rev, unreadable } = await readVault()
+    if (!unreadable) {
+      await writeVault(
+        users.map(u => (u.id === user.id ? { ...u, lastLoginAt: new Date().toISOString() } : u)),
+        rev
+      )
+    }
   } catch {
     // Ghi moc dang nhap that bai khong duoc phep chan viec dang nhap
   }
