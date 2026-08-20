@@ -229,6 +229,23 @@ Cron kiểm link chạy sáng nay 06:56, kết quả **416 ok · 7 broken · 0 u
 
 Chưa sửa. Cách sửa rẻ nhất là để `adminWorkQueue` chỉ đếm offer **có** URL, và tách một mục riêng cho offer thiếu link.
 
+### ✅ Mô tả offer — đo lại 20/08, đóng lại dứt điểm
+
+Ghi chép cũ còn treo "108 offer thiếu mô tả" ở vài chỗ (bộ nhớ ghi tới ba con số khác nhau: 146, 108, 103). Đo thẳng Sanity hôm nay:
+
+| | |
+|---|---|
+| Tổng offer | **423** (lúc ghi chép cũ là 297) |
+| Có mô tả | **423 / 423** |
+| Thiếu | **0** |
+| Chờ duyệt () | **0** — cả 423 đều  |
+| Mô tả trùng lặp | **0** |
+| Độ dài | 59 – 208 ký tự, giữa **113**, không cái nào dưới 40 |
+
+📌 Không chỉ 108 cái cũ đã xong — **126 offer nhập thêm sau đó cũng có mô tả đầy đủ và đã duyệt hết**. Không mô tả nào dùng lại cho nhiều offer, tức không phải điền cho có.
+
+⚠️ **Bộ nhớ đã sửa** để thôi nhắc việc này. Bài học nhỏ: khi ba nguồn ghi ba con số khác nhau cho cùng một việc thì không nguồn nào đáng tin — đo lại rẻ hơn đọc lại.
+
 ### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
 
 1. ⚠️ **Search Console → *Yêu cầu lập chỉ mục* cho `/blog`.** Ngày 10/08 nó là `unknown`, nay là `Discovered` nhưng **vẫn chưa được bò** — nếu anh đã bấm thì Google chưa hành động, nếu chưa bấm thì đây vẫn là việc số 1. Hạn mức ~10 URL/ngày.
