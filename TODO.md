@@ -174,6 +174,61 @@ Commit `c7952b9` đã push, Vercel deploy xong. **Phép kiểm đã ghi sẵn tr
 
 ⏳ **Còn lại là chờ Google.** Phép đo phán quyết vẫn là mốc 2 tuần: `/blog` đã được bò lần nào chưa, và số trang nội dung được bò có rời khỏi **0/65** không.
 
+### 🔍 RÀ SOÁT 2026-08-20 (đợt 2) — đi tìm anh em của lỗi sitemap, và một giả thuyết bị chính phép đo bác bỏ
+
+Không sửa dòng code nào. Toàn bộ là đo.
+
+#### A. Hai phát hiện lúc soạn hướng dẫn Search Console
+
+1. **Sitemap đăng ký trong GSC trỏ vào URL chuyển hướng.** Mục đang đăng ký là `https://offerdy.com/sitemap.xml` — **không có `www`** — và nó trả **308** sang bản `www`. Google vẫn theo được, nhưng đây chính là **"1 cảnh báo"** treo suốt từ 01/07. Đã hướng dẫn user nộp bản `www`; user làm xong: mục mới **0 lỗi · 0 cảnh báo · 197 URL**, Google đọc sau **2 giây**. Mục cũ còn lại 1 cảnh báo, chờ user xoá.
+   - 📌 **Hai con số dễ đọc sai**: ô *"đã lập chỉ mục"* trong Sitemaps API là chỉ số Google đã ngừng dùng, trả `0` cho mọi site — đừng đọc nó. Và *"nộp lần cuối 01/07"* nghe như bị bỏ quên, nhưng *đọc lần cuối* là 19/08 — Google vẫn tự tải đều.
+
+2. ⚠️ **Lối nghĩ "xin lập chỉ mục cho trang đầu mối trước" ĐÃ BỊ BÁC BỎ.** Ghi chép 10/08 nói ưu tiên `/blog` vì nó dẫn tới 42 bài. Nhưng `/comparisons` **đã nằm trong chỉ mục, được bò 07/08, và liên kết tới đủ 42 bài** — Google cầm sẵn đường đi từ một trang nó vừa ghé và vẫn không bò cái nào. **Trang đầu mối không truyền lượt bò xuống được.** Hạn mức ~10 URL/ngày phải tiêu thẳng vào từng trang nội dung.
+   - Đã dựng trang hướng dẫn 67 URL chia 7 ngày, xếp **review trước bài blog** vì toàn bộ số lần site từng lọt trang 1 đều rơi vào URL dạng `/reviews/` (flashfish 8,2 · friendship-lamps 8,8 · epz-audio 7,4).
+
+#### B. Lỗi sitemap có anh em nào không — phần lớn là KHÔNG
+
+Mọi trang liệt kê đều khai `revalidate = 60`, tức cùng cơ chế vừa hỏng ở sitemap. Đo header trên production:
+
+| Trang | Cơ chế thật | Kết luận |
+|---|---|---|
+| `/`, `/stores` | ISR, `X-Nextjs-Prerender` | ✅ **Chứng minh được là tươi** — chứa store tạo SAU lúc build |
+| `/deals`, `/coupon-codes`, `/categories` | động (đọc tham số URL) | ✅ Tươi theo thiết kế, không có gì để cũ |
+| `/blog`, `/comparisons`, `/reviews`, `/links` | ISR, `X-Nextjs-Prerender` | ⚠️ **Chưa chứng minh được** |
+
+⚠️ **Phải nói rõ giới hạn của phép đo**: deal/post/review **không có tài liệu nào sửa sau lúc build** (mới nhất lần lượt 11/08, 06/08, 03/08), nên không có cách nào chứng minh bốn trang kia sinh lại. Chúng dùng đúng cơ chế đã chứng minh là chạy, và **có** header `X-Nextjs-Prerender` — đúng thứ mà `sitemap.xml` hỏng đã **không** có. Đó là suy luận theo cơ chế quan sát được, **không phải phép đo**. Đừng ghi thành "đã kiểm".
+
+#### C. ⚠️ Giả thuyết về bộ kiểm link — ĐO XONG THÌ SAI
+
+Cron kiểm link chạy sáng nay 06:56, kết quả **416 ok · 7 broken · 0 unknown** trên 423 offer.
+
+5/7 là Apollo Moda, cùng trỏ `apollomoda.com/?ref=offerdy`. Gọi thử ra **403**, và trang trả về là **"Attention Required! | Cloudflare"** — tức shop còn sống, chỉ chặn request tự động. Cộng với việc `checkOfferLink` gọi `fetch` **không gửi User-Agent** — thứ mọi tường lửa chặn đầu tiên — giả thuyết dựng lên rất thuyết phục: *bộ kiểm link đang dán nhãn hỏng oan cho mọi merchant có tường lửa.*
+
+**Đo trên cả 107 tên miền, mỗi tên miền hai lần — một lần y hệt cron, một lần kèm header trình duyệt:**
+
+| Kết quả | Số tên miền |
+|---|---|
+| OK cả hai cách | **105** |
+| **Hỏng khi không có UA, sống khi có UA** | **0** |
+| Hỏng cả hai cách | 1 (`apollomoda.com`) |
+| OK không UA, hỏng khi có UA | 1 (nhiễu, xem dưới) |
+
+⚠️ **Không một tên miền nào đổi kết luận khi thêm User-Agent.** Bản vá em định làm — thêm UA — **sẽ không sửa được gì**. Giả thuyết đúng về mặt cơ chế (403 là Cloudflare thật) nhưng sai về mặt hậu quả (nó không lan ra đâu cả). Nếu sửa theo linh cảm thì đã đổi code cho một bệnh không tồn tại.
+
+📌 Apollo Moda 403 **kể cả khi có header trình duyệt đầy đủ** → Cloudflare chặn theo IP/dấu vân tay TLS, không theo UA. Không thể kết luận từ đây là shop chết hay chỉ chặn máy chủ. **Cả 5 offer của shop này đều đã tắt (`active: false`)**, nên không có thiệt hại thật.
+
+📌 **Phép đo của em tự sinh ra một dương tính giả**: `geekkeyboard.com` ra TIMEOUT trong đợt quét, thử lại ba lần đều **200 trong 0,2s**. Nguyên nhân là chính em chạy 8 luồng song song. **Đúng loại lỗi mà `checkOfferLink` đã được gia cố để tránh** (sự cố Cycleaddons 26/07). Bài học: quét cả loạt phải tính tới nhiễu do chính mình tạo ra, và một lần đo không phải phán quyết.
+
+#### D. 📌 Khuyết tật thật, nhỏ, chưa sửa
+
+2 offer đang bật bị dán nhãn `linkStatus: broken` nhưng **`link` và `productUrl` đều `null`** — chúng không có link nào để mà hỏng (cả hai của Cloud Cushion Slides, đánh dấu 19/08 19:03).
+
+- **Không gây hại về hành vi**: `affiliateUrl.ts` chỉ dùng nhãn này khi offer *có* `productUrl` (`productPageDead = Boolean(productUrl) && linkStatus === 'broken'`), nên deep-link không bị tắt oan.
+- **Nhưng nó lừa người vận hành**: `adminWorkQueue.brokenLinks` đếm `active == true && linkStatus == "broken"` → hàng đợi việc báo **"2 link hỏng"**, trong khi vấn đề thật là **"2 offer thiếu link"** — hai việc khác nhau, cách xử lý khác nhau.
+- Cron cũng không bao giờ dọn được nhãn này: `CANDIDATES_QUERY` đòi `defined(productUrl) || defined(link)`, nên hai offer đó không lọt vào vòng quét nào.
+
+Chưa sửa. Cách sửa rẻ nhất là để `adminWorkQueue` chỉ đếm offer **có** URL, và tách một mục riêng cho offer thiếu link.
+
 ### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
 
 1. ⚠️ **Search Console → *Yêu cầu lập chỉ mục* cho `/blog`.** Ngày 10/08 nó là `unknown`, nay là `Discovered` nhưng **vẫn chưa được bò** — nếu anh đã bấm thì Google chưa hành động, nếu chưa bấm thì đây vẫn là việc số 1. Hạn mức ~10 URL/ngày.
