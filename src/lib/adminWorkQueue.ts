@@ -13,6 +13,7 @@
  */
 import { client } from '@/sanity/client'
 import { adminInputToIso, isoToAdminInput } from '@/lib/adminDateTime'
+import { BROKEN_LINK_GROQ } from '@/lib/checkOfferLink'
 
 const freshClient = client.withConfig({ useCdn: false })
 
@@ -70,7 +71,7 @@ const QUERY = `{
   "expiredOffers": count(*[_type == "offer" && active == true && defined(expiresAt) && expiresAt < now()]),
   "expiringOffers": count(*[_type == "offer" && active == true && defined(expiresAt) && expiresAt >= now() && expiresAt <= $inSevenDays]),
   "missingDescription": count(*[_type == "offer" && active == true && (!defined(description) || description == "")]),
-  "brokenLinks": count(*[_type == "offer" && active == true && linkStatus == "broken"]),
+  "brokenLinks": count(*[_type == "offer" && active == true && ${BROKEN_LINK_GROQ}]),
   "unverifiedOffers": count(*[_type == "offer" && active == true && verified == false]),
   "pendingAlerts": count(*[_type == "couponAlert" && !defined(notifiedAt)])
 }`

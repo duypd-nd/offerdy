@@ -1,6 +1,7 @@
 import { client as readClient } from '@/sanity/client'
 import OfferAdmin from './OfferAdmin'
 import { pageRange, parsePage, paramStr, totalPagesFor } from '@/lib/adminPagination'
+import { BROKEN_LINK_GROQ } from '@/lib/checkOfferLink'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,10 @@ const STATUS_CONDITION: Record<string, string> = {
   inactive: 'active != true',
   expired: 'active == true && defined(expiresAt) && expiresAt < now()',
   expiring: 'active == true && defined(expiresAt) && expiresAt >= now() && expiresAt <= $inSevenDays',
-  broken: 'active == true && linkStatus == "broken"',
+  // Dung CHUNG dinh nghia voi huy hieu tren bang dieu khien (BROKEN_LINK_GROQ):
+  // the do dan thang toi day, nen hai dieu kien lech nhau la nguoi dung bam vao
+  // con so 3 roi thay danh sach 5 dong.
+  broken: `active == true && ${BROKEN_LINK_GROQ}`,
   nodesc: 'active == true && (!defined(description) || description == "")',
   // `verified == false` chu khong phai `!= true`: offer cu tao truoc khi co truong
   // nay khong he co `verified`, gop chung se bao dong ca tram muc chua tung sai.
@@ -91,7 +95,11 @@ export default async function AdminOffersPage({
   const LIST_QUERY = `*[${filter}] | order(${SORT_ORDER[sort]}) [${start}...${end}] {
     _id, title, active, "verified": coalesce(verified, true), "order": coalesce(order, 0),
     couponCode, link, offerText, description, expiresAt, _createdAt,
-    "clicks": coalesce(clicks, 0), "linkStatus": coalesce(linkStatus, "unchecked"),
+    "clicks": coalesce(clicks, 0),
+    // Co canh bao tren dong dung CHINH dieu kien nay, khong tu suy lai tu
+    // linkStatus o phia giao dien — de mot offer khong co link khong hien
+    // "link hong" trong khi no khong co link nao de ma hong.
+    "linkBroken": ${BROKEN_LINK_GROQ},
     "store": store->{ _id, name, "slug": slug.current }
   }`
   const COUNT_QUERY = `count(*[${filter}])`

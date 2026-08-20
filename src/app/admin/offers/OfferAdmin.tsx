@@ -11,7 +11,7 @@ type AdminOffer = {
   _id: string; title: string; active: boolean; verified: boolean
   order: number; couponCode?: string; link: string; offerText: string
   description?: string; expiresAt?: string; _createdAt: string
-  clicks: number; linkStatus: string
+  clicks: number; linkBroken: boolean
   store: { _id: string; name: string; slug?: string }
 }
 type AdminStore = { _id: string; name: string }
@@ -257,7 +257,7 @@ export default function OfferAdmin({ offers: initialOffers, stores, page, pageSi
                   {o.couponCode && <span className="oa-code">🏷 {o.couponCode}</span>}
                   {/* Khi dang loc dung theo mot van de thi nhan cua van de do lap
                       lai o CA 118 dong — het bao dong, chi con nhieu. */}
-                  {o.linkStatus === 'broken' && filters.status !== 'broken' && <span className="oa-flag oa-flag-red" title="Link đã kiểm tra và bị hỏng">🔗 link hỏng</span>}
+                  {o.linkBroken && filters.status !== 'broken' && <span className="oa-flag oa-flag-red" title="Link đã kiểm tra và bị hỏng">🔗 link hỏng</span>}
                   {!o.description && filters.status !== 'nodesc' && <span className="oa-flag" title="Chưa có mô tả chi tiết">📝 thiếu mô tả</span>}
                 </td>
                 <td className="oa-td-clicks" style={{ color: o.clicks > 0 ? '#16a34a' : '#cbd5e1' }}>{o.clicks}</td>

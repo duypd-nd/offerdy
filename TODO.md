@@ -284,6 +284,53 @@ Quét `<title>` của **cả 197 URL** trong sitemap:
 2. **Lấy mẫu 25 store đầu sitemap** → báo `/stores/*` có **0** title lặp, trong khi `cloud-cushion-slides` (không nằm trong 25 cái đó) đang lặp. Quét toàn bộ mới ra sự thật. **Mẫu thuận tiện không phải mẫu đại diện.**
 3. **Đo độ dài title trên HTML thô, chưa giải mã thực thể** → báo **13** title quá 60 ký tự, thật ra là **5**. `&quot;` chiếm 6 ký tự trong HTML nhưng hiện ra **1**. Đếm ký tự cho người đọc thì phải đếm trên chuỗi đã giải mã.
 
+### 🔧 SỬA 2026-08-20 (đợt 4) — báo động đỏ giả trong admin, và hai title
+
+Test **340 → 345**, `tsc` + lint + `build` sạch, **đã kiểm trên bản build production chạy tại chỗ**.
+
+#### Triệu chứng
+
+Bảng điều khiển admin báo đỏ **"Offer link hỏng: 2 — mất click thật sự"**. Đo ra: **cả 2 offer đó không có link nào** — `link` và `productUrl` đều `null`. Chúng không thể hỏng theo bất kỳ nghĩa nào. Số đúng là **0**.
+
+Khách **không hề bị ảnh hưởng**: `resolveOfferUrl` lùi về link shop `cloudcushionslides.com/?ref=offerdy`, vẫn chạy tốt và vẫn mang mã ref. Đây thuần tuý là một con số nói dối với người vận hành.
+
+#### Sửa từ gốc, không sửa triệu chứng
+
+⚠️ `checkUrl` trả `{ ok: false }` **không kèm `indeterminate`** khi URL rỗng / không parse được / sai protocol — nên mọi nơi gọi đều đóng dấu `linkStatus: 'broken'`. Và nhãn đó **vĩnh viễn không tự lành**: `CANDIDATES_QUERY` của cron đòi phải có URL nên không bao giờ quét lại chúng.
+
+Đây đúng là luật mà chính file đó đã đặt ra sau sự cố Cycleaddons 26/07 — *"không trả lời kịp khác hẳn đã chết"* — chỉ là chưa áp cho trường hợp **"không có gì để kiểm"**. Nay ba trường hợp đó trả `indeterminate: true`: nơi gọi vẫn thấy lỗi để hiện cho người dùng, nhưng không được ghi đè `linkStatus`.
+
+#### Gom định nghĩa về một chỗ
+
+Điều kiện "offer có link và link đó thật sự hỏng" trước đây được **viết lại bằng tay ở ba nơi** — huy hiệu thanh bên, bộ lọc `/admin/offers`, và cờ cảnh báo trên từng dòng. Nay là một hằng `BROKEN_LINK_GROQ` xuất từ `checkOfferLink.ts` (module sở hữu ý nghĩa của `linkStatus`). Cờ trên dòng cũng do GROQ tính sẵn (`linkBroken`) thay vì giao diện tự suy lại từ `linkStatus`.
+
+#### ⚠️ Bản vá đầu tiên KHÔNG CHẠY, và chỉ phép đo mới lộ ra
+
+Viết lần đầu là `coalesce(productUrl, link) != ""`. Chạy thử trên dữ liệu thật: **vẫn đếm ra 2** — y hệt như không có vòng chặn nào.
+
+**Trong GROQ, `null != ""` cho `TRUE`.** Hai offer đó có cả hai trường `null`, nên `coalesce` ra `null` và vẫn lọt. Phải có **cả** `defined(...)` **lẫn** `!= ""`: một mình `defined()` thì chuỗi rỗng lọt, một mình `!= ""` thì `null` lọt.
+
+Đối chứng hai chiều trên dữ liệu thật sau khi sửa: broken-mà-không-có-url ra **0**, offer có link thật vẫn giữ **415/417**. Nếu chỉ chạy đối chứng âm thì một điều kiện luôn-sai cũng "đạt".
+
+📌 Đã kiểm trên bản build thật: thẻ dashboard hiện **0**, `/admin/offers?status=broken` ra **0 dòng**, không dòng nào còn cờ "🔗 link hỏng". Hai con số giờ khớp nhau.
+
+📌 **5 test mới** — dự án trước đó không có test nào cho `checkUrl`. Có một test khẳng định `BROKEN_LINK_GROQ` chứa **cả hai** mệnh đề, kèm lý do, để không ai rút `defined()` ra vì tưởng thừa.
+
+#### Hai title (sửa dữ liệu trong Sanity, đã sao lưu)
+
+| Trang | Cũ | Mới |
+|---|---|---|
+| `/stores/cloud-cushion-slides` | `… Coupons & Deals \| Offerdy \| Offerdy` (56) | `… Coupons & Deals \| Offerdy` (**46**) |
+| `/blog/frizzlife-…-compared` | 93 ký tự, Google cắt | **60** ký tự |
+
+`metaTitle` của store đã tự kèm `| Offerdy` rồi `titleTemplate` nối thêm lần nữa — đúng luật đã ghi: **title cấp trang không được chứa chữ "Offerdy"**.
+
+📌 Bài blog **giữ nguyên câu chữ của tác giả**, chỉ cắt danh sách model ở đuôi: *"Which Frizzlife Tankless RO System Should You Buy?"*. Bản viết lại kiểu *"Frizzlife Tankless RO Systems Compared"* ngắn hơn nhưng mất ý định tìm kiếm — câu hỏi "nên mua cái nào" chính là thứ người ta gõ vào Google.
+
+Sao lưu: `.scratch/title-fix-backup.json`.
+
+📌 **Bốn trang tĩnh còn lại vẫn lặp chữ "Offerdy"** (`/about`, `/contact`, `/author`, `/partner`) — cố ý không động: ở đó chữ đầu nằm trong cụm tự nhiên (*"About Offerdy — …"*), xấu chứ chưa sai, và sửa là viết lại nội dung của người vận hành.
+
 ### Việc của user (không tự động hoá được, vẫn treo từ 10/08)
 
 1. ⚠️ **Search Console → *Yêu cầu lập chỉ mục* cho `/blog`.** Ngày 10/08 nó là `unknown`, nay là `Discovered` nhưng **vẫn chưa được bò** — nếu anh đã bấm thì Google chưa hành động, nếu chưa bấm thì đây vẫn là việc số 1. Hạn mức ~10 URL/ngày.
