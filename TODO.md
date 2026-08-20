@@ -1,5 +1,82 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-21 — đọc trước khi làm gì
+
+Repo sạch, `main` sync `origin/main` ở **`f17f514`**. Test **385/385**, `tsc` + lint (49, không đổi) + `build` sạch.
+Hôm nay push **6 commit**, tất cả về đăng nhập admin.
+
+### ✅ Đã xong và ĐANG CHẠY TRÊN PRODUCTION
+
+**Đăng nhập admin + quản lý người dùng + phân quyền 3 vai.** Basic Auth một tài khoản đã bị thay; `/admin` giờ chuyển sang `/admin/login`.
+
+- Kho tài khoản: **2 tài khoản thật** — `duypd@offerdy.com` (Chủ), `test@offerdy.com` (Chỉ xem)
+- Kiểm trên production 4/4: trang đăng nhập hiện ra · không cảnh báo thiếu cấu hình · **kho giải mã được** (tức `AUTH_PEPPER` trên Vercel khớp) · sai mật khẩu không được cấp cookie
+- Kiểm đầu-cuối trên Chrome thật: **22/22**
+
+📌 **Việc user còn nợ**: xoá `ADMIN_USERNAME` và `ADMIN_PASSWORD` khỏi Vercel. Chúng không còn tác dụng. Đừng xoá trước khi chắc chắn đăng nhập mới chạy.
+
+---
+
+### 🔜 BA VIỆC CHO NGÀY MAI — xếp theo mức thiệt hại nếu bỏ qua
+
+#### 1. Sao lưu — lỗ hổng nghiêm trọng nhất hiện tại
+
+⚠️ Toàn bộ tài khoản quản trị nằm trong **một tài liệu Sanity** (`adminVault`) và **không có bản sao lưu nào**. Hai đường mất trắng, cả hai **không khôi phục được**, và cả hai đều khoá người vận hành khỏi chính website của mình:
+
+- Ai đó xoá `adminVault` trong Sanity Studio — nó trông như tài liệu rác vì nội dung đã mã hoá
+- Mất `AUTH_PEPPER` — kho còn nguyên nhưng vĩnh viễn không mở được
+
+**Việc của user (làm ngay, không cần code):** lưu `AUTH_SECRET` và `AUTH_PEPPER` vào trình quản lý mật khẩu. Đừng để chỉ có trong `.env.local` trên một cái máy.
+
+**Việc code (~1 giờ):** một lệnh xuất kho ra file mã hoá + cron hằng đêm ghi bản sao. Bản sao phải mã hoá bằng khoá **khác** `AUTH_PEPPER`, nếu không thì mất một khoá là mất cả bản gốc lẫn bản sao.
+
+#### 2. Nhật ký thao tác — đúng thứ user hỏi khi nói "quản lý tốt hơn"
+
+Giờ có nhiều người và ba vai, nhưng **không có gì ghi lại ai làm gì**. Nợ này đã ghi từ trước: *"Deletion is permanent and unlogged"*. Xoá một offer, đổi vai một người, sửa cấu hình — không để lại dấu vết.
+
+Với một người thì không sao. Với ba vai thì đây **chính là** "quản lý".
+
+Đề xuất: tài liệu `auditLog` ghi **ai · lúc nào · làm gì · trên bản ghi nào**, mã hoá cùng cách với `adminVault` (dataset công khai, không được ghi thẳng ai làm gì). Hiện một bảng "hoạt động gần đây" trên `/admin`.
+
+#### 3. Cắt phiên khi đổi mật khẩu hoặc hạ quyền (~30 phút)
+
+⚠️ Hiện đổi mật khẩu của một người **không** đá họ ra — cookie tự ký còn hiệu lực tới **8 tiếng**. Cách duy nhất cắt ngay là vô hiệu hoá rồi bật lại, và điều đó chỉ nằm trong một dòng thông báo.
+
+Sửa: thêm số phiên bản cho mỗi tài khoản; đổi mật khẩu hoặc đổi vai thì tăng số đó; cookie mang số cũ bị từ chối. Không cần kho mới.
+
+---
+
+### 📅 Hai mốc chờ Google — không liên quan đăng nhập
+
+- **27/08** — đo `0/65` trang nội dung được Google bò có nhúc nhích không. Mở `/admin/search-console` bấm nút, hoặc chạy `.scratch/measure-index.mjs`.
+- **03/09** — mốc phán quyết cho việc cắt 451 deal khỏi sitemap. Nếu `/blog` vẫn chưa từng được bò và vẫn `0/65` thì **nút thắt nằm chỗ khác và phải trả deal về** — cách đảo ngược ghi ngay tại chỗ cắt trong `src/app/sitemap.ts`.
+- Việc tay của user: bấm *Yêu cầu lập chỉ mục*, 67 URL chia 7 ngày, có sẵn danh sách ở `.scratch/index-request-plan.txt`.
+
+---
+
+### 📌 Bản ghi quyết định đầu tiên của dự án
+
+`docs/adr/0001-khong-dung-supabase.md` — user hỏi Supabase là gì và có nên dùng không. Đánh giá xong: **không chuyển**, vì 127/284 file chạm Sanity, 1.082 ảnh trên CDN Sanity, và không có vấn đề nào đang gây thiệt hại. Trong đó ghi **ba mốc khiến câu trả lời đảo ngược**, để lần sau không phải đánh giá lại từ đầu.
+
+`CLAUDE.md:487` đã khai quy ước `docs/adr/` từ trước nhưng thư mục chưa từng tồn tại; đây là file mở đầu.
+
+---
+
+### ⚠️ Bẫy đắt nhất học được hôm nay
+
+**Server Action của Next là một POST về chính URL trang đang mở.** Điều đó có hai mặt:
+
+- Mặt tốt: chặn theo đường dẫn ở `proxy.ts` chặn được luôn Server Action — không phải sửa 27 file action, không lách được.
+- ⚠️ Mặt xấu **suýt không ai thấy**: nút **Đăng xuất** cũng là một POST. Vai Chỉ xem bị chặn mọi POST nên **đăng nhập được mà không thể đăng xuất**. Phép đo hôm trước **đã in ra** `POST /admin/reports viewer -> 403` mà không ai nhận ra nó chặn luôn đường thoát; bộ test 19/19 vẫn xanh vì chỉ thử đăng xuất với vai Chủ.
+
+**Luật rút ra: đăng xuất là đường THOÁT, không phải hành động quản trị — nó không bao giờ được phép phụ thuộc vào quyền hạn.** Nay là Route Handler riêng `/admin/logout`, mở cho mọi vai.
+
+Ba bẫy khác cùng ngày, đều ghi đầy đủ trong các mục bên dưới:
+- **Allowlist có một mục là GỐC của cây đường dẫn + khớp tiền tố = cho tất.** `/admin` trong danh sách cho phép của vai Chỉ xem làm họ đọc được toàn bộ khu quản trị. Test bắt được trước khi chạy thật.
+- **Sửa cookie trong lúc render trang là 500** — Next chỉ cho sửa trong Server Action / Route Handler.
+- **Cookie chữ ký hợp lệ + tài khoản đã xoá = vòng lặp chuyển hướng vô tận.** Trang đăng nhập phải kiểm lại với kho, không tin mỗi chữ ký.
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-20 — đợt đo sau đóng băng, đọc trước khi làm gì
 
 Repo sạch, `main` sync `origin/main` ở **`7b38f06`**. **Không sửa một dòng code nào hôm nay** — cả buổi là đo.
