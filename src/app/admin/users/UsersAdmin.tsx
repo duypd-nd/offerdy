@@ -36,9 +36,22 @@ function BackupBanner({ backup }: { backup: BackupStatus }) {
       </p>
     )
   }
+  // ⚠️ Đặt TRƯỚC nhánh "quá hạn": một bản sao mới tinh mà không mở được thì
+  // nguy hiểm hơn hẳn một bản sao cũ hai ngày nhưng còn dùng được.
+  if (backup.readable === false) {
+    return (
+      <p className="usr-err" role="status">
+        <b>Bản sao gần nhất KHÔNG mở được bằng khoá trên máy chủ này.</b> {backup.readError}{' '}
+        Gần như chắc chắn <code>AUTH_BACKUP_KEY</code> ở đây khác với giá trị đã dùng lúc tạo bản sao —
+        nghĩa là đang có hai họ bản sao không đọc được của nhau.
+      </p>
+    )
+  }
+
   return (
     <p className={backup.stale ? 'usr-warn' : 'usr-backup-ok'} role="status">
       {backup.stale ? '⚠️ ' : ''}Sao lưu gần nhất: <b>{fmt(backup.latestAt)}</b> · {backup.count} ô trong Sanity
+      {backup.readable && ' · mở thử được'}
       {backup.stale && ' — đã quá 48 giờ, bản sao hằng đêm có thể đã hỏng.'}
     </p>
   )

@@ -108,6 +108,18 @@ export type BackupStatus = {
   count: number
   /** Qua han khi ban sao gan nhat cu hon 48 tieng — cron chay hang ngay, tre 2 ngay la hong that. */
   stale: boolean
+  /**
+   * May chu NAY co MO DUOC ban sao gan nhat khong. `null` = chua co ban sao de thu.
+   *
+   * ⚠️ Day la phep kiem duy nhat bat duoc truong hop nguy hiem nhat: khoa dat
+   * tren may chu **dung dinh dang nhung khac gia tri** voi khoa da ma hoa ban
+   * sao. Luc do "co khoa" va "co ban sao" deu dung, ma ban sao van khong mo
+   * duoc — va dieu do chi lo ra dung luc can cuu du lieu. Do that 2026-08-21:
+   * ban dau bang trang thai chi kiem hai dieu kien dau va se bao XANH cho dung
+   * truong hop nay.
+   */
+  readable: boolean | null
+  readError: string | null
 }
 
 /**
@@ -121,14 +133,29 @@ export type BackupStatus = {
 export async function vaultBackupStatus(now = new Date()): Promise<BackupStatus> {
   const keyed = deriveBackupKey(process.env.AUTH_BACKUP_KEY, process.env.AUTH_PEPPER)
   const slots = await listVaultBackups()
-  const latestAt = slots.find(s => s.createdAt)?.createdAt ?? null
+  const latest = slots.find(s => s.createdAt) ?? null
+  const latestAt = latest?.createdAt ?? null
   const ageMs = latestAt ? now.getTime() - new Date(latestAt).getTime() : Infinity
+
+  // MO THU ban sao gan nhat. Mot luot doc nho, doi lai la cau tra loi that cho
+  // cau hoi duy nhat co y nghia: "neu can den ban sao ngay bay gio, no co mo
+  // duoc khong?" — chu khong phai "co file nao do ton tai khong".
+  let readable: boolean | null = null
+  let readError: string | null = null
+  if (keyed.ok && latest) {
+    const opened = await readVaultBackup(latest.slot, keyed.key)
+    readable = opened.ok
+    readError = opened.ok ? null : opened.error
+  }
+
   return {
     configured: keyed.ok,
     configError: keyed.ok ? null : keyed.error,
     latestAt,
     count: slots.length,
     stale: ageMs > 48 * 60 * 60 * 1000,
+    readable,
+    readError,
   }
 }
 
