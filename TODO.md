@@ -1,5 +1,64 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-22 (rạng sáng) — công cụ dựng video sản phẩm
+
+🎬 **`/admin/video` — chọn một deal có sẵn, ra một file MP4 dọc đăng thẳng lên TikTok.** Chạy thật từ đầu tới cuối, không mock chỗ nào. Hai video mẫu nằm ở `out/`.
+
+**Đường đi**: deal trong Sanity → cào ảnh + mô tả + điểm đánh giá từ trang shop → đối chiếu mã giảm giá → **Claude viết lời đọc** → ElevenLabs đọc thành tiếng → ffmpeg ghép ảnh + hiệu ứng Ken Burns + chữ + chuyển cảnh → MP4 1080×1920.
+
+- `npm run video:spec <mã deal>` → `.scratch/spec-<mã>.json`
+- `npm run video:render .scratch/spec-<mã>.json` → `out/*.mp4`
+- Trang `/admin/video` gọi **đúng cùng một hàm** (`src/lib/video/loadDealSpec.ts`) — không có hai đường sinh ra hai kịch bản khác nhau cho cùng một deal.
+
+⚠️ **Dựng video CHẠY CỤC BỘ, không chạy trên Vercel** (không có ffmpeg, gói hàm 250 MB, hàm hết giờ 60 giây). Trang admin từ chối kèm lời giải thích khi thấy biến `VERCEL`.
+
+### Lỗi lớn nhất đã sửa: mọi sản phẩm nói giống hệt nhau
+
+Lúc đầu lời đọc lấy từ một mảng mẫu câu cố định, nên một cái túi và một bộ ly rượu quảng cáo y như nhau. Nay Claude viết bảy nhịp theo phễu **HOOK → PROBLEM → PRODUCT → BENEFIT ×3 → SOCIAL PROOF**; còn **OFFER / COUPON / CTA vẫn do code nối thêm từ dữ liệu kho** — giá và mã không bao giờ nằm trong tay model.
+
+Đo trên hai sản phẩm khác hẳn nhau, **không chung một câu nào**:
+
+| | deal #1470 địu em bé | deal #1463 áo hoodie |
+|---|---|---|
+| HOOK | "Tired of aching arms before your baby even naps?" | "Ever wish your hoodie actually said something about what you're into?" |
+| BENEFIT | "The padded hip seat shifts baby's weight onto your hips." | "The bold graphic print puts Tanjiro's world right on your chest." |
+| SOCIAL PROOF | 4,7 từ 49 đánh giá | **không có — tự bỏ cảnh** |
+| | 10 cảnh · 39,9s | 9 cảnh · 39,4s |
+
+### Hai hàng rào, đều là LỖI CỨNG
+
+1. **`kiemTraKichBan()` bắt MỌI con số trong lời đọc** rồi đối chiếu với danh sách sự thật đã kiểm chứng. Model được dặn không được bịa số, nhưng "được dặn" không phải "không xảy ra". Một con số sai trên trang web thì sửa được; một con số sai đọc lên trong video đã đăng TikTok thì **không gỡ lại được**.
+2. **Nhịp SOCIAL PROOF chỉ tồn tại khi trang sản phẩm khai `aggregateRating` thật trong JSON-LD.** Không có thì bỏ hẳn nhịp đó, không thay bằng "người ta rất thích nó". Đã kiểm lại bằng tay trên trang shop của deal #1470: `ratingValue: 4.67, ratingCount: 49` — đúng như video đọc.
+
+⚠️ Cảnh mã giảm giá **nói mức độ, không hứa**: "shop đang có mã X, thử ở bước thanh toán" chứ không phải "dùng mã X để được giảm thêm". Mã là của **cả shop**, nhiều shop loại trừ hàng đang giảm giá — một lời hứa hụt làm mất lòng tin nhiều hơn là không hiện mã nào. Phép khớp mã đi qua `couponForDealUrl()`, **không viết phép khớp domain thứ hai**.
+
+### Bẫy đo được trong đợt này
+
+- **`drawtext` của ffmpeg âm thầm nuốt mọi chữ chứa `%`** — mã thoát 0, chữ trắng trơn, chỉ có một dòng "Stray %" ở stderr. Cả ba cách thoát (`\%`, `%%`, để nguyên) đều hỏng. Cách chữa là `expansion=none`. Và **mọi dòng stderr của ffmpeg nay đều tính là lỗi**, kể cả khi mã thoát 0 — nếu không thì hỏng kiểu này lọt qua.
+- Ảnh **quay vòng** (`images[i % images.length]`), số cảnh do kịch bản quyết định. Trước đây số cảnh lợi ích = số ảnh trừ 2 nên deal chỉ có 3 ảnh ra video dưới 30 giây. Một ảnh dùng lại ở cảnh thứ tám vẫn hơn là cắt mất một ý bán hàng.
+- Danh sách deal ở trang admin **bị cắt 448 → 60** bởi hai giới hạn chồng nhau (`[0...120]` trong GROQ + `.slice(0, 60)` ở client), không có dấu hiệu gì. Đã bỏ cả hai và thêm dòng đếm hiện rõ.
+- Chữ dài tràn khung ("FROLK CLASSIC WHISKEY SET" hiện ra "OLK CLASSIC WHISKEY S") — nay tự xuống dòng và thu cỡ chữ.
+- Ghép tiếng: **đầu vào số 0 là video**, nên các file WAV bắt đầu từ chỉ số 1. Lệch một là `Stream specifier ':a' matches no streams`.
+- **Lại dính bẫy backtick/`\`**: một dấu `\` bị nuốt trên đường qua shell, biến `'SHOP NOW\nLINK IN BIO'` thành chuỗi xuống dòng thật và làm hỏng file. Dựng ký tự đó bằng `chr(92)` cho chắc.
+
+### Còn nợ ở công cụ này
+
+- **Chấm điểm ảnh** (`scoreImages`): ảnh cào về có cả ảnh chú thích kỹ thuật, ảnh nhiều chữ — không hợp làm nền video. Đã nhìn thấy trên deal #1470 (một ảnh cận cảnh vải có vòng phóng to và chấm đỏ bị dùng làm nền cảnh giá).
+- Chữ **chồng lên nhau trong 0,5 giây chuyển cảnh** giữa cảnh mã và cảnh CTA (hai chữ cùng vị trí dọc). Là đặc tính của chuyển cảnh mờ dần, chưa sửa.
+- **Chưa nối link rút gọn có nhãn `?s=`** vào CTA để đo lượt bấm ở `/admin/reports`. `spec.product.ctaUrl` đã sinh `/d/<mã>?s=video` nhưng chưa hiện lên màn hình. **Không đo được thì video chỉ là tài sản đẹp** — đây là việc đáng làm tiếp nhất.
+- Đường dán URL thẳng (cho sản phẩm chưa vào kho) chưa làm; hiện chỉ chọn deal có sẵn.
+
+### Hai lỗi dữ liệu đã lộ ra, chờ anh quyết
+
+- Một store tên là **"You are now leaving the internet.Get ready to find your fit."** — hiển nhiên là cào nhầm chữ trên trang.
+- Một store tên **"Yazv -"** thừa dấu gạch ngang ở cuối.
+
+📌 **Việc anh còn nợ**: **xoay bốn khoá API** đã dán vào phòng chat (`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`) — chúng chỉ nằm ở `.env.local` (đã gitignore), không lọt vào commit nào, nhưng đã đi qua một kênh không phải nơi để giữ bí mật.
+
+Test **480/480** (thêm 26), `tsc` + `build` + lint sạch.
+
+---
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-21 — đọc trước khi làm gì
 
 ✅ **ĐÃ PUSH VÀ DEPLOY — production đang chạy `c953b08`.**

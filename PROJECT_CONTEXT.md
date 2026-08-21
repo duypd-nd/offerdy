@@ -69,6 +69,7 @@
 - Import (`/admin/import`)
 - Flash Sales, Coupon Codes, Comparisons, Tips & Guides admin sections
 - **`/admin/social-kit`** — pick a deal → generated caption (editable) + `/d/` vs `/g/` link toggle + `?s=` post tag + QR code (SVG/PNG download). See "Social kit" below.
+- **`/admin/video`** — pick a deal → AI-written voiceover → vertical MP4 for TikTok/Reels/Shorts. Rendering runs **locally**, not on Vercel. See "Video studio" below.
 - Migration utils: `/admin/migrate/footer` (one-time footer link patch — ⚠️ it calls `revalidatePath` **during render**, which Next 16 now rejects at runtime; if it's ever needed again it must move to a server action like `deal-codes` did), `/admin/migrate/deal-codes` (assigns missing product codes; read-only page + `assignDealCodes()` server action behind a button, idempotent)
 - **`/admin/ai-review`** — approval queue for AI-generated drafts, 3 tabs: Stores / Offers / Deals. Preview via iframe `srcDoc`, Approve/Reject/Regenerate.
 - **`/admin/merchant-health`** — 0-100 health score per store (Content 40% / SEO 20% / Affiliate 25% / Freshness 15%), sorted worst-first, links back to `/admin/stores`
@@ -76,6 +77,40 @@
 - **`/admin/reports`** — "Platform Health" (avg score, broken links, stores needing attention) + AI Daily Report (Vietnamese summary + action items from Merchant Health + Sentry) + click analytics (top stores/offers, time-windowed) + Sentry unresolved issues + short-link/source breakdown. Has a **staleness banner** and a **"Tạo lại ngay"** button — see "Daily report staleness" below
 - **`/admin/offers` filters** — `?status=` accepts `active`, `inactive`, `expired`, `expiring` (≤7 days), `broken` (`linkStatus == "broken"`), `nodesc`, `unverified`; `?sort=` accepts `newest` (default, `store->_createdAt desc`), `clicks`, `expiring`, `title`; `?size=` accepts 20/50/100. The table shows **Click** and **Hạn** columns and flags rows with `🔗 link hỏng` / `📝 thiếu mô tả` (the flag is suppressed when the list is already filtered by that exact problem). Search matches `title`, `couponCode` **and** `offerText`. `unverified` uses `verified == false`, never `!= true` — offers predating the field have no `verified` at all
 - 9 list pages (stores/offers/coupon-codes/deals/flash-sales/comparisons/posts/reviews/tips-guides) + merchant-health use real URL pagination (`?page=N`; stores/offers/coupon-codes also put filters in the URL) via shared `src/lib/adminPagination.ts` + `src/app/admin/_components/{AdminPagination,useAdminUrlState,useUrlPage}` — do not reintroduce "load all then slice client-side"
+
+## Video studio (`/admin/video`) — deal → vertical MP4
+
+Pick a deal, get a 1080×1920 MP4 ready to post to TikTok / Reels / Shorts. The pipeline: deal in Sanity → scrape the shop page for extra photos, description and `aggregateRating` → match the store coupon → **Claude writes the voiceover** → ElevenLabs speaks it → ffmpeg assembles Ken Burns pans, burned-in text and crossfades.
+
+- `npm run video:spec <dealCode>` → `.scratch/spec-<code>.json`
+- `npm run video:render .scratch/spec-<code>.json` → `out/*.mp4`
+- The admin page and the CLI both call `src/lib/video/loadDealSpec.ts`. Do not let a second copy of this logic appear — the same deal must never produce two different scripts depending on where you clicked. This project already made that mistake once with coupon matching.
+
+⚠️ **Rendering runs locally, never on Vercel** — no ffmpeg in the runtime, 250MB function bundle, 60s timeout, ephemeral disk. `actions.ts` refuses with an explanation when `process.env.VERCEL` is set. Keep ffmpeg work in `scripts/`, out of `src/`.
+
+### The voiceover is written per product, not from a template
+
+The first version filled a fixed array of sentences, so a nappy bag and a whiskey set sold themselves in identical words — which is exactly what makes a product video worthless. Claude now writes seven beats along the funnel **HOOK → PROBLEM → PRODUCT → BENEFIT ×3 → SOCIAL PROOF** (`src/lib/ai/prompts/videoScript.ts`). **OFFER, COUPON and CTA are appended by code from stored data** — price and coupon code are never in the model's hands.
+
+`src/lib/video/buildSpec.ts` stays a pure function (no network, no Sanity) so it is testable; `loadDealSpec.ts` does the I/O. Images cycle (`images[i % images.length]`) instead of capping the scene count — a deal with 3 photos used to yield a sub-30-second video.
+
+### Two hard guards, both throw rather than warn
+
+1. **`kiemTraKichBan()` extracts every number from the AI's lines** and rejects any that is not in the verified-facts list. The model is instructed not to invent numbers, but "instructed" is not "will not". A wrong number on a web page can be edited; a wrong number spoken in a video already posted to TikTok cannot.
+2. **The SOCIAL PROOF beat exists only when the product page declares a real `aggregateRating` in JSON-LD** (read by `docDanhGia()` in `scrapeProductPage.ts`). With no rating the beat is dropped entirely — never substituted with "customers love it". Verified against the live shop page for deal #1470: `ratingValue 4.67 / ratingCount 49`, matching what the video says.
+
+⚠️ The coupon scene states **availability, not a promise**: "the store currently has code X, worth trying at checkout" — not "use code X for an extra discount". The code is **store-wide** and many stores exclude sale items; a code that fails at checkout costs more trust than showing no code at all. Matching goes through `couponForDealUrl()`, the same function the deal and review pages use.
+
+### ffmpeg gotchas paid for in this project
+
+- **`drawtext` silently discards any text containing `%`** — exit code 0, blank text, one "Stray %" line on stderr. All three escapes (`\%`, `%%`, raw) fail. The fix is `expansion=none`, and **every ffmpeg stderr line is now treated as fatal even on exit 0**, because that is the only way this class of failure surfaces.
+- Long overlay text overflows the frame; `chiaDong()` word-wraps and shrinks the font.
+- When mixing the narration WAVs, **input 0 is the video**, so audio inputs start at index 1. Off-by-one gives `Stream specifier ':a' matches no streams`.
+- Prices are spoken as words (`docGia`: `$79.95` → "79 dollars 95") and codes are spelled out (`danhVan`: `OFFERDY` → "O F F E R D Y"), otherwise the TTS reads "dollar seventy nine point nine five".
+
+### Not built yet
+
+Image scoring (scraped sets include text-heavy infographics unfit as backgrounds) · the tracked short link — `spec.product.ctaUrl` already carries `/d/<code>?s=video` but it is not on screen, so clicks do not yet show in `/admin/reports` · the paste-a-URL path for products not in the database.
 
 ## AI Engines (Anthropic Claude Sonnet 5 + Vercel Cron)
 9/9 built as of 2026-07-08 (scaled-down vs. the aspirational multi-agent/queue spec in `docs/03-workflows/*.md`, which assumes infra this project doesn't have — real affiliate network APIs, job queues):
