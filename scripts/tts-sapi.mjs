@@ -42,7 +42,7 @@ export function danhSachGiong() {
  *
  * `rate` theo thang cua SAPI: -10 (cham) den 10 (nhanh), 0 la binh thuong.
  */
-export function docThanhTep(chu, tepRa, { giong, rate = 0 } = {}) {
+export function docSapi(chu, tepRa, { giong, rate = 0 } = {}) {
   return new Promise((res, rej) => {
     const tepChu = tepRa.replace(/\.wav$/i, '') + '.txt'
     fs.writeFileSync(tepChu, String(chu), 'utf8')
@@ -67,22 +67,7 @@ export function docThanhTep(chu, tepRa, { giong, rate = 0 } = {}) {
       // ⚠️ Do do dai THAT tu tep, khong uoc luong theo so tu. Do dai giong doc la
       // thu quyet dinh do dai scene — doan sai thi chu chay truoc tieng hoac
       // nguoc lai, va loi do chi lo ra khi xem lai ca video.
-      doDaiWav(tepRa).then(giay => res({ tep: tepRa, giay })).catch(rej)
-    })
-  })
-}
-
-/** Do dai mot tep am thanh, bang ffprobe. */
-export function doDaiWav(tep) {
-  return new Promise((res, rej) => {
-    const p = spawn('ffprobe', ['-v', 'error', '-show_entries', 'format=duration',
-      '-of', 'default=noprint_wrappers=1:nokey=1', tep], { stdio: ['ignore', 'pipe', 'pipe'] })
-    let ra = ''
-    p.stdout.on('data', d => { ra += d })
-    p.on('error', rej)
-    p.on('close', () => {
-      const giay = parseFloat(ra.trim())
-      Number.isFinite(giay) ? res(giay) : rej(new Error(`Khong doc duoc do dai: ${path.basename(tep)}`))
+      res(tepRa)
     })
   })
 }

@@ -130,15 +130,23 @@ async function main(specPath) {
   // ⚠️ Thu tu quan trong. Do dai scene phai chay theo do dai giong doc, khong
   // phai nguoc lai. Dat do dai truoc roi ep tieng vao la cach chac chan de chu
   // chay truoc tieng — va loi do chi lo ra khi ngoi xem lai ca video.
-  const coTieng = scenes.some(s => s.voiceText) && spec.voice?.provider === 'sapi'
+  const provider = spec.voice?.provider ?? 'sapi'
+  const coTieng = scenes.some(s => s.voiceText) && provider !== 'none'
   if (coTieng) {
-    const { docThanhTep } = await import('./tts-sapi.mjs')
+    const { docThanhTep } = await import('./tts.mjs')
+    const cauCanDoc = scenes.filter(s => s.voiceText).map(s => s.voiceText)
+    const soKyTu = cauCanDoc.reduce((n, c) => n + c.length, 0)
+    // ⚠️ Noi TRUOC se tieu bao nhieu. Khoa ElevenLabs cua du an khong doc duoc
+    // han muc (401 missing_permissions), nen day la con so duy nhat ta co.
+    if (provider === 'elevenlabs') info(`${cauCanDoc.length} cau · ${soKyTu} ky tu ElevenLabs (cai da doc roi thi lay tu bo nho dem)`)
+
+    let moi = 0, dem = 0
     for (const [i, s] of scenes.entries()) {
       if (!s.voiceText) continue
-      const tep = path.join(viec, `tieng-${i}.wav`)
-      const { giay } = await docThanhTep(s.voiceText, tep, {
-        giong: spec.voice?.voice, rate: spec.voice?.rate ?? 0,
+      const { tep, giay, tuDem } = await docThanhTep(s.voiceText, path.join(viec, `tieng-${i}`), {
+        provider, giong: spec.voice?.voice, rate: spec.voice?.rate ?? 0,
       }).catch(e => { throw new Error(`Doc scene ${s.id ?? i + 1}: ${e.message}`) })
+      tuDem ? dem++ : moi++
       s._tieng = tep
       s._tiengGiay = giay
       // Do dai scene = do dai tieng + khoang lang hai dau. Neu kich ban de san
@@ -146,7 +154,7 @@ async function main(specPath) {
       s.duration = Math.max(s.duration ?? 0, +(giay + 0.7).toFixed(2))
     }
     const tong = scenes.reduce((n, s) => n + s.duration, 0) - tDur * (scenes.length - 1)
-    ok(`Doc ${scenes.filter(s => s._tieng).length} doan tieng · dai lai thanh ${tong.toFixed(1)}s`)
+    ok(`Giong ${provider}: ${moi} cau doc moi, ${dem} lay tu bo nho dem · dai lai thanh ${tong.toFixed(1)}s`)
   }
 
   // ── Luot 1: moi scene mot doan ───────────────────────────────────

@@ -187,7 +187,7 @@ await run(async () => {
       maCoupon ? `couponCode = ${maCoupon} — tu offer dang bat cua shop` : 'shop khong co ma doc quyen -> KHONG duoc bia ma',
       `${anh.length} anh — tu ${deal.dealUrl ?? 'kho'}`,
     ],
-    voice: { provider: 'sapi', voice: 'Microsoft Zira Desktop', rate: 0 },
+    voice: { provider: 'elevenlabs', voice: null, rate: 0 },
     transition: { type: 'fade', duration: tDur },
     scenes,
   }
