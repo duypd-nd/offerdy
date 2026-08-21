@@ -16,6 +16,35 @@ export type ScrapedProduct = {
   /** Gia truoc giam, chi co khi shop cong bo — xem `storeApiData`. */
   priceOrig?: string
   currency?: string
+  /** Diem danh gia THAT tu `aggregateRating` trong JSON-LD. Khong co thi undefined. */
+  rating?: number
+  /** So luot danh gia THAT. Khong co thi undefined. */
+  reviewCount?: number
+}
+
+/**
+ * Diem danh gia va so luot, doc tu `aggregateRating` cua JSON-LD.
+ *
+ * ⚠️ CHI lay so THAT tren trang. Video co mot canh "social proof", va canh do
+ * chi duoc xuat hien khi hai so nay co that — bia ra "duoc hang nghin nguoi yeu
+ * thich" la dung thu ma luat cua du an cam, va la thu de bi kien nhat trong ca
+ * doan video.
+ *
+ * Tra ve object rong khi khong co, de nguoi goi trai bang `...` ma khong tao ra
+ * cac truong `undefined` thua.
+ */
+function docDanhGia(product: Record<string, unknown> | null): { rating?: number; reviewCount?: number } {
+  const agg = product?.aggregateRating
+  if (!agg || typeof agg !== 'object') return {}
+  const o = agg as Record<string, unknown>
+  const diem = Number(o.ratingValue)
+  const soLuot = Number(o.reviewCount ?? o.ratingCount)
+  const ra: { rating?: number; reviewCount?: number } = {}
+  // Kep trong 1..5: vai shop khai thang 1..100, va mot diem "87 sao" tren video
+  // thi lo ngay.
+  if (Number.isFinite(diem) && diem > 0 && diem <= 5) ra.rating = Math.round(diem * 10) / 10
+  if (Number.isFinite(soLuot) && soLuot > 0) ra.reviewCount = Math.round(soLuot)
+  return ra
 }
 
 type ScrapeResult = ScrapedProduct | { error: string }
@@ -361,5 +390,6 @@ export async function scrapeProductPage(url: string): Promise<ScrapeResult> {
     price,
     priceOrig: api.priceOrigRaw,
     currency,
+    ...docDanhGia(product),
   }
 }

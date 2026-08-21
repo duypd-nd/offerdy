@@ -30,7 +30,11 @@ export type DealNguon = {
 
 export type Scene = {
   id: number
-  type: 'hook' | 'reveal' | 'benefit' | 'offer' | 'coupon' | 'cta'
+  /**
+   * Loai canh. Chi de nguoi doc hieu va de xem truoc — bo dung video khong dung
+   * toi truong nay, no chi can anh, do dai, chu va kieu Ken Burns.
+   */
+  type: 'hook' | 'problem' | 'product' | 'benefit' | 'socialProof' | 'offer' | 'coupon' | 'cta'
   image: string
   duration: number
   kenBurns: 'in' | 'out'
@@ -56,55 +60,56 @@ export type VideoSpec = {
 
 const CHUYEN_CANH = 0.5
 
-/** Cac nhan phu de dung cho scene loi ich — moi anh mot nhan. */
-const NHAN_LOI_ICH: [string, string][] = [
-  ['SEE IT\nUP CLOSE', 'Here it is up close, so you can see what you actually get.'],
-  ['EVERY\nDETAIL', 'Every part is finished properly, right down to the detail.'],
-  ['BUILT\nTO LAST', 'Solid and well made, not something that gets used once.'],
-  ['GREAT FOR\nGIFTING', 'It works for birthdays, weddings, or just because.'],
-  ['READY TO\nUSE', 'It arrives ready to use, straight out of the box.'],
-]
+/** Mot nhip loi doc do AI viet. Cung hinh dang voi `Beat` trong generateVideoScript. */
+export type NhipKichBan = {
+  type: 'hook' | 'problem' | 'product' | 'benefit' | 'socialProof'
+  voiceText: string
+  overlayText: string
+}
+
+/** Uoc thoi luong tu so tu. ~2,6 tu/giay khi doc, cong khoang lang hai dau. */
+const uocGiay = (chu: string): number =>
+  Math.max(2.6, Math.round((chu.trim().split(/\s+/).length / 2.6 + 0.8) * 10) / 10)
 
 export function buildSpec(input: {
   deal: DealNguon
   images: string[]
+  beats: NhipKichBan[]
   couponCode?: string | null
   storeName?: string | null
   provider?: string
 }): VideoSpec {
-  const { deal, images } = input
+  const { deal, images, beats } = input
   if (!images.length) throw new Error('Khong co anh nao de dung video')
+  if (!beats.length) throw new Error('Khong co nhip kich ban nao — AI chua viet loi doc')
 
-  const ten = String(deal.title).split('—')[0].trim()
   const shop = input.storeName ?? deal.store ?? 'the store'
   const ma = input.couponCode ?? null
+
+  // ⚠️ Anh LAP LAI tu dau khi het, va so canh KHONG bi cat theo so anh.
+  //
+  // Truoc day so canh loi ich = so anh tru 2, nen mot deal chi co 3 anh chi ra
+  // duoc 1 canh loi ich va video ngan hon 30 giay. Nay kich ban quyet dinh so
+  // canh, con anh thi quay vong — mot anh dung lai o canh thu 8 van hon han
+  // viec cat mat mot y ban hang.
   const lay = (i: number) => images[i % images.length]
 
   const scenes: Scene[] = []
   const them = (type: Scene['type'], s: Omit<Scene, 'id' | 'type' | 'kenBurns'>) =>
     scenes.push({ id: scenes.length + 1, type, kenBurns: scenes.length % 2 ? 'out' : 'in', ...s })
 
-  them('hook', {
-    image: lay(0), duration: 3.6,
-    overlayText: 'LOOKING FOR\nA REAL GIFT?',
-    voiceText: 'Looking for something that actually gets used?',
-  })
-  them('reveal', {
-    image: lay(1), duration: 4,
-    overlayText: ten.toUpperCase(),
-    voiceText: `This is the ${ten} from ${shop}.`,
-  })
-
-  // Mot scene cho moi anh con lai. Day la thu lam video do mat thay vi mot tam
-  // anh dung yen — deal trong kho chi co 1 anh, phan con lai cao tu trang shop.
-  const soLoiIch = Math.min(NHAN_LOI_ICH.length, Math.max(0, images.length - 2))
-  for (let i = 0; i < soLoiIch; i++) {
-    them('benefit', {
-      image: lay(i + 2), duration: 4,
-      overlayText: NHAN_LOI_ICH[i][0],
-      voiceText: NHAN_LOI_ICH[i][1],
+  // ── Phan AI viet: hook, problem, product, benefit, socialProof ───
+  //
+  // Anh so 0 la anh trong kho (nguoi van hanh da chon) nen de o canh dau; tu
+  // canh thu hai tro di lay lan luot cac anh cao tu trang san pham.
+  beats.forEach((b, i) => {
+    them(b.type, {
+      image: lay(i),
+      duration: uocGiay(b.voiceText),
+      overlayText: b.overlayText,
+      voiceText: b.voiceText,
     })
-  }
+  })
 
   // ── Gia: chi noi khi co so THAT ─────────────────────────────────
   if (deal.priceOrig && deal.discount) {

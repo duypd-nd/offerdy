@@ -1,0 +1,137 @@
+/**
+ * Dựng kịch bản video từ dữ liệu deal.
+ *
+ * ⚠️ Hai phép kiểm quan trọng nhất ở đây KHÔNG phải về hình thức video, mà về
+ * việc **không bịa số**: sản phẩm không có giá gốc thì tuyệt đối không được có
+ * cảnh giảm giá, và shop không có mã thì không được có cảnh mã. Dự án này từng
+ * hiện "Save €5000" cho một sản phẩm €199,99 — nhưng đó là chữ trên trang web,
+ * sửa được. Một con số sai đọc lên trong video đã đăng TikTok thì không.
+ */
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { buildSpec, tongThoiLuong, docGia, danhVan, type NhipKichBan } from '../src/lib/video/buildSpec'
+
+const NHIP: NhipKichBan[] = [
+  { type: 'hook', voiceText: 'Tired of aching arms before your baby even naps?', overlayText: 'ACHING ARMS?' },
+  { type: 'problem', voiceText: 'Carrying a baby all day strains your back fast.', overlayText: 'BACK STRAIN' },
+  { type: 'product', voiceText: 'The CozyRoo Hipseat Carrier from BloomingBabies helps with that.', overlayText: 'COZYROO CARRIER' },
+  { type: 'benefit', voiceText: "The padded hip seat shifts baby's weight onto your hips.", overlayText: 'PADDED HIP SEAT' },
+  { type: 'benefit', voiceText: 'It adjusts into six positions as your baby grows.', overlayText: 'GROWS WITH BABY' },
+  { type: 'benefit', voiceText: 'Pockets and a drool bib keep essentials handy.', overlayText: 'POCKETS INCLUDED' },
+]
+
+const DEAL = {
+  code: 1470,
+  title: 'CozyRoo 6-in-1 Hipseat Carrier',
+  slug: 'cozyroo-hipseat',
+  priceSale: '$49.95',
+  priceOrig: '$89.95',
+  discount: 44,
+  dealUrl: 'https://bloomingbabies.co/products/baby-hipseat-carrier',
+}
+
+const ANH = ['a.jpg', 'b.jpg', 'c.jpg']
+
+// ── Luật số một: không có dữ liệu thì không có cảnh ────────────────
+
+test('KHÔNG có giá gốc thì KHÔNG có cảnh giảm giá', () => {
+  const { scenes } = buildSpec({
+    deal: { ...DEAL, priceOrig: undefined, discount: undefined },
+    images: ANH, beats: NHIP,
+  })
+  const offer = scenes.filter(s => s.type === 'offer')
+  assert.equal(offer.length, 1, 'vẫn nói giá bán, nhưng chỉ một cảnh')
+  assert.equal(offer[0].priceBadge, undefined)
+  assert.ok(!/down from|off|save/i.test(offer[0].voiceText ?? ''), offer[0].voiceText)
+  assert.ok(!scenes.some(s => /\d+\s*%/.test(s.overlayText)), 'không được hiện % nào')
+})
+
+test('KHÔNG có giá nào thì KHÔNG có cảnh giá', () => {
+  const { scenes } = buildSpec({
+    deal: { ...DEAL, priceSale: undefined, priceOrig: undefined, discount: undefined },
+    images: ANH, beats: NHIP,
+  })
+  assert.equal(scenes.filter(s => s.type === 'offer').length, 0)
+})
+
+test('KHÔNG có mã thì KHÔNG có cảnh mã, và không chữ nào nhắc tới mã', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: null })
+  assert.equal(scenes.filter(s => s.type === 'coupon').length, 0)
+  const chu = scenes.map(s => `${s.overlayText} ${s.voiceText ?? ''}`).join(' ')
+  assert.ok(!/code/i.test(chu), chu)
+})
+
+test('cảnh mã nói MỨC ĐỘ, không hứa — mã là của cả shop, nhiều shop loại trừ hàng giảm giá', () => {
+  const { scenes } = buildSpec({
+    deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY', storeName: 'BloomingBabies',
+  })
+  const ma = scenes.find(s => s.type === 'coupon')
+  assert.ok(ma)
+  assert.equal(ma.couponBadge, 'OFFERDY')
+  assert.ok(ma.overlayText.includes('OFFERDY'))
+  assert.ok(!/\b(get|use|apply|save|extra)\b/i.test(ma.voiceText ?? ''), ma.voiceText)
+})
+
+// ── Ảnh quay vòng ─────────────────────────────────────────────────
+
+test('ít ảnh KHÔNG cắt bớt cảnh — ảnh lặp lại từ đầu', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ['a.jpg'], beats: NHIP, couponCode: 'OFFERDY' })
+  assert.equal(scenes.length, NHIP.length + 3, 'sáu nhịp + giá + mã + CTA')
+  assert.ok(scenes.every(s => s.image === 'a.jpg'))
+})
+
+test('mọi ảnh đều được dùng khi đủ nhịp', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  for (const a of ANH) assert.ok(scenes.some(s => s.image === a), a)
+})
+
+test('ảnh trong kho (ảnh thứ nhất) mở màn', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  assert.equal(scenes[0].image, ANH[0])
+})
+
+// ── Hình dạng ─────────────────────────────────────────────────────
+
+test('kịch bản đủ nhịp cho video trên 30 giây, khung dọc', () => {
+  const spec = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY' })
+  assert.equal(spec.width, 1080)
+  assert.equal(spec.height, 1920)
+  assert.ok(tongThoiLuong(spec.scenes) > 30, `mới ${tongThoiLuong(spec.scenes)}s`)
+})
+
+test('cảnh cuối luôn là CTA và link có nhãn đo được', () => {
+  const spec = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY' })
+  assert.equal(spec.scenes.at(-1)?.type, 'cta')
+  assert.match(String(spec.product.ctaUrl), /\/d\/1470\?s=video$/)
+})
+
+test('không có nhịp nào thì dừng, chứ không dựng video rỗng', () => {
+  assert.throws(() => buildSpec({ deal: DEAL, images: ANH, beats: [] }), /nhip kich ban/i)
+})
+
+test('không có ảnh nào thì dừng', () => {
+  assert.throws(() => buildSpec({ deal: DEAL, images: [], beats: NHIP }), /anh/i)
+})
+
+test('id cảnh liên tục từ 1', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY' })
+  assert.deepEqual(scenes.map(s => s.id), scenes.map((_, i) => i + 1))
+})
+
+// ── Đọc số thành lời ──────────────────────────────────────────────
+
+test('THẬT: giá đọc thành lời, không đọc dấu chấm', () => {
+  // ⚠️ Đọc "$79.95" nguyên văn thì ElevenLabs phát "dollar seventy nine point
+  // nine five" — đúng chữ nhưng nghe như máy đọc bảng giá.
+  assert.equal(docGia('$79.95'), '79 dollars 95')
+  assert.equal(docGia('$49.95'), '49 dollars 95')
+  assert.equal(docGia('$120.00'), '120 dollars')
+  assert.equal(docGia('$1,299.00'), '1299 dollars')
+  assert.equal(docGia('€199,99'), '19999 euro')
+  assert.equal(docGia('£25'), '25 pounds')
+})
+
+test('mã đọc đánh vần từng chữ', () => {
+  assert.equal(danhVan('OFFERDY'), 'O F F E R D Y')
+  assert.equal(danhVan('save10'), 'S A V E 1 0')
+})
