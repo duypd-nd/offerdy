@@ -10,7 +10,9 @@
 - **Nặng hơn**: `.sol-layout` có `padding:32px 24px 80px` bị ép về 0. Màn rộng thì `max-width:1100px` che mất, nhưng **trên điện thoại nội dung dính sát mép** — nơi phần lớn khách affiliate đến. So ảnh 420px giữa production cũ và bản sửa: lề 20px quay lại.
 - Chữa bằng cách **lọc `<script>` lúc hiển thị** (`src/lib/stripScripts.ts`) chứ không viết lại 107 tài liệu. Khuôn sinh nội dung cũng bỏ script, việc nó làm nay do một dòng CSS.
 - Đã kiểm **trên production**: 0 lỗi hydration, 0 thông báo console.
-- 📌 Nội dung cũ trong Sanity vẫn còn đoạn script — vô hại vì đã lọc lúc hiển thị, nhưng dọn thì sạch hơn.
+- ✅ **Đã dọn nốt trong Sanity**: 107/107 tài liệu, cắt đúng ~472 ký tự mỗi cái (bằng đúng độ dài khối script), `.abs-wrap` và `<style>` còn nguyên. Sao lưu nguyên bản ở `.scratch/store-description-backup.json` (552 KB). Lệnh dọn dùng **chung hàm `stripScripts`** với trang web qua esbuild — không chép lại biểu thức chính quy thành bản thứ hai để lệch.
+- ✅ **Quét hydration toàn site sau khi sửa: 13 URL, đủ mọi loại trang, 0 lỗi** — trang chủ, `/deals`, `/stores`, `/blog`, `/reviews`, `/comparisons`, `/coupon-codes`, `/flash-sales`, `/tips-guides`, `/search`, và ba trang chi tiết deal/blog/review. Mỗi phép đo đều qua bước tự kiểm nên "0 lỗi" là kết luận có căn cứ.
+- ✅ **Vá nốt `process.exit()` ở 3 lệnh còn lại** (`check-ga4`, `check-gsc`, `dead-pages-triage`) bằng `catThoatAnToan()` trong `scripts/_vault.mjs` — đặt `process.exitCode` rồi ném một lỗi riêng đã có sẵn bộ bắt, **không phải thụt lề cả file** (ba file đó có template literal trải dài nhiều dòng). Chạy thật cả đường thành công lẫn đường thất bại: mã thoát 0 và 1, không còn 127.
 
 🎨 **Logo Offerdy** ở thanh bên, thanh trên và trang đăng nhập. Hai bản: màu gốc cho nền trắng, bản chữ trắng cho nền `#0f172a` (giữ nguyên màu xanh thương hiệu). Thu từ 427 KB xuống 21 KB — bắt buộc, vì `imageLoader.ts` cố ý không đưa ảnh trong `/public` qua bộ tối ưu.
 
