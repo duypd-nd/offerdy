@@ -5,6 +5,7 @@ import { writeClient } from '@/sanity/writeClient'
 import { nextDealCode } from '@/sanity/queries'
 import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
 import { formatScrapedPrice } from '@/lib/scrapedPrice'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 function revalidateDeals() {
   revalidatePath('/admin/deals')
@@ -22,7 +23,9 @@ export async function updateDeal(id: string, patch: Record<string, unknown>, uns
 }
 
 export async function deleteDeal(id: string) {
+  const label = await describeDoc(id)
   await writeClient.delete(id)
+  await recordAudit({ action: 'deal.delete', target: id, label })
   revalidateDeals()
 }
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { writeClient } from '@/sanity/writeClient'
 import { revalidateStoreHostConsumers } from '@/lib/revalidateStoreHosts'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 /** Trang rieng cua store, cong them moi noi doc bang `store-hosts` dung chung. */
 function revalidateStoreDependents() {
@@ -39,11 +40,21 @@ export async function deleteStore(id: string): Promise<{ ok: boolean; error?: st
     // Offer -> Store la strong reference nen Sanity chan xoa store con offer gan vao.
     // Xoa ca offer lien quan trong cung 1 transaction, tranh de lai offer "mo coi"
     // hien thi sai tren web cong khai (dung y canh bao da co san o UI xac nhan).
+    const label = await describeDoc(id)
     const offerIds: string[] = await writeClient.fetch(`*[_type == "offer" && references($id)]._id`, { id })
     const tx = writeClient.transaction()
     for (const offerId of offerIds) tx.delete(offerId)
     tx.delete(id)
     await tx.commit()
+
+    // So offer bi cuon theo la phan quan trong nhat cua muc nhat ky nay: xoa
+    // mot store co the am tham xoa hang chuc offer, va do la thu nguoi ta se
+    // muon tra lai dung mot thang sau.
+    await recordAudit({
+      action: 'store.delete',
+      target: id,
+      label: offerIds.length ? `${label ?? id} · kéo theo ${offerIds.length} offer` : label,
+    })
 
     revalidateStoreDependents()
     revalidatePath('/admin/offers')

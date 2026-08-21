@@ -2,6 +2,7 @@
 
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 function revalidate() {
   revalidatePath('/admin/comparisons')
@@ -15,7 +16,9 @@ export async function updateComparison(id: string, patch: Record<string, unknown
 }
 
 export async function deleteComparison(id: string) {
+  const label = await describeDoc(id)
   await writeClient.delete(id)
+  await recordAudit({ action: 'comparison.delete', target: id, label })
   revalidate()
 }
 

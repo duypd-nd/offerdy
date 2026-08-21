@@ -2,6 +2,7 @@
 
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 function revalidate() {
   revalidatePath('/admin/tips-guides')
@@ -15,7 +16,9 @@ export async function updateTipsGuide(id: string, patch: Record<string, unknown>
 }
 
 export async function deleteTipsGuide(id: string) {
+  const label = await describeDoc(id)
   await writeClient.delete(id)
+  await recordAudit({ action: 'tipsguide.delete', target: id, label })
   revalidate()
 }
 

@@ -6,6 +6,7 @@ import { uploadImageFromUrl } from '@/lib/safeFetch'
 import { scrapeProductPage, type ScrapedProduct } from '@/lib/ai/scrapeProductPage'
 import { generateReviewContent, PRODUCT_GRADIENTS } from '@/lib/ai/generateReviewContent'
 import { describeAiError } from '@/lib/ai/describeAiError'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 function revalidateReviews() {
   revalidatePath('/admin/reviews')
@@ -30,7 +31,9 @@ export async function updateReview(id: string, patch: Record<string, unknown>) {
 }
 
 export async function deleteReview(id: string) {
+  const label = await describeDoc(id)
   await writeClient.delete(id)
+  await recordAudit({ action: 'review.delete', target: id, label })
   revalidateReviews()
 }
 

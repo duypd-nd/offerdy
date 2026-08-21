@@ -115,7 +115,20 @@ export type SessionPayload = {
   role: AdminRole
   /** Het han, tinh bang giay ke tu epoch */
   exp: number
+  /**
+   * So phien ban phien luc ky. Doi mat khau / doi vai / vo hieu hoa deu tang so
+   * nay trong kho, va cookie mang so cu bi tu choi ngay o lan tai trang ke tiep.
+   *
+   * ⚠️ Cookie ky TRUOC 2026-08-21 khong co truong nay. Doc thieu thanh 0 chu
+   * khong phai tu choi — neu khong, ban deploy dau tien da het moi nguoi ra
+   * ngoai ma khong ai hieu vi sao.
+   */
+  sv: number
 }
+
+/** Doc `sessionVersion` cua mot tai khoan; thieu la 0. Mot cho duy nhat. */
+export const sessionVersionOf = (u: { sessionVersion?: number }): number =>
+  typeof u.sessionVersion === 'number' ? u.sessionVersion : 0
 
 const b64u = (b: Buffer | string) => Buffer.from(b as never).toString('base64url')
 
@@ -158,11 +171,14 @@ export function verifySession(token: string | undefined, secret: string, nowSeco
     parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
   } catch { return null }
   if (!parsed || typeof parsed !== 'object') return null
-  const { uid, role, exp } = parsed as Record<string, unknown>
+  const { uid, role, exp, sv } = parsed as Record<string, unknown>
   if (typeof uid !== 'string' || !uid) return null
   if (!isRole(role)) return null
   if (typeof exp !== 'number' || exp <= nowSeconds) return null
-  return { uid, role, exp }
+  // ⚠️ Thieu `sv` -> 0, khong phai tu choi. Chu ky van duoc kiem day du o tren,
+  // nen day khong phai mot ke ho: no chi la cach doc cookie ky truoc khi co
+  // truong nay. Doi chieu voi kho la viec cua `adminSession.ts`.
+  return { uid, role, exp, sv: typeof sv === 'number' ? sv : 0 }
 }
 
 // ── Phan quyen theo duong dan ──────────────────────────────────────
@@ -173,7 +189,9 @@ export function verifySession(token: string | undefined, secret: string, nowSeco
 // do — khong the lach bang cach goi thang endpoint.
 
 /** Chi chu moi vao duoc. Cau hinh va nguoi dung la hai thu doi doi ca he thong. */
-const OWNER_ONLY = ['/admin/users', '/admin/config', '/admin/migrate']
+// `/admin/audit` la ho so ve viec lam cua tung nguoi — Bien tap doc duoc ho so
+// cua nhau la mot thu khac han voi "ai cung thay minh lam gi".
+const OWNER_ONLY = ['/admin/users', '/admin/config', '/admin/migrate', '/admin/audit']
 
 /**
  * Chi-xem chi duoc GET, va chi tren cac trang bao cao. Day la DANH SACH CHO PHEP

@@ -2,9 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { randomUUID } from 'node:crypto'
-import { requireOwner, vaultPepper } from '@/lib/adminSession'
+import { requireOwner, vaultPepper, startSession } from '@/lib/adminSession'
 import { readVault, writeVault, type StoredUser } from '@/lib/adminVault'
-import { hashPassword, isRole, MIN_PASSWORD_LENGTH } from '@/lib/adminAuth'
+import { hashPassword, isRole, MIN_PASSWORD_LENGTH, sessionVersionOf } from '@/lib/adminAuth'
+import { recordAudit } from '@/lib/adminAudit'
 
 export type ActionResult = { ok: true; message: string } | { ok: false; error: string }
 
@@ -24,6 +25,21 @@ export type ActionResult = { ok: true; message: string } | { ok: false; error: s
 
 const checkPassword = (pw: string) =>
   pw.length < MIN_PASSWORD_LENGTH ? `Mật khẩu phải từ ${MIN_PASSWORD_LENGTH} ký tự trở lên.` : null
+
+/**
+ * Cat MOI phien dang mo cua mot tai khoan.
+ *
+ * Cookie phien la chuoi tu ky, khong tra Sanity moi request (do la lua chon co
+ * chu dich: mot luot doc Sanity o proxy la ~350ms cong vao tung buoc bam chuot).
+ * Nen "cat phien" khong the la xoa cookie tu xa — phai lam cookie do khong con
+ * hop le. Tang so nay len la du: `checkSession()` doi chieu no voi kho o moi
+ * lan tai trang, va moi cookie mang so cu chet ngay.
+ *
+ * ⚠️ Truoc 2026-08-21 khong co co che nay: doi mat khau cua mot nguoi KHONG da
+ * ho ra, cookie cu con song toi 8 tieng. Cach duy nhat cat ngay la vo hieu hoa
+ * roi bat lai — mot meo chi nam trong mot dong thong bao.
+ */
+const cutSessions = (u: StoredUser): StoredUser => ({ ...u, sessionVersion: sessionVersionOf(u) + 1 })
 
 /**
  * Kho khong doc duoc thi TU CHOI MOI THAY DOI — ghi de len no la xoa sach.
@@ -77,6 +93,7 @@ export async function createUser(formData: FormData): Promise<ActionResult> {
 
   const res = await writeVault(next, rev)
   if (!res.ok) return { ok: false, error: res.error }
+  await recordAudit({ action: 'user.create', target: email, label: `vai ${role}` })
   revalidatePath('/admin/users')
   return { ok: true, message: `Đã tạo tài khoản ${email}.` }
 }
@@ -98,14 +115,19 @@ export async function setRole(id: string, role: string): Promise<ActionResult> {
     return { ok: false, error: 'Đây là Chủ duy nhất. Hãy chỉ định một Chủ khác trước.' }
   }
 
-  const next = users.map(u => (u.id === id ? { ...u, role } : u))
+  // ⚠️ Doi vai phai CAT PHIEN. Cookie mang vai cu, va `proxy.ts` phan quyen dua
+  // vao vai trong cookie — nen mot nguoi vua bi ha xuong Chi xem van di lai
+  // duoc trong khu Bien tap cho toi khi cookie het han. Ha quyen ma khong cat
+  // phien thi viec ha quyen chi co hieu luc tren giay.
+  const next = users.map(u => (u.id === id ? cutSessions({ ...u, role }) : u))
   if (next.length === users.length && !users.some(u => u.id === id)) {
     return { ok: false, error: 'Không tìm thấy tài khoản.' }
   }
   const res = await writeVault(next, rev)
   if (!res.ok) return { ok: false, error: res.error }
+  await recordAudit({ action: 'user.role', target: emailOf(users, id), label: `thành ${role}` })
   revalidatePath('/admin/users')
-  return { ok: true, message: 'Đã đổi vai.' }
+  return { ok: true, message: 'Đã đổi vai. Người đó bị đăng xuất ngay, phải đăng nhập lại.' }
 }
 
 export async function setActive(id: string, active: boolean): Promise<ActionResult> {
@@ -119,14 +141,21 @@ export async function setActive(id: string, active: boolean): Promise<ActionResu
     return { ok: false, error: 'Đây là Chủ duy nhất. Tắt đi là không còn ai quản trị được.' }
   }
 
-  const res = await writeVault(users.map(u => (u.id === id ? { ...u, active } : u)), rev)
+  // ⚠️ Cat phien ca khi VO HIEU HOA lan khi BAT LAI.
+  //
+  // Vo hieu hoa: `getAdminUser()` da tu choi tai khoan tat, nen phien chet ngay
+  // ma khong can so phien ban. Nhung neu khong tang so, cookie cu VAN CON hop
+  // le va se song lai nguyen ven vao dung luc bat tai khoan tro lai — ke ho do
+  // im lang va rat kho nhin thay.
+  const res = await writeVault(users.map(u => (u.id === id ? cutSessions({ ...u, active }) : u)), rev)
   if (!res.ok) return { ok: false, error: res.error }
+  await recordAudit({ action: active ? 'user.enable' : 'user.disable', target: emailOf(users, id) })
   revalidatePath('/admin/users')
-  return { ok: true, message: active ? 'Đã bật lại tài khoản.' : 'Đã vô hiệu hoá tài khoản.' }
+  return { ok: true, message: active ? 'Đã bật lại tài khoản. Người đó phải đăng nhập lại.' : 'Đã vô hiệu hoá tài khoản.' }
 }
 
 export async function resetPassword(id: string, password: string): Promise<ActionResult> {
-  await requireOwner()
+  const me = await requireOwner()
   const pwErr = checkPassword(password)
   if (pwErr) return { ok: false, error: pwErr }
   const pepper = vaultPepper()
@@ -135,17 +164,30 @@ export async function resetPassword(id: string, password: string): Promise<Actio
   const loaded = await loadVault()
   if (!loaded.ok) return loaded
   const { users, rev } = loaded.vault
-  if (!users.some(u => u.id === id)) return { ok: false, error: 'Không tìm thấy tài khoản.' }
+  const target = users.find(u => u.id === id)
+  if (!target) return { ok: false, error: 'Không tìm thấy tài khoản.' }
 
-  const res = await writeVault(
-    users.map(u => (u.id === id ? { ...u, passwordHash: hashPassword(password, pepper) } : u)),
-    rev
-  )
+  // Doi mat khau la ly do chinh de co co che nay: neu mat khau bi lo, doi mat
+  // khau ma khong da phien dang mo ra thi ke dang dung mat khau cu VAN o trong.
+  const updated = cutSessions({ ...target, passwordHash: hashPassword(password, pepper) })
+  const res = await writeVault(users.map(u => (u.id === id ? updated : u)), rev)
   if (!res.ok) return { ok: false, error: res.error }
+
+  // ⚠️ Doi mat khau CUA CHINH MINH thi cap lai cookie ngay, dung de tu da minh
+  // ra. Lam duoc o day vi Server Action duoc phep sua cookie (trong luc render
+  // trang thi khong — xem chu thich trong requireAdmin).
+  if (id === me.id) await startSession(updated)
+
+  // ⚠️ KHONG ghi mat khau, ke ca do dai. Nhat ky ghi rang viec do da xay ra,
+  // khong ghi noi dung cua no.
+  await recordAudit({ action: 'user.password', target: target.email, label: id === me.id ? 'của chính mình' : undefined })
   revalidatePath('/admin/users')
-  // ⚠️ Doi mat khau KHONG cat phien dang mo cua nguoi do — cookie tu ky con hieu
-  // luc toi 8 tieng. Muon cat ngay thi vo hieu hoa roi bat lai.
-  return { ok: true, message: 'Đã đổi mật khẩu. Phiên đang mở của người đó vẫn chạy tới khi hết hạn (tối đa 8 tiếng) — muốn cắt ngay thì vô hiệu hoá rồi bật lại.' }
+  return {
+    ok: true,
+    message: id === me.id
+      ? 'Đã đổi mật khẩu của bạn. Các thiết bị khác đang đăng nhập bằng tài khoản này bị đăng xuất.'
+      : 'Đã đổi mật khẩu. Người đó bị đăng xuất ngay trên mọi thiết bị.',
+  }
 }
 
 export async function deleteUser(id: string): Promise<ActionResult> {
@@ -162,6 +204,7 @@ export async function deleteUser(id: string): Promise<ActionResult> {
 
   const res = await writeVault(next, rev)
   if (!res.ok) return { ok: false, error: res.error }
+  await recordAudit({ action: 'user.delete', target: emailOf(users, id) })
   revalidatePath('/admin/users')
   return { ok: true, message: 'Đã xoá tài khoản.' }
 }
@@ -169,3 +212,6 @@ export async function deleteUser(id: string): Promise<ActionResult> {
 /** Con Chu nao KHAC dang bat, ngoai `excludeId` khong? */
 const hasAnotherOwner = (users: StoredUser[], excludeId: string) =>
   users.some(u => u.id !== excludeId && u.role === 'owner' && u.active)
+
+/** Email de ghi vao nhat ky — de doc hon id, va van dung khi tai khoan da bi xoa. */
+const emailOf = (users: StoredUser[], id: string) => users.find(u => u.id === id)?.email ?? id

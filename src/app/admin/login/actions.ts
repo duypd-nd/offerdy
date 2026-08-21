@@ -6,6 +6,7 @@ import { verifyPassword, landingPath } from '@/lib/adminAuth'
 import { startSession, vaultPepper } from '@/lib/adminSession'
 import { readVault, writeVault } from '@/lib/adminVault'
 import { missingAuthConfig } from '@/lib/adminConfig'
+import { recordAudit } from '@/lib/adminAudit'
 
 export type LoginState = { error?: string }
 
@@ -77,13 +78,24 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   // ⚠️ Mot thong bao duy nhat cho MOI truong hop that bai — email khong ton tai,
   // sai mat khau, tai khoan bi tat. Tach ra la tang khong cho ke do mot cong cu
   // kiem tra email nao co that.
-  const fail = () => { noteFailure(ip, now); return { error: 'Email hoặc mật khẩu không đúng.' } }
+  // ⚠️ Ghi ca lan THAT BAI: mot chuoi 'Đăng nhập thất bại' lien tiep la dau
+  // hieu duy nhat cho thay co nguoi dang do mat khau.
+  //
+  // Khong so ngap nhat ky: vong chan o tren tra ve TRUOC khi den day, nen moi
+  // dia chi IP nhieu nhat 8 muc trong 10 phut. Email bi cat con 60 ky tu — no
+  // do ke la go vao, khong duoc phep dai tuy y.
+  const fail = async () => {
+    noteFailure(ip, now)
+    await recordAudit({ action: 'login.fail', target: email.slice(0, 60), actor: { id: '', role: 'unknown' } })
+    return { error: 'Email hoặc mật khẩu không đúng.' }
+  }
 
   if (!user || !user.active || !user.passwordHash) return fail()
   if (!verifyPassword(password, user.passwordHash, pepper)) return fail()
 
   attempts.delete(ip)
   await startSession(user)
+  await recordAudit({ action: 'login.ok', target: user.email, actor: { id: user.id, role: user.role } })
 
   try {
     // Dung lai ban da doc o tren — khong goi Sanity lan thu hai cho cung mot viec

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { writeClient } from '@/sanity/writeClient'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 function revalidatePosts() {
   revalidatePath('/admin/posts')
@@ -26,7 +27,9 @@ export async function updatePost(id: string, patch: Record<string, unknown>) {
 }
 
 export async function deletePost(id: string) {
+  const label = await describeDoc(id)
   await writeClient.delete(id)
+  await recordAudit({ action: 'post.delete', target: id, label })
   revalidatePosts()
 }
 

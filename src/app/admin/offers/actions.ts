@@ -3,6 +3,7 @@
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
 import { revalidateStoreHostConsumers } from '@/lib/revalidateStoreHosts'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 /**
  * Doi mot offer la doi ca `store-hosts` — bang do giu MA COUPON NOI BAT cua tung
@@ -24,7 +25,9 @@ export async function updateOffer(id: string, patch: Record<string, unknown>) {
 
 export async function deleteOffer(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
+    const label = await describeDoc(id)
     await writeClient.delete(id)
+    await recordAudit({ action: 'offer.delete', target: id, label })
     revalidateOfferDependents()
     return { ok: true }
   } catch (err) {
@@ -37,6 +40,19 @@ export async function bulkDelete(ids: string[]): Promise<{ ok: boolean; failed: 
   const failed = results
     .map((r, i) => (r.status === 'rejected' ? ids[i] : null))
     .filter((id): id is string => id !== null)
+
+  // MOT muc cho ca me, khong phai mot muc moi offer: lay ten tung cai la N luot
+  // hoi Sanity truoc mot thao tac von da nang, va mot nhat ky co 200 dong giong
+  // nhau thi khong ai doc.
+  const done = ids.length - failed.length
+  if (done > 0) {
+    await recordAudit({
+      action: 'offer.bulkDelete',
+      target: ids.filter(id => !failed.includes(id)).join(' '),
+      label: `${done} offer${failed.length ? ` (${failed.length} thất bại)` : ''}`,
+    })
+  }
+
   revalidateOfferDependents()
   return { ok: failed.length === 0, failed }
 }

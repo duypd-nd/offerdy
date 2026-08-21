@@ -962,3 +962,32 @@ Vài điểm dễ làm sai nếu đụng vào code này:
 ⚠️ **Bẫy đã đo được, ảnh hưởng MỌI script trong `scripts/`**: trên Windows + Node 24, gọi `process.exit()` **sau khi đã `fetch()`** làm Node sập với `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)` và trả mã thoát **127**. Thông báo lỗi vẫn in ra, nhưng kèm một dòng sập khó hiểu và mọi thứ đọc mã thoát đều hiểu sai. Kết thúc tự nhiên thì sạch và cũng chỉ mất ~0,5 giây. Dùng `run()` / `stop()` trong `scripts/_vault.mjs` (đặt `process.exitCode` rồi để hàm kết thúc). `create-admin.mjs` đã chuyển sang cách này; các script khác trong `scripts/` **vẫn còn bẫy đó**.
 
 Thuật toán mã hoá có **hai** bản: `src/lib/adminCrypto.ts` (app) và `scripts/_vault.mjs` (dòng lệnh) — file `.mjs` không import được TypeScript qua alias `@/`. Trước đây có **ba** bản; `create-admin.mjs` nay dùng chung `_vault.mjs`. Đổi một bên mà quên bên kia là kho không mở được nữa.
+
+## Cắt phiên khi đổi mật khẩu / đổi vai (2026-08-21)
+
+Trước hôm nay, đổi mật khẩu của một người **không** đá họ ra: cookie phiên là chuỗi tự ký, không tra Sanity mỗi request (cố ý — một lượt đọc Sanity ở proxy là ~350ms cộng vào từng bước bấm chuột), nên nó sống tới 8 tiếng bất kể chuyện gì xảy ra trong kho. Cách duy nhất cắt ngay là vô hiệu hoá rồi bật lại, và mẹo đó chỉ nằm trong một dòng thông báo.
+
+Nay mỗi tài khoản có `sessionVersion`; cookie mang `sv`; `checkSession()` đối chiếu hai số ở mỗi lần tải trang. Ba việc làm tăng số đó: **đổi mật khẩu**, **đổi vai**, **vô hiệu hoá/bật lại**.
+
+Những chỗ dễ làm sai nếu đụng vào:
+
+- **`sessionVersion` thiếu phải đọc là 0**, cả trong kho lẫn trong cookie. Coi thiếu là khác 0 sẽ đá hết mọi người ra ngoài ngay bản deploy đầu tiên — mọi tài khoản tạo trước 21/08 đều không có trường này, và mọi cookie đang lưu hành đều không có `sv`.
+- **Chỉ có MỘT hàm quyết định "phiên này còn dùng được không": `checkSession()`.** Trang đăng nhập tự đẩy người có cookie hợp lệ vào trong; nếu nó kiểm theo tiêu chuẩn lỏng hơn `requireAdmin()` thì hai bên đẩy nhau **vô tận** — dự án đã mắc đúng vòng lặp đó ngày 20/08 với trường hợp "tài khoản đã bị xoá". Đừng chép logic sang trang đăng nhập.
+- **Đổi vai bắt buộc phải cắt phiên**, không phải tuỳ chọn: `proxy.ts` phân quyền theo vai **trong cookie**, nên người vừa bị hạ xuống Chỉ xem vẫn đi lại được trong khu Biên tập cho tới khi cookie hết hạn. Hạ quyền mà không cắt phiên thì việc hạ quyền chỉ có hiệu lực trên giấy.
+- **Bật lại tài khoản cũng phải tăng số.** Vô hiệu hoá thì `getAdminUser()` đã chặn rồi, nhưng nếu không tăng số thì cookie cũ vẫn hợp lệ và sẽ **sống lại nguyên vẹn** đúng lúc bật tài khoản trở lại.
+- **Đổi mật khẩu của chính mình thì cấp lại cookie ngay** (`startSession(updated)` trong server action) — nếu không thì Chủ tự đá mình ra. Làm được ở server action vì Next cho sửa cookie ở đó; trong lúc render trang thì không (gọi `endSession()` khi render làm trang 500 — đã mắc 20/08).
+
+Hệ quả phụ đáng giá: vì cookie mang vai cũ không thể sống sót nữa, các trang **được phép tin vai trong cookie** cho quyết định hiển thị. `/admin` dùng `readSession()` (không đọc Sanity) để quyết định có hiện bảng nhật ký hay không.
+
+## Nhật ký thao tác (2026-08-21)
+
+`src/lib/adminAudit.ts` + `src/lib/adminAuditFormat.ts` → `/admin/audit` (chỉ Chủ) và bảng gọn "Ai vừa làm gì" trên `/admin`. Ghi: đăng nhập (cả thành công lẫn thất bại), đăng xuất, 5 thao tác quản lý người dùng, và **13 thao tác xoá** (store/offer/deal/post/review/page/category/comparison/tips-guide/flash-sale/coupon-code/coupon-alert + xoá hàng loạt offer).
+
+- **Mỗi mục mã hoá RIÊNG LẺ rồi nối vào mảng** bằng `append` của Sanity. Gom cả ngày thành một khối mã hoá thì mỗi lần ghi phải đọc-sửa-ghi, và hai thao tác cùng lúc sẽ **xoá mục của nhau**.
+- **Một tài liệu một ngày** (`auditLog.2026-08-21`, chia theo **giờ VN**). Ngày UTC thì mọi thao tác từ 00:00–07:00 giờ VN rơi vào tài liệu của hôm qua. Định dạng `YYYY-MM-DD` là bắt buộc: cả `readAuditLog` (`day >= $from`) lẫn `pruneAuditLog` (`day < $cutoff`) đều so sánh **chuỗi** trong GROQ.
+- **Ghi nhật ký hỏng không được làm hỏng thao tác** — `recordAudit()` không bao giờ ném lỗi.
+- **Ai** lấy từ **cookie**, không đọc Sanity (`currentAdmin()` sẽ cộng ~350ms vào mọi thao tác có ghi nhật ký). Email tra ở lúc **đọc** bằng cách đối chiếu với kho — nên người đổi email thì nhật ký cũ hiện tên mới, và không có bản sao email nào nằm rải trong log.
+- **`describeDoc(id)` phải gọi TRƯỚC khi xoá.** Sau khi xoá thì không còn gì để đọc, và một dòng `offer.delete · a1b2c3d4` là thứ vô dụng sau một tháng.
+- **Tự xoá sau 90 ngày**, dọn trong cron `daily-report`. Dataset công khai không được biến thành kho lưu trữ vĩnh viễn về thói quen làm việc của từng người.
+- ⚠️ **Đo được 21/08: `commit({visibility:'async'})` nghĩa là ghi xong CHƯA đọc ra ngay được.** Đọc lại ngay sau khi ghi trả về 0 mục; đọc lại sau khoảng một vòng mạng nữa thì đầy đủ. Đánh đổi này đúng cho một nhật ký (thao tác của người dùng không phải chờ Sanity đánh chỉ mục), nhưng đừng kỳ vọng đọc lại ngay trong cùng một request.
+- Phần **thuần** (`auditDay`, `actionLabel`, kiểu dữ liệu) tách sang `adminAuditFormat.ts` vì `adminAudit.ts` import `next/headers` nên **không nạp được ngoài Next** — cùng lý do khiến `adminAuth.ts` cố ý không import gì ngoài `node:crypto`.

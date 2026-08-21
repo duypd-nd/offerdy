@@ -1,6 +1,7 @@
 import { generateDailyReport } from '@/lib/ai/generateDailyReport'
 import { verifyCronRequest } from '@/lib/cronAuth'
 import { backupAndReport } from '@/lib/adminVaultBackup'
+import { pruneAuditLog } from '@/lib/adminAudit'
 
 export async function GET(request: Request) {
   const auth = verifyCronRequest(request, 'daily-report')
@@ -20,10 +21,14 @@ export async function GET(request: Request) {
    */
   const backup = await backupAndReport('cron').catch(err => ({ ok: false as const, error: String(err).slice(0, 160) }))
 
+  // Don nhat ky qua 90 ngay. Khong co viec don thi mot dataset CONG KHAI se tu
+  // bien thanh kho luu tru vinh vien ve thoi quen lam viec cua tung nguoi.
+  const pruned = await pruneAuditLog().catch(() => ({ deleted: 0 }))
+
   try {
     const report = await generateDailyReport()
-    return Response.json({ ok: true, backup, report })
+    return Response.json({ ok: true, backup, pruned, report })
   } catch (err) {
-    return Response.json({ ok: false, backup, error: String(err) }, { status: 500 })
+    return Response.json({ ok: false, backup, pruned, error: String(err) }, { status: 500 })
   }
 }

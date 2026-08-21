@@ -2,9 +2,9 @@
 
 ## ⏸️ ĐIỂM DỪNG 2026-08-21 — đọc trước khi làm gì
 
-Test **407/407** (thêm 22 cho sao lưu), `tsc` + `build` sạch, lint **không thêm lỗi nào ở code mới** (52 = 49 cũ + 3 cảnh báo từ `.scratch/*.mjs` chưa theo dõi).
+Test **418/418** (thêm 33 hôm nay), `tsc` + `build` sạch, lint **không thêm lỗi nào ở code mới** (52 = 49 cũ + 3 cảnh báo từ `.scratch/*.mjs` chưa theo dõi).
 
-Sáng: push **6 commit** về đăng nhập admin. Chiều: **sao lưu kho tài khoản** — việc số 1 trong ba việc dưới đây, đã xong và đã chạy thật.
+Sáng: push **6 commit** về đăng nhập admin. Chiều: **xong cả ba việc** dưới đây — sao lưu kho tài khoản, cắt phiên khi đổi mật khẩu, và nhật ký thao tác.
 
 ⚠️ Bẫy đo được hôm nay, ảnh hưởng **mọi** script trong `scripts/`: trên Windows + Node 24, `process.exit()` **sau khi đã `fetch()`** làm Node sập (`UV_HANDLE_CLOSING`, mã thoát **127**). Kết thúc tự nhiên thì sạch, chỉ mất ~0,5 giây. Dùng `run()` / `stop()` trong `scripts/_vault.mjs`. `create-admin.mjs` đã chuyển; `check-ga4.mjs`, `check-gsc.mjs`, `dead-pages-triage.mjs` **vẫn còn bẫy**.
 
@@ -20,7 +20,7 @@ Sáng: push **6 commit** về đăng nhập admin. Chiều: **sao lưu kho tài 
 
 ---
 
-### 🔜 BA VIỆC CHO NGÀY MAI — xếp theo mức thiệt hại nếu bỏ qua
+### ✅ BA VIỆC ĐÃ ĐẶT RA SÁNG NAY — xong cả ba
 
 #### 1. ✅ Sao lưu — XONG 21/08 (chiều)
 
@@ -41,19 +41,23 @@ Quyết định đáng nhớ: **không thêm cron thứ tư**, bản sao chạy 
 
 ⚠️ **Đường khôi phục mới đi thử tới bước đọc, chưa chạy bước GHI.** Muốn chắc thì diễn tập một lần: `npm run vault:restore -- --file backups/<file>.enc` (nó ghi lại đúng nội dung đang có, và tự đọc lại đối chiếu sau khi ghi).
 
-#### 2. Nhật ký thao tác — đúng thứ user hỏi khi nói "quản lý tốt hơn"
+#### 2. ✅ Nhật ký thao tác — XONG 21/08
 
-Giờ có nhiều người và ba vai, nhưng **không có gì ghi lại ai làm gì**. Nợ này đã ghi từ trước: *"Deletion is permanent and unlogged"*. Xoá một offer, đổi vai một người, sửa cấu hình — không để lại dấu vết.
+`/admin/audit` (chỉ Chủ) + bảng gọn **Ai vừa làm gì** trên `/admin`. Ghi đăng nhập (cả thất bại), đăng xuất, 5 thao tác quản lý người dùng, và **13 thao tác xoá**. Mã hoá cùng khoá với `adminVault`, **tự xoá sau 90 ngày** (dọn trong cron `daily-report`).
 
-Với một người thì không sao. Với ba vai thì đây **chính là** "quản lý".
+Đã chạy thật trên Sanity: ghi 2 mục → đọc lại đúng nội dung, đúng thứ tự, đúng vai; dọn quá hạn không đụng mục hôm nay. Đã xoá sạch mục kiểm thử sau khi đo.
 
-Đề xuất: tài liệu `auditLog` ghi **ai · lúc nào · làm gì · trên bản ghi nào**, mã hoá cùng cách với `adminVault` (dataset công khai, không được ghi thẳng ai làm gì). Hiện một bảng "hoạt động gần đây" trên `/admin`.
+⚠️ Đo được: `visibility:'async'` nghĩa là **ghi xong chưa đọc ra ngay được** — đọc lại tức thì trả 0 mục, sau một vòng mạng nữa thì đủ. Đánh đổi đúng cho nhật ký, nhưng đừng kỳ vọng đọc lại trong cùng request.
 
-#### 3. Cắt phiên khi đổi mật khẩu hoặc hạ quyền (~30 phút)
+📌 **Chưa ghi**: sửa cấu hình và sửa (không xoá) nội dung. Hàm `recordAudit()` đã sẵn, thêm một dòng vào action là xong — nhưng đó là ~27 file, và chưa rõ có đáng không.
 
-⚠️ Hiện đổi mật khẩu của một người **không** đá họ ra — cookie tự ký còn hiệu lực tới **8 tiếng**. Cách duy nhất cắt ngay là vô hiệu hoá rồi bật lại, và điều đó chỉ nằm trong một dòng thông báo.
+#### 3. ✅ Cắt phiên khi đổi mật khẩu hoặc hạ quyền — XONG 21/08
 
-Sửa: thêm số phiên bản cho mỗi tài khoản; đổi mật khẩu hoặc đổi vai thì tăng số đó; cookie mang số cũ bị từ chối. Không cần kho mới.
+Mỗi tài khoản có `sessionVersion`, cookie mang `sv`, `checkSession()` đối chiếu ở mỗi lần tải trang. Tăng số khi: **đổi mật khẩu**, **đổi vai**, **vô hiệu hoá/bật lại**. Đổi mật khẩu của chính mình thì cookie được cấp lại ngay, không tự đá mình ra.
+
+Thiếu `sessionVersion`/`sv` đọc thành 0, nên **không ai bị đá ra lúc deploy**.
+
+⚠️ **Chưa kiểm đầu-cuối trên trình duyệt** — cần mật khẩu thật nên user phải tự làm: đăng nhập ở hai trình duyệt, đổi mật khẩu ở cái này, tải lại cái kia → phải bị đá về trang đăng nhập kèm dòng *"Mật khẩu hoặc quyền của bạn vừa được đổi"*. Nếu thay vào đó là **vòng lặp chuyển hướng**, đó là lỗi ở `checkSession()` — trang đăng nhập và `requireAdmin()` phải dùng chung đúng hàm đó.
 
 ---
 

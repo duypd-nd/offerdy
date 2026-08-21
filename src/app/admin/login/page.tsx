@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import LoginForm from './LoginForm'
-import { readSession, getAdminUser } from '@/lib/adminSession'
+import { currentAdmin } from '@/lib/adminSession'
 import { landingPath } from '@/lib/adminAuth'
 import { missingAuthConfig } from '@/lib/adminConfig'
 
@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic'
 
 const NOTICE: Record<string, string> = {
   revoked: 'Tài khoản của bạn đã bị vô hiệu hoá hoặc thay đổi. Đăng nhập lại.',
+  'session-ended': 'Mật khẩu hoặc quyền của bạn vừa được đổi, nên phiên cũ đã bị cắt. Đăng nhập lại.',
   expired: 'Phiên đăng nhập đã hết hạn.',
 }
 
@@ -32,11 +33,13 @@ export default async function LoginPage({
   // `requireAdmin()` day ra day, roi trang nay thay chu ky hop le va day nguoc
   // vao trong — **vong lap chuyen huong vo tan**, va nguoi dung khong con duong
   // nao dang nhap lai. Mot truy van nho o day dap tat ca lop lap do.
-  const session = await readSession()
-  if (session) {
-    const stillValid = await getAdminUser(session.uid)
-    if (stillValid) redirect(landingPath(stillValid.role))
-  }
+  //
+  // ⚠️ Dung DUNG `currentAdmin()` — cung ham ma `requireAdmin()` dung. Cheo mot
+  // dieu kien thoi (vi du quen kiem `sessionVersion`) la hai ben day nhau vo
+  // tan: requireAdmin day ra day vi cookie mang so phien ban cu, con trang nay
+  // thay tai khoan con song va day nguoc vao trong.
+  const stillValid = await currentAdmin()
+  if (stillValid) redirect(landingPath(stillValid.role))
 
   const missing = missingAuthConfig()
 

@@ -16,6 +16,8 @@ khoản dự phòng, không có "quên mật khẩu" qua email, không có thùn
 | `/admin/login` báo sai mật khẩu với **mọi** tài khoản | **B** — sai/mất `AUTH_PEPPER` | [Sự cố B](#sự-cố-b--mất-auth_pepper) |
 | Trang đăng nhập báo chưa có tài khoản nào | **A** — mất `adminVault` | [Sự cố A](#sự-cố-a--tài-liệu-adminvault-biến-mất) |
 | Đăng nhập được nhưng bị đá ra ngay | Cookie ký bằng `AUTH_SECRET` cũ | Đăng nhập lại là xong. Không phải sự cố dữ liệu. |
+| Bị đá ra kèm dòng *"Mật khẩu hoặc quyền của bạn vừa được đổi"* | Ai đó vừa đổi mật khẩu/vai của bạn | Đăng nhập lại. Đây là **đúng thiết kế** — xem `sessionVersion` trong PROJECT_CONTEXT.md |
+| `/admin/login` và `/admin` đẩy nhau **vô tận** | Trang đăng nhập kiểm phiên khác `requireAdmin()` | Cả hai PHẢI gọi `checkSession()`. Đừng chép logic sang trang đăng nhập |
 | `/admin/users` hiện băng đỏ "Chưa có bản sao nào" | Chưa hỏng gì, nhưng **đang không có lưới an toàn** | `npm run vault:backup` ngay |
 
 ---

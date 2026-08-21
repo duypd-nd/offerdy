@@ -3,6 +3,7 @@
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
 import { revalidateStoreHostConsumers } from '@/lib/revalidateStoreHosts'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 /**
  * Ma coupon la thu duoc `store-hosts` mang theo, va trang deal hien no qua
@@ -24,7 +25,9 @@ export async function updateCouponOffer(id: string, patch: Record<string, unknow
 
 export async function deleteCouponOffer(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
+    const label = await describeDoc(id)
     await writeClient.delete(id)
+    await recordAudit({ action: 'couponcode.delete', target: id, label })
     revalidate()
     return { ok: true }
   } catch (err) {

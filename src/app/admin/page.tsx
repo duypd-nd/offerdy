@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { getAdminWorkQueue } from '@/lib/adminWorkQueue'
 import { getRecentSentryIssues } from '@/lib/sentryApi'
 import { getGa4Traffic } from '@/lib/ga4'
+import { readSession } from '@/lib/adminSession'
+import { readAuditLog } from '@/lib/adminAudit'
+import AuditTable from './_components/AuditTable'
 
 export const dynamic = 'force-dynamic'
 
@@ -114,6 +117,16 @@ const TYPE_SEARCHABLE = new Set(['store', 'offer'])
 
 export default async function AdminDashboard() {
   const now = new Date()
+
+  // ⚠️ Vai lay tu COOKIE, khong doc Sanity: layout da doi chieu phien voi kho
+  // cho chinh request nay roi, va tu 2026-08-21 mot cookie mang vai cu khong the
+  // song sot nua (doi vai lam tang `sessionVersion`). Doc kho lan nua o day la
+  // cong ~350ms vao trang duoc mo nhieu nhat, chi de lay mot quyet dinh hien/an.
+  const session = await readSession()
+  const isOwner = session?.role === 'owner'
+  // Khong doc nhat ky cho vai khac, ke ca de roi an di: doc that la mot luot
+  // goi Sanity thua.
+  const auditRows = isOwner ? await readAuditLog(7, 8) : []
   const [
     queue, sentryIssues, traffic,
     stores, offers, flashSales, couponCodes, deals, categories,
@@ -236,6 +249,18 @@ export default async function AdminDashboard() {
           ))}
         </div>
       </DashSection>
+
+      {/* ── Ai vua lam gi (chi Chu) ── */}
+      {isOwner && (
+        <DashSection label="Ai vừa làm gì" clock>
+          <AuditTable rows={auditRows} compact />
+          <div style={{ marginTop: 10 }}>
+            <Link href="/admin/audit" style={{ fontSize: 12, fontWeight: 700, color: '#3b82f6', textDecoration: 'none' }}>
+              Xem nhật ký đầy đủ →
+            </Link>
+          </div>
+        </DashSection>
+      )}
 
       {/* ── Recent activity ── */}
       <DashSection label="Cập nhật gần đây" clock>

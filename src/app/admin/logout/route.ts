@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { SESSION_COOKIE } from '@/lib/adminAuth'
+import { recordAudit } from '@/lib/adminAudit'
 
 /**
  * Dang xuat — mot Route Handler rieng, KHONG phai Server Action.
@@ -21,6 +22,9 @@ import { SESSION_COOKIE } from '@/lib/adminAuth'
  * tu trang khac se khong kem cookie va lenh dang xuat thanh vo hai.
  */
 export async function POST(request: NextRequest) {
+  // Ghi TRUOC khi xoa cookie — sau do thi khong con biet ai vua di ra.
+  await recordAudit({ action: 'logout' })
+
   const res = NextResponse.redirect(new URL('/admin/login', request.url), {
     // 303 chu khong phai 307: bat trinh duyet doi sang GET khi di theo. 307 giu
     // nguyen POST, nen trang dang nhap se nhan mot POST va bi chan.

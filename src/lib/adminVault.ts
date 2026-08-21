@@ -30,6 +30,14 @@ export type StoredUser = {
   passwordHash: string
   createdAt: string
   lastLoginAt?: string
+  /**
+   * So phien ban phien dang nhap. Cookie mang so cu bi tu choi.
+   *
+   * ⚠️ `undefined` phai duoc doc la 0, khong phai loi: moi tai khoan tao truoc
+   * 2026-08-21 deu khong co truong nay. Coi thieu la khac 0 se da HET moi nguoi
+   * ra ngoai ngay lan deploy dau tien.
+   */
+  sessionVersion?: number
 }
 
 export type Vault = { users: StoredUser[]; rev: string | null }

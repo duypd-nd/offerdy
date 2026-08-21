@@ -9,7 +9,7 @@ import { createHmac } from 'node:crypto'
 import {
   hashPassword, verifyPassword,
   signSession, verifySession, SESSION_TTL_SECONDS,
-  canAccess, isRole, ROLES, landingPath, MIN_PASSWORD_LENGTH,
+  canAccess, isRole, ROLES, landingPath, MIN_PASSWORD_LENGTH, sessionVersionOf,
 } from '../src/lib/adminAuth'
 import { deriveKeys, encryptJson, decryptJson } from '../src/lib/adminCrypto'
 
@@ -56,13 +56,13 @@ test('chuoi luu hong dinh dang thi tra false, khong nem loi', () => {
 
 // ── Phien ──────────────────────────────────────────────────────────
 test('ky roi mo lai duoc phien hop le', () => {
-  const t = signSession({ uid: 'u1', role: 'owner', exp: NOW + SESSION_TTL_SECONDS }, SECRET)
+  const t = signSession({ uid: 'u1', role: 'owner', exp: NOW + SESSION_TTL_SECONDS, sv: 0 }, SECRET)
   const p = verifySession(t, SECRET, NOW)
-  assert.deepEqual(p, { uid: 'u1', role: 'owner', exp: NOW + SESSION_TTL_SECONDS })
+  assert.deepEqual(p, { uid: 'u1', role: 'owner', exp: NOW + SESSION_TTL_SECONDS, sv: 0 })
 })
 
 test('⚠️ doi mot ky tu trong phan than la chu ky hong', () => {
-  const t = signSession({ uid: 'u1', role: 'viewer', exp: NOW + 100 }, SECRET)
+  const t = signSession({ uid: 'u1', role: 'viewer', exp: NOW + 100, sv: 0 }, SECRET)
   const [body, sig] = t.split('.')
   // Doi vai `viewer` -> `owner` roi ky lai bang than da sua nhung giu chu ky cu
   const gia = Buffer.from(JSON.stringify({ uid: 'u1', role: 'owner', exp: NOW + 100 })).toString('base64url')
@@ -71,13 +71,13 @@ test('⚠️ doi mot ky tu trong phan than la chu ky hong', () => {
 })
 
 test('sai khoa bi mat thi tu choi', () => {
-  const t = signSession({ uid: 'u1', role: 'owner', exp: NOW + 100 }, SECRET)
+  const t = signSession({ uid: 'u1', role: 'owner', exp: NOW + 100, sv: 0 }, SECRET)
   assert.equal(verifySession(t, 'khoa-khac', NOW), null)
   assert.equal(verifySession(t, '', NOW), null)
 })
 
 test('het han thi tu choi, ke ca khi chu ky dung', () => {
-  const t = signSession({ uid: 'u1', role: 'owner', exp: NOW - 1 }, SECRET)
+  const t = signSession({ uid: 'u1', role: 'owner', exp: NOW - 1, sv: 0 }, SECRET)
   assert.equal(verifySession(t, SECRET, NOW), null)
 })
 
@@ -241,4 +241,48 @@ test('mo /admin/logout khong lam ho cac duong khac', () => {
   assert.equal(canAccess('viewer', '/admin/logout/tat-ca', 'POST'), false)
   assert.equal(canAccess('viewer', '/admin/offers', 'POST'), false)
   assert.equal(canAccess('editor', '/admin/users', 'POST'), false)
+})
+
+// ── Cat phien (sessionVersion) ─────────────────────────────────────
+//
+// Doi mat khau ma khong cat phien thi viec doi mat khau chi co hieu luc tren
+// giay: ke dang dung mat khau cu van o trong toi 8 tieng nua.
+
+test('so phien ban di theo phien va doc lai duoc', () => {
+  const t = signSession({ uid: 'u1', role: 'owner', exp: NOW + 100, sv: 7 }, SECRET)
+  assert.equal(verifySession(t, SECRET, NOW)?.sv, 7)
+})
+
+test('⚠️ cookie ky TRUOC khi co truong nay doc thanh sv = 0, khong bi tu choi', () => {
+  // Day la duong song cua moi nguoi dang dang nhap luc deploy. Tu choi thay vi
+  // mac dinh 0 la da het moi nguoi ra ngoai ngay ban deploy dau tien.
+  const body = Buffer.from(JSON.stringify({ uid: 'u1', role: 'owner', exp: NOW + 100 })).toString('base64url')
+  const sig = createHmac('sha256', SECRET).update(body).digest('base64url')
+  const p = verifySession(`${body}.${sig}`, SECRET, NOW)
+  assert.equal(p?.sv, 0)
+})
+
+test('⚠️ sua so phien ban trong than phai lam hong chu ky', () => {
+  // Neu cho nay lot, mot nguoi vua bi doi mat khau chi can sua mot so trong
+  // cookie cua minh la o lai duoc.
+  const t = signSession({ uid: 'u1', role: 'owner', exp: NOW + 100, sv: 1 }, SECRET)
+  const sig = t.split('.')[1]
+  const gia = Buffer.from(JSON.stringify({ uid: 'u1', role: 'owner', exp: NOW + 100, sv: 2 })).toString('base64url')
+  assert.equal(verifySession(`${gia}.${sig}`, SECRET, NOW), null)
+})
+
+test('sessionVersionOf: thieu truong doc thanh 0', () => {
+  assert.equal(sessionVersionOf({}), 0)
+  assert.equal(sessionVersionOf({ sessionVersion: undefined }), 0)
+  assert.equal(sessionVersionOf({ sessionVersion: 0 }), 0)
+  assert.equal(sessionVersionOf({ sessionVersion: 3 }), 3)
+})
+
+test('sv lech mot bac la phien khong con dung', () => {
+  // Doi chieu that nam o checkSession() (ham do doc Sanity nen khong test o
+  // day duoc), nhung phep so sanh thi chinh la day.
+  const trongKho = sessionVersionOf({ sessionVersion: 2 })
+  const trongCookie = verifySession(signSession({ uid: 'u1', role: 'owner', exp: NOW + 100, sv: 1 }, SECRET), SECRET, NOW)?.sv
+  assert.notEqual(trongCookie, trongKho)
+  assert.equal(verifySession(signSession({ uid: 'u1', role: 'owner', exp: NOW + 100, sv: 2 }, SECRET), SECRET, NOW)?.sv, trongKho)
 })

@@ -2,6 +2,7 @@
 
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
+import { recordAudit, describeDoc } from '@/lib/adminAudit'
 
 function revalidate() {
   revalidatePath('/admin/flash-sales')
@@ -21,7 +22,9 @@ export async function toggleOfferActive(id: string, active: boolean) {
 
 export async function deleteOffer(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
+    const label = await describeDoc(id)
     await writeClient.delete(id)
+    await recordAudit({ action: 'flashsale.delete', target: id, label })
     revalidate()
     return { ok: true }
   } catch (err) {
