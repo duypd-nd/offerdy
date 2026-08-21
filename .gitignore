@@ -57,3 +57,6 @@ next-env.d.ts
 /backups/
 # ⚠️ Va bat cu file .enc nao o bat cu dau — chung deu la ban sao kho tai khoan.
 *.enc
+
+# Video dung ra tu `npm run video:render` — file nang, khong dua vao git.
+/out/
