@@ -82,6 +82,33 @@ Thiếu `sessionVersion`/`sv` đọc thành 0, nên **không ai bị đá ra lú
 
 ---
 
+### 🔎 Dữ liệu có cấu trúc trang review — đã sửa 21/08 ()
+
+Search Console báo *"1 mục không hợp lệ"*. Hỏi thẳng API Kiểm tra URL thì rõ hơn giao diện:
+
+
+
+Không thêm được  (review **không có trường giá** — bịa số là khai lệch giá với Google) và không dùng  (nó hàm ý nhiều người chấm, ở đây chỉ có một điểm biên tập). Nên **đảo cấu trúc**:  làm nút chính,  lồng bên trong — đúng khuôn mẫu Google tự đưa ra.
+
+Sửa luôn lỗi thứ hai không ai báo:  đang là **tiêu đề bài viết**. Thêm hẳn trường  vào schema, ô nhập ở , và cột  khi **import Excel**. Để trống thì suy ra từ tiêu đề.
+
+⚠️ **Bài học lặp lại lần thứ hai**: bản đầu của hàm suy tên qua hết 13 phép kiểm tự nghĩ, nhưng chạy trên 23 tiêu đề THẬT thì chỉ cắt được 2 bài và cắt **nhầm** 1 bài. Khuôn thật là  (21/23), không phải . Sau khi sửa: **23/23 sạch**.
+
+📌 **Chưa xác nhận với Google**: API trả về kết quả của lần bò gần nhất (20/08), nên nó vẫn báo lỗi cũ cho tới khi Google bò lại. Muốn thấy ngay thì bấm **KIỂM TRA URL ĐANG HOẠT ĐỘNG** trong Search Console.
+
+🔎 **Phép đo này còn lòi ra điều quan trọng hơn**:
+
+| Trang | Trạng thái chỉ mục |
+|---|---|
+|  | **Submitted and indexed** ✓ |
+|  | **Discovered — currently not indexed** |
+|  | **Discovered — currently not indexed** |
+|  | **URL is unknown to Google** |
+
+*"Discovered — currently not indexed"* nghĩa là Google **đã biết** những trang đó và **chọn không lập chỉ mục**. Không phải lỗi kỹ thuật, không phải lỗi link, không phải sitemap — đúng giả thuyết cũ về hạn mức bò và đánh giá chất lượng. Đây là dữ kiện cụ thể cho mốc 27/08. Công cụ: .
+
+---
+
 ### 📅 Hai mốc chờ Google — không liên quan đăng nhập
 
 - **27/08** — đo `0/65` trang nội dung được Google bò có nhúc nhích không. Mở `/admin/search-console` bấm nút, hoặc chạy `.scratch/measure-index.mjs`.
