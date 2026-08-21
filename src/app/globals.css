@@ -1561,3 +1561,25 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .allidx-links a{font-size:13px;color:#475569;text-decoration:none;line-height:1.6}
 .allidx-links a:hover{color:#16a34a;text-decoration:underline}
 @media(max-width:640px){.allidx{padding:22px 18px 44px}}
+
+/* ── Trang tạo video (/admin/video) ────────────────────────────── */
+.vid-cot{display:grid;grid-template-columns:380px 1fr;gap:22px;align-items:start}
+.vid-ds{max-height:640px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
+.vid-deal{display:flex;gap:10px;align-items:center;width:100%;padding:8px 10px;border:none;border-bottom:1px solid #f1f5f9;background:none;cursor:pointer;text-align:left;font-family:inherit}
+.vid-deal:hover{background:#f8fafc}
+.vid-deal--chon{background:#dcfce7}
+.vid-deal:disabled{opacity:.55;cursor:default}
+.vid-deal-anh{width:44px;height:44px;border-radius:7px;object-fit:cover;background:#f1f5f9;flex:none}
+.vid-deal-chu{display:flex;flex-direction:column;gap:2px;min-width:0}
+.vid-deal-chu b{font-size:13px;color:#1e293b;font-weight:600}
+.vid-deal-chu span{font-size:11px;color:#94a3b8}
+.vid-tomtat{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#f1f5f9;border-radius:8px;padding:10px 14px;font-size:13px;color:#334155;margin-bottom:10px}
+.vid-canh{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.vid-canh-o{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px}
+.vid-canh-anh{width:54px;height:54px;border-radius:6px;object-fit:cover;background:#f1f5f9;flex:none}
+.vid-canh-chu{display:flex;flex-direction:column;gap:1px;min-width:0}
+.vid-canh-chu b{font-size:12px;color:#16a34a;text-transform:uppercase;letter-spacing:.04em}
+.vid-canh-chu span{font-size:13px;color:#1e293b;font-weight:600}
+.vid-canh-chu em{font-size:12px;color:#64748b;font-style:italic}
+.vid-nut{display:flex;gap:10px;margin-top:14px}
+@media(max-width:900px){.vid-cot{grid-template-columns:1fr}.vid-ds{max-height:320px}}
