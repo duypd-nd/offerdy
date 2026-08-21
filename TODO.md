@@ -2,6 +2,13 @@
 
 ## ⏸️ ĐIỂM DỪNG 2026-08-21 — đọc trước khi làm gì
 
+✅ **ĐÃ PUSH VÀ DEPLOY — production đang chạy `76570b6`.** 6 commit. Kiểm từ ngoài sau deploy (~70 giây): 7 trang công khai 200 · `/admin` 307 → đăng nhập · `/admin/audit` 307 kèm `?next=` · `/api/cron/vault-backup` 401 khi không có `CRON_SECRET` · trang đăng nhập không cảnh báo thiếu cấu hình.
+
+📌 **Việc user còn nợ**: xoá `ADMIN_USERNAME` và `ADMIN_PASSWORD` khỏi Vercel (đã chết từ hôm qua) · lưu `AUTH_SECRET`, `AUTH_PEPPER`, `AUTH_BACKUP_KEY` vào trình quản lý mật khẩu · chép một file `.enc` ra khỏi máy.
+
+🔎 **Kiểm vào 08:00 VN mai**: cron `daily-report` chạy bản sao đầu tiên trên production. Mở `/admin/users`, ô trong Sanity phải thành **2** và giờ sao lưu phải là sáng mai. Nếu vẫn 1 ô thì cron không chạy — xem Sentry, tìm `[vault-backup]`.
+
+
 Test **418/418** (thêm 33 hôm nay), `tsc` + `build` sạch, lint **không thêm lỗi nào ở code mới** (52 = 49 cũ + 3 cảnh báo từ `.scratch/*.mjs` chưa theo dõi).
 
 Sáng: push **6 commit** về đăng nhập admin. Chiều: **xong cả ba việc** dưới đây — sao lưu kho tài khoản, cắt phiên khi đổi mật khẩu, và nhật ký thao tác.
