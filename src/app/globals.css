@@ -1547,3 +1547,17 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .usr-danger:hover:not(:disabled){background:#fef2f2!important}
 .usr-empty{text-align:center;color:#64748b;padding:28px!important;font-size:14px}
 .usr-table select{padding:5px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-family:inherit}
+
+/* ── Mục lục liệt kê đủ mọi trang con (src/components/AllLinksIndex.tsx) ──
+   Dựng ở máy chủ, không JavaScript. Phải HIỆN THỊ THẬT — giấu bằng
+   display:none để "cho bot đọc" là link ẩn, Google coi là thủ đoạn. */
+.allidx{max-width:1100px;margin:8px auto 0;padding:28px 24px 56px;border-top:1px solid var(--border)}
+.allidx-title{font-size:15px;font-weight:700;color:#334155;margin:0 0 4px}
+.allidx-hint{font-size:13px;color:#94a3b8;margin:0 0 16px}
+.allidx-group{display:flex;gap:12px;align-items:baseline;padding:7px 0;border-top:1px solid #f1f5f9}
+.allidx-letter{flex:none;width:20px;font-size:13px;font-weight:800;color:#16a34a}
+.allidx-links{display:flex;flex-wrap:wrap;gap:5px 14px}
+.allidx-links--flat{padding-top:4px}
+.allidx-links a{font-size:13px;color:#475569;text-decoration:none;line-height:1.6}
+.allidx-links a:hover{color:#16a34a;text-decoration:underline}
+@media(max-width:640px){.allidx{padding:22px 18px 44px}}

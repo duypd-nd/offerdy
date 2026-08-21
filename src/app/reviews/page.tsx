@@ -3,6 +3,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import ReviewsPageContent from '@/components/ReviewsPageContent'
 import { getReviews } from '@/sanity/queries'
+import AllLinksIndex from '@/components/AllLinksIndex'
 
 export const revalidate = 60
 
@@ -31,6 +32,17 @@ export default async function ReviewsPage() {
           <p className="page-hero-sub">Real-world tested. We buy, use, and report — no sponsored fluff.</p>
         </div>
         <ReviewsPageContent reviews={reviews} />
+
+        {/* Cùng lý do với /stores: lưới ở trên phân trang bằng trạng thái React
+            (20 bài/trang) nên HTML máy chủ bỏ sót phần còn lại. */}
+        <AllLinksIndex
+          title="All reviews"
+          hint={`Every one of our ${reviews.length} hands-on reviews.`}
+          items={reviews.map((r: { slug: string; title: string }) => ({
+            href: `/reviews/${r.slug}`,
+            label: r.title,
+          }))}
+        />
       </main>
       <Footer />
     </>
