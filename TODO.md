@@ -137,6 +137,20 @@ Chữa bằng **mục lục A–Z dựng ở máy chủ** (`src/components/AllLi
 
 ---
 
+### 🧭 Vì sao Google không lập chỉ mục trang chi tiết — đã khoanh vùng xong
+
+**Kết quả đầy đủ ở `.scratch/indexing-findings.md`. Đọc file đó trước khi đo lại bất cứ thứ gì.**
+
+**Toàn bộ 5 trang đầu mối ĐÃ vào chỉ mục** (`/`, `/stores`, `/blog`, `/reviews`, `/comparisons`). Thứ bị từ chối là các trang chi tiết. Google **biết rõ site này** và **chọn** dừng ở tầng đầu mối.
+
+Đã loại trừ bằng đo đạc, không phải suy đoán: không phải sitemap · không phải nội dung mỏng (1.200 chữ/trang) · không phải trùng lặp (83% riêng **sau khi chuẩn hoá tên shop**) · không phải hydration · không phải dữ liệu có cấu trúc · không phải tốc độ (LCP 3,0s là đáng cải thiện, không phải mức bị từ chối). **Link nội bộ thì đúng là có vấn đề — và đã sửa tối nay.**
+
+Còn lại là tín hiệu chất lượng **cấp site**, cả ba đều nằm ngoài code: site còn non và gần như không có liên kết từ bên ngoài · lịch sử 404 nặng (31/07 Google gỡ 160 trang đã xoá) · **nội dung sinh bằng AI ở quy mô lớn** — 107 mô tả store + 42 bài blog, đúng thứ chính sách *scaled content abuse* của Google nhắm tới. Cái cuối là câu hỏi **chiến lược**, không có dòng code nào sửa được.
+
+🔎 **Mốc 27/08 nay có thêm một biến số**: 83 trang store vừa có link nội bộ lần đầu. Nếu 27/08 vẫn `0/65` thì kết luận được — nút thắt **không** ở đường vào mà ở đánh giá chất lượng cấp site, và việc phải làm là xây liên kết ngoài, không phải sửa thêm code.
+
+---
+
 ### 📅 Hai mốc chờ Google — không liên quan đăng nhập
 
 - **27/08** — đo `0/65` trang nội dung được Google bò có nhúc nhích không. Mở `/admin/search-console` bấm nút, hoặc chạy `.scratch/measure-index.mjs`.
