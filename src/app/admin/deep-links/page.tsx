@@ -1,5 +1,6 @@
 import { client as readClient } from '@/sanity/client'
 import { meaningfulTokens } from '@/lib/productMatch'
+import { isLinkableOffer } from '@/lib/storeWideOffer'
 import DeepLinksClient from './DeepLinksClient'
 
 export const dynamic = 'force-dynamic'
@@ -49,9 +50,20 @@ export default async function DeepLinksPage() {
     total: s.total,
     withProductUrl: s.withProductUrl,
     // Offer da co link thi tinh la tro duoc — nguoi van hanh da quyet dinh roi.
+    //
+    // ⚠️ Rieng `meaningfulTokens >= 2` KHONG DU. Do that 2026-08-22: no coi 92
+    // offer la "tro duoc", nhung doc tan mat thi 61 trong so do van la uu dai
+    // cap shop, chi khac ngon ngu — "GRATIS VERZENDING OP ALLE BESTELLINGEN",
+    // "Kostenloser Versand ab 250 €", "Livraison Offerte dès 60€ d'achat",
+    // "30 DAYS RETURN", "Frizzlife Rewards Program". Chung deu co >= 2 tu co
+    // nghia nen lot het, va bang dieu khien bao con 92 viec trong khi that ra
+    // con 31. Duoi mot dich sai la cach chac chan nhat de nguoi van hanh bo cuoc.
+    //
+    // `isLinkableOffer` cham diem tren tap doi chung 181 offer DA duoc nguoi
+    // that gan link: chi 1 cai bi goi nham la cap shop (1%).
     linkable:
       s.withProductUrl +
-      (s.missingTitles ?? []).filter(t => meaningfulTokens(t, s.name).length >= 2).length,
+      (s.missingTitles ?? []).filter(t => isLinkableOffer(t, meaningfulTokens(t, s.name).length)).length,
   }))
 
   const linkable = stores.reduce((sum, s) => sum + s.linkable, 0)

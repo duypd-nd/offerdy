@@ -3,6 +3,7 @@
 import { writeClient } from '@/sanity/writeClient'
 import { revalidatePath } from 'next/cache'
 import { fetchProductCatalog, suggestProducts, meaningfulTokens } from '@/lib/productCatalog'
+import { isLinkableOffer } from '@/lib/storeWideOffer'
 import { validateProductUrl } from '@/lib/affiliateUrl'
 
 export type OfferSuggestion = {
@@ -70,7 +71,13 @@ export async function scanStoreCatalog(storeId: string): Promise<ScanResult> {
       // ⚠️ Ten shop phai bi loai truoc khi quyet dinh — xem chu thich cua
       // `meaningfulTokens`. Khong loai thi *"20% Off On Your Order at VisoOne Eyewear"*
       // khong bi coi la uu dai ca shop va nhan bon goi y 50% vo nghia.
-      storeWide: meaningfulTokens(offer.title, store.name).length < 2,
+      //
+      // ⚠️ Nhung rieng dem tu KHONG DU. `isLinkableOffer` bat them cac cum "ap
+      // cho ca don hang" bang nam thu tieng ("Kostenloser Versand",
+      // "GRATIS VERZENDING", "Livraison Offerte", "30 DAYS RETURN"...). Phai
+      // dung CHUNG ham voi `page.tsx`, neu khong bang quet va thanh tien do se
+      // noi hai con so khac nhau tren cung mot man hinh.
+      storeWide: !isLinkableOffer(offer.title, meaningfulTokens(offer.title, store.name).length),
       suggestions: suggestProducts(offer.title, catalog.products, { storeName: store.name }).map(s => ({
         url: s.url,
         title: s.title,
