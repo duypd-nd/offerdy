@@ -2,8 +2,11 @@
 
 ## ⏸️ ĐIỂM DỪNG 2026-08-21 — đọc trước khi làm gì
 
-Repo sạch, `main` sync `origin/main` ở **`f17f514`**. Test **385/385**, `tsc` + lint (49, không đổi) + `build` sạch.
-Hôm nay push **6 commit**, tất cả về đăng nhập admin.
+Test **407/407** (thêm 22 cho sao lưu), `tsc` + `build` sạch, lint **không thêm lỗi nào ở code mới** (52 = 49 cũ + 3 cảnh báo từ `.scratch/*.mjs` chưa theo dõi).
+
+Sáng: push **6 commit** về đăng nhập admin. Chiều: **sao lưu kho tài khoản** — việc số 1 trong ba việc dưới đây, đã xong và đã chạy thật.
+
+⚠️ Bẫy đo được hôm nay, ảnh hưởng **mọi** script trong `scripts/`: trên Windows + Node 24, `process.exit()` **sau khi đã `fetch()`** làm Node sập (`UV_HANDLE_CLOSING`, mã thoát **127**). Kết thúc tự nhiên thì sạch, chỉ mất ~0,5 giây. Dùng `run()` / `stop()` trong `scripts/_vault.mjs`. `create-admin.mjs` đã chuyển; `check-ga4.mjs`, `check-gsc.mjs`, `dead-pages-triage.mjs` **vẫn còn bẫy**.
 
 ### ✅ Đã xong và ĐANG CHẠY TRÊN PRODUCTION
 
@@ -19,16 +22,24 @@ Hôm nay push **6 commit**, tất cả về đăng nhập admin.
 
 ### 🔜 BA VIỆC CHO NGÀY MAI — xếp theo mức thiệt hại nếu bỏ qua
 
-#### 1. Sao lưu — lỗ hổng nghiêm trọng nhất hiện tại
+#### 1. ✅ Sao lưu — XONG 21/08 (chiều)
 
-⚠️ Toàn bộ tài khoản quản trị nằm trong **một tài liệu Sanity** (`adminVault`) và **không có bản sao lưu nào**. Hai đường mất trắng, cả hai **không khôi phục được**, và cả hai đều khoá người vận hành khỏi chính website của mình:
+Đã chạy thật, không phải chỉ viết code:
 
-- Ai đó xoá `adminVault` trong Sanity Studio — nó trông như tài liệu rác vì nội dung đã mã hoá
-- Mất `AUTH_PEPPER` — kho còn nguyên nhưng vĩnh viễn không mở được
+- `npm run vault:backup` → file mã hoá trong `backups/` (2 tài khoản, tự mở lại kiểm chứng trước khi ghi)
+- Đường cron đã chạy thật trên Sanity: ô `adminVaultBackup.fri`, trạng thái chuyển từ "chưa có" sang "vừa xong"
+- `/admin/users` có băng trạng thái sao lưu (xám / vàng quá 48 giờ / đỏ chưa có)
+- `npm run vault:restore -- --list | --file | --slot | --reveal-pepper`
+- Quy trình khi có sự cố: `docs/03-workflows/WORKFLOW_KHOI_PHUC_TAI_KHOAN_ADMIN.md`
 
-**Việc của user (làm ngay, không cần code):** lưu `AUTH_SECRET` và `AUTH_PEPPER` vào trình quản lý mật khẩu. Đừng để chỉ có trong `.env.local` trên một cái máy.
+Quyết định đáng nhớ: **không thêm cron thứ tư**, bản sao chạy ghép trong `daily-report` — ba cron của dự án này từng chết im lặng 18 ngày trong khi dashboard báo "Enabled".
 
-**Việc code (~1 giờ):** một lệnh xuất kho ra file mã hoá + cron hằng đêm ghi bản sao. Bản sao phải mã hoá bằng khoá **khác** `AUTH_PEPPER`, nếu không thì mất một khoá là mất cả bản gốc lẫn bản sao.
+📌 **Việc user còn nợ (không cần code):**
+- Lưu `AUTH_SECRET`, `AUTH_PEPPER` **và `AUTH_BACKUP_KEY`** vào trình quản lý mật khẩu. `AUTH_BACKUP_KEY` vừa sinh và mới chỉ nằm trong `.env.local` trên **một** cái máy.
+- Thêm `AUTH_BACKUP_KEY` vào Vercel — chưa thêm thì **bản sao hằng đêm trên production không chạy** (băng đỏ ở `/admin/users` sẽ nói đúng điều đó).
+- Chép một file `.enc` trong `backups/` ra khỏi máy này (USB / ổ ngoài / kho mật khẩu).
+
+⚠️ **Đường khôi phục mới đi thử tới bước đọc, chưa chạy bước GHI.** Muốn chắc thì diễn tập một lần: `npm run vault:restore -- --file backups/<file>.enc` (nó ghi lại đúng nội dung đang có, và tự đọc lại đối chiếu sau khi ghi).
 
 #### 2. Nhật ký thao tác — đúng thứ user hỏi khi nói "quản lý tốt hơn"
 

@@ -942,3 +942,23 @@ Tick several ideas, write them in one go. **Deliberately not one server action f
 ## Static Fallback Data
 `src/data/` — deals, stores, categories, reviews, posts, siteSettings (used when Sanity not configured)
 
+
+## Sao lưu kho tài khoản quản trị (2026-08-21)
+
+Toàn bộ tài khoản quản trị nằm trong **một** tài liệu Sanity `adminVault`, mã hoá bằng khoá dẫn xuất từ `AUTH_PEPPER`. Trước hôm nay nó không có bản sao nào — hai đường mất trắng (ai đó xoá tài liệu; mất `AUTH_PEPPER`) đều không khôi phục được và đều khoá người vận hành khỏi chính website của mình.
+
+**Quy trình đầy đủ, viết để đọc lúc đang có sự cố: `docs/03-workflows/WORKFLOW_KHOI_PHUC_TAI_KHOAN_ADMIN.md`.**
+
+Vài điểm dễ làm sai nếu đụng vào code này:
+
+- **Bản sao phải chứa chính `AUTH_PEPPER`.** Nếu chỉ lưu danh sách tài khoản, khôi phục xong sẽ ra một danh sách mà **không ai đăng nhập được**: `passwordHash` đã trộn pepper cũ. Hệ quả: file `.enc` có giá trị ngang toàn bộ quyền quản trị (`.gitignore` chặn cả `/backups/` lẫn `*.enc`, và `--out` từ chối ghi vào trong repo ngoài `backups/`).
+- **`AUTH_BACKUP_KEY` phải khác `AUTH_PEPPER`** — `deriveBackupKey()` từ chối thẳng nếu trùng (kể cả khi chỉ khác khoảng trắng). Hai khoá bằng nhau nghĩa là không sao lưu gì cả, chỉ nhân đôi cùng một điểm chết, và lỗi đó im lặng tuyệt đối.
+- **Không ghi bản sao của một kho rỗng hoặc không giải mã được.** `buildBackup()` từ chối. Cron gặp Sanity lỗi mà vẫn ghi đè ô của hôm nay thì nó **xoá bản sao tốt bằng một bản rỗng** — không báo lỗi, và chỉ lộ ra đúng ngày cần dùng.
+- **Niêm phong xong là mở lại kiểm chứng ngay**, trước khi ghi (`verifyBackup()` so cả số lượng lẫn từng id, và so pepper). Một bản sao chưa từng đọc thử chỉ là tin đồn.
+- **Không có cron riêng.** Bản sao chạy ghép trong `daily-report` (01:00 UTC). Ba cron của dự án này từng chết im lặng 18 ngày trong khi dashboard báo "Enabled"; cron thứ tư là thứ tư có thể chết mà không ai biết. `/api/cron/vault-backup` vẫn tồn tại để gọi tay.
+- **Trạng thái hiện trên `/admin/users`**, ngay dưới tiêu đề: xám = bình thường, vàng = bản sao gần nhất quá 48 giờ, đỏ = chưa có bản sao / chưa đặt khoá. Hỏng thì báo thêm qua Sentry → AI Daily Report.
+- Bảy ô xoay vòng theo thứ trong tuần (`adminVaultBackup.mon`…`.sun`) chứ không phải mỗi lần một tài liệu mới — một năm 365 tài liệu chứa bản băm mật khẩu cũ nằm rải trong một dataset **công khai** là thứ không ai đi dọn. Đổi lại chỉ giữ 7 ngày; bản dài hạn là file `.enc` do người vận hành tự cất.
+
+⚠️ **Bẫy đã đo được, ảnh hưởng MỌI script trong `scripts/`**: trên Windows + Node 24, gọi `process.exit()` **sau khi đã `fetch()`** làm Node sập với `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)` và trả mã thoát **127**. Thông báo lỗi vẫn in ra, nhưng kèm một dòng sập khó hiểu và mọi thứ đọc mã thoát đều hiểu sai. Kết thúc tự nhiên thì sạch và cũng chỉ mất ~0,5 giây. Dùng `run()` / `stop()` trong `scripts/_vault.mjs` (đặt `process.exitCode` rồi để hàm kết thúc). `create-admin.mjs` đã chuyển sang cách này; các script khác trong `scripts/` **vẫn còn bẫy đó**.
+
+Thuật toán mã hoá có **hai** bản: `src/lib/adminCrypto.ts` (app) và `scripts/_vault.mjs` (dòng lệnh) — file `.mjs` không import được TypeScript qua alias `@/`. Trước đây có **ba** bản; `create-admin.mjs` nay dùng chung `_vault.mjs`. Đổi một bên mà quên bên kia là kho không mở được nữa.
