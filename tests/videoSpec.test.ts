@@ -135,3 +135,10 @@ test('mã đọc đánh vần từng chữ', () => {
   assert.equal(danhVan('OFFERDY'), 'O F F E R D Y')
   assert.equal(danhVan('save10'), 'S A V E 1 0')
 })
+
+test('màn cuối có cả lời mời mua lẫn chỉ dẫn tìm link', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY' })
+  const cta = scenes.at(-1)!
+  assert.match(cta.overlayText, /SHOP NOW/)
+  assert.match(cta.overlayText, /LINK IN BIO/)
+})

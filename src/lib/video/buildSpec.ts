@@ -145,7 +145,7 @@ export function buildSpec(input: {
 
   them('cta', {
     image: lay(1), duration: 4,
-    overlayText: 'LINK IN BIO',
+    overlayText: 'SHOP NOW\nLINK IN BIO',
     voiceText: "Tap the link to check today's price.",
   })
 
