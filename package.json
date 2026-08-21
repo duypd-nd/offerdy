@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node scripts/run-tests.mjs",
+    "video:spec": "node scripts/video-spec.mjs",
     "video:render": "node scripts/video-render.mjs",
     "vault:backup": "node scripts/vault-backup.mjs",
     "vault:restore": "node scripts/vault-restore.mjs",

@@ -125,6 +125,30 @@ async function main(specPath) {
   }
   ok(`Tai ${anhCache.size} anh`)
 
+  // ── Giong doc: doc TRUOC de biet do dai THAT ─────────────────────
+  //
+  // ⚠️ Thu tu quan trong. Do dai scene phai chay theo do dai giong doc, khong
+  // phai nguoc lai. Dat do dai truoc roi ep tieng vao la cach chac chan de chu
+  // chay truoc tieng — va loi do chi lo ra khi ngoi xem lai ca video.
+  const coTieng = scenes.some(s => s.voiceText) && spec.voice?.provider === 'sapi'
+  if (coTieng) {
+    const { docThanhTep } = await import('./tts-sapi.mjs')
+    for (const [i, s] of scenes.entries()) {
+      if (!s.voiceText) continue
+      const tep = path.join(viec, `tieng-${i}.wav`)
+      const { giay } = await docThanhTep(s.voiceText, tep, {
+        giong: spec.voice?.voice, rate: spec.voice?.rate ?? 0,
+      }).catch(e => { throw new Error(`Doc scene ${s.id ?? i + 1}: ${e.message}`) })
+      s._tieng = tep
+      s._tiengGiay = giay
+      // Do dai scene = do dai tieng + khoang lang hai dau. Neu kich ban de san
+      // mot con so dai hon thi giu con so do.
+      s.duration = Math.max(s.duration ?? 0, +(giay + 0.7).toFixed(2))
+    }
+    const tong = scenes.reduce((n, s) => n + s.duration, 0) - tDur * (scenes.length - 1)
+    ok(`Doc ${scenes.filter(s => s._tieng).length} doan tieng · dai lai thanh ${tong.toFixed(1)}s`)
+  }
+
   // ── Luot 1: moi scene mot doan ───────────────────────────────────
   const doan = []
   for (const [i, s] of scenes.entries()) {
@@ -147,7 +171,7 @@ async function main(specPath) {
     ]
 
     // Chu tren man: moi dong mot lenh drawtext, canh giua
-    const dong = String(s.overlayText ?? '').split('\n').filter(Boolean)
+    const { dong, coChu } = chiaDong(String(s.overlayText ?? ''), W)
     let nhan = '[nen]'
     dong.forEach((d, k) => {
       const ra = k === dong.length - 1 ? '[chu]' : `[chu${k}]`
@@ -157,8 +181,8 @@ async function main(specPath) {
         // roi BO CA DONG CHU ma van tra ma thoat 0. Ma "50% OFF" chinh la cau
         // quan trong nhat cua mot video deal. Tat han co che do di.
         `${nhan}drawtext=fontfile=font.ttf:text='${thoatChu(d)}':expansion=none:` +
-        `fontcolor=white:fontsize=96:borderw=6:bordercolor=black@0.55:` +
-        `x=(w-text_w)/2:y=h-560+${k * 118}${ra}`
+        `fontcolor=white:fontsize=${coChu}:borderw=6:bordercolor=black@0.55:` +
+        `x=(w-text_w)/2:y=h-560+${k * Math.round(coChu * 1.23)}${ra}`
       )
       nhan = ra
     })
@@ -193,6 +217,7 @@ async function main(specPath) {
   if (doan.length === 1) chuoi.push('[0:v]null[ra]')
 
   const raTep = `${spec.output ?? 'video'}.mp4`
+  const chuaTieng = coTieng ? 'hinh.mp4' : raTep
   await chay([
     '-y', ...dau,
     '-filter_complex', chuoi.join(';'),
@@ -200,8 +225,42 @@ async function main(specPath) {
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '20',
     '-pix_fmt', 'yuv420p', '-r', String(FPS),
     '-movflags', '+faststart',
-    raTep,
+    chuaTieng,
   ], { cwd: viec }).catch(e => { throw new Error(`Noi doan: ${e.message}`) })
+
+  // ── Luot 3: dat tung doan tieng vao dung moc cua scene ───────────
+  if (coTieng) {
+    // Moc bat dau cua scene i tren dong thoi gian CUOI CUNG. Phai tru phan chong
+    // nhau cua tung lan chuyen canh, neu khong tieng se troi dan ve sau — moi
+    // lan chuyen la lech them nua giay, den scene thu 10 thi lech 4,5 giay.
+    let batDau = 0
+    const mocScene = scenes.map((s, i) => {
+      if (i > 0) batDau += scenes[i - 1].duration - tDur
+      return batDau
+    })
+
+    const tiengCo = scenes.map((s, i) => ({ s, i })).filter(x => x.s._tieng)
+    const vaoTieng = tiengCo.flatMap(x => ['-i', path.basename(x.s._tieng)])
+    const locTieng = tiengCo.map((x, k) => {
+      // Lui 0,25 giay so voi dau scene: vao tieng ngay lap tuc nghe rat gap
+      const tre = Math.max(0, Math.round((mocScene[x.i] + 0.25) * 1000))
+      // ⚠️ `k + 1`, khong phai `k`: dau vao so 0 la VIDEO, cac tep tieng bat dau
+      // tu 1. Dung `k` thi ffmpeg di tim luong tieng trong tep video (khong co)
+      // va bao "Stream specifier ':a' matches no streams".
+      return `[${k + 1}:a]adelay=${tre}|${tre}[a${k}]`
+    })
+    locTieng.push(`${tiengCo.map((_, k) => `[a${k}]`).join('')}amix=inputs=${tiengCo.length}:normalize=0:dropout_transition=0[tieng]`)
+
+    await chay([
+      '-y', '-i', chuaTieng, ...vaoTieng,
+      '-filter_complex', locTieng.join(';'),
+      '-map', '0:v', '-map', '[tieng]',
+      '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k',
+      '-movflags', '+faststart',
+      raTep,
+    ], { cwd: viec }).catch(e => { throw new Error(`Tron tieng: ${e.message}`) })
+    ok(`Tron ${tiengCo.length} doan tieng vao video`)
+  }
 
   const raDich = path.join(root, 'out', raTep)
   fs.mkdirSync(path.dirname(raDich), { recursive: true })
@@ -209,6 +268,45 @@ async function main(specPath) {
   const kb = (fs.statSync(raDich).size / 1024).toFixed(0)
   ok(`Xong: out/${raTep} (${kb} KB)`)
   console.log(`\n  Mo bang: start "" "${raDich}"\n`)
+}
+
+/**
+ * Ngat dong va chon co chu sao cho VUA khung.
+ *
+ * ⚠️ `drawtext` khong tu co gian. Chu dai hon khung thi no ve tran ra ngoai va
+ * bi cat CA HAI DAU — do that 2026-08-22: ten san pham "FROLK CLASSIC WHISKEY
+ * SET" hien ra thanh "OLK CLASSIC WHISKEY S". Nhin qua tuong la loi font.
+ *
+ * Segoe UI Bold rong trung binh ~0,55 lan co chu. Uoc luong the la du: chi can
+ * biet dong nao chac chan khong vua, roi ngat hoac thu nho.
+ */
+function chiaDong(chu, W) {
+  const leHai = 90
+  const rongDung = W - leHai * 2
+  const dongGoc = chu.split('\n').map(s => s.trim()).filter(Boolean)
+  if (!dongGoc.length) return { dong: [], coChu: 96 }
+
+  for (const coChu of [96, 84, 74, 64, 56]) {
+    const rongMotKyTu = coChu * 0.55
+    const toiDa = Math.floor(rongDung / rongMotKyTu)
+    const ra = []
+    for (const d of dongGoc) {
+      if (d.length <= toiDa) { ra.push(d); continue }
+      // Ngat theo TU, khong ngat giua tu — cat giua tu thi doc khong ra chu gi.
+      let hienTai = ''
+      for (const tu of d.split(/\s+/)) {
+        if (!hienTai) hienTai = tu
+        else if ((hienTai + ' ' + tu).length <= toiDa) hienTai += ' ' + tu
+        else { ra.push(hienTai); hienTai = tu }
+      }
+      if (hienTai) ra.push(hienTai)
+    }
+    // Toi da 3 dong: hon nua thi che mat san pham va khong ai doc kip trong 4 giay
+    if (ra.length <= 3 && ra.every(d => d.length <= toiDa)) return { dong: ra, coChu }
+  }
+  // Van khong vua: cat cung o co nho nhat, con hon de tran ra ngoai khung
+  const toiDa = Math.floor(rongDung / (56 * 0.55))
+  return { dong: dongGoc.slice(0, 3).map(d => d.slice(0, toiDa)), coChu: 56 }
 }
 
 /**
