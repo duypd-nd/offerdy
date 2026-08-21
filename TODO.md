@@ -109,7 +109,31 @@ Sửa luôn lỗi thứ hai không ai báo: `Product.name` đang là **tiêu đ�
 | `/blog/best-baby-zip-swim-rompers…` | **Discovered — currently not indexed** |
 | `/deals/frolk-classic-whiskey…` | **URL is unknown to Google** |
 
-*"Discovered — currently not indexed"* nghĩa là Google **đã biết** những trang đó và **chọn không lập chỉ mục**. Không phải lỗi kỹ thuật, không phải lỗi link, không phải sitemap — đúng giả thuyết cũ về hạn mức bò và đánh giá chất lượng. Đây là dữ kiện cụ thể cho mốc 27/08. Công cụ: `.scratch/measure-richresults.mjs`.
+*"Discovered — currently not indexed"* nghĩa là Google **đã biết** những trang đó và **chọn không lập chỉ mục**. Đây là dữ kiện cụ thể cho mốc 27/08. Công cụ: `.scratch/measure-richresults.mjs`.
+
+---
+
+### 🔗 83 trang store MỒ CÔI — đã sửa 21/08 (`5ae165c`)
+
+Kiểm tra `/stores/ohmmu` trong Search Console lòi ra dòng quyết định: **"Trang giới thiệu: Không phát hiện được trang nào"**. Google nói **đúng**.
+
+`StoresPageContent` phân trang bằng **trạng thái React** — `useState(1)` rồi `slice(0, 24)`. HTML máy chủ chỉ chứa 24 store đầu; không có `?page=2`, không có thẻ `<a>` nào trỏ tới phần còn lại. Google có chạy JavaScript nhưng **không bấm nút phân trang**.
+
+Đo trên HTML máy chủ trả về (không chạy JS), **trước** khi sửa:
+
+```
+store   107 trong kho ·  24 có link nội bộ · 107 trong sitemap  → 83 MỒ CÔI
+review   23 trong kho ·  20 có link nội bộ ·  23 trong sitemap  →  3 mồ côi
+blog     42 trong kho ·  42 có link nội bộ ·  42 trong sitemap  →  0
+```
+
+Chữa bằng **mục lục A–Z dựng ở máy chủ** (`src/components/AllLinksIndex.tsx`) ở cuối `/stores` và `/reviews`. Không đổi sang phân trang URL vì việc đó kéo theo đồng bộ trạng thái lọc/tìm kiếm với URL và biến mỗi lần bấm bộ lọc thành một lần điều hướng. Mục lục A–Z là khuôn quen thuộc của mọi trang coupon lớn, và **hiển thị thật** — giấu link bằng `display:none` là thủ đoạn Google có thể phạt.
+
+**Đo lại trên production: 107/107 · 23/23 · 42/42, 0 trang mồ côi.** Công cụ: `.scratch/measure-orphans.mjs`.
+
+⚠️ **Sắc thái đừng bỏ qua**: blog có **42/42 được link đầy đủ mà vẫn chưa được lập chỉ mục**. Nên link nội bộ là điều kiện **cần, chưa chắc đủ**. Bản vá này đúng và bắt buộc, nhưng đừng kỳ vọng nó tự động mở khoá chỉ mục.
+
+📌 **Lỗi dữ liệu lộ ra khi dựng mục lục** (chưa sửa, cần người quyết): có store tên **"You are now leaving the internet.Get ready to find your fit."** — tiêu đề trang bị lấy nhầm làm tên shop. Và `Yazv -` thừa dấu gạch ở cuối. Cả hai giờ hiện công khai trong mục lục A–Z.
 
 ---
 
