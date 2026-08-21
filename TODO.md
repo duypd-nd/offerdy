@@ -2,6 +2,22 @@
 
 ## ⏸️ ĐIỂM DỪNG 2026-08-22 (rạng sáng) — công cụ dựng video sản phẩm
 
+### 📋 VIỆC MAI — theo thứ tự
+
+✅ **ĐÃ PUSH 10 commit lúc rạng sáng 22/08 — `main` ở `349baca`.** Trang công khai kiểm sau deploy: 7/7 trả 200, admin 307 về đăng nhập. ⚠️ Chưa xác nhận được commit nào đang chạy trên Vercel — tài khoản Vercel nối qua MCP không phải tài khoản chứa Offerdy. HTML production không lộ mã bản dựng, và lần push này **không đổi gì ở trang công khai** nên không có dấu hiệu nào đo được từ ngoài. **Việc đầu tiên sáng mai: mở bảng điều khiển Vercel, xác nhận bản đang chạy là `349baca`, rồi đăng nhập và mở `/admin/video` — đây là lần đầu trang đó ra production.**
+
+**1. Kiểm sao lưu kho tài khoản (08:00 VN, việc cũ chưa xong).** Mở `/admin/users`: ô sao lưu trong Sanity phải thành **2** và giờ phải là sáng nay. Vẫn 1 ô thì cron không chạy — xem Sentry, tìm `[vault-backup]`.
+
+**2. Nối link đo được vào CTA của video.** Đây là việc đáng làm nhất ở công cụ video. `spec.product.ctaUrl` đã sinh sẵn `/d/<mã>?s=video` nhưng **chưa hiện lên màn hình và chưa ai bấm được**. Chừng nào chưa nối thì không biết video nào ra tiền, video nào không — và một video không đo được chỉ là tài sản đẹp. Hạ tầng đã có đủ: `shortLinkUrl()` trong `src/lib/socialCaption.ts`, số liệu hiện ở `/admin/reports`.
+
+**3. Chấm điểm ảnh trước khi đưa vào video.** Ảnh cào về lẫn ảnh chú thích kỹ thuật nhiều chữ — deal #1470 lấy đúng một ảnh cận cảnh vải có vòng phóng to làm nền cảnh giá. Viết `scoreImages()` là **hàm thuần, có test**: loại ảnh nhỏ, ảnh trùng, ảnh nhiều chữ; ưu tiên ảnh toàn cảnh sản phẩm.
+
+**4. Hai lỗi dữ liệu chờ anh quyết** (không tự sửa vì là dữ liệu thật): một store tên **"You are now leaving the internet.Get ready to find your fit."** và một store tên **"Yazv -"** thừa dấu gạch ngang.
+
+**5. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò. 83 trang store lần đầu có link nội bộ từ 21/08; xem mục lục A–Z có gỡ được nút thắt không.
+
+📌 **Việc của anh, không tự động hoá được**: xoay bốn khoá API đã dán vào phòng chat (`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`) · lưu `AUTH_SECRET` / `AUTH_PEPPER` / `AUTH_BACKUP_KEY` vào trình quản lý mật khẩu · chép một file `.enc` ra khỏi máy · thêm `AUTH_BACKUP_KEY` vào Vercel nếu chưa.
+
 🎬 **`/admin/video` — chọn một deal có sẵn, ra một file MP4 dọc đăng thẳng lên TikTok.** Chạy thật từ đầu tới cuối, không mock chỗ nào. Hai video mẫu nằm ở `out/`.
 
 **Đường đi**: deal trong Sanity → cào ảnh + mô tả + điểm đánh giá từ trang shop → đối chiếu mã giảm giá → **Claude viết lời đọc** → ElevenLabs đọc thành tiếng → ffmpeg ghép ảnh + hiệu ứng Ken Burns + chữ + chuyển cảnh → MP4 1080×1920.
