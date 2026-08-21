@@ -103,10 +103,19 @@ The first version filled a fixed array of sentences, so a nappy bag and a whiske
 
 ### ffmpeg gotchas paid for in this project
 
+- **`zoompan ... s=WxH` forces the output to exactly that size**, so a square box squashes every non-square photo. Deal #1468's 1500×1105 shot was stretched to 1:1 — the person in it visibly elongated. For an affiliate site that is not a cosmetic bug, it is showing the wrong shape of goods. `docKichThuoc()` asks ffprobe for the real size and derives a box with the same ratio (1500×1105 → 920×678, 0.04% off; the old path was 26% off). 4% of scraped photos are non-square, and you cannot predict which.
+- **Overlay text goes through `textfile=`, never inline in the filtergraph.** Subtitles are full sentences and sentences contain apostrophes — "your arms just can't hold your baby" broke the whole graph. ffmpeg unescapes twice (filtergraph, then filter argument), so counting backslashes is easy to get wrong and wrong silently.
 - **`drawtext` silently discards any text containing `%`** — exit code 0, blank text, one "Stray %" line on stderr. All three escapes (`\%`, `%%`, raw) fail. The fix is `expansion=none`, and **every ffmpeg stderr line is now treated as fatal even on exit 0**, because that is the only way this class of failure surfaces.
-- Long overlay text overflows the frame; `chiaDong()` word-wraps and shrinks the font.
+- Long text overflows the frame; `chiaDong()` word-wraps and shrinks the font, stepping 3 → 4 → 5 lines across nine sizes. When nothing fits it **throws** — the old code truncated, which shipped a video with a half-finished sentence and said nothing.
+- `const` declared at the bottom of the file is in the temporal dead zone while top-level `main()` runs, even though hoisted `function` declarations beside it work fine. Module-level state (`CO_CHU`, the ffprobe size cache) belongs at the top.
 - When mixing the narration WAVs, **input 0 is the video**, so audio inputs start at index 1. Off-by-one gives `Stream specifier ':a' matches no streams`.
 - Prices are spoken as words (`docGia`: `$79.95` → "79 dollars 95") and codes are spelled out (`danhVan`: `OFFERDY` → "O F F E R D Y"), otherwise the TTS reads "dollar seventy nine point nine five".
+
+### On-screen text is the spoken line
+
+Screen text is the **subtitle of what is being said**, not a 2-4 word slogan. Most TikTok viewers watch muted, so the text is what they actually "hear"; a slogan that says something different from the narration is two messages at once. The last three scenes additionally carry one large `badgeText` line ("44% OFF", "CODE OFFERDY", "SHOP NOW / LINK IN BIO") — that is what a viewer has to retain when the video stops.
+
+`speakText` exists because screen and speaker need two forms of the same sentence: the screen needs `$49.95` and `OFFERDY`, the TTS needs "49 dollars 95" and "O F F E R D Y". `overlayText` survives only as a short label for the admin scene list and is **never drawn**.
 
 ### Not built yet
 

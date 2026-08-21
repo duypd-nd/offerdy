@@ -44,6 +44,7 @@ Lúc đầu lời đọc lấy từ một mảng mẫu câu cố định, nên m
 ### Còn nợ ở công cụ này
 
 - **Chấm điểm ảnh** (`scoreImages`): ảnh cào về có cả ảnh chú thích kỹ thuật, ảnh nhiều chữ — không hợp làm nền video. Đã nhìn thấy trên deal #1470 (một ảnh cận cảnh vải có vòng phóng to và chấm đỏ bị dùng làm nền cảnh giá).
+- ✅ **ĐÃ SỬ A rạng sáng 22/08 (`113c8f4`)**: chữ trên màn giờ là **đúng câu đọc lên** (phụ đề), và khung ảnh **hết bóp méo** — `zoompan s=920x920` từng ép mọi ảnh thành vuông, ảnh 1500×1105 của deal #1468 bị kéo cao 26%. Quét 72 ảnh của 12 deal: 4% không vuông. Ba cảnh cuối giữ thêm một dòng chữ lớn (44% OFF · CODE OFFERDY · SHOP NOW). Bẫy mới: chữ phải đi qua `textfile=` vì câu nói có dấu nháy làm vỡ cả filtergraph; và `const` ở cuối file lại dính vùng chết như `video-spec.mjs` hôm qua.
 - Chữ **chồng lên nhau trong 0,5 giây chuyển cảnh** giữa cảnh mã và cảnh CTA (hai chữ cùng vị trí dọc). Là đặc tính của chuyển cảnh mờ dần, chưa sửa.
 - **Chưa nối link rút gọn có nhãn `?s=`** vào CTA để đo lượt bấm ở `/admin/reports`. `spec.product.ctaUrl` đã sinh `/d/<mã>?s=video` nhưng chưa hiện lên màn hình. **Không đo được thì video chỉ là tài sản đẹp** — đây là việc đáng làm tiếp nhất.
 - Đường dán URL thẳng (cho sản phẩm chưa vào kho) chưa làm; hiện chỉ chọn deal có sẵn.
@@ -55,7 +56,7 @@ Lúc đầu lời đọc lấy từ một mảng mẫu câu cố định, nên m
 
 📌 **Việc anh còn nợ**: **xoay bốn khoá API** đã dán vào phòng chat (`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`) — chúng chỉ nằm ở `.env.local` (đã gitignore), không lọt vào commit nào, nhưng đã đi qua một kênh không phải nơi để giữ bí mật.
 
-Test **480/480** (thêm 26), `tsc` + `build` + lint sạch.
+Test **484/484** (thêm 30), `tsc` + `build` + lint sạch.
 
 ---
 
