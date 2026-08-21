@@ -991,3 +991,18 @@ Hệ quả phụ đáng giá: vì cookie mang vai cũ không thể sống sót n
 - **Tự xoá sau 90 ngày**, dọn trong cron `daily-report`. Dataset công khai không được biến thành kho lưu trữ vĩnh viễn về thói quen làm việc của từng người.
 - ⚠️ **Đo được 21/08: `commit({visibility:'async'})` nghĩa là ghi xong CHƯA đọc ra ngay được.** Đọc lại ngay sau khi ghi trả về 0 mục; đọc lại sau khoảng một vòng mạng nữa thì đầy đủ. Đánh đổi này đúng cho một nhật ký (thao tác của người dùng không phải chờ Sanity đánh chỉ mục), nhưng đừng kỳ vọng đọc lại ngay trong cùng một request.
 - Phần **thuần** (`auditDay`, `actionLabel`, kiểu dữ liệu) tách sang `adminAuditFormat.ts` vì `adminAudit.ts` import `next/headers` nên **không nạp được ngoài Next** — cùng lý do khiến `adminAuth.ts` cố ý không import gì ngoài `node:crypto`.
+
+## Biến môi trường trên Vercel (rà soát 2026-08-21)
+
+Đã đối chiếu **23 biến** code chạm tới với danh sách thật trên Vercel. **Không thiếu cái nào code cần.** Trang rà soát: `/admin/cron-check` (trước đây chỉ soi 6 biến, nay soi hết, nhóm theo hậu quả).
+
+⚠️ **Vercel gắn biến vào lúc DEPLOY.** Xoá hay sửa một biến trên dashboard **không có tác dụng gì** với bản đang chạy — nó chỉ vỡ ở lần deploy kế tiếp, và đúng lúc đó thì không ai nói được vì sao. Hệ quả thực dụng: **đừng dùng "production vẫn chạy tốt" làm bằng chứng rằng biến còn đủ.** `/admin/cron-check` đọc `process.env` của chính bản đang chạy nên nó nói thật về bản đó — đầu trang có dòng cảnh báo nhắc đúng điều này.
+
+Bốn nhóm, xếp theo hậu quả chứ không theo tên:
+
+- **Thiếu là hỏng ngay (5)** — `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, `SANITY_API_TOKEN`, `AUTH_SECRET`, `AUTH_PEPPER`
+- **Thiếu là hỏng âm thầm (11)** — `AUTH_BACKUP_KEY`, `CRON_SECRET`, `ANTHROPIC_API_KEY`, 4 biến Sentry, 3 biến GA4, `GSC_SITE_URL`
+- **Để trống cũng được (7)** — `ANTHROPIC_MODEL`, `LINK_CHECK_BATCH_SIZE`, `IMPORT_AI_STORE_CAP`, `AI_CONTENT_*`. Chưa từng đặt trên Vercel, đúng như thiết kế
+- **Đã chết (2)** — `ADMIN_USERNAME`, `ADMIN_PASSWORD`, đã xoá 21/08
+
+Ghi chú khi đọc bảng trên Vercel: nó **sắp xếp theo thời điểm sửa, không theo bảng chữ cái**, và gộp cả Production/Preview/Development vào một bảng — một biến chỉ đặt cho Preview trông y hệt biến đã có cho Production. Dò bằng mắt trong bảng đó là cách chắc chắn bỏ sót; dùng ô Search hoặc `npx vercel env ls production`.
