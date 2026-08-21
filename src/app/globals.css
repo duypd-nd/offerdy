@@ -1059,8 +1059,12 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 /* ── ADMIN SIDEBAR LAYOUT ── */
 .adm-root{display:flex;min-height:100vh;font-family:system-ui,sans-serif}
 .adm-sidebar{width:228px;background:#0f172a;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.08) transparent}
-.adm-logo{display:block;padding:18px 16px 16px;font-size:17px;font-weight:800;color:white;letter-spacing:-.5px;text-decoration:none}
-.adm-logo span{color:#4ade80}
+/* Logo + chu "Admin". `width:auto` tren <img> la bat buoc: next/image dat san
+   width/height that cua file (480x124) lam thuoc tinh, nen chi dat height thoi
+   se lam anh bi keo bep. */
+.adm-logo{display:flex;align-items:center;gap:7px;padding:18px 16px 16px;font-size:13px;font-weight:800;color:white;letter-spacing:-.2px;text-decoration:none}
+.adm-logo img{width:112px;height:auto}
+.adm-logo span{color:#4ade80;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
 .adm-view-site{display:flex;align-items:center;gap:6px;margin:0 16px 16px;padding:8px 12px;font-size:12px;font-weight:700;color:#4ade80;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);border-radius:7px;text-decoration:none;transition:background .15s}
 .adm-view-site:hover{background:rgba(74,222,128,.18)}
 .adm-nav{flex:1;padding:6px 0 8px;border-top:1px solid rgba(255,255,255,.07)}
@@ -1127,8 +1131,9 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
   .adm-root{display:block}
   .adm-topbar{display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:60;background:#0f172a;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
   .adm-burger{display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:none;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer}
-  .adm-topbar-logo{flex:1;min-width:0;font-size:16px;font-weight:800;color:#fff;text-decoration:none;letter-spacing:-.4px}
-  .adm-topbar-logo span{color:#4ade80}
+  .adm-topbar-logo{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#fff;text-decoration:none}
+  .adm-topbar-logo img{width:96px;height:auto}
+  .adm-topbar-logo span{color:#4ade80;text-transform:uppercase;letter-spacing:.06em}
   .adm-sidebar{position:fixed;top:0;left:0;bottom:0;z-index:80;width:262px;height:100dvh;transform:translateX(-100%);transition:transform .2s ease}
   .adm-sidebar--open{transform:none}
   .adm-scrim{display:block;position:fixed;inset:0;z-index:70;border:none;padding:0;background:rgba(2,6,23,.55);cursor:pointer}
@@ -1474,10 +1479,10 @@ a.cc-store-nm:hover{color:var(--green-dark)}
   font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 .lg-card{width:100%;max-width:400px;background:#fff;border-radius:14px;padding:32px 28px;
   box-shadow:0 20px 50px -20px rgba(0,0,0,.5)}
-.lg-brand{display:flex;align-items:center;gap:12px;margin-bottom:26px}
-.lg-mark{width:40px;height:40px;border-radius:10px;background:#16a34a;color:#fff;
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex:none}
-.lg-title{margin:0;font-size:18px;font-weight:700;color:#0f172a}
+.lg-brand{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:26px}
+/* `width:auto` — xem chu thich o .adm-logo img */
+.lg-logo{width:172px;height:auto}
+.lg-title{margin:0;font-size:14px;font-weight:600;color:#64748b}
 .lg-sub{margin:2px 0 0;font-size:13px;color:#64748b}
 .lg-form{display:flex;flex-direction:column}
 .lg-label{font-size:13px;font-weight:600;color:#334155;margin-bottom:6px}

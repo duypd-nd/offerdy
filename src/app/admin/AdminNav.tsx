@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
@@ -173,7 +174,8 @@ export default function AdminNav({ badges = {}, role }: { badges?: Record<string
           </svg>
         </button>
         <Link href="/admin" className="adm-topbar-logo" onClick={closeDrawer}>
-          Offerdy<span>Admin</span>
+          <Image src="/logo-offerdy-light.png" alt="Offerdy" width={480} height={124} priority />
+          <span>Admin</span>
         </Link>
         {/* Huy hieu tong: menu dong lai khong duoc phep giau het viec dang cho */}
         <Badge count={totalBadge} tone="amber" />
@@ -183,7 +185,13 @@ export default function AdminNav({ badges = {}, role }: { badges?: Record<string
 
       <aside className={`adm-sidebar${drawerOpen ? ' adm-sidebar--open' : ''}`}>
       <Link href="/admin" className="adm-logo" onClick={closeDrawer}>
-        Offerdy<span>Admin</span>
+        {/* ⚠️ Ban CHU TRANG. Thanh ben nen #0f172a, ma chu "fferd" trong logo goc
+            la mau navy gan den — de nguyen thi no bien mat han. Ban nay doi chu
+            do thanh trang va GIU nguyen mau xanh thuong hieu; xem
+            .scratch/make-logo-assets.mjs. Dung `filter: invert()` cua CSS thi
+            nhanh hon nhung se bien luon mau xanh thanh hong. */}
+        <Image src="/logo-offerdy-light.png" alt="Offerdy" width={480} height={124} priority />
+        <span>Admin</span>
       </Link>
 
       <a href="/" target="_blank" rel="noopener noreferrer" className="adm-view-site">

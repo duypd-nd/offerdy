@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import LoginForm from './LoginForm'
 import { currentAdmin } from '@/lib/adminSession'
@@ -47,11 +48,19 @@ export default async function LoginPage({
     <div className="lg-wrap">
       <div className="lg-card">
         <div className="lg-brand">
-          <span className="lg-mark">O</span>
-          <div>
-            <h1 className="lg-title">Offerdy Admin</h1>
-            <p className="lg-sub">Khu quản trị nội bộ</p>
-          </div>
+          {/* Ban MAU GOC — the dang nhap nen trang. Ban chu trang
+              (`logo-offerdy-light.png`) danh cho thanh ben nen toi. */}
+          <Image
+            src="/logo-offerdy.png"
+            alt="Offerdy"
+            width={480}
+            height={124}
+            className="lg-logo"
+            // Anh lon nhat va duy nhat cua trang nay — de tai lazy thi chinh no
+            // tro thanh do tre lon nhat ma nguoi dung nhin thay.
+            priority
+          />
+          <h1 className="lg-title">Khu quản trị nội bộ</h1>
         </div>
 
         {missing.length > 0 ? (
