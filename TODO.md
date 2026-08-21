@@ -2,7 +2,19 @@
 
 ## ⏸️ ĐIỂM DỪNG 2026-08-21 — đọc trước khi làm gì
 
-✅ **ĐÃ PUSH VÀ DEPLOY — production đang chạy `76570b6`.** 6 commit. Kiểm từ ngoài sau deploy (~70 giây): 7 trang công khai 200 · `/admin` 307 → đăng nhập · `/admin/audit` 307 kèm `?next=` · `/api/cron/vault-backup` 401 khi không có `CRON_SECRET` · trang đăng nhập không cảnh báo thiếu cấu hình.
+✅ **ĐÃ PUSH VÀ DEPLOY — production đang chạy `c953b08`.**
+
+🐛 **Sửa lỗi thật trên toàn bộ 107 trang store (tối 21/08).** Nội dung "About" lưu ở Sanity có nhúng một `<script>` do `aboutTemplate.ts` sinh ra; nó leo lên **mọi thẻ cha tới `<body>`** ép `border/padding/background` bằng `!important`.
+
+- **Lỗi hydration** trên mọi trang store — đã đo bằng CDP, đọc DOM hai lần (chặn JS / để chạy) nên biết chắc là DOM bị sửa chứ không phải React sai.
+- **Nặng hơn**: `.sol-layout` có `padding:32px 24px 80px` bị ép về 0. Màn rộng thì `max-width:1100px` che mất, nhưng **trên điện thoại nội dung dính sát mép** — nơi phần lớn khách affiliate đến. So ảnh 420px giữa production cũ và bản sửa: lề 20px quay lại.
+- Chữa bằng cách **lọc `<script>` lúc hiển thị** (`src/lib/stripScripts.ts`) chứ không viết lại 107 tài liệu. Khuôn sinh nội dung cũng bỏ script, việc nó làm nay do một dòng CSS.
+- Đã kiểm **trên production**: 0 lỗi hydration, 0 thông báo console.
+- 📌 Nội dung cũ trong Sanity vẫn còn đoạn script — vô hại vì đã lọc lúc hiển thị, nhưng dọn thì sạch hơn.
+
+🎨 **Logo Offerdy** ở thanh bên, thanh trên và trang đăng nhập. Hai bản: màu gốc cho nền trắng, bản chữ trắng cho nền `#0f172a` (giữ nguyên màu xanh thương hiệu). Thu từ 427 KB xuống 21 KB — bắt buộc, vì `imageLoader.ts` cố ý không đưa ảnh trong `/public` qua bộ tối ưu.
+
+⚠️ **ESLint chỉ sai chỗ**: nó cảnh báo `setState-in-effect` ở `StoreOfferList`/`ExpiringBand`/`FlashSalesContent`, nhưng cả ba dùng ĐÚNG khuôn chống hydration. Cảnh báo đó là về hiệu năng, không phải sai lệch server/client. Đừng "sửa" chúng vì tưởng là thủ phạm. 6 commit. Kiểm từ ngoài sau deploy (~70 giây): 7 trang công khai 200 · `/admin` 307 → đăng nhập · `/admin/audit` 307 kèm `?next=` · `/api/cron/vault-backup` 401 khi không có `CRON_SECRET` · trang đăng nhập không cảnh báo thiếu cấu hình.
 
 📌 **Việc user còn nợ**: xoá `ADMIN_USERNAME` và `ADMIN_PASSWORD` khỏi Vercel (đã chết từ hôm qua) · lưu `AUTH_SECRET`, `AUTH_PEPPER`, `AUTH_BACKUP_KEY` vào trình quản lý mật khẩu · chép một file `.enc` ra khỏi máy.
 
