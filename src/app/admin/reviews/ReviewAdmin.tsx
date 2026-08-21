@@ -11,6 +11,7 @@ import { useAdminUrlState } from '../_components/useAdminUrlState'
 import { useUrlPage } from '../_components/useUrlPage'
 import { ADMIN_PAGE_SIZE } from '@/lib/adminPagination'
 import { applyStoreRefToDealUrl, couponForDealUrl, type StoreHostRow } from '@/lib/dealStoreMatch'
+import { deriveProductName } from '@/lib/reviewProductName'
 
 type FaqItem = { question: string; answer: string }
 type ProsAndCons = { pros: string[]; cons: string[] }
@@ -18,7 +19,7 @@ type ProsAndCons = { pros: string[]; cons: string[] }
 type AdminReview = {
   _id: string; title: string; slug: string; tag: string; author?: string
   publishedAt?: string; excerpt?: string; content?: string; imageUrl?: string; _createdAt: string
-  stars?: number; imgBg?: string; productUrl?: string; affiliateUrl?: string; couponCode?: string
+  stars?: number; imgBg?: string; productName?: string; productUrl?: string; affiliateUrl?: string; couponCode?: string
   faq?: FaqItem[]; prosAndCons?: ProsAndCons; metaTitle?: string; metaDescription?: string
 }
 
@@ -210,6 +211,7 @@ function ReviewModal({ mode, initial, storeHosts = [], onClose, onSaved, onDelet
     stars: initial?.stars ? String(initial.stars) : '',
     imgBg: initial?.imgBg ?? '',
     metaTitle: initial?.metaTitle ?? '', metaDescription: initial?.metaDescription ?? '',
+    productName: initial?.productName ?? '',
     productUrl: initial?.productUrl ?? '', affiliateUrl: initial?.affiliateUrl ?? '',
     couponCode: initial?.couponCode ?? '',
     faqText: faqToText(initial?.faq),
@@ -372,6 +374,7 @@ function ReviewModal({ mode, initial, storeHosts = [], onClose, onSaved, onDelet
         externalImageUrl: (!image && form.externalImageUrl) ? form.externalImageUrl : null,
         stars: form.stars ? Number(form.stars) : null,
         imgBg: form.imgBg || null,
+        productName: form.productName || null,
         productUrl: form.productUrl || null,
         affiliateUrl: form.affiliateUrl || null,
         couponCode: form.couponCode || null,
@@ -388,6 +391,7 @@ function ReviewModal({ mode, initial, storeHosts = [], onClose, onSaved, onDelet
         content: data.content ?? undefined,
         stars: data.stars ?? undefined,
         imgBg: data.imgBg ?? undefined,
+        productName: data.productName ?? undefined,
         productUrl: data.productUrl ?? undefined,
         affiliateUrl: data.affiliateUrl ?? undefined,
         couponCode: data.couponCode ?? undefined,
@@ -543,6 +547,15 @@ function ReviewModal({ mode, initial, storeHosts = [], onClose, onSaved, onDelet
               </div>
             </label>
           </div>
+
+          {/* Tên SẢN PHẨM, không phải tên bài. Google đọc trường này trong dữ liệu
+              có cấu trúc; để trống thì suy ra từ tiêu đề bằng cách cắt đuôi
+              "Review"/"Đánh giá" — xem src/lib/reviewProductName.ts */}
+          <label className="oa-label">Tên sản phẩm (để trống = suy ra từ tiêu đề)
+            <input className="oa-input" value={form.productName}
+              placeholder={form.title ? deriveProductName(form.title) : 'VD: Ghế Dowinx Gaming'}
+              onChange={e => setForm(f => ({ ...f, productName: e.target.value }))} />
+          </label>
 
           <div className="oa-modal-row">
             <label className="oa-label">Link sản phẩm<input className="oa-input" type="url" value={form.productUrl} onChange={e => handleProductUrlChange(e.target.value)} /></label>

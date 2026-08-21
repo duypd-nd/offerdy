@@ -7,6 +7,14 @@ export const reviewType = defineType({
   fields: [
     defineField({ name: 'title', title: 'Title', type: 'string', validation: r => r.required() }),
     defineField({ name: 'slug', title: 'Slug', type: 'slug', options: { source: 'title' }, validation: r => r.required() }),
+    defineField({
+      name: 'productName',
+      title: 'Tên sản phẩm (để trống = suy ra từ tiêu đề)',
+      type: 'string',
+      description:
+        'Tên SẢN PHẨM, không phải tên bài. Google đọc trường này trong dữ liệu có cấu trúc để ' +
+        'đối chiếu với sản phẩm thật ngoài đời. Ví dụ tiêu đề "Ghế Dowinx — Đánh giá" thì đây là "Ghế Dowinx".',
+    }),
     defineField({ name: 'excerpt', title: 'Excerpt', type: 'text', rows: 3, validation: r => r.required() }),
     defineField({ name: 'emoji', title: 'Emoji', type: 'string' }),
     defineField({

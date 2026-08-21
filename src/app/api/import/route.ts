@@ -601,6 +601,11 @@ async function importReviews(rows: ImportRow[], schedule?: Schedule) {
       if (row.imgBg) doc.imgBg = String(row.imgBg)
       if (row.content) doc.content = String(row.content)
       if (row.externalImageUrl) doc.externalImageUrl = String(row.externalImageUrl)
+      // Ten SAN PHAM. De trong thi KHONG suy ra o day — de trang review tu suy
+      // ra luc hien thi (src/lib/reviewProductName.ts). Ghi mot gia tri suy ra
+      // vao kho se lam no dong bang: sau nay cai tien cach suy ra thi cac ban
+      // ghi cu van giu ket qua cu, va khong ai biet cai nao la nguoi nhap.
+      if (row.productName) doc.productName = String(row.productName).trim()
       if (row.productUrl) doc.productUrl = String(row.productUrl)
       if (row.affiliateUrl) doc.affiliateUrl = String(row.affiliateUrl)
       const pros = row.pros ? linesToList(String(row.pros)) : []

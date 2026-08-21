@@ -8,6 +8,7 @@ import FaqAccordion from '@/components/FaqAccordion'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
 import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor, getStoreRefForUrl, getStoreRefForHtml, getDealCoupon } from '@/sanity/queries'
 import { reviews as staticReviews } from '@/data/reviews'
+import { productNameOf } from '@/lib/reviewProductName'
 
 export const revalidate = 60
 
@@ -79,23 +80,52 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
   const reviewJsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
+      /*
+       * SAN PHAM lam nut chinh, BAI DANH GIA long ben trong.
+       *
+       * ⚠️ Truoc day nguoc lai: nut `Review` o ngoai, `itemReviewed` la mot
+       * `Product` chi co `name` + `image`. Search Console bao dung chu:
+       *
+       *   Product snippets — "Either offers, review, or aggregateRating
+       *   should be specified"  (do 2026-08-21 qua API Kiem tra URL)
+       *
+       * Mot `Product` tran nhu vay khong du dieu kien cho ket qua nhieu dinh
+       * dang. Ba cach thoa dieu kien, va chi mot cach dung voi du lieu dang co:
+       *
+       *   offers          — KHONG DUOC: review khong co truong gia. Bia gia de
+       *                     lam xanh mot canh bao la khai lech gia voi Google.
+       *   aggregateRating — KHONG DUOC: no ham y NHIEU nguoi cham. O day chi co
+       *                     mot diem bien tap, dung no la noi doi.
+       *   review          — DUNG: chinh bai danh gia nay. Va day cung la khuon
+       *                     mau Google tu dua ra cho trang danh gia san pham.
+       *
+       * `Review snippets` (ngoi sao) VAN hop le sau khi doi — no von da hop le
+       * truoc do, va viec long vao trong Product khong lam mat no.
+       */
       {
-        '@type': 'Review',
-        name: review.title,
-        reviewBody: review.excerpt ?? undefined,
-        reviewRating: { '@type': 'Rating', ratingValue: review.stars, bestRating: 5, worstRating: 1 },
-        author: authorName
-          ? { '@type': 'Person', name: authorName, url: `${BASE}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined }
-          : { '@type': 'Organization', name: 'Offerdy', url: BASE },
-        itemReviewed: {
-          '@type': 'Product',
+        '@type': 'Product',
+        '@id': `${BASE}/reviews/${slug}#product`,
+        // Ten SAN PHAM, khong phai tieu de bai. Khong san pham nao ten ket thuc
+        // bang chu "Review" — xem src/lib/reviewProductName.ts
+        name: productNameOf(review),
+        image: review.imageUrl ?? undefined,
+        // ⚠️ KHONG dat `url` tro sang trang san pham cua shop. Khuon mau Google
+        // dua ra cho trang danh gia khong co truong do, va tro ket qua nhieu
+        // dinh dang sang mot ten mien khac la rui ro khong can thiet. Link tiep
+        // thi da nam trong noi dung trang, dung cho cua no.
+        review: {
+          '@type': 'Review',
           name: review.title,
-          image: review.imageUrl ?? undefined,
+          reviewBody: review.excerpt ?? undefined,
+          reviewRating: { '@type': 'Rating', ratingValue: review.stars, bestRating: 5, worstRating: 1 },
+          author: authorName
+            ? { '@type': 'Person', name: authorName, url: `${BASE}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined }
+            : { '@type': 'Organization', name: 'Offerdy', url: BASE },
+          datePublished: review.date ?? undefined,
+          dateModified: review.updatedAt ?? review.date ?? undefined,
+          url: `${BASE}/reviews/${slug}`,
+          publisher: { '@type': 'Organization', name: 'Offerdy', url: BASE },
         },
-        datePublished: review.date ?? undefined,
-        dateModified: review.updatedAt ?? review.date ?? undefined,
-        url: `${BASE}/reviews/${slug}`,
-        publisher: { '@type': 'Organization', name: 'Offerdy', url: BASE },
       },
       {
         '@type': 'BreadcrumbList',

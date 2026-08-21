@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 const QUERY = `*[_type == "review"] | order(publishedAt desc, _createdAt desc) {
   _id, title, "slug": slug.current, tag, author, publishedAt, excerpt, content,
-  stars, imgBg, productUrl, affiliateUrl, couponCode, faq, prosAndCons, metaTitle, metaDescription,
+  stars, imgBg, productName, productUrl, affiliateUrl, couponCode, faq, prosAndCons, metaTitle, metaDescription,
   "imageUrl": coalesce(image.asset->url, externalImageUrl), _createdAt
 }`
 

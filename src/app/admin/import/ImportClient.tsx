@@ -95,6 +95,7 @@ const REVIEWS_COLS = [
   { key: 'imgBg',            required: false, note: 'CSS gradient nền, VD: linear-gradient(135deg,#f00,#00f)' },
   { key: 'content',          required: false, note: 'Nội dung review, hỗ trợ HTML' },
   { key: 'externalImageUrl', required: false, note: 'URL ảnh cover — ưu tiên hơn emoji nếu có' },
+  { key: 'productName',      required: false, note: '🏷️ Tên SẢN PHẨM, không phải tên bài. Google đọc ô này trong dữ liệu có cấu trúc để đối chiếu với sản phẩm thật. Để trống = tự suy ra từ title bằng cách cắt đuôi "Review"/"Đánh giá"' },
   { key: 'productUrl',       required: false, note: 'Link sản phẩm gốc' },
   { key: 'affiliateUrl',     required: false, note: 'Link affiliate cho nút CTA & link trong bài — để trống = dùng productUrl' },
   { key: 'pros',             required: false, note: 'Ưu điểm, mỗi ý 1 dòng trong ô (Alt+Enter để xuống dòng)' },
