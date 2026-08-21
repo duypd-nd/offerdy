@@ -9,6 +9,7 @@ import { getStoreBySlug, getOffersByStore, getDealsByStore, getConfigContent, ty
 import FaqAccordion from '@/components/FaqAccordion'
 import AffiliateLink from '@/components/AffiliateLink'
 import CouponAlertForm from './CouponAlertForm'
+import { stripScripts } from '@/lib/stripScripts'
 
 export const revalidate = 60
 
@@ -330,7 +331,11 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
             {/* About */}
             <div className="sol-about">
               <h2 className="sol-about-title">About {store.name}</h2>
-              <div className="sol-about-body" dangerouslySetInnerHTML={{ __html: aboutHtml }} />
+              {/* ⚠️ PHAI qua stripScripts(). Noi dung "About" luu o Sanity cua
+                  ca 107 store deu co mot doan <script> do aboutTemplate.ts sinh
+                  ra; no leo len tung the cha va ep style bang !important, lam
+                  HONG HYDRATION tren moi trang store. Xem src/lib/stripScripts.ts. */}
+              <div className="sol-about-body" dangerouslySetInnerHTML={{ __html: stripScripts(aboutHtml) }} />
             </div>
 
             {/* Pros & Cons */}

@@ -49,7 +49,12 @@ export function renderAboutHtml(storeName: string, about: AboutContent): string 
 .abs-intro-text{font-size:14px;color:#5a5a7a;line-height:1.75;margin:0}
 .abs-intro-text strong{color:#1a1a2e}
 @media(max-width:540px){.abs-grid{grid-template-columns:1fr}.abs-intro{flex-direction:column}}
-</style>
+/* ⚠️ TRUOC DAY viec nay do mot doan <script> o cuoi file lam: no leo nguoc len
+   TUNG THE CHA cho toi <body> va ep border/box-shadow/background/padding bang
+   !important. Cach do lam HONG HYDRATION tren ca 107 trang store — no sua chinh
+   nhung nut DOM ma React so huu, sau khi may chu da dung xong HTML.
+   Nay lam bang CSS, va chi cham DUNG the boc, khong leo len dau ca. */
+.sol-about-body:has(.abs-wrap){padding:0;border:none;background:transparent}
 
 <div class="abs-wrap">
 
@@ -69,20 +74,5 @@ ${cardsHtml}
 </div>
 
 </div>
-
-<script>
-(function(){
-  var el=document.querySelector('.abs-wrap');
-  if(!el)return;
-  var p=el.parentElement;
-  while(p&&p.tagName!=='BODY'){
-    p.style.setProperty('border','none','important');
-    p.style.setProperty('box-shadow','none','important');
-    p.style.setProperty('background','transparent','important');
-    p.style.setProperty('border-radius','0','important');
-    p.style.setProperty('padding','0','important');
-    p=p.parentElement;
-  }
-})();
-</script>`
+`
 }
