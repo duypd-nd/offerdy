@@ -72,3 +72,37 @@ export function decryptJson<T>(payload: string | undefined, encKey: Buffer): T |
     return JSON.parse(out.toString('utf8')) as T
   } catch { return null }
 }
+
+/**
+ * Khoa ma hoa BAN SAO LUU — dan xuat tu MOT bi mat KHAC han `AUTH_PEPPER`.
+ *
+ * ⚠️ Day la ly do ton tai cua ca tinh nang sao luu. Neu ban sao duoc ma hoa bang
+ * chinh `AUTH_PEPPER` thi mat mot khoa la mat CA ban goc lan ban sao — tuc la
+ * khong sao luu gi ca, chi nhan doi cung mot diem chet.
+ *
+ * Ban sao co chua CHINH `AUTH_PEPPER` ben trong (xem src/lib/adminBackup.ts).
+ * Do la cach duy nhat de "mat AUTH_PEPPER" tro thanh mot su co khoi phuc duoc:
+ * mo ban sao bang `AUTH_BACKUP_KEY`, lay pepper cu ra, dat lai. Neu khong co no
+ * thi ban sao chi khoi phuc duoc danh sach tai khoan ma khong ai dang nhap
+ * duoc — ban bam mat khau da tron pepper cu roi.
+ */
+export const MIN_BACKUP_KEY_LENGTH = 32
+
+export type BackupKeyResult =
+  | { ok: true; key: Buffer }
+  | { ok: false; error: string }
+
+export function deriveBackupKey(master: string | undefined, authPepper: string | undefined): BackupKeyResult {
+  if (!master) return { ok: false, error: 'Thiếu AUTH_BACKUP_KEY.' }
+  if (master.trim().length < MIN_BACKUP_KEY_LENGTH) {
+    return { ok: false, error: `AUTH_BACKUP_KEY phải dài ít nhất ${MIN_BACKUP_KEY_LENGTH} ký tự.` }
+  }
+  // Vong chan quan trong nhat o day. Dat hai bien bang nhau la mot loi de mac
+  // (sao chep dong .env cho nhanh) va hoan toan im lang: moi thu van chay, ban
+  // sao van ghi, chi la no vo gia tri. Tu choi thang.
+  if (authPepper && master.trim() === authPepper.trim()) {
+    return { ok: false, error: 'AUTH_BACKUP_KEY trùng AUTH_PEPPER — bản sao sẽ chết cùng bản gốc. Đặt giá trị khác.' }
+  }
+  const key = Buffer.from(hkdfSync('sha256', master.trim(), 'offerdy-admin-backup-v1', 'vault-backup-encryption', 32))
+  return { ok: true, key }
+}

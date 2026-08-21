@@ -49,3 +49,11 @@ next-env.d.ts
 # Bao cao sinh tu dong (npm run triage:dead). Cac file .md trong .scratch/ la
 # issue tracker cua du an nen VAN duoc theo doi — chi bo qua ban ket xuat.
 .scratch/*.json
+
+# Ban sao luu kho tai khoan quan tri (npm run vault:backup).
+# ⚠️ Moi file .enc o day co gia tri ngang toan bo quyen quan tri: no chua
+# AUTH_PEPPER va ban bam mat khau, ma hoa bang AUTH_BACKUP_KEY. KHONG BAO GIO
+# commit. Cat ban that o cho khac may nay.
+/backups/
+# ⚠️ Va bat cu file .enc nao o bat cu dau — chung deu la ban sao kho tai khoan.
+*.enc

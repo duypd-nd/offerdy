@@ -11,6 +11,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node scripts/run-tests.mjs",
+    "vault:backup": "node scripts/vault-backup.mjs",
+    "vault:restore": "node scripts/vault-restore.mjs",
     "check:ga4": "node scripts/check-ga4.mjs",
     "check:gsc": "node scripts/check-gsc.mjs",
     "triage:dead": "node scripts/dead-pages-triage.mjs"

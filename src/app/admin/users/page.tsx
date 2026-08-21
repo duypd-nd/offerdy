@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import UsersAdmin from './UsersAdmin'
 import { requireOwner, listAdminUsers } from '@/lib/adminSession'
+import { vaultBackupStatus } from '@/lib/adminVaultBackup'
 
 export const metadata: Metadata = { title: 'Người dùng — Offerdy Admin' }
 export const dynamic = 'force-dynamic'
@@ -12,5 +13,10 @@ export default async function UsersPage() {
   const me = await requireOwner()
   const users = await listAdminUsers()
 
-  return <UsersAdmin users={users} meId={me.id} />
+  // ⚠️ Trang thai sao luu hien ngay canh danh sach tai khoan — CO CHU DINH.
+  // Day la trang duy nhat noi nguoi van hanh nghi ve tai khoan quan tri, nen la
+  // cho duy nhat "ban sao gan nhat da 5 ngay" khong the bi bo qua.
+  const backup = await vaultBackupStatus()
+
+  return <UsersAdmin users={users} meId={me.id} backup={backup} />
 }

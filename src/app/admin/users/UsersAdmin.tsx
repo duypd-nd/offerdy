@@ -4,10 +4,47 @@ import { useState, useTransition } from 'react'
 import { ROLES, ROLE_LABEL, ROLE_DESCRIPTION, MIN_PASSWORD_LENGTH, type AdminRole } from '@/lib/adminAuth'
 import { createUser, setRole, setActive, resetPassword, deleteUser, type ActionResult } from './actions'
 import type { AdminUser } from '@/lib/adminSession'
+// `import type` bi xoa hoan toan luc bien dich, nen module `server-only` kia
+// khong bao gio di vao goi client.
+import type { BackupStatus } from '@/lib/adminVaultBackup'
 
 const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : '—')
 
-export default function UsersAdmin({ users, meId }: { users: AdminUser[]; meId: string }) {
+/**
+ * Bang thong bao trang thai sao luu.
+ *
+ * ⚠️ Vi sao no phai nam ngay tren danh sach tai khoan: toan bo tai khoan quan
+ * tri nam trong MOT tai lieu Sanity. Sao luu hong ma khong ai biet thi chi lo ra
+ * dung luc can dung den — luc do thi da muon. Du an nay cung da co ba cron chet
+ * im lang 18 ngay trong khi dashboard bao "Enabled"; mot dong chu o trang ma
+ * nguoi van hanh von da mo la thu duy nhat khong bo qua duoc.
+ */
+function BackupBanner({ backup }: { backup: BackupStatus }) {
+  if (!backup.configured) {
+    return (
+      <p className="usr-err" role="status">
+        <b>Chưa bật sao lưu kho tài khoản.</b> {backup.configError}{' '}
+        Đặt <code>AUTH_BACKUP_KEY</code> (khác <code>AUTH_PEPPER</code>) rồi chạy <code>npm run vault:backup</code>.
+      </p>
+    )
+  }
+  if (!backup.latestAt) {
+    return (
+      <p className="usr-err" role="status">
+        <b>Chưa có bản sao nào.</b> Mất tài liệu <code>adminVault</code> lúc này là mất vĩnh viễn mọi tài khoản.
+        Chạy <code>npm run vault:backup</code>.
+      </p>
+    )
+  }
+  return (
+    <p className={backup.stale ? 'usr-warn' : 'usr-backup-ok'} role="status">
+      {backup.stale ? '⚠️ ' : ''}Sao lưu gần nhất: <b>{fmt(backup.latestAt)}</b> · {backup.count} ô trong Sanity
+      {backup.stale && ' — đã quá 48 giờ, bản sao hằng đêm có thể đã hỏng.'}
+    </p>
+  )
+}
+
+export default function UsersAdmin({ users, meId, backup }: { users: AdminUser[]; meId: string; backup: BackupStatus }) {
   const [msg, setMsg] = useState<ActionResult | null>(null)
   const [pending, start] = useTransition()
   const [showNew, setShowNew] = useState(users.length === 0)
@@ -26,6 +63,8 @@ export default function UsersAdmin({ users, meId }: { users: AdminUser[]; meId: 
           {showNew ? 'Đóng' : '+ Thêm người dùng'}
         </button>
       </header>
+
+      <BackupBanner backup={backup} />
 
       {msg && (
         <p className={msg.ok ? 'usr-ok' : 'usr-err'} role="status" aria-live="polite">
