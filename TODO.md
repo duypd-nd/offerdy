@@ -57,7 +57,7 @@ Mỗi tài khoản có `sessionVersion`, cookie mang `sv`, `checkSession()` đ�
 
 Thiếu `sessionVersion`/`sv` đọc thành 0, nên **không ai bị đá ra lúc deploy**.
 
-⚠️ **Chưa kiểm đầu-cuối trên trình duyệt** — cần mật khẩu thật nên user phải tự làm: đăng nhập ở hai trình duyệt, đổi mật khẩu ở cái này, tải lại cái kia → phải bị đá về trang đăng nhập kèm dòng *"Mật khẩu hoặc quyền của bạn vừa được đổi"*. Nếu thay vào đó là **vòng lặp chuyển hướng**, đó là lỗi ở `checkSession()` — trang đăng nhập và `requireAdmin()` phải dùng chung đúng hàm đó.
+✅ **User đã kiểm đầu-cuối trên trình duyệt thật 21/08**: đăng nhập hai trình duyệt, đổi mật khẩu ở một bên → bên kia bị đá về trang đăng nhập, **không có vòng lặp chuyển hướng**. Nhật ký cũng hiện đúng.
 
 ---
 
