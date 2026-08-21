@@ -28,6 +28,13 @@ import path from 'node:path'
 import { createSign } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { createClient } from 'next-sanity'
+import { catThoatAnToan } from './_vault.mjs'
+
+// ⚠️ THAY CHO thoat(). Tren Windows + Node 24, goi thoat() SAU
+// khi da fetch() lam Node sap voi UV_HANDLE_CLOSING va tra ma thoat 127 —
+// thong bao loi van in ra nhung kem mot dong sap kho hieu, va moi thu doc ma
+// thoat deu hieu sai. Xem chu thich o scripts/_vault.mjs.
+const thoat = catThoatAnToan()
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
@@ -65,7 +72,7 @@ const privateKey = unquote(env.GA4_PRIVATE_KEY).replace(/\\n/g, '\n').trim()
 const site = unquote(env.GSC_SITE_URL)
 if (!clientEmail || !privateKey || !site) {
   console.error('Thieu GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY / GSC_SITE_URL. Chay `npm run check:gsc` truoc.')
-  process.exit(1)
+  thoat(1)
 }
 const b64 = i => Buffer.from(i).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const iat = Math.floor(Date.now() / 1000)
@@ -79,7 +86,7 @@ const tokenBody = await (await fetch(TOKEN_URL, {
 })).json()
 if (!tokenBody.access_token) {
   console.error('Google tu choi cap token:', tokenBody.error_description ?? tokenBody.error)
-  process.exit(1)
+  thoat(1)
 }
 
 // ── 2. Moi URL Google tung hien thi trong cua so ─────────────────
@@ -96,7 +103,7 @@ const res = await fetch(
 )
 if (!res.ok) {
   console.error(`Search Console tra HTTP ${res.status}:`, (await res.text()).slice(0, 300))
-  process.exit(1)
+  thoat(1)
 }
 const pages = ((await res.json()).rows ?? []).map(r => ({
   url: r.keys[0], clicks: r.clicks ?? 0, impressions: r.impressions ?? 0, position: r.position ?? 0,

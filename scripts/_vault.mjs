@@ -159,3 +159,35 @@ export async function run(main) {
     process.exitCode = 1
   }
 }
+
+/**
+ * Loi thoat cho script KHONG duoc viet theo kieu boc trong `run()`.
+ *
+ * `run()`/`stop()` o tren doi than script nam trong mot ham. Voi script da co
+ * san hang tram dong o cap cao nhat (check-ga4, check-gsc, dead-pages-triage)
+ * thi boc lai nghia la thut le ca file — ma cac file do co template literal
+ * trai dai nhieu dong, thut le vao trong do la doi ca chu in ra man hinh.
+ *
+ * Cach nay dat duoc cung ket qua ma khong dung toi bo cuc: dat `process.exitCode`
+ * roi nem mot loi rieng, va dang ky san bo bat de Node khong coi do la su co.
+ * Co bo bat thi Node KHONG tu ket thuc tien trinh — vong lap su kien can dan
+ * roi thoat em tham voi dung ma da dat.
+ *
+ * Do that 2026-08-21 (Node 24, Windows): goi truoc mot `fetch()` roi `thoat(1)`
+ * -> ma thoat 1, khong stack, khong dong sap. Con `process.exit(1)` o cung cho
+ * -> "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)" va ma thoat 127.
+ */
+class DungLai extends Error {}
+
+export function catThoatAnToan() {
+  const boQua = e => {
+    if (e instanceof DungLai) return          // thoat co chu dinh, khong phai su co
+    console.error(e)
+    process.exitCode = 1
+  }
+  process.on('uncaughtException', boQua)
+  process.on('unhandledRejection', boQua)
+
+  /** Thay cho `process.exit(code)`. Dung ngay tai cho, khong chay tiep. */
+  return (code = 1) => { process.exitCode = code; throw new DungLai() }
+}

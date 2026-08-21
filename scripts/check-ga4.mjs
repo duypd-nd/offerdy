@@ -13,6 +13,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createSign } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { catThoatAnToan } from './_vault.mjs'
+
+// ⚠️ THAY CHO thoat(). Tren Windows + Node 24, goi thoat() SAU
+// khi da fetch() lam Node sap voi UV_HANDLE_CLOSING va tra ma thoat 127 —
+// thong bao loi van in ra nhung kem mot dong sap kho hieu, va moi thu doc ma
+// thoat deu hieu sai. Xem chu thich o scripts/_vault.mjs.
+const thoat = catThoatAnToan()
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
@@ -56,7 +63,7 @@ if (fail) {
   hint('GA4_PROPERTY_ID la so o Admin → Property details (KHONG phai ma G-XXXXXXX)')
   hint('GA4_CLIENT_EMAIL = truong "client_email" trong file JSON')
   hint('GA4_PRIVATE_KEY = truong "private_key", dan nguyen ca chuoi \\n')
-  process.exit(1)
+  thoat(1)
 }
 
 // ── 2. Dinh dang tung gia tri ────────────────────────────────────
@@ -75,30 +82,30 @@ const privateKey = unquote(env.GA4_PRIVATE_KEY).replace(/\\n/g, '\n').trim()
 if (/^G-/i.test(propertyId)) {
   bad(`GA4_PROPERTY_ID dang la "${propertyId}" — day la Measurement ID, khong phai Property ID`)
   hint('Property ID la mot day SO (vi du 412345678), xem o Admin → Property details')
-  process.exit(1)
+  thoat(1)
 }
 if (!/^\d+$/.test(propertyId)) {
   bad(`GA4_PROPERTY_ID phai toan chu so, dang co "${propertyId}"`)
-  process.exit(1)
+  thoat(1)
 }
 ok(`Property ID hop le: ${propertyId}`)
 
 if (!clientEmail.includes('@') || !clientEmail.endsWith('.iam.gserviceaccount.com')) {
   bad(`GA4_CLIENT_EMAIL trong khong giong email service account: ${clientEmail}`)
   hint('Phai co dang <ten>@<du-an>.iam.gserviceaccount.com')
-  process.exit(1)
+  thoat(1)
 }
 ok(`Client email hop le: ${clientEmail}`)
 
 if (!privateKey.includes('BEGIN PRIVATE KEY')) {
   bad('GA4_PRIVATE_KEY khong chua "-----BEGIN PRIVATE KEY-----"')
   hint('Dan nguyen truong "private_key" tu file JSON, ke ca dong BEGIN/END')
-  process.exit(1)
+  thoat(1)
 }
 if (!privateKey.includes('\n')) {
   bad('GA4_PRIVATE_KEY chi co mot dong, khong co xuong dong nao')
   hint('Giu nguyen cac ky tu \\n trong chuoi — code se tu doi lai thanh xuong dong')
-  process.exit(1)
+  thoat(1)
 }
 ok('Khoa rieng dung dinh dang PEM')
 
@@ -116,7 +123,7 @@ try {
 } catch (e) {
   bad(`Khong ky duoc JWT: ${e.message}`)
   hint('Khoa rieng bi hong hoac cat mat mot phan khi dan')
-  process.exit(1)
+  thoat(1)
 }
 
 const tokenRes = await fetch(TOKEN_URL, {
@@ -129,7 +136,7 @@ if (!tokenRes.ok || !tokenBody.access_token) {
   bad(`Google tu choi cap token (HTTP ${tokenRes.status})`)
   hint(`Google noi: ${tokenBody.error ?? '?'} — ${tokenBody.error_description ?? 'khong ro'}`)
   if (tokenBody.error === 'invalid_grant') hint('Thuong la sai khoa rieng, hoac dong ho may lech nhieu')
-  process.exit(1)
+  thoat(1)
 }
 ok('Google cap access token')
 
@@ -202,7 +209,7 @@ if (!reportRes.ok) {
     hint('Chua bat API: Google Cloud → APIs & Services → bat "Google Analytics Data API"')
   }
   if (reportRes.status === 404) hint(`Khong thay property ${propertyId} — kiem tra lai so nay`)
-  process.exit(1)
+  thoat(1)
 }
 ok('Data API tra so lieu')
 

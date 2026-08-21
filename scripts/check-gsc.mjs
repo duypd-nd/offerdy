@@ -17,6 +17,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createSign } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { catThoatAnToan } from './_vault.mjs'
+
+// ⚠️ THAY CHO thoat(). Tren Windows + Node 24, goi thoat() SAU
+// khi da fetch() lam Node sap voi UV_HANDLE_CLOSING va tra ma thoat 127 —
+// thong bao loi van in ra nhung kem mot dong sap kho hieu, va moi thu doc ma
+// thoat deu hieu sai. Xem chu thich o scripts/_vault.mjs.
+const thoat = catThoatAnToan()
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
@@ -52,7 +59,7 @@ const privateKey = unquote(env.GA4_PRIVATE_KEY).replace(/\\n/g, '\n').trim()
 if (!clientEmail || !privateKey) {
   bad('Chua co GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY')
   hint('Search Console dung CHUNG service account voi GA4. Chay `npm run check:ga4` truoc.')
-  process.exit(1)
+  thoat(1)
 }
 ok(`Service account: ${clientEmail}`)
 
@@ -66,7 +73,7 @@ try {
   assertion = `${unsigned}.${b64(createSign('RSA-SHA256').update(unsigned).sign(privateKey))}`
 } catch (e) {
   bad(`Khong ky duoc JWT: ${e.message}`)
-  process.exit(1)
+  thoat(1)
 }
 const tokenRes = await fetch(TOKEN_URL, {
   method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -75,7 +82,7 @@ const tokenRes = await fetch(TOKEN_URL, {
 const tokenBody = await tokenRes.json().catch(() => ({}))
 if (!tokenBody.access_token) {
   bad(`Google tu choi cap token: ${tokenBody.error_description ?? tokenBody.error ?? tokenRes.status}`)
-  process.exit(1)
+  thoat(1)
 }
 ok('Google cap access token (pham vi webmasters.readonly)')
 
@@ -92,7 +99,7 @@ if (!sitesRes.ok) {
     hint('Chua bat API. Bat o day roi chay lai:')
     hint('https://console.cloud.google.com/apis/library/searchconsole.googleapis.com')
   }
-  process.exit(1)
+  thoat(1)
 }
 const sites = (sitesBody.siteEntry ?? []).map(s => s.siteUrl)
 ok('Search Console API tra loi')
@@ -102,7 +109,7 @@ if (!sites.length) {
   hint('search.google.com/search-console → chon property → Settings (Cai dat)')
   hint('→ Users and permissions → Add user')
   hint(`→ ${clientEmail}  ·  quyen Full hoac Restricted deu doc duoc`)
-  process.exit(1)
+  thoat(1)
 }
 console.log('\n  Property doc duoc:')
 for (const s of sites) console.log(`     ${s}`)
@@ -113,13 +120,13 @@ if (!site) {
   bad('Chua dat GSC_SITE_URL')
   hint('Dat dung MOT trong cac gia tri o tren, vi du:')
   for (const s of sites) hint(`   GSC_SITE_URL=${s}`)
-  process.exit(1)
+  thoat(1)
 }
 if (!sites.includes(site)) {
   bad(`GSC_SITE_URL="${site}" khong nam trong danh sach tren`)
   hint('Phai khop TUNG KY TU — ke ca dau "/" o cuoi va tien to sc-domain:')
   for (const s of sites) hint(`   GSC_SITE_URL=${s}`)
-  process.exit(1)
+  thoat(1)
 }
 ok(`GSC_SITE_URL khop: ${site}`)
 
@@ -137,7 +144,7 @@ const res = await fetch(
 const body = await res.json().catch(() => ({}))
 if (!res.ok) {
   bad(`Truy van so lieu that bai (HTTP ${res.status}): ${body?.error?.message?.slice(0, 180)}`)
-  process.exit(1)
+  thoat(1)
 }
 ok('Doc duoc so lieu tim kiem')
 
