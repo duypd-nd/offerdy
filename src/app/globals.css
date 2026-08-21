@@ -1583,3 +1583,5 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .vid-canh-chu em{font-size:12px;color:#64748b;font-style:italic}
 .vid-nut{display:flex;gap:10px;margin-top:14px}
 @media(max-width:900px){.vid-cot{grid-template-columns:1fr}.vid-ds{max-height:320px}}
+.vid-dem{font-size:12px;color:#64748b;margin:0 0 8px}
+.vid-dem b{color:#334155}

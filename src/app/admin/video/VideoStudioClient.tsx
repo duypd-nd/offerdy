@@ -13,7 +13,7 @@ import type { DealChon } from './page'
  * bản về. Từ chối rõ ràng còn hơn để người dùng bấm một nút chạy 60 giây rồi
  * nhận một lỗi không hiểu nổi.
  */
-export default function VideoStudioClient({ deals }: { deals: DealChon[] }) {
+export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: DealChon[]; soThieuAnh?: number }) {
   const [tim, setTim] = useState('')
   const [chon, setChon] = useState<DealChon | null>(null)
   const [kq, setKq] = useState<KetQuaPhanTich | null>(null)
@@ -69,11 +69,22 @@ export default function VideoStudioClient({ deals }: { deals: DealChon[] }) {
       <div className="vid-cot">
         {/* ── Chọn deal ── */}
         <div>
-          <input className="oa-search" style={{ width: '100%', marginBottom: 10 }}
+          <input className="oa-search" style={{ width: '100%', marginBottom: 8 }}
             placeholder="Tìm deal theo tên, shop hoặc mã…"
             value={tim} onChange={e => setTim(e.target.value)} />
+
+          {/* Nói rõ đang hiện bao nhiêu trên bao nhiêu. Một danh sách bị cắt mà
+              không báo gì là cách chắc chắn để người dùng tưởng kho chỉ có
+              chừng đó — đúng lỗi trang này mắc lúc đầu. */}
+          <p className="vid-dem">
+            {tim.trim()
+              ? <>Khớp <b>{loc.length}</b> trong {deals.length} deal</>
+              : <>Tất cả <b>{deals.length}</b> deal có ảnh và có link sản phẩm</>}
+            {soThieuAnh > 0 && <> · {soThieuAnh} deal không có ảnh nên không tạo video được</>}
+          </p>
+
           <div className="vid-ds">
-            {loc.slice(0, 60).map(d => (
+            {loc.map(d => (
               <button key={d.code} className={`vid-deal${chon?.code === d.code ? ' vid-deal--chon' : ''}`}
                 onClick={() => phanTich(d)} disabled={dang}>
                 {d.imageUrl
