@@ -38,8 +38,24 @@ export type Scene = {
   image: string
   duration: number
   kenBurns: 'in' | 'out'
+  /**
+   * Nhan ngan cho trang admin. ⚠️ KHONG duoc ve len video — chu tren man hinh
+   * lay tu `voiceText` de khop voi giong doc. Giu truong nay vi danh sach canh
+   * o `/admin/video` can mot dong ngan doc luot qua duoc.
+   */
   overlayText: string
+  /** Cau doc len. Cung la chu hien tren man (phu de). */
   voiceText?: string
+  /**
+   * Ban danh RIENG cho may doc, khi khac voi chu tren man.
+   *
+   * ⚠️ Ton tai vi hai ben can hai dang khac nhau cua CUNG mot cau: man hinh can
+   * `$49.95` va `OFFERDY`, con may doc can "49 dollars 95" va "O F F E R D Y".
+   * Truoc day chi co mot truong nen man hinh phai chiu dang cua may doc.
+   */
+  speakText?: string
+  /** Chu LON, ve giua anh va phu de. Chi dung cho canh cuoi (% giam, ma, CTA). */
+  badgeText?: string
   couponBadge?: string
   priceBadge?: { sale?: string; orig?: string }
 }
@@ -116,14 +132,18 @@ export function buildSpec(input: {
     them('offer', {
       image: lay(images.length - 1), duration: 4,
       overlayText: `${deal.discount}% OFF`,
+      badgeText: `${deal.discount}% OFF`,
       priceBadge: { sale: deal.priceSale, orig: deal.priceOrig },
-      voiceText: `Right now it is ${docGia(deal.priceSale)}, down from ${docGia(deal.priceOrig)}.`,
+      voiceText: `Right now it is ${deal.priceSale}, down from ${deal.priceOrig}.`,
+      speakText: `Right now it is ${docGia(deal.priceSale)}, down from ${docGia(deal.priceOrig)}.`,
     })
   } else if (deal.priceSale) {
     them('offer', {
       image: lay(images.length - 1), duration: 3.4,
       overlayText: String(deal.priceSale).trim(),
-      voiceText: `It is ${docGia(deal.priceSale)}.`,
+      badgeText: String(deal.priceSale).trim(),
+      voiceText: `It is ${deal.priceSale}.`,
+      speakText: `It is ${docGia(deal.priceSale)}.`,
     })
   }
 
@@ -138,14 +158,17 @@ export function buildSpec(input: {
     them('coupon', {
       image: lay(0), duration: 5,
       overlayText: `CODE\n${ma}`,
+      badgeText: `CODE\n${ma}`,
       couponBadge: ma,
-      voiceText: `${shop} currently has the code ${danhVan(ma)}. Worth trying at checkout.`,
+      voiceText: `${shop} currently has the code ${ma}. Worth trying at checkout.`,
+      speakText: `${shop} currently has the code ${danhVan(ma)}. Worth trying at checkout.`,
     })
   }
 
   them('cta', {
     image: lay(1), duration: 4,
     overlayText: 'SHOP NOW\nLINK IN BIO',
+    badgeText: 'SHOP NOW\nLINK IN BIO',
     voiceText: "Tap the link to check today's price.",
   })
 

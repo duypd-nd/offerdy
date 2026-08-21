@@ -31,6 +31,17 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
+// ⚠️ HAI HANG SO NAY PHAI NAM O DAU FILE, khong duoc de canh ham dung chung.
+//
+// `main()` chay o cap cao nhat cua module. Khai bao `function` duoc keo len nen
+// goi duoc tu bat cu dau, nhung `const` thi KHONG — no nam trong vung chet cho
+// toi khi cau lenh khai bao chay xong, tuc SAU khi `main()` da ket thuc. De
+// `const boNhoKichThuoc` o cuoi file thi `docKichThuoc()` no ra "Cannot access
+// before initialization" ngay canh dau tien. Du an da mac dung loi nay mot lan
+// o `video-spec.mjs`.
+const CO_CHU = [96, 88, 80, 72, 64, 58, 52, 46, 40]
+const boNhoKichThuoc = new Map()
+
 const ok = m => console.log(`  \x1b[32m✓\x1b[0m ${m}`)
 const bad = m => console.log(`  \x1b[31m✗\x1b[0m ${m}`)
 const info = m => console.log(`    ${m}`)
@@ -134,7 +145,11 @@ async function main(specPath) {
   const coTieng = scenes.some(s => s.voiceText) && provider !== 'none'
   if (coTieng) {
     const { docThanhTep } = await import('./tts.mjs')
-    const cauCanDoc = scenes.filter(s => s.voiceText).map(s => s.voiceText)
+    // ⚠️ `speakText` truoc `voiceText`: man hinh can `$49.95`, may doc can
+    // "49 dollars 95". Lay nham thi giong doc phat "dollar forty nine point
+    // nine five" — dung chu nhung nghe nhu may doc bang gia.
+    const loiDoc = s => s.speakText || s.voiceText
+    const cauCanDoc = scenes.filter(s => s.voiceText).map(loiDoc)
     const soKyTu = cauCanDoc.reduce((n, c) => n + c.length, 0)
     // ⚠️ Noi TRUOC se tieu bao nhieu. Khoa ElevenLabs cua du an khong doc duoc
     // han muc (401 missing_permissions), nen day la con so duy nhat ta co.
@@ -143,7 +158,7 @@ async function main(specPath) {
     let moi = 0, dem = 0
     for (const [i, s] of scenes.entries()) {
       if (!s.voiceText) continue
-      const { tep, giay, tuDem } = await docThanhTep(s.voiceText, path.join(viec, `tieng-${i}`), {
+      const { tep, giay, tuDem } = await docThanhTep(loiDoc(s), path.join(viec, `tieng-${i}`), {
         provider, giong: spec.voice?.voice, rate: spec.voice?.rate ?? 0,
       }).catch(e => { throw new Error(`Doc scene ${s.id ?? i + 1}: ${e.message}`) })
       tuDem ? dem++ : moi++
@@ -169,32 +184,81 @@ async function main(specPath) {
       ? `'min(zoom+0.0006,1.14)'`
       : `'if(eq(on,1),1.14,max(zoom-0.0006,1.0))'`
 
+    // ⚠️ KHUNG ANH PHAI GIU DUNG TI LE GOC.
+    //
+    // Do that 2026-08-22: `zoompan ... s=920x920` ep MOI anh thanh hinh vuong,
+    // bat ke anh goc la 3:4 hay 16:9. Mot cai balo cao 1200 rong 800 bi keo
+    // ngang thanh beo ra — nguoi xem thay mot mon do khac han mon ho se nhan.
+    // Doi voi mot trang affiliate thi do khong phai loi tham my, do la mo ta
+    // sai hang.
+    //
+    // Nen: hoi ffprobe kich thuoc that, roi tinh khung vua khit theo ti le do.
+    // `s=` cua zoompan lam ca viec cat lan viec doi kich thuoc, nen chi can
+    // khung co cung ti le voi anh la khong con bien dang.
+    const { w: aw, h: ah } = await docKichThuoc(s._anh)
+    const hop = s.badgeText ? 720 : 920
+    const boxW = chan(aw >= ah ? hop : Math.round((hop * aw) / ah))
+    const boxH = chan(aw >= ah ? Math.round((hop * ah) / aw) : hop)
+    // Phong lon TRUOC khi zoompan (canh dai ~2200): zoompan lam tron toa do ve
+    // so nguyen nen o kich thuoc nho no giat thay ro.
+    const he = 2200 / Math.max(boxW, boxH)
+    const day = s.badgeText ? 300 : 170
+
     const loc = [
       // Nen: chinh anh do, phu kin khung, lam mo va toi di
       `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},boxblur=42:2,eq=brightness=-0.16:saturation=0.7[bg]`,
-      // Anh san pham: phong lon roi moi zoompan
-      `[0:v]scale=2200:-1[to]`,
-      `[to]zoompan=z=${zoom}:d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=920x920:fps=${FPS}[sp]`,
-      `[bg][sp]overlay=(W-w)/2:(H-h)/2-170[nen]`,
+      // Anh san pham: phong lon roi moi zoompan, khung dung ti le goc
+      `[0:v]scale=${chan(Math.round(boxW * he))}:${chan(Math.round(boxH * he))}[to]`,
+      `[to]zoompan=z=${zoom}:d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${boxW}x${boxH}:fps=${FPS}[sp]`,
+      `[bg][sp]overlay=(W-w)/2:(H-h)/2-${day}[nen]`,
     ]
 
-    // Chu tren man: moi dong mot lenh drawtext, canh giua
-    const { dong, coChu } = chiaDong(String(s.overlayText ?? ''), W)
+    // ── Chu tren man ────────────────────────────────────────────────
+    //
+    // ⚠️ Phu de lay tu `voiceText`, KHONG tu `overlayText`. Truoc day man hinh
+    // hien mot khau hieu 2-4 chu trong khi giong doc noi mot cau khac han —
+    // nguoi xem doc mot dang va nghe mot dang. Phan lon nguoi xem TikTok de may
+    // im tieng, nen chu tren man moi la thu ho thuc su "nghe".
+    //
+    // ⚠️ VA VI THE CHU DI QUA FILE, khong nhet thang vao chuoi filter.
+    //
+    // Khau hieu IN HOA 2-4 chu khong bao gio co dau nhay. Cau noi thi co: ngay
+    // canh dau tien cua deal #1470 la "your arms just can't hold your baby" —
+    // va no lam vo ca filtergraph. Bo phan tich cua ffmpeg boc escape HAI LOP
+    // (mot lop cho filtergraph, mot lop cho tham so filter), nen dem dau `\`
+    // cho dung la viec de sai, va sai kieu im lang: xem `chay()` o tren, du an
+    // da tra gia mot lan voi ky tu `%`.
+    //
+    // `textfile=` bo han lop do. Chu nam trong mot tep UTF-8, khong ky tu nao
+    // can escape nua — dau nhay, hai cham, phan tram, gach cheo deu binh thuong.
+    // Ten tep la ten tran trong thu muc viec nen cung khong dinh dau hai cham
+    // cua duong dan Windows.
     let nhan = '[nen]'
-    dong.forEach((d, k) => {
-      const ra = k === dong.length - 1 ? '[chu]' : `[chu${k}]`
-      loc.push(
-        // ⚠️ `expansion=none` la BAT BUOC, khong phai tuy chon. Mac dinh drawtext
-        // coi `%` la mo dau cho cu phap `%{...}`; gap `%` don le no bao "Stray %"
-        // roi BO CA DONG CHU ma van tra ma thoat 0. Ma "50% OFF" chinh la cau
-        // quan trong nhat cua mot video deal. Tat han co che do di.
-        `${nhan}drawtext=fontfile=font.ttf:text='${thoatChu(d)}':expansion=none:` +
-        `fontcolor=white:fontsize=${coChu}:borderw=6:bordercolor=black@0.55:` +
-        `x=(w-text_w)/2:y=h-560+${k * Math.round(coChu * 1.23)}${ra}`
-      )
-      nhan = ra
-    })
-    if (!dong.length) loc.push(`[nen]null[chu]`)
+    let dem = 0
+    const veChu = (chu, { toiDaCoChu, y, vien }) => {
+      const { dong, coChu } = chiaDong(String(chu ?? ''), W, toiDaCoChu)
+      dong.forEach((d, k) => {
+        const ten = `chu-${i}-${dem}.txt`
+        fs.writeFileSync(path.join(viec, ten), d, 'utf8')
+        const ra = `[chu${dem++}]`
+        loc.push(
+          // `expansion=none`: mac dinh drawtext coi `%` la mo dau cho cu phap
+          // `%{...}`; gap `%` don le no bao "Stray %" roi BO CA DONG CHU ma van
+          // tra ma thoat 0. Ma "50% OFF" chinh la cau quan trong nhat cua mot
+          // video deal. Tat han co che do di.
+          `${nhan}drawtext=fontfile=font.ttf:textfile=${ten}:expansion=none:` +
+          `fontcolor=white:fontsize=${coChu}:borderw=${vien}:bordercolor=black@0.6:` +
+          `x=(w-text_w)/2:y=${y}+${k * Math.round(coChu * 1.24)}${ra}`
+        )
+        nhan = ra
+      })
+    }
+
+    // Chu lon cua canh cuoi (% giam, ma giam gia, CTA) nam giua anh va phu de
+    if (s.badgeText) veChu(s.badgeText, { toiDaCoChu: 92, y: 'h-830', vien: 8 })
+    veChu(s.voiceText, { toiDaCoChu: 68, y: 'h-560', vien: 6 })
+
+    loc.push(`${nhan}null[chu]`)
 
     await chay([
       '-y', '-loop', '1', '-t', String(s.duration), '-i', s._anh,
@@ -288,15 +352,14 @@ async function main(specPath) {
  * Segoe UI Bold rong trung binh ~0,55 lan co chu. Uoc luong the la du: chi can
  * biet dong nao chac chan khong vua, roi ngat hoac thu nho.
  */
-function chiaDong(chu, W) {
+function chiaDong(chu, W, toiDaCoChu = 96) {
   const leHai = 90
   const rongDung = W - leHai * 2
-  const dongGoc = chu.split('\n').map(s => s.trim()).filter(Boolean)
-  if (!dongGoc.length) return { dong: [], coChu: 96 }
+  const dongGoc = String(chu ?? '').split('\n').map(s => s.trim()).filter(Boolean)
+  if (!dongGoc.length) return { dong: [], coChu: toiDaCoChu }
 
-  for (const coChu of [96, 84, 74, 64, 56]) {
-    const rongMotKyTu = coChu * 0.55
-    const toiDa = Math.floor(rongDung / rongMotKyTu)
+  const thu = (coChu, gioiHan) => {
+    const toiDa = Math.floor(rongDung / (coChu * 0.55))
     const ra = []
     for (const d of dongGoc) {
       if (d.length <= toiDa) { ra.push(d); continue }
@@ -309,25 +372,51 @@ function chiaDong(chu, W) {
       }
       if (hienTai) ra.push(hienTai)
     }
-    // Toi da 3 dong: hon nua thi che mat san pham va khong ai doc kip trong 4 giay
-    if (ra.length <= 3 && ra.every(d => d.length <= toiDa)) return { dong: ra, coChu }
+    return ra.length <= gioiHan && ra.every(d => d.length <= toiDa) ? ra : null
   }
-  // Van khong vua: cat cung o co nho nhat, con hon de tran ra ngoai khung
-  const toiDa = Math.floor(rongDung / (56 * 0.55))
-  return { dong: dongGoc.slice(0, 3).map(d => d.slice(0, toiDa)), coChu: 56 }
+
+  // Uu tien CO CHU LON trong it dong. Chi khi khong co co chu nao vua 3 dong
+  // moi cho phep 4 dong, roi 5 — thay vi thu nho mai den luc khong ai doc noi.
+  for (const gioiHan of [3, 4, 5]) {
+    for (const coChu of CO_CHU) {
+      if (coChu > toiDaCoChu) continue
+      const ra = thu(coChu, gioiHan)
+      if (ra) return { dong: ra, coChu }
+    }
+  }
+  // ⚠️ Dung han, KHONG cat cut. Ban cu cat chu cho vua khung — tuc giao mot
+  // video co cau noi do dang ma khong bao gi ca, dung kieu that bai im lang ma
+  // `chay()` da phai chan o tren. Cau qua dai thi sua kich ban, dung sua chu.
+  throw new Error(`Chu qua dai, khong co co chu nao vua 5 dong: "${dongGoc.join(' ').slice(0, 80)}"`)
 }
 
 /**
- * Thoat ky tu cho `drawtext`.
+ * Hoi ffprobe kich thuoc that cua mot anh.
  *
- * ⚠️ KHONG thoat `%`. Da thu ca ba cach (`\%`, `%%`, de nguyen) va CA BA deu bao
- * "Stray %" roi bo mat dong chu. Cach duy nhat chay duoc la `expansion=none` o
- * chinh lenh drawtext — xem cho goi ham nay. Them `\` vao truoc `%` chi lam
- * hong them.
+ * Bat buoc phai hoi, khong doan duoc: anh cao tu trang shop co du ti le —
+ * vuong 1:1, doc 3:4, ngang 16:9 — va dung chung mot khung cho tat ca chinh la
+ * cai loi bop meo san pham.
  */
-function thoatChu(s) {
-  return String(s)
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\\\\\'")
-    .replace(/:/g, '\\:')
+/** Lam tron ve so chan — H.264 doi chieu rong chia het cho 2. */
+function chan(n) { return n % 2 ? n + 1 : n }
+
+function docKichThuoc(tep) {
+  if (boNhoKichThuoc.has(tep)) return Promise.resolve(boNhoKichThuoc.get(tep))
+  return new Promise((res, rej) => {
+    const p = spawn('ffprobe', [
+      '-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height', '-of', 'csv=p=0:s=x', tep,
+    ])
+    let ra = ''
+    p.stdout.on('data', d => { ra += d })
+    p.on('error', rej)
+    p.on('close', ma => {
+      const m = ra.trim().match(/^(\d+)x(\d+)/)
+      if (ma !== 0 || !m) return rej(new Error(`ffprobe khong doc duoc kich thuoc anh: ${tep}`))
+      const kq = { w: +m[1], h: +m[2] }
+      boNhoKichThuoc.set(tep, kq)
+      res(kq)
+    })
+  })
 }
+

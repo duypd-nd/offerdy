@@ -123,7 +123,11 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
                     <Image src={s.image} alt="" width={54} height={54} className="vid-canh-anh" unoptimized />
                     <div className="vid-canh-chu">
                       <b>{s.type} · {s.duration}s</b>
-                      <span>{s.overlayText.replace(/\n/g, ' / ')}</span>
+                      {/* Chữ LON trên màn — chỉ ba cảnh cuối mới có */}
+                      {s.badgeText && <span>{s.badgeText.replace(/\n/g, ' / ')}</span>}
+                      {/* Phụ đề = đúng câu đọc lên. Không hiện `overlayText` ở đây nữa:
+                          nó không được vẽ lên video, mà một bản xem trước cho thấy thứ
+                          không có trên video thì tệ hơn là không xem trước. */}
                       {s.voiceText && <em>“{s.voiceText}”</em>}
                     </div>
                   </div>

@@ -142,3 +142,44 @@ test('màn cuối có cả lời mời mua lẫn chỉ dẫn tìm link', () => {
   assert.match(cta.overlayText, /SHOP NOW/)
   assert.match(cta.overlayText, /LINK IN BIO/)
 })
+
+// ── Chữ trên màn khớp với giọng đọc ────────────────────────────────
+//
+// ⚠️ Màn hình và máy đọc cần HAI DẠNG khác nhau của cùng một câu: người xem cần
+// thấy `$49.95` và `OFFERDY`, còn máy đọc cần "49 dollars 95" và "O F F E R D Y".
+// Trước đây chỉ có một trường nên màn hình phải chịu dạng của máy đọc.
+
+test('cảnh giá: màn hình hiện giá thật, máy đọc đọc thành lời', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  const offer = scenes.find(s => s.type === 'offer')!
+  assert.match(offer.voiceText!, /\$49\.95/)
+  assert.match(offer.voiceText!, /\$89\.95/)
+  assert.match(offer.speakText!, /49 dollars 95/)
+  assert.ok(!/\$/.test(offer.speakText!), offer.speakText)
+  assert.equal(offer.badgeText, '44% OFF')
+})
+
+test('cảnh mã: màn hình hiện mã nguyên, máy đọc đánh vần', () => {
+  const { scenes } = buildSpec({
+    deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY', storeName: 'BloomingBabies',
+  })
+  const ma = scenes.find(s => s.type === 'coupon')!
+  assert.match(ma.voiceText!, /code OFFERDY\b/)
+  assert.match(ma.speakText!, /O F F E R D Y/)
+  assert.match(String(ma.badgeText), /OFFERDY/)
+})
+
+test('nhịp do AI viết KHÔNG có bản riêng cho máy đọc — nghe sao thấy vậy', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  for (const s of scenes.filter(s => NHIP.some(b => b.type === s.type))) {
+    assert.equal(s.speakText, undefined, s.type)
+  }
+})
+
+test('chỉ ba cảnh cuối có chữ lớn; cảnh kể chuyện chỉ có phụ đề', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY' })
+  assert.deepEqual(
+    scenes.filter(s => s.badgeText).map(s => s.type),
+    ['offer', 'coupon', 'cta'],
+  )
+})
