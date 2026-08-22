@@ -1,5 +1,87 @@
 # Offerdy — TODO
 
+# 🔖 ĐIỂM DỪNG NGÀY 2026-08-23 — ĐỌC MỤC NÀY TRƯỚC
+
+**Mọi thứ đã commit và push. `main` ở `13d8018`, không còn gì lơ lửng.**
+Dev server đang chạy ở `http://localhost:3000` (kiểm: `/admin/login` trả 200).
+Có **5 tiến trình node, 3,5 GB** — nếu máy chậm thì tắt bớt, nhưng **đừng giết hết
+`node.exe`**, lọc theo `.nextdevbuild` (bẫy cũ đã ghi).
+
+`npm test` **531** · `/admin/video` e2e **28/28** · tải ảnh đầu-cuối **12/12** · build sạch ·
+lint 58 vấn đề (nợ cũ, đo trước-sau y nhau).
+
+---
+
+## Hôm nay làm được gì — 6 commit
+
+| Commit | Việc |
+|---|---|
+| `793c77c` | **Gói đăng bài** ở `/admin/video`: link bio + tệp MP4 + caption TikTok + nút *Đánh dấu đã đăng*, gom một chỗ |
+| `60ef21b` | **Bộ đo video** `npm run video:analyze` + chuyển cảnh riêng cho từng cảnh |
+| `ab4eaf0` | **Học nhịp từ 4 video mẫu** — tách cảnh hình khỏi nhịp lời, phụ đề chạy theo giọng đọc |
+| `ef5abf4` | **Phụ đề một dòng nhiều chữ** bằng ASS/libass, ảnh to hơn, chữ đè lên ảnh |
+| `3fc7d22` | Đưa phụ đề xuống dưới ảnh |
+| `13d8018` | **Sửa giao diện điện thoại bị cắt** + nút tải ảnh (từng ảnh và cả gói .zip) |
+
+Video mẫu đo được: **45,5s → 29,7s**, **4,5s → 1,06s mỗi cảnh** (mẫu 1,11–2,41), cắt cứng
+**0% → 22%**. Xem `out/mau-1470.mp4`.
+
+---
+
+## 📋 MAI LÀM GÌ — theo thứ tự
+
+**1. Anh xem `out/mau-1470.mp4` và nói nhịp đã đúng chưa.** Sáu con số chỉnh được nằm cùng
+một chỗ trong `src/lib/video/videoStyle.ts` (`PHONG_CACH_MAU`): `giayMoiAnh` 1,3 · `daiChuyen`
+0,4 · `soNhipToiDa` 4 · `chuChayCo` 62/1920 · `anhKhung` 1040/1080 · `phuDeCachDay` 300/1920.
+⚠️ Ba con số ảnh–chữ **đi với nhau**: ảnh to thì chữ phải bé và phải đè lên ảnh.
+
+**2. ĐĂNG THỬ MỘT VIDEO LÊN TIKTOK.** Việc đáng giá nhất, và đã hoãn ba ngày. Giờ chỉ còn ba
+nút Chép ở `/admin/video`. Đăng xong bấm *Đánh dấu đã đăng*, 24–48 tiếng sau mở
+`/admin/reports` xem nhãn `video` — **lần đầu tiên dự án có số đo cho một kênh ngoài Google.**
+
+**3. Xác nhận bản đang chạy trên Vercel** (việc cũ chưa xong — tài khoản Vercel nối qua MCP
+không phải tài khoản chứa Offerdy, phải mở bảng điều khiển bằng tay).
+
+**4. Hai lỗi dữ liệu chờ anh quyết**: store tên **"You are now leaving the internet.Get ready
+to find your fit."** và store **"Yazv -"** thừa dấu gạch ngang.
+
+**5. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
+
+### Còn nợ, đã biết nhưng chưa sửa
+
+- `/admin/social-kit`: hai khối **rỗng** tràn ra ngoài khung điện thoại (419px và 260px) —
+  không mất nội dung đọc được nào nên để lại.
+- `/admin/reports`: 26 phần tử tràn, nhưng đều nằm trong khối cắt-có-dấu-ba-chấm, tức **cố ý**.
+- Vai **Chỉ xem** tải được từng ảnh (GET) nhưng không tải được cả gói (POST) — luật "vai chỉ
+  xem không được POST" chặn, và **cố ý không đục lỗ**.
+- Bố cục nhiều lớp của template CapCut (thẻ bay, khung viền, ảnh trong ảnh) **không dựng lại
+  được bằng `xfade`** — muốn giống hẳn phải viết chuỗi `overlay` riêng cho từng phần tử.
+
+### 📌 Việc của anh, không tự động hoá được
+
+Xoay bốn khoá API đã dán vào phòng chat (`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`,
+`ELEVENLABS_VOICE_ID`) · lưu `AUTH_SECRET` / `AUTH_PEPPER` / `AUTH_BACKUP_KEY` vào trình quản
+lý mật khẩu · chép một file `.enc` ra khỏi máy · thêm `AUTH_BACKUP_KEY` vào Vercel nếu chưa ·
+xoá `ADMIN_USERNAME`/`ADMIN_PASSWORD` khỏi Vercel.
+
+---
+
+## ⚠️ Năm bẫy trả giá trong hai ngày — đừng mắc lại
+
+1. **Heredoc của bash nuốt dấu gạch chéo ngược — mắc 5 LẦN.** Làm hỏng regex, chữ `đ`, thẻ ASS,
+   và một lần nuốt luôn đoạn TODO đang ghi lại chính cái bẫy đó. **Soạn code hay markdown có
+   escape thì dùng Write/Edit, không bao giờ qua heredoc.**
+2. **`1fr` = `minmax(auto,1fr)`** — `auto` không co dưới min-content, nên một phần tử cứng đầu
+   làm cả lưới tràn, rồi `overflow-x:hidden` xén trong im lặng.
+3. **Phép đo sai còn tệ hơn không đo**: quét `body *` bỏ qua `body`; so mép với container thay
+   vì với khung nhìn → báo "không có gì bị cắt" trong khi trang cắt thật. **Luôn nhìn ảnh chụp.**
+4. **`const` khai báo cuối file nằm trong vùng chết** khi `main()` chạy ở cấp cao nhất module —
+   chính `video-render.mjs` đã ghi cảnh báo này ở đầu file, và vẫn mắc lại.
+5. **Git Bash biến `/admin/video` thành đường dẫn Windows** → `MSYS_NO_PATHCONV=1`.
+
+---
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-23 — admin trên điện thoại + tải ảnh về máy
 
 ### 1. Nguyên nhân thật của "bị cắt" — một chữ trong CSS
