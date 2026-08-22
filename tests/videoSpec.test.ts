@@ -223,3 +223,36 @@ test('chỉ ba cảnh cuối có chữ lớn; cảnh kể chuyện chỉ có ph�
     ['offer', 'coupon', 'cta'],
   )
 })
+
+// ── Ảnh nào vào cảnh giá ───────────────────────────────────────────
+//
+// Đo thật 2026-08-22 trên deal #1470: `scoreImages()` xếp tốt-trước, nên ảnh
+// CUỐI danh sách là ảnh tệ nhất — mà cảnh giá lại đang lấy đúng ảnh đó. Lấy lại
+// một ảnh Claude chấm 1/10 (ảnh lấy lại xếp cuối) là sơ đồ xương chậu lên làm
+// nền cảnh bán hàng quan trọng nhất.
+
+test('cảnh giá lấy ảnh tốt nhất trong số CHƯA dùng, không lấy ảnh cuối', () => {
+  // 6 nhịp dùng hết ảnh 0..5; ảnh 6 là ảnh chưa dùng có điểm cao nhất còn lại,
+  // ảnh 8 là ảnh tệ nhất (vừa được người vận hành lấy lại nên xếp cuối).
+  const anh = ['0.jpg', '1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg', '6.jpg', '7.jpg', 'te-nhat.jpg']
+  const { scenes } = buildSpec({ deal: DEAL, images: anh, beats: NHIP })
+  const offer = scenes.find(s => s.type === 'offer')!
+  assert.equal(offer.image, '6.jpg')
+  assert.notEqual(offer.image, 'te-nhat.jpg')
+})
+
+test('ít ảnh hơn số nhịp thì cảnh giá vẫn có ảnh (quay vòng)', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  const offer = scenes.find(s => s.type === 'offer')!
+  assert.ok(ANH.includes(offer.image), offer.image)
+})
+
+test('không có giá gốc: cảnh giá bán cũng lấy ảnh chưa dùng', () => {
+  const anh = ['0.jpg', '1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg', '6.jpg', 'te-nhat.jpg']
+  const { scenes } = buildSpec({
+    deal: { ...DEAL, priceOrig: undefined, discount: undefined },
+    images: anh, beats: NHIP,
+  })
+  const offer = scenes.find(s => s.type === 'offer')!
+  assert.equal(offer.image, '6.jpg')
+})

@@ -134,6 +134,15 @@ export function buildSpec(input: {
   // viec cat mat mot y ban hang.
   const lay = (i: number) => images[i % images.length]
 
+  // ⚠️ Anh vao canh GIA phai la anh TOT NHAT trong so chua dung, khong phai anh
+  // cuoi danh sach. `scoreImages()` xep tot-truoc (anh ghim, roi diem giam dan),
+  // nen `images[images.length - 1]` chinh la anh TE NHAT — va no lai roi vao dung
+  // canh ban hang quan trong nhat. Do that 2026-08-22 tren deal #1470: sau khi
+  // lay lai mot anh Claude cham 1/10 (anh lay lai xep cuoi), so do xuong chau
+  // nhay len lam nen canh gia. Cac nhip AI da dung het `0..beats.length-1`, nen
+  // `beats.length` la anh dau tien chua dung — cung la anh cao diem nhat con lai.
+  const anhChuaDung = beats.length
+
   const scenes: Scene[] = []
   const them = (type: Scene['type'], s: Omit<Scene, 'id' | 'type' | 'kenBurns'>) =>
     scenes.push({ id: scenes.length + 1, type, kenBurns: scenes.length % 2 ? 'out' : 'in', ...s })
@@ -154,7 +163,7 @@ export function buildSpec(input: {
   // ── Gia: chi noi khi co so THAT ─────────────────────────────────
   if (deal.priceOrig && deal.discount) {
     them('offer', {
-      image: lay(images.length - 1), duration: 4,
+      image: lay(anhChuaDung), duration: 4,
       overlayText: `${deal.discount}% OFF`,
       badgeText: `${deal.discount}% OFF`,
       priceBadge: { sale: deal.priceSale, orig: deal.priceOrig },
@@ -163,7 +172,7 @@ export function buildSpec(input: {
     })
   } else if (deal.priceSale) {
     them('offer', {
-      image: lay(images.length - 1), duration: 3.4,
+      image: lay(anhChuaDung), duration: 3.4,
       overlayText: String(deal.priceSale).trim(),
       badgeText: String(deal.priceSale).trim(),
       voiceText: `It is ${deal.priceSale}.`,

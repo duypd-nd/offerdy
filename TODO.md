@@ -1,5 +1,64 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-22 (trưa) — bảng ảnh đã lái bằng trình duyệt thật
+
+✅ **Việc số 1 của điểm dừng trước ĐÃ XONG.** `/admin/video` giờ đã được lái bằng Chrome
+thật, không phải chỉ `tsc` + `build`: **17/17 phép kiểm đạt**. Kịch bản ở
+`.scratch/video-e2e.mjs`, ảnh màn hình ở `.scratch/video-e2e.png`.
+
+**Cách vào được admin mà không cần mật khẩu** (bộ e2e cũ chết vì tài khoản thử đã bị xoá):
+**ký thẳng một cookie phiên** cho tài khoản chủ có sẵn — đọc `AUTH_SECRET` ở `.env.local`,
+lấy `uid`/`role`/`sessionVersion` từ kho Sanity, HMAC-SHA256 y hệt `signSession()`, rồi
+`Network.setCookie`. Không phải tạo tài khoản rác trong kho thật, không phải biết mật khẩu.
+
+Đã kiểm tận mắt: điểm `x/10` + lý do dưới mỗi ảnh · ảnh AI bỏ bị xám và mờ · bấm bỏ/lấy
+lại **0,5 giây** (không gọi lại AI) · ô link ra đúng `https://www.offerdy.com/d/1470?s=video`
+· nút Chép báo "Đã chép" và **nội dung vào clipboard thật**.
+
+### 🔧 Ảnh màn hình lộ ra một lỗi phép kiểm không bắt được — đã sửa
+
+**Cảnh GIÁ đang lấy đúng ảnh TỆ NHẤT.** `scoreImages()` xếp tốt-trước, mà `buildSpec` lấy
+`images[images.length - 1]` cho cảnh `offer` — tức ảnh cuối = ảnh điểm thấp nhất. Đo thật
+trên deal #1470: lấy lại một ảnh Claude chấm **1/10** (ảnh lấy lại xếp cuối) thì **sơ đồ
+xương chậu** nhảy lên làm nền cảnh bán hàng quan trọng nhất.
+
+Ý định ban đầu của `length - 1` là "lấy một ảnh chưa dùng ở nhịp nào" — viết **trước khi có
+chấm điểm**, và sau khi có chấm điểm thì nó lặng lẽ đổi nghĩa thành "lấy ảnh tệ nhất". Nay
+là `lay(beats.length)`: ảnh đầu tiên chưa dùng, cũng là ảnh **cao điểm nhất còn lại**.
+Thêm 3 test. `npm test` giờ **503**.
+
+⚠️ **Bài học chung**: một chỉ số vị trí (`length - 1`) đúng lúc danh sách chưa có thứ tự,
+sai ngay khi danh sách được sắp xếp. Chỗ nào đánh số theo vị trí thì phải hỏi "danh sách
+này có thứ tự nghĩa gì không".
+
+### 📋 VIỆC TIẾP THEO
+
+**1. Xác nhận bản đang chạy trên Vercel.** Việc cũ chưa xong: tài khoản Vercel nối qua MCP
+không phải tài khoản chứa Offerdy, HTML production không lộ mã bản dựng. Mở bảng điều khiển.
+
+**2. Hai lỗi dữ liệu chờ anh quyết** (không tự sửa vì là dữ liệu thật): một store tên
+**"You are now leaving the internet.Get ready to find your fit."** và một store tên
+**"Yazv -"** thừa dấu gạch ngang.
+
+**3. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
+
+📌 **Việc của anh, không tự động hoá được**: xoay bốn khoá API đã dán vào phòng chat
+(`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`) · lưu
+`AUTH_SECRET` / `AUTH_PEPPER` / `AUTH_BACKUP_KEY` vào trình quản lý mật khẩu · chép một
+file `.enc` ra khỏi máy · thêm `AUTH_BACKUP_KEY` vào Vercel nếu chưa · xoá
+`ADMIN_USERNAME`/`ADMIN_PASSWORD` khỏi Vercel.
+
+### Bẫy đo được trưa nay
+
+- **Clipboard trong Chrome headless đòi trang CÓ FOCUS.** `Browser.grantPermissions` là
+  chưa đủ: thiếu `Emulation.setFocusEmulationEnabled` thì `navigator.clipboard.writeText`
+  bị từ chối, mà `chepLink()` nuốt lỗi có chủ đích nên nút **im lặng giữ nguyên chữ "Chép"**
+  — nhìn hệt như một lỗi thật của trang. Bật focus emulation là đạt ngay.
+- **Số cảnh và thời lượng KHÔNG đổi khi bỏ ảnh** — đây là đúng thiết kế, không phải lỗi:
+  `buildSpec` để kịch bản quyết định số cảnh, ảnh thì quay vòng. Cái đổi ngay là **số ảnh**.
+  Điểm dừng trước ghi kỳ vọng sai chỗ này.
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-22 (sáng) — link đo được + chấm ảnh cho video
 
 ✅ **Kiểm 08:00 XONG.** Sao lưu kho tài khoản chạy đúng: Sanity có **2 ô** (`fri`, `sat`),
