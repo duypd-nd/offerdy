@@ -1,5 +1,80 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-23 — đã đo 4 video mẫu, đã áp vào bộ dựng
+
+### Bốn video mẫu nói gì
+
+Cả bốn đều có watermark CapCut/剪映, và **hai trong bốn là template dựng sẵn** (bố cục nhiều
+lớp: khung viền, thẻ bay, ảnh nằm trong ảnh) — thứ `xfade` không dựng được.
+
+| | Dài | Số cảnh | Giây/cảnh | Cắt cứng | Chữ (từ đỉnh) | Loại |
+|---|---|---|---|---|---|---|
+| 3099 | 17,6s | 15 | 1,18s | 7/14 | 18% | Template tạp chí, khung viền trắng |
+| 5049 | 17,3s | 8 | 2,41s | 1/7 | — | Quay thật, **không có chữ nào** |
+| 5640 | 17,9s | 14 | 1,28s | 0/13 | 50% | Ảnh toàn khung + chữ trang trí |
+| 6335 | 22,3s | 20 | 1,11s | 5/19 | 45% | Template mockup, thẻ bay nền đen |
+
+**Không mẫu nào có phụ đề lời đọc** — cả bốn chạy bằng nhạc + chữ trang trí.
+
+### Đã làm, và kết quả đo lại bằng chính bộ đo đó
+
+| | Mẫu | Ta TRƯỚC | Ta SAU |
+|---|---|---|---|
+| Tổng | 17–22s | 45,5s | **29,7s** |
+| Giây/cảnh | 1,11–2,41 | 4,5 | **1,06** |
+| Cảnh dài nhất | — | — | **2,02s** |
+| Cắt cứng | 0–50% | 0% | **22%** |
+| Chuyển dần | 0,29–0,51s | 0,5s | **0,32s** |
+
+**1. Tách cảnh HÌNH khỏi nhịp LỜI.** Không thể rút cảnh xuống 1,3 giây bằng cách nói nhanh
+hơn — một câu tiếng Anh không đọc xong trong 1,3 giây. Nên ảnh đổi **giữa chừng câu**: giọng
+đọc và phụ đề chạy liền mạch, hình thì cắt. Ảnh lặp lại thoải mái cho đủ lời đọc.
+
+**2. Phụ đề chạy chữ theo giọng đọc** (yêu cầu của anh). Một chữ một lúc, chữ đang đọc **nổi
+lên** rồi thu về cỡ thường. Mốc thời gian là **mốc thật của ElevenLabs** qua đường
+`/with-timestamps` — không phải chia đều.
+
+**3. Phong cách chọn được ở `/admin/video`** — ô "Phong cách" ngay trên danh sách deal, hai
+mục: *Mặc định* (như cũ) và *Theo video mẫu*. Đổi thì trang phân tích lại ngay.
+
+**4. Video ngắn lại 45,5s → 29,7s** bằng cách bớt nhịp: `chonNhip()` **giữ hai đầu, cắt ở
+giữa** — HOOK và SOCIAL PROOF (con số đánh giá thật) luôn còn, BENEFIT ở giữa mới bị bớt.
+
+### ⚠️ Việc CHƯA làm được, nói rõ
+
+- **Bố cục nhiều lớp của template CapCut** (thẻ bay, khung viền, ảnh trong ảnh) — `xfade` chỉ
+  trộn hai khung hình đầy. Muốn giống hẳn phải viết chuỗi `overlay` riêng cho từng phần tử.
+- **Phụ đề vẫn ở 71% từ đỉnh** dù mẫu đặt 18–58%. Đây là quyết định anh đã chốt: giữ phụ đề
+  như hiện tại.
+- **Không tô sáng một chữ NẰM TRONG một dòng** — muốn vậy phải đo được bề rộng từng chữ bằng
+  chính font sẽ vẽ, mà `chiaDong()` chỉ ước lượng `0,55 × cỡ chữ`, sai vài chục pixel khi
+  cộng dồn. Một chữ một lúc thì `drawtext` tự căn giữa, không cần đo gì.
+
+### 📋 VIỆC TIẾP THEO
+
+**1. Anh xem `out/mau-1470.mp4`** rồi nói nhịp đã đúng chưa. Chỉnh được ngay ở
+`PHONG_CACH_MAU` (`src/lib/video/videoStyle.ts`): `giayMoiAnh` 1,3 · `daiChuyen` 0,4 ·
+`soNhipToiDa` 4.
+
+**2. Đăng thử MỘT video lên TikTok** — việc đáng giá nhất, vẫn chưa làm.
+
+**3. Xác nhận bản trên Vercel** · **hai tên store hỏng** · **mốc đo 27/08**.
+
+### Bẫy đo được
+
+- **Gửi PNG cho API vision thì chết cả request**: một khung 640px dạng PNG nặng ~520KB, 80
+  khung thành ~56MB sau base64 — vượt trần 32MB. Lỗi bị hàm nuốt nên bảng số chỉ hiện "không
+  đọc được hiệu ứng" mà không ai biết vì sao. **JPEG nhẹ ~1/10.** Và `judgeTransitions` giờ
+  nhận một hàm `ngheLoi` để nói ra lý do — khác `judgeImages` vốn nuốt lỗi có chủ đích.
+- **Bản đầu chỉ cắt nhỏ cảnh lời đọc** → 18 giây đầu cắt 1,5 giây một lần rồi **12 giây cuối
+  đứng im**, mà 12 giây cuối chính là đoạn bán hàng. Phải cắt cả cảnh giá/mã/CTA.
+- **Vẽ chữ đúng theo mốc thật thì màn hình CHỚP TRẮNG giữa từng chữ** — giọng đọc nào cũng có
+  khe hở 0,03–0,07 giây giữa các tu. Phải kéo hết của chữ này tới đầu của chữ sau.
+- **`mocScene` phải tính SAU bước giọng đọc** — bước đó vừa kéo dài cảnh cho vừa câu nói.
+- **Một câu bị đọc ba lần** nếu cảnh nối thêm vẫn giữ `speakText`; và độ dài phải đo CẢ NHÓM
+  chứ không riêng cảnh đầu, kẻo nhóm dài gấp đôi câu nói.
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-22 (chiều muộn) — bộ đo video mẫu + chuyển cảnh theo từng cảnh
 
 Anh hỏi: *"tôi có 2-3 video mẫu, bạn phân tích được không hay phải dùng công cụ khác rồi

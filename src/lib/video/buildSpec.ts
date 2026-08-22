@@ -92,6 +92,14 @@ export type Scene = {
    * van chay.
    */
   transitionOut?: { type: string; duration: number }
+  /**
+   * Canh nay la phan TIEP THEO cua nhip loi truoc — chi doi anh, khong doi cau.
+   *
+   * ⚠️ Bo dung PHAI khong doc lai `voiceText` o nhung canh nay. Thieu co nay thi
+   * mot cau bi doc hai ba lan chong len nhau, va moi canh lai bi keo dai bang ca
+   * cau — tuc dung ra mot video dai gap ba va noi lap.
+   */
+  tiepNoi?: boolean
 }
 
 export type VideoSpec = {
@@ -132,6 +140,20 @@ export type NhipKichBan = {
 const uocGiay = (chu: string, nhip = 1): number =>
   Math.max(2.6, Math.round((chu.trim().split(/\s+/).length / 2.6 + 0.8) * nhip * 10) / 10)
 
+/**
+ * Cat bot nhip khi phong cach doi video ngan hon.
+ *
+ * ⚠️ GIU HAI DAU, CAT O GIUA. Nhip dau la HOOK (khong co no thi khong ai xem
+ * tiep) va nhip cuoi la SOCIAL PROOF — con so danh gia that, thu duy nhat trong
+ * ca loi doc khong phai loi cua chinh ta. Cat tu cuoi ve la cat mat no. Nhung
+ * BENEFIT o giua thi thua nhat: bo mot y ban hang van con hai y.
+ */
+export function chonNhip<T>(nhip: T[], toiDa: number | null): T[] {
+  if (!toiDa || nhip.length <= toiDa) return nhip
+  if (toiDa <= 1) return nhip.slice(0, 1)
+  return [...nhip.slice(0, toiDa - 1), nhip[nhip.length - 1]]
+}
+
 export function buildSpec(input: {
   deal: DealNguon
   images: string[]
@@ -164,8 +186,7 @@ export function buildSpec(input: {
   // canh ban hang quan trong nhat. Do that 2026-08-22 tren deal #1470: sau khi
   // lay lai mot anh Claude cham 1/10 (anh lay lai xep cuoi), so do xuong chau
   // nhay len lam nen canh gia. Cac nhip AI da dung het `0..beats.length-1`, nen
-  // `beats.length` la anh dau tien chua dung — cung la anh cao diem nhat con lai.
-  const anhChuaDung = beats.length
+  // `nhipDung.length` la anh dau tien chua dung — cung la anh cao diem nhat con lai.
 
   const scenes: Scene[] = []
   const them = (type: Scene['type'], s: Omit<Scene, 'id' | 'type' | 'kenBurns'>) =>
@@ -175,7 +196,15 @@ export function buildSpec(input: {
   //
   // Anh so 0 la anh trong kho (nguoi van hanh da chon) nen de o canh dau; tu
   // canh thu hai tro di lay lan luot cac anh cao tu trang san pham.
-  beats.forEach((b, i) => {
+  //
+  // ⚠️ MOT NHIP LOI CO THE TRAI RA NHIEU CANH HINH. Do 4 video mau TikTok:
+  // 1,1-2,4 giay moi canh, trong khi mot nhip cua ta dai 4,5 giay vi do la thoi
+  // gian doc xong mot cau. Khong the noi nhanh gap ba, nen ANH phai doi giua
+  // chung cau: giong doc va phu de chay lien mach, hinh thi cat. Anh lap lai tu
+  // dau khi het — mot anh xuat hien lai o canh sau van hon la de mot canh dai
+  // gap ba nhip cat cua mau.
+  const nhipDung = chonNhip(beats, pc.soNhipToiDa)
+  nhipDung.forEach((b, i) => {
     them(b.type, {
       image: lay(i),
       duration: uocGiay(b.voiceText, pc.nhipCanh),
@@ -187,7 +216,7 @@ export function buildSpec(input: {
   // ── Gia: chi noi khi co so THAT ─────────────────────────────────
   if (deal.priceOrig && deal.discount) {
     them('offer', {
-      image: lay(anhChuaDung), duration: 4,
+      image: lay(nhipDung.length), duration: 4,
       overlayText: `${deal.discount}% OFF`,
       badgeText: `${deal.discount}% OFF`,
       priceBadge: { sale: deal.priceSale, orig: deal.priceOrig },
@@ -196,7 +225,7 @@ export function buildSpec(input: {
     })
   } else if (deal.priceSale) {
     them('offer', {
-      image: lay(anhChuaDung), duration: 3.4,
+      image: lay(nhipDung.length), duration: 3.4,
       overlayText: String(deal.priceSale).trim(),
       badgeText: String(deal.priceSale).trim(),
       voiceText: `It is ${deal.priceSale}.`,
@@ -229,6 +258,45 @@ export function buildSpec(input: {
     voiceText: "Tap the link to check today's price.",
     linkText: shortLink(deal.code, deal.slug, 'deal'),
   })
+
+  // ── Cat nho canh de hinh chay nhanh hon loi ─────────────────────
+  //
+  // ⚠️ Do 4 video mau TikTok: 1,1-2,4 giay moi canh, con canh cua ta 4,5 giay vi
+  // do la thoi gian doc xong mot cau. Khong the noi nhanh gap ba, nen ANH phai
+  // doi giua chung cau: giong doc va phu de chay lien mach, hinh thi cat.
+  //
+  // ⚠️ CAT MOI LOAI CANH, ke ca gia / ma / CTA. Ban dau chi cat canh loi doc, va
+  // do that cho thay ket qua sai ro: 18 giay dau cat 1,5 giay mot lan roi **12
+  // giay cuoi dung im**. Ma 12 giay cuoi chinh la doan ban hang. Chu LON (`44%
+  // OFF`, `CODE OFFERDY`) van dung yen vi no duoc chep sang moi canh con.
+  //
+  // ⚠️ Canh DAU cua moi doan giu nguyen anh da chon o tren — nho vay moi bao dam
+  // cu con nguyen: canh gia van lay anh tot nhat chua dung, canh ma van lay anh
+  // trong kho. Chi cac canh NOI THEM moi lay anh moi tu con tro.
+  if (pc.giayMoiAnh) {
+    const goc = scenes.splice(0, scenes.length)
+    let conAnh = goc.length
+    for (const s of goc) {
+      const so = Math.max(1, Math.round(s.duration / pc.giayMoiAnh))
+      const moi = Math.round((s.duration / so) * 10) / 10
+      for (let k = 0; k < so; k++) {
+        scenes.push({
+          ...s,
+          id: scenes.length + 1,
+          kenBurns: scenes.length % 2 ? 'out' : 'in',
+          image: k === 0 ? s.image : lay(conAnh++),
+          // Canh cuoi nuot phan le, de tong dung bang do dai cau noi.
+          duration: k === so - 1
+            ? Math.round((s.duration - moi * (so - 1)) * 10) / 10
+            : moi,
+          // ⚠️ Canh noi them giu `voiceText` (chu tren man phai chay lien tuc)
+          // nhung BO `speakText` va bat `tiepNoi` — thieu co nay thi bo dung doc
+          // lai cung mot cau o moi canh, tuc mot cau bi phat ba lan chong nhau.
+          ...(k > 0 ? { tiepNoi: true, speakText: undefined } : {}),
+        })
+      }
+    }
+  }
 
   // ── Chuyen canh cho tung mat noi ────────────────────────────────
   //

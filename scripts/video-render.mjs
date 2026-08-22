@@ -117,13 +117,16 @@ async function main(specPath) {
    * chan se lech, va cai lech ra la TIENG TROI KHOI HINH — moi canh mot chut,
    * den canh cuoi la vai giay.
    */
-  const mocScene = []
-  for (let i = 0, t = 0; i < scenes.length; i++) {
-    if (i > 0) t += scenes[i - 1].duration - chuyenRa(i - 1).dai
-    mocScene.push(t)
+  const tinhMoc = () => {
+    const m = []
+    for (let i = 0, t = 0; i < scenes.length; i++) {
+      if (i > 0) t += scenes[i - 1].duration - chuyenRa(i - 1).dai
+      m.push(t)
+    }
+    return m
   }
-  const tongDai = mocScene[scenes.length - 1] + scenes[scenes.length - 1].duration
-  ok(`${scenes.length} scene · ${W}x${H} · ${FPS}fps · dai ${tongDai.toFixed(1)}s`)
+  const tongDaiHienTai = m => m[scenes.length - 1] + scenes[scenes.length - 1].duration
+  ok(`${scenes.length} scene · ${W}x${H} · ${FPS}fps · dai ${tongDaiHienTai(tinhMoc()).toFixed(1)}s`)
 
   const viec = path.join(root, '.scratch', 'video-job')
   fs.rmSync(viec, { recursive: true, force: true })
@@ -184,19 +187,99 @@ async function main(specPath) {
 
     let moi = 0, dem = 0
     for (const [i, s] of scenes.entries()) {
-      if (!s.voiceText) continue
-      const { tep, giay, tuDem } = await docThanhTep(loiDoc(s), path.join(viec, `tieng-${i}`), {
+      // ⚠️ `tiepNoi` = canh nay chi doi ANH, cau van la cau cua canh truoc. Doc
+      // lai o day thi mot cau bi phat hai ba lan chong len nhau.
+      if (!s.voiceText || s.tiepNoi) continue
+      const { tep, giay, tuDem, tu } = await docThanhTep(loiDoc(s), path.join(viec, `tieng-${i}`), {
         provider, giong: spec.voice?.voice, rate: spec.voice?.rate ?? 0,
       }).catch(e => { throw new Error(`Doc scene ${s.id ?? i + 1}: ${e.message}`) })
       tuDem ? dem++ : moi++
       s._tieng = tep
       s._tiengGiay = giay
-      // Do dai scene = do dai tieng + khoang lang hai dau. Neu kich ban de san
-      // mot con so dai hon thi giu con so do.
-      s.duration = Math.max(s.duration ?? 0, +(giay + 0.7).toFixed(2))
+      s._tu = tu
+
+      // ⚠️ Do dai phai do CA NHOM, khong do rieng canh dau.
+      //
+      // Mot cau 5 giay nay trai ra 4 canh hinh 1,3 giay. Ep rieng canh dau bang
+      // 5 giay thi nhom thanh 5 + 1,3 x 3 = gan 9 giay, tieng het tu lau ma hinh
+      // van chay — va moi nhip lai dai them mot cuc nhu vay.
+      const nhom = [s]
+      for (let k = i + 1; k < scenes.length && scenes[k].tiepNoi; k++) nhom.push(scenes[k])
+      const can = +(giay + 0.7).toFixed(2)
+      const dangCo = nhom.reduce((n, x) => n + x.duration, 0)
+      // Thieu bao nhieu thi cong het vao canh CUOI cua nhom: keo canh dau se lam
+      // canh mo dau dai bat thuong, con dan deu thi moi canh le mot chut.
+      if (can > dangCo) nhom[nhom.length - 1].duration = +(nhom[nhom.length - 1].duration + can - dangCo).toFixed(2)
     }
-    const tong = scenes.reduce((n, s) => n + s.duration, 0) - tDur * (scenes.length - 1)
-    ok(`Giong ${provider}: ${moi} cau doc moi, ${dem} lay tu bo nho dem · dai lai thanh ${tong.toFixed(1)}s`)
+    ok(`Giong ${provider}: ${moi} cau doc moi, ${dem} lay tu bo nho dem · dai lai thanh ${tongDaiHienTai(tinhMoc()).toFixed(1)}s`)
+  }
+
+  // ⚠️ TINH MOC SAU BUOC GIONG DOC, khong truoc. Buoc tren vua KEO DAI cac canh
+  // cho vua cau noi; tinh moc truoc do la tinh tren nhung con so da cu, va moi
+  // doan tieng se bi dat sai cho.
+  const mocScene = tinhMoc()
+
+  /**
+   * Moc tung chu tren TUNG CANH, de phu de chay dung theo giong doc.
+   *
+   * Mot nhip loi trai ra nhieu canh hinh, nen phai cat danh sach chu theo cua so
+   * thoi gian cua tung canh: canh nao hien nhung chu duoc doc trong luc no chay.
+   *
+   * ⚠️ Cong `TRE_TIENG`: tieng duoc dat lui 0,25 giay so voi dau canh (xem buoc
+   * tron tieng ben duoi). Quen no thi chu chay truoc tieng dung 0,25 giay — du de
+   * thay la sai nhung khong du de doan ra vi sao.
+   */
+  const TRE_TIENG = 0.25
+  for (let i = 0; i < scenes.length; i++) {
+    const s = scenes[i]
+    if (!s.voiceText || s.tiepNoi) continue
+
+    const nhom = [i]
+    for (let k = i + 1; k < scenes.length && scenes[k].tiepNoi; k++) nhom.push(k)
+
+    // ⚠️ Chi dung moc that khi chu tren man DUNG BANG chu doc len. Canh gia va
+    // canh ma co `speakText` rieng ("49 dollars 95" cho may doc, "$49.95" cho
+    // man hinh) — so tu khac nhau, nen gan moc cua ben nay cho ben kia se lam
+    // chu chay lech han. Nhung canh do chia deu theo do dai tung tu.
+    const khopChu = !s.speakText || s.speakText === s.voiceText
+    const tuGoc = String(s.voiceText).trim().split(/\s+/).filter(Boolean)
+    let tu = khopChu && Array.isArray(s._tu) && s._tu.length === tuGoc.length ? s._tu : null
+
+    if (!tu) {
+      const tongKyTu = tuGoc.reduce((n, w) => n + w.length, 0) || 1
+      const dai = s._tiengGiay ?? Math.max(1, nhom.reduce((n, k) => n + scenes[k].duration, 0) - 0.7)
+      let t = 0
+      tu = tuGoc.map(w => {
+        const d = (dai * w.length) / tongKyTu
+        const r = { chu: w, dau: t, het: t + d }
+        t += d
+        return r
+      })
+    }
+
+    // ⚠️ MOT CHU DUNG NGUYEN TOI KHI CHU SAU LEN — khong tat di roi hien lai.
+    //
+    // Moc that cua ElevenLabs co khe ho 0,03-0,07 giay giua cac tu (giong doc
+    // nao cung co). Ve dung theo moc do thi man hinh CHOP TRANG giua tung chu,
+    // va o mot video 30 giay thi do la vai chuc lan nhap nhay — nhin met mat va
+    // khong giong bat cu phu de TikTok nao. Keo het cua chu nay toi dau cua chu
+    // ke tiep thi chu chuyen muot, van dung nhip.
+    for (let k = 0; k < tu.length - 1; k++) tu[k] = { ...tu[k], het: tu[k + 1].dau }
+    if (tu.length) {
+      const cuoi = tu[tu.length - 1]
+      tu[tu.length - 1] = { ...cuoi, het: cuoi.het + 0.35 }
+    }
+
+    let batDau = 0
+    for (const k of nhom) {
+      const canh = scenes[k]
+      const t0 = batDau
+      canh._tuVe = tu
+        .map(w => ({ chu: w.chu, dau: TRE_TIENG + w.dau - t0, het: TRE_TIENG + w.het - t0 }))
+        .filter(w => w.het > 0.02 && w.dau < canh.duration)
+        .map(w => ({ chu: w.chu, dau: Math.max(0, w.dau), het: Math.min(canh.duration, w.het) }))
+      batDau += canh.duration
+    }
   }
 
   // ── Luot 1: moi scene mot doan ───────────────────────────────────
@@ -305,11 +388,56 @@ async function main(specPath) {
     }
     const PHU_DE_CACH_DAY = cachDay(st.phuDeCachDay, 560)
     const PHU_DE_Y = H - PHU_DE_CACH_DAY
-    const phuDe = veChu(s.voiceText, {
-      toiDaCoChu: coChuTu(st.phuDeCo, 68),
-      y: `h-${PHU_DE_CACH_DAY}`,
-      vien: 6,
-    })
+
+    /**
+     * Phu de CHAY THEO GIONG DOC: mot chu mot luc, chu dang doc thi noi len.
+     *
+     * ⚠️ VI SAO MOT CHU CHU KHONG PHAI MOT DONG CO CHU DUOC TO SANG: de to sang
+     * mot chu NAM TRONG mot dong thi phai biet chu do bat dau o toa do x nao,
+     * tuc phai do duoc be rong tung chu bang chinh font se ve. `chiaDong()` chi
+     * uoc luong `0,55 x co chu` cho moi ky tu — dung de biet mot dong co vua
+     * khong, nhung sai vai chuc pixel khi cong don, va vai chuc pixel nghia la
+     * cac manh chu chong len nhau hoac ho ra. Mot chu mot luc thi `drawtext` tu
+     * can giua (`x=(w-text_w)/2`), khong can do gi ca — va do cung dung la kieu
+     * phu de dang chay tren TikTok.
+     */
+    const veChuChay = tuVe => {
+      for (const w of tuVe) {
+        // Co chu vua khung: `chiaDong` tra ve co lon nhat ma chu do khong tran le.
+        const { coChu } = chiaDong(w.chu, W, coChuTu(st.chuChayCo, 104))
+        const ten = `chu-${i}-${dem}.txt`
+        fs.writeFileSync(path.join(viec, ten), w.chu, 'utf8')
+
+        // "Noi len": ve to hon trong khoang dau roi ve co thuong — hai khoang
+        // KHONG chong nhau, neu khong hai lop chu de len nhau thanh nhoe.
+        const noi = Math.min(0.09, Math.max(0, (w.het - w.dau) * 0.45))
+        const moc = [
+          { tu: w.dau, den: w.dau + noi, co: Math.round(coChu * 1.18) },
+          { tu: w.dau + noi, den: w.het, co: coChu },
+        ].filter(m => m.den - m.tu > 0.01)
+
+        for (const m of moc) {
+          const ra = `[chu${dem++}]`
+          loc.push(
+            `${nhan}drawtext=fontfile=font.ttf:textfile=${ten}:expansion=none:` +
+            `fontcolor=white:fontsize=${m.co}:borderw=7:bordercolor=black@0.75:` +
+            `x=(w-text_w)/2:y=h-${PHU_DE_CACH_DAY}:` +
+            `enable='between(t,${m.tu.toFixed(3)},${m.den.toFixed(3)})'${ra}`
+          )
+          nhan = ra
+        }
+      }
+      // Chu chay chi chiem MOT dong, luon luon.
+      return { soDong: 1, buoc: Math.round(coChuTu(st.chuChayCo, 104) * 1.24) }
+    }
+
+    const phuDe = s._tuVe?.length
+      ? veChuChay(s._tuVe)
+      : veChu(s.voiceText, {
+        toiDaCoChu: coChuTu(st.phuDeCo, 68),
+        y: `h-${PHU_DE_CACH_DAY}`,
+        vien: 6,
+      })
 
     // ── Dia chi web, chi o canh CTA ─────────────────────────────────
     //

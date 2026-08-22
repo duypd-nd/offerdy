@@ -9,7 +9,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildSpec, tongThoiLuong, docGia, danhVan, NHAN_CHIEN_DICH, type NhipKichBan } from '../src/lib/video/buildSpec'
+import { buildSpec, tongThoiLuong, docGia, danhVan, chonNhip, NHAN_CHIEN_DICH, type NhipKichBan } from '../src/lib/video/buildSpec'
 import { parseCampaign } from '../src/lib/shortLinkSource'
 import { MAC_DINH } from '../src/lib/video/videoStyle'
 import { CAT_CUNG, DAI_CAT_CUNG } from '../src/lib/video/mapTransition'
@@ -334,4 +334,71 @@ test('nhịp nhanh hơn thì cảnh ngắn lại, nhưng không dưới sàn 2,6
   const thuong = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
   assert.ok(tongThoiLuong(nhanh.scenes) < tongThoiLuong(thuong.scenes))
   for (const s of nhanh.scenes) assert.ok(s.duration >= 2.6, String(s.duration))
+})
+
+// ── Cắt nhỏ cảnh: hình chạy nhanh hơn lời ──────────────────────────
+//
+// ⚠️ Phép kiểm quan trọng nhất ở đây là TỔNG THỜI LƯỢNG KHÔNG ĐỔI. Cắt một cảnh
+// 5 giây thành bốn cảnh phải ra đúng 5 giây; lệch một chút thì giọng đọc — vốn
+// được đặt theo mốc tính từ tổng — sẽ trôi khỏi hình.
+
+const MAU = { ...MAC_DINH, ten: 'thu-cat', giayMoiAnh: 1.3 }
+
+test('cắt nhỏ KHÔNG làm đổi tổng thời lượng của mỗi ý', () => {
+  const cu = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  const moi = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: MAU })
+  const tong = ds => ds.reduce((n, s) => n + s.duration, 0)
+  assert.ok(moi.scenes.length > cu.scenes.length, `${cu.scenes.length} -> ${moi.scenes.length}`)
+  assert.ok(Math.abs(tong(moi.scenes) - tong(cu.scenes)) < 0.05,
+    `${tong(cu.scenes)} vs ${tong(moi.scenes)}`)
+})
+
+test('cảnh nối thêm giữ chữ trên màn nhưng KHÔNG đọc lại', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: MAU })
+  const noi = scenes.filter(s => s.tiepNoi)
+  assert.ok(noi.length > 0)
+  for (const s of noi) {
+    assert.ok(s.voiceText, 'phải giữ chữ trên màn')
+    assert.equal(s.speakText, undefined, 'KHÔNG được đọc lại')
+  }
+  // Cảnh ĐẦU của mỗi ý thì ngược lại: nó mới là cảnh mang tiếng.
+  assert.equal(scenes[0].tiepNoi, undefined)
+})
+
+test('cắt nhỏ áp cho CẢ cảnh giá, mã và CTA — không để đoạn cuối đứng im', () => {
+  // Đo thật 2026-08-22: bản đầu chỉ cắt cảnh lời đọc, kết quả là 18 giây đầu cắt
+  // 1,5 giây một lần rồi 12 giây cuối đứng im — mà 12 giây cuối là đoạn bán hàng.
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: MAU, couponCode: 'OFFERDY' })
+  for (const loai of ['offer', 'coupon', 'cta']) {
+    const cua = scenes.filter(s => s.type === loai)
+    assert.ok(cua.length > 1, `${loai} phải được cắt nhỏ, đang có ${cua.length} cảnh`)
+    assert.ok(cua.every(s => s.duration <= 2.2), `${loai} còn cảnh dài: ${cua.map(s => s.duration)}`)
+  }
+})
+
+test('chữ LỚN được chép sang mọi cảnh con, không biến mất giữa chừng', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: MAU, couponCode: 'OFFERDY' })
+  const ma = scenes.filter(s => s.type === 'coupon')
+  assert.ok(ma.length > 1)
+  for (const s of ma) assert.match(s.badgeText ?? '', /CODE/)
+})
+
+test('cảnh ĐẦU của mỗi ý giữ nguyên ảnh đã chọn — bảo đảm cũ không mất', () => {
+  const anh = ['0.jpg', '1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg', '6.jpg', 'te-nhat.jpg']
+  const cu = buildSpec({ deal: DEAL, images: anh, beats: NHIP })
+  const moi = buildSpec({ deal: DEAL, images: anh, beats: NHIP, phongCach: MAU })
+  // Cảnh giá vẫn lấy đúng ảnh tốt nhất chưa dùng như trước khi có cắt nhỏ.
+  assert.equal(
+    moi.scenes.find(s => s.type === 'offer')?.image,
+    cu.scenes.find(s => s.type === 'offer')?.image,
+  )
+  assert.equal(moi.scenes[0].image, cu.scenes[0].image)
+})
+
+test('chonNhip giữ HAI ĐẦU, cắt ở giữa', () => {
+  const ds = ['hook', 'p1', 'p2', 'p3', 'p4', 'proof']
+  assert.deepEqual(chonNhip(ds, null), ds)
+  assert.deepEqual(chonNhip(ds, 9), ds)
+  assert.deepEqual(chonNhip(ds, 3), ['hook', 'p1', 'proof'])
+  assert.deepEqual(chonNhip(ds, 1), ['hook'])
 })

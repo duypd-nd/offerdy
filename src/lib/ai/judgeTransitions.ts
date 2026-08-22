@@ -18,23 +18,31 @@ import {
  * ⚠️ Model chi MO TA. Viec dich mo ta sang ten `xfade` nam o `mapTransition()` —
  * ham thuan, co danh sach trang, co test. Cung mot luat da lap o `scoreImages()`.
  *
- * ⚠️ Va nhu `judgeImages`, ham nay NUOT LOI co chu dinh: hoc phong cach la buoc
- * lam video DEP HON, khong phai buoc lam video DUNG. Khong cham duoc thi bo do
- * phai noi ro "chua doc duoc", chu khong duoc im lang ma trong nhu da doc xong.
+ * ⚠️ KHAC `judgeImages` o mot diem: ham do NUOT LOI co chu dinh, vi cham anh chi
+ * la buoc lam video DEP HON. O day thi ca cong cu TON TAI de doc video mau, nen
+ * that bai im lang la hong han — truyen `ngheLoi` vao de biet vi sao.
  */
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
-/** Anh gui di deu la PNG do chinh ta rut ra bang ffmpeg — khong phai doan loai. */
-const LOAI_KHUNG = 'image/png' as const
+/**
+ * Khung gui di deu la JPEG do chinh ta rut ra bang ffmpeg — khong phai doan loai.
+ *
+ * ⚠️ TUNG LA PNG, VA NO LAM CHET CA REQUEST. Mot khung 640px dang PNG nang ~520KB;
+ * 10 nhom x 8 khung = 80 anh ~42MB, qua base64 thanh ~56MB — vuot xa tran 32MB
+ * cua API. Loi tra ve bi ham nay nuot mat nen bang so chi hien "khong doc duoc
+ * hieu ung" ma khong ai biet tai sao. JPEG cung kich thuoc nang ~1/10.
+ */
+const LOAI_KHUNG = 'image/jpeg' as const
 
 /**
- * Tran so anh trong MOT request.
+ * Tran so nhom trong MOT request.
  *
- * Mot video 40 giay co the co 15 lan chuyen canh; 15 nhom × 6 khung = 90 anh
- * trong mot request la tien that va do tre that. Cat bot va noi ro da cat.
+ * Mot video TikTok 18 giay do that co 14 lan chuyen canh — cat o 10 thi bo sot
+ * mot phan ba. Voi khung JPEG ~50KB thi 20 nhom x 8 khung van chi khoang 8MB,
+ * thoai mai duoi tran 32MB. Cat o day va NOI RO da cat bao nhieu.
  */
-const TOI_DA_NHOM = 10
+const TOI_DA_NHOM = 20
 const TOI_DA_KHUNG_CHU = 12
 
 const ChuyenSchema = z.object({
@@ -55,10 +63,19 @@ const ChuSchema = z.object({
 const KetQuaChuyen = z.object({ chuyen: z.array(ChuyenSchema) })
 const KetQuaChu = z.object({ khung: z.array(ChuSchema) })
 
+/**
+ * Bao vi sao that bai.
+ *
+ * ⚠️ `judgeImages` nuot loi co chu dinh, vi cham anh chi la buoc lam video DEP
+ * HON. O day thi khac: ca cong cu nay TON TAI de doc video mau, nen im lang la
+ * hong han. Nguoi goi truyen vao mot ham de nghe ly do.
+ */
+export type NgheLoi = (ly: string) => void
+
 export type NhomKhung = {
   /** Chi so lan chuyen canh trong video. */
   index: number
-  /** Cac khung PNG da ma hoa base64, theo dung thu tu thoi gian. */
+  /** Cac khung JPEG da ma hoa base64, theo dung thu tu thoi gian. */
   khung: string[]
 }
 
@@ -92,9 +109,10 @@ async function docKetQua(stream: ReturnType<ReturnType<typeof getAnthropicClient
  * Tra `null` khi khong doc duoc — nguoi goi PHAI coi do la "chua doc duoc" chu
  * khong phai "khong co hieu ung nao".
  */
-export async function judgeTransitions(nhom: NhomKhung[], lan = 1): Promise<MoTaChuyen[] | null> {
+export async function judgeTransitions(nhom: NhomKhung[], ngheLoi?: NgheLoi, lan = 1): Promise<MoTaChuyen[] | null> {
   const canXem = nhom.slice(0, TOI_DA_NHOM)
-  if (!canXem.length) return null
+  if (!canXem.length) { ngheLoi?.('khong co nhom khung nao'); return null }
+  if (nhom.length > TOI_DA_NHOM) ngheLoi?.(`chi xem ${TOI_DA_NHOM}/${nhom.length} lan chuyen — phan con lai chua duoc doc`)
   const khungMoiNhom = canXem[0].khung.length
 
   try {
@@ -120,7 +138,7 @@ export async function judgeTransitions(nhom: NhomKhung[], lan = 1): Promise<MoTa
     })
 
     const json = await docKetQua(stream)
-    if (!json) return null
+    if (!json) { ngheLoi?.('cau tra loi rong hoac bi cat vi max_tokens'); return null }
 
     const ra: MoTaChuyen[] = []
     for (const d of KetQuaChuyen.parse(JSON.parse(json)).chuyen) {
@@ -133,16 +151,17 @@ export async function judgeTransitions(nhom: NhomKhung[], lan = 1): Promise<MoTa
   } catch (err) {
     if (coTheThuLai(err) && lan < 3) {
       await new Promise(r => setTimeout(r, lan * 1500))
-      return judgeTransitions(nhom, lan + 1)
+      return judgeTransitions(nhom, ngheLoi, lan + 1)
     }
+    ngheLoi?.(err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300))
     return null
   }
 }
 
 /** Nhin khung giua canh -> kieu chu va vi tri chu, tinh theo ti le khung hinh. */
-export async function judgeTextStyle(khung: string[], lan = 1): Promise<MoTaChu[] | null> {
+export async function judgeTextStyle(khung: string[], ngheLoi?: NgheLoi, lan = 1): Promise<MoTaChu[] | null> {
   const canXem = khung.slice(0, TOI_DA_KHUNG_CHU)
-  if (!canXem.length) return null
+  if (!canXem.length) { ngheLoi?.('khong co khung nao'); return null }
 
   try {
     const stream = getAnthropicClient().messages.stream({
@@ -163,14 +182,15 @@ export async function judgeTextStyle(khung: string[], lan = 1): Promise<MoTaChu[
     })
 
     const json = await docKetQua(stream)
-    if (!json) return null
+    if (!json) { ngheLoi?.('cau tra loi rong hoac bi cat vi max_tokens'); return null }
     const ra = KetQuaChu.parse(JSON.parse(json)).khung
     return ra.length ? ra : null
   } catch (err) {
     if (coTheThuLai(err) && lan < 3) {
       await new Promise(r => setTimeout(r, lan * 1500))
-      return judgeTextStyle(khung, lan + 1)
+      return judgeTextStyle(khung, ngheLoi, lan + 1)
     }
+    ngheLoi?.(err instanceof Error ? err.message.slice(0, 300) : String(err).slice(0, 300))
     return null
   }
 }

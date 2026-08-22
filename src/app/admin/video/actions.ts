@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process'
 import { requireAdmin } from '@/lib/adminSession'
 import { loadDealSpec, type NguonKichBan } from '@/lib/video/loadDealSpec'
 import { buildSpec, tongThoiLuong, type VideoSpec } from '@/lib/video/buildSpec'
+import { phongCachTheoTen, type TenPhongCach } from '@/lib/video/videoStyle'
 import { generateCaptionsForDeal, markDealsPosted } from '@/app/admin/social-kit/actions'
 import type { CaptionAngle } from '@/lib/ai/generateCaption'
 
@@ -31,11 +32,11 @@ export type KetQuaPhanTich =
     }
   | { ok: false; error: string }
 
-export async function phanTichDeal(dealCode: number): Promise<KetQuaPhanTich> {
+export async function phanTichDeal(dealCode: number, phongCach?: TenPhongCach): Promise<KetQuaPhanTich> {
   await requireAdmin()
   if (!Number.isInteger(dealCode)) return { ok: false, error: 'Ma deal khong hop le' }
   try {
-    const r = await loadDealSpec(dealCode)
+    const r = await loadDealSpec(dealCode, phongCach)
     if (!r.ok) return r
     return {
       ok: true,
@@ -71,7 +72,7 @@ export type KetQuaDungLai =
  * Ca hai deu qua `requireAdmin()`, va bo dung video chi chay o may nguoi dung.
  * Ghi ra day de lan sau khong ai nham tuong co mot vong chan o day.
  */
-export async function dungLaiKichBan(nguon: NguonKichBan, anhChon: string[]): Promise<KetQuaDungLai> {
+export async function dungLaiKichBan(nguon: NguonKichBan, anhChon: string[], phongCach?: TenPhongCach): Promise<KetQuaDungLai> {
   await requireAdmin()
   try {
     // ⚠️ `anhChon` la danh sach DAY DU va DA XEP mà trang admin muốn dùng, không
@@ -90,6 +91,10 @@ export async function dungLaiKichBan(nguon: NguonKichBan, anhChon: string[]): Pr
       beats: nguon.beats,
       couponCode: nguon.couponCode,
       storeName: nguon.storeName,
+      // ⚠️ Phai truyen lai phong cach. Thieu no thi bam bo mot anh se am tham
+      // dung lai kich ban bang phong cach MAC DINH — video dang 30 giay bong
+      // thanh 45 giay ma khong ai bam gi lien quan toi phong cach ca.
+      phongCach: phongCachTheoTen(phongCach),
     })
     return { ok: true, spec, thoiLuong: tongThoiLuong(spec.scenes), anhDung: anh }
   } catch (err) {

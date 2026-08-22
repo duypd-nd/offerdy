@@ -8,6 +8,7 @@ import {
   type KetQuaPhanTich, type BienTheCaption,
 } from './actions'
 import { CAPTION_ANGLES, type CaptionAngle } from '@/lib/ai/generateCaption'
+import { DANH_SACH_PHONG_CACH, type TenPhongCach } from '@/lib/video/videoStyle'
 import type { DealChon } from './page'
 
 /**
@@ -36,6 +37,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   const [dangViet, setDangViet] = useState(false)
   const [tepVideo, setTepVideo] = useState<{ tep: string; luc: string } | null>(null)
   const [daDang, setDaDang] = useState(false)
+  const [phongCach, setPhongCach] = useState<TenPhongCach>('mac-dinh')
   const [anhChon, setAnhChon] = useState<string[]>([])
   const [dangXep, setDangXep] = useState(false)
 
@@ -49,7 +51,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
     setChon(d); setKq(null); setKetQuaDung(null); setLoiDung(null); setAnhChon([])
     setCaption(null); setBoCaption([]); setLoiCaption(null); setTepVideo(null); setDaDang(false)
     batDau(async () => {
-      const r = await phanTichDeal(d.code)
+      const r = await phanTichDeal(d.code, phongCach)
       setKq(r)
       // Hoi ngay trong cung mot transition, KHONG dung useEffect: ESLint cua repo
       // tu choi mau useEffect + setState, va o day khong can no that.
@@ -125,7 +127,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
     const moi = dangDung.includes(url) ? dangDung.filter(u => u !== url) : [...dangDung, url]
     setDangXep(true); setKetQuaDung(null); setLoiDung(null)
     try {
-      const r = await dungLaiKichBan(kq.nguon, moi)
+      const r = await dungLaiKichBan(kq.nguon, moi, phongCach)
       if (r.ok) {
         setAnhChon(r.anhDung)
         setKq({ ...kq, spec: r.spec, thoiLuong: r.thoiLuong, soAnh: r.anhDung.length })
@@ -147,6 +149,20 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
       <div className="vid-cot">
         {/* ── Chọn deal ── */}
         <div>
+          {/* ⚠️ Doi phong cach thi phai PHAN TICH LAI — no doi so canh, do dai
+              canh va ca chuyen canh. Doi ngay tai cho ma khong dung lai kich ban
+              thi bang canh ben duoi se noi mot dang con video dung ra mot dang. */}
+          <label className="vid-pc">
+            <span>Phong cách</span>
+            <select value={phongCach} onChange={e => {
+              const moi = e.target.value as TenPhongCach
+              setPhongCach(moi)
+              if (chon) { setKq(null); setAnhChon([]); batDau(async () => setKq(await phanTichDeal(chon.code, moi))) }
+            }} disabled={dang}>
+              {DANH_SACH_PHONG_CACH.map(p => <option key={p.ten} value={p.ten}>{p.nhan}</option>)}
+            </select>
+          </label>
+
           <input className="oa-search" style={{ width: '100%', marginBottom: 8 }}
             placeholder="Tìm deal theo tên, shop hoặc mã…"
             value={tim} onChange={e => setTim(e.target.value)} />

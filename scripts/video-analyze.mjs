@@ -177,12 +177,16 @@ await run(async () => {
     const b = []
     for (let k = 0; k < so; k++) {
       const t = Math.max(0, tu2 + ((den - tu2) * k) / Math.max(1, so - 1))
-      const tep = path.join(thuMuc, `${nhan}-${k}.png`)
+      const tep = path.join(thuMuc, `${nhan}-${k}.jpg`)
       // `-ss` TRUOC `-i` de ffmpeg nhay thang toi moc, khong giai ma tu dau.
       // Ha do phan giai xuong 640 chieu rong: model khong can 1080px de thay mot
       // buc anh dang truot sang trai, ma anh nho thi request nhe han nhieu.
+      //
+      // ⚠️ JPEG, KHONG PHAI PNG. Do that: mot khung PNG 640px nang ~520KB, 80
+      // khung thanh ~56MB sau base64 va API tu choi ca request — bang so hien
+      // "khong doc duoc hieu ung" ma khong ai biet tai sao. JPEG nhe ~1/10.
       await chay('ffmpeg', ['-v', 'error', '-y', '-ss', t.toFixed(3), '-i', tepVao,
-        '-frames:v', '1', '-vf', 'scale=640:-2', tep])
+        '-frames:v', '1', '-vf', 'scale=640:-2', '-q:v', '4', tep])
       if (fs.existsSync(tep)) b.push(fs.readFileSync(tep).toString('base64'))
     }
     return b
@@ -226,9 +230,11 @@ await run(async () => {
     await import(pathToFileURL(path.join(tmp, 'entry.mjs')).href)
 
   ok('Dang cho Claude nhin cac khung hinh...')
+  // ⚠️ Nghe ly do that bai, khong de no im lang. Ca cong cu nay ton tai de doc
+  // video mau; "khong doc duoc" ma khong noi vi sao thi nguoi dung khong sua duoc.
   const [moTa, kieuChu] = await Promise.all([
-    judgeTransitions(nhomChuyen),
-    judgeTextStyle(khungChu),
+    judgeTransitions(nhomChuyen, ly => warn(`chuyen canh: ${ly}`)),
+    judgeTextStyle(khungChu, ly => warn(`kieu chu: ${ly}`)),
   ])
   if (!moTa) warn('KHONG doc duoc hieu ung chuyen canh — chi co so lieu nhip cat.')
   if (!kieuChu) warn('KHONG doc duoc kieu chu.')

@@ -3,6 +3,7 @@ import { writeClient } from '@/sanity/writeClient'
 import { couponForDealUrl, type StoreHostRow } from '@/lib/dealStoreMatch'
 import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
 import { buildSpec, type VideoSpec, type DealNguon } from '@/lib/video/buildSpec'
+import { phongCachTheoTen, type TenPhongCach } from '@/lib/video/videoStyle'
 import { generateVideoScript, type Beat } from '@/lib/ai/generateVideoScript'
 import { judgeImages } from '@/lib/ai/judgeImages'
 import { scoreImages, type DanhGiaAnh } from '@/lib/video/scoreImages'
@@ -57,7 +58,7 @@ export type KetQuaNap =
     }
   | { ok: false; error: string }
 
-export async function loadDealSpec(dealCode: number): Promise<KetQuaNap> {
+export async function loadDealSpec(dealCode: number, tenPhongCach?: TenPhongCach): Promise<KetQuaNap> {
   const canhBao: string[] = []
 
   const deal = await writeClient.fetch<DealNguon & { anh?: string } | null>(
@@ -155,6 +156,7 @@ export async function loadDealSpec(dealCode: number): Promise<KetQuaNap> {
       beats,
       couponCode: coupon?.code ?? null,
       storeName: shop,
+      phongCach: phongCachTheoTen(tenPhongCach),
     }),
   }
 }

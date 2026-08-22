@@ -182,6 +182,36 @@ Until 2026-08-22 the whole video used one transition (`spec.transition`), so no 
 
 ⚠️ **The join timeline is now a single shared array.** `mocScene` in `video-render.mjs` decides both the `xfade` offsets and the `adelay` for each narration clip. Those used to be two identical loops that agreed only because both multiplied by one fixed `tDur`; with per-join durations, two copies would inevitably drift, and the drift is **narration sliding off the picture** — a little each scene, seconds by the end. `tongThoiLuong()` likewise sums real overlaps instead of `chuyen × (n − 1)`. Verified by rendering joins of 1.2s / 0.2s / 0.8s and comparing the file's real duration to the computed one: **exact to 0.000s**.
 
+### What the reference videos actually taught us
+
+Four TikTok samples measured 2026-08-22. All four carry a CapCut watermark and **two are prebuilt templates** — layered compositions (bordered cards, flying tiles, pictures inside pictures) that `xfade` cannot reproduce, since it only blends two full frames. What transferred: pacing 1.11–2.41 s per shot against our 4.5, total length 17–22 s against our 45, a mix of hard cuts and gradual transitions against our single fade, and 0–50% hard cuts against our zero.
+
+`PHONG_CACH_MAU` in `src/lib/video/videoStyle.ts` holds the common core, with the source of every number in its comment. After applying it and re-measuring with the same tool: 29.7 s total, 1.06 s per shot, longest shot 2.02 s, 22% hard cuts.
+
+⚠️ **Subtitle position stays at 71% even though the samples sit at 18–58%.** Those four sell with pictures — music plus decorative type, no narration subtitle at all. We sell with reasons and a price, and our subtitle *is* the sentence being spoken, for viewers watching muted. Copying their placement would mean abandoning that.
+
+### Image shots are decoupled from narration beats
+
+A shot cannot be 1.3 seconds while a shot equals a spoken sentence — English sentences do not fit in 1.3 seconds. So the picture now changes **mid-sentence**: narration and subtitle run continuously while the image cuts under them, and images repeat as often as needed. `PhongCachVideo.giayMoiAnh` sets the target; `buildSpec` splits every scene after building it, marking the extra shots `tiepNoi`.
+
+⚠️ **`tiepNoi` shots keep `voiceText` but drop `speakText`.** The subtitle has to survive the cut; the audio must not be spoken again. Without the flag one sentence gets read three times, overlapping itself.
+
+⚠️ **The renderer must fit the audio to the GROUP, not the first shot.** It stretches scene duration to the narration length; applied to the first shot alone, a 5-second sentence split into four 1.3-second shots yields 5 + 1.3×3 ≈ 9 seconds of picture over 5 seconds of sound, once per beat.
+
+⚠️ **Split every scene type, including offer/coupon/CTA.** The first version split only narration scenes, and the measurement showed 18 seconds cutting every 1.5 s followed by **12 seconds frozen** — and those 12 seconds are the selling section. Big on-screen text is copied to each child shot so it stays put.
+
+⚠️ **`mocScene` is computed after the narration step**, never before: that step has just changed the durations it depends on.
+
+### Word-by-word captions
+
+The subtitle now shows one word at a time, timed to the voice, the current word popping to 1.18× before settling. Timings come from ElevenLabs `/v1/text-to-speech/{id}/with-timestamps`, which returns per-character alignment; `tts.mjs` caches them in a `.tu.json` sidecar beside the audio, since a cached clip without timings would silently fall back to even spacing and a re-render would look different from the first.
+
+⚠️ **Extend each word to the start of the next one.** Drawing exactly to the measured end makes the screen blink white between words — every voice leaves 0.03–0.07 s gaps, which is dozens of flashes across 30 seconds.
+
+⚠️ **Scenes whose `speakText` differs from `voiceText` (price, coupon) fall back to even spacing.** The alignment describes "49 dollars 95" while the screen shows "$49.95" — different word counts, so borrowing one for the other desynchronises the whole line.
+
+⚠️ **One word, not a highlighted word inside a line.** Highlighting a word within a line needs its x position, which needs real per-word widths from the actual font; `chiaDong()` only estimates 0.55 × font size per character, and the cumulative error makes segments overlap or gap. A single centred word needs no measurement at all — `drawtext` centres it — and it is what TikTok captions do anyway.
+
 ### Not built yet
 
 The paste-a-URL path for products not in the database · image 0 (the stored photo) and image 1 (the shop's first photo) are the same picture from two sources, so `imageKey()` does not match them and both survive · the model skips image 0 in its judgement even when told not to (harmless — it is pinned — but `scoreImages` must keep treating "no judgement" as "keep").
