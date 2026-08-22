@@ -1,5 +1,92 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-22 (sáng) — link đo được + chấm ảnh cho video
+
+✅ **Kiểm 08:00 XONG.** Sao lưu kho tài khoản chạy đúng: Sanity có **2 ô** (`fri`, `sat`),
+ô `sat` ghi lúc **08:22 sáng nay giờ VN**. Cron sống. Đo bằng cách hỏi thẳng Sanity, không
+qua `/admin/users`.
+
+🔒 **Phát hiện kèm theo, đáng ghi**: bản sao `adminVaultBackup.*` **KHÔNG đọc được nếu
+không có token**, trong khi `adminVault` thì đọc được. Không phải ai đó cấu hình — quyền
+công khai mặc định của Sanity là `_id in path("*")` (MỘT dấu sao), mà `path("*")` không
+khớp id có dấu chấm. Đúng cơ chế giấu `drafts.*`. Nghĩa là **đừng bao giờ đổi id ô sao lưu
+sang dạng không có dấu chấm** — làm thế là đem cả `AUTH_PEPPER` (đã mã hoá) ra công khai.
+
+### ✅ Xong sáng nay — 3 commit, chưa push
+
+**1. Nối link đo được vào CTA của video** (`3fe317f`). Hai dạng của cùng một địa chỉ, cố ý khác nhau:
+- trên màn hình: `offerdy.com/d/1470` — gõ tay được
+- trong bio/caption: `https://www.offerdy.com/d/1470?s=video` — đo được ở `/admin/reports`
+
+Không vẽ `?s=video` lên màn vì không ai gõ chuỗi truy vấn, mà gõ sai thì hỏng cả địa chỉ.
+Lượt gõ tay vẫn về đúng deal, chỉ không mang nhãn. `ctaUrl` nay gọi `shortLinkUrl()` thay
+vì tự nối chuỗi. Dòng địa chỉ vẽ ở toạ độ **tính theo số dòng phụ đề**, không phải toạ độ
+cố định — câu nói dài ngắn tuỳ cảnh. Đã render thật deal #1470 và soi khung hình: chữ nằm
+đúng chỗ, không chồng phụ đề, không chạm dải giao diện TikTok. `/admin/video` có ô link +
+nút Chép.
+
+**2. Chấm ảnh** (`4444b8d`, `787a260`). **Kế hoạch cũ đã bị phép đo bác bỏ** — đừng làm lại:
+đo 38 ảnh của 5 deal thì một `scoreImages()` thuần theo URL sẽ loại **đúng 0 ảnh**. Nhỏ
+nhất 800×800, tên file toàn mã băm, tỉ lệ gần vuông hết, ảnh trùng đã bị `dedupeImageUrls`
+cắt. Thứ duy nhất phân biệt được ảnh tốt với ảnh cận cảnh vải là **chính điểm ảnh**.
+
+Nên: **model NHÌN, code QUYẾT ĐỊNH, người vận hành có quyền cuối.**
+- `judgeImages()` — Claude nhìn từng ảnh, chỉ mô tả (nhiều chữ / toàn cảnh / điểm / lý do)
+- `scoreImages()` — hàm thuần, 12 phép kiểm. Bỏ dưới 4 điểm, **không bao giờ tụt dưới 3 ảnh**,
+  ảnh trong kho luôn giữ và luôn đứng đầu, không chấm được thì trả lại nguyên thứ tự
+- `/admin/video` — bảng ảnh có điểm + lý do, bấm một cái là bỏ/lấy lại, dựng lại ngay và
+  **không gọi lại AI**
+
+Chạy thật deal #1470: bỏ đúng *sơ đồ xương chậu* và *cận cảnh vải có vòng phóng to* — đúng
+tấm anh đã phàn nàn — giữ 7/9 ảnh.
+
+### 📋 VIỆC TIẾP THEO
+
+**1. Mở `/admin/video` trên trình duyệt thật.** ⚠️ **Bảng ảnh mới CHƯA được lái bằng trình
+duyệt** — mới kiểm bằng `tsc` + `build` + đường lệnh `npm run video:spec`. Bộ e2e cũ
+(`.scratch/login-e2e.mjs`) dùng tài khoản `chu@test.local` không còn tồn tại, mà tạo tài
+khoản thử trong kho thật thì không đáng. Bấm thử: bỏ một ảnh → số cảnh đổi, bấm lại → ảnh
+quay về **cuối** danh sách.
+
+**2. Xác nhận bản đang chạy trên Vercel.** Việc cũ chưa xong: tài khoản Vercel nối qua MCP
+không phải tài khoản chứa Offerdy, HTML production không lộ mã bản dựng. Mở bảng điều khiển.
+
+**3. Push 3 commit sáng nay.** `main` đang ở `787a260`, `origin/main` ở `349baca`.
+
+**4. Hai lỗi dữ liệu chờ anh quyết** (không tự sửa vì là dữ liệu thật): một store tên
+**"You are now leaving the internet.Get ready to find your fit."** và một store tên
+**"Yazv -"** thừa dấu gạch ngang.
+
+**5. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
+
+📌 **Việc của anh, không tự động hoá được**: xoay bốn khoá API đã dán vào phòng chat
+(`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`) · lưu
+`AUTH_SECRET` / `AUTH_PEPPER` / `AUTH_BACKUP_KEY` vào trình quản lý mật khẩu · chép một
+file `.enc` ra khỏi máy · thêm `AUTH_BACKUP_KEY` vào Vercel nếu chưa · xoá
+`ADMIN_USERNAME`/`ADMIN_PASSWORD` khỏi Vercel.
+
+### Bẫy đo được sáng nay
+
+- **Gửi `{type:'url'}` cho API vision thì MỘT ảnh không tải được làm CẢ request trả 400**
+  `"Unable to download the file"` — mất nhận xét của 8 ảnh còn lại. Và vì `judgeImages`
+  nuốt lỗi có chủ đích nên **không ai biết gì** ngoài việc ảnh bỗng thôi được chấm. Nay tự
+  tải về, mã hoá base64: một ảnh chết chỉ mất một ảnh. Loại ảnh đoán từ **bốn byte đầu**,
+  không tin `content-type` — CDN shop trả `application/octet-stream` cho file webp.
+- **Lời dẫn nhập nhèm "ảnh nhiều chữ" với "ảnh có ô chèn nhỏ"**: model chấm 3/10 cho một
+  ảnh mẹ bế bé rõ ràng chỉ vì có 4 ô ảnh nhỏ ở góc trái, nên bỏ 6/8 ảnh và video còn 3 cảnh.
+  Tách hai khái niệm ra thì cùng ba ảnh đó lên 5 điểm và được giữ. **Lời dẫn phải nói rõ
+  ô chèn là ẢNH hay là CHỮ.**
+- Ảnh số 0 (ảnh trong kho) và ảnh số 1 (ảnh đầu trang shop) **là cùng một tấm ảnh** nhưng
+  hai URL khác nguồn nên `imageKey()` không khớp. Cả hai đều được giữ. Chưa sửa — nó chỉ
+  làm một tấm ảnh xuất hiện ở hai cảnh đầu.
+- Model **bỏ qua ảnh số 0** trong cả hai lần chạy, kể cả sau khi lời dẫn dặn "đừng bỏ ảnh
+  nào, kể cả ảnh trông giống hệt ảnh khác". Không hại vì ảnh 0 được ghim, nhưng nhớ rằng
+  `scoreImages` **phải** coi "không có nhận xét" là "giữ", không phải "xấu".
+
+Test **500/500** (+16), `tsc` + `build` + lint sạch.
+
+---
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-22 (rạng sáng) — công cụ dựng video sản phẩm
 
 ### 📋 VIỆC MAI — theo thứ tự

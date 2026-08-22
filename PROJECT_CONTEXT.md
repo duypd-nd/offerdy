@@ -117,9 +117,28 @@ Screen text is the **subtitle of what is being said**, not a 2-4 word slogan. Mo
 
 `speakText` exists because screen and speaker need two forms of the same sentence: the screen needs `$49.95` and `OFFERDY`, the TTS needs "49 dollars 95" and "O F F E R D Y". `overlayText` survives only as a short label for the admin scene list and is **never drawn**.
 
+### The tracked link: two forms of one address, deliberately different
+
+- On screen: `offerdy.com/d/1470` — typeable
+- In the bio / caption: `https://www.offerdy.com/d/1470?s=video` — measurable in `/admin/reports`
+
+`?s=video` is **not** drawn on screen: nobody types a query string, and a mistyped address leads nowhere. A typed visit still lands on the right deal, it just carries no campaign tag. One video = one deal, so `?s=video` plus the deal code is enough to tell which video earns — no per-video tag needed. `product.ctaUrl` goes through `shortLinkUrl()`; do not hand-assemble that URL a second time.
+
+The address line is drawn at a y **computed from the subtitle's line count**, not at a fixed offset — the spoken line varies per scene, and a fixed coordinate overlaps it. The renderer warns when the line sinks into the bottom ~250px that TikTok's own UI covers.
+
+### Image scoring: the model looks, the code decides, the operator overrules
+
+The plan was a pure `scoreImages()` filtering on URLs — drop small, duplicate, text-heavy images. **Measuring 38 images across 5 built videos killed that plan**: the smallest was 800×800, filenames are opaque hashes (`S3d1732983fa34edf9b077624652cc1d2Z.webp`), aspect ratios are all near 1:1, and duplicates were already removed by `dedupeImageUrls()`. A URL-based filter would reject exactly zero images — including deal #1470's fabric close-up with a magnifier ring, the one that actually spoiled a scene. **The only signal that separates it from a lifestyle shot is the pixels.**
+
+So: `judgeImages()` (`src/lib/ai/judgeImages.ts`) shows Claude each photo and asks only for a description — text-heavy, whole-product, score, reason. It never chooses. `scoreImages()` (pure, 12 tests) applies the policy: drop below 4/10, **never fall below 3 images** (put the highest-scoring rejects back), the warehouse photo is always kept and always first, and with no judgements it returns the original order untouched. `/admin/video` shows the board with scores and reasons; clicking a photo drops or restores it and rebuilds the script **without calling the AI again**.
+
+⚠️ **Send image bytes, not URLs.** With `{type:'url'}` a single unfetchable image makes the whole request 400 `Unable to download the file` — losing the judgement of every other photo. And because `judgeImages` swallows errors on purpose (scoring is a nice-to-have, not a correctness requirement), nobody would ever learn why. It now downloads and base64-encodes; one dead image costs one image. The media type is read from the **first four bytes** — shop CDNs serve `application/octet-stream` for `.webp`.
+
+⚠️ **Say whether inset panels are pictures or text.** The first prompt lumped "photo with small inset thumbnails" in with "size chart", so the model scored a perfectly good mother-and-baby shot 3/10 for having four small circular insets, dropped 6 of 8 photos, and left a 3-image video. Separating the two concepts put those same photos back at 5/10.
+
 ### Not built yet
 
-Image scoring (scraped sets include text-heavy infographics unfit as backgrounds) · the tracked short link — `spec.product.ctaUrl` already carries `/d/<code>?s=video` but it is not on screen, so clicks do not yet show in `/admin/reports` · the paste-a-URL path for products not in the database.
+The paste-a-URL path for products not in the database · image 0 (the stored photo) and image 1 (the shop's first photo) are the same picture from two sources, so `imageKey()` does not match them and both survive · the model skips image 0 in its judgement even when told not to (harmless — it is pinned — but `scoreImages` must keep treating "no judgement" as "keep").
 
 ## AI Engines (Anthropic Claude Sonnet 5 + Vercel Cron)
 9/9 built as of 2026-07-08 (scaled-down vs. the aspirational multi-agent/queue spec in `docs/03-workflows/*.md`, which assumes infra this project doesn't have — real affiliate network APIs, job queues):
