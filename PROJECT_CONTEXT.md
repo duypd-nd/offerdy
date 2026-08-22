@@ -202,6 +202,26 @@ A shot cannot be 1.3 seconds while a shot equals a spoken sentence — English s
 
 ⚠️ **`mocScene` is computed after the narration step**, never before: that step has just changed the durations it depends on.
 
+### Running captions — one line, the spoken word lit
+
+The subtitle is a line of several words with the word currently being spoken highlighted, drawn by **libass from an ASS file** (`subtitles=phude.ass`), not by `drawtext`.
+
+⚠️ **`drawtext` cannot do this at all.** Lighting one word *inside* a line needs that word's x position, which needs real per-word widths from the font being drawn; `drawtext` never reports its own width and `chiaDong()` only estimates 0.55 x font size per character, so the accumulated error makes segments overlap or gap. libass lays the line out with the actual font, so the problem disappears — we write words, it does the geometry.
+
+⚠️ **Highlight with colour and HEIGHT, never width.** `\fscx` widens the line, and since the line is centre-aligned the whole line shifts left each time the highlight moves — it reads as jitter. `\fscy` makes the word taller without changing the line's width, so the line stays put while the highlight travels.
+
+⚠️ **Burn the subtitle after the segments are joined**, on the final timeline — not per segment before concatenation. A word straddling a cut would otherwise be sliced in half.
+
+Timings come from ElevenLabs `/v1/text-to-speech/{id}/with-timestamps` (per-character alignment); `tts.mjs` caches them in a `.tu.json` sidecar beside the audio, since a cached clip without timings would silently fall back to even spacing and a re-render would look different from the first.
+
+⚠️ **Extend each word to the start of the next.** Drawing exactly to the measured end makes the screen blink between words — every voice leaves 0.03–0.07 s gaps, dozens of flashes across 30 seconds.
+
+⚠️ **Scenes whose `speakText` differs from `voiceText` (price, coupon) fall back to even spacing.** The alignment describes "49 dollars 95" while the screen shows "$49.95" — different word counts, so borrowing one for the other desynchronises the line.
+
+### Picture size and text overlap are one decision
+
+`anhKhung` (long edge as a fraction of frame width), `anhLech` (how far the picture is pushed up) and `chuChayCo` (caption size) move together. The sample style takes the picture to 1040 of 1080 across, which leaves no empty band to put text in — so the caption sits **over** the picture and has to shrink to 62/1920 to avoid covering the product. Changing one of the three means re-checking the other two.
+
 ### Word-by-word captions
 
 The subtitle now shows one word at a time, timed to the voice, the current word popping to 1.18× before settling. Timings come from ElevenLabs `/v1/text-to-speech/{id}/with-timestamps`, which returns per-character alignment; `tts.mjs` caches them in a `.tu.json` sidecar beside the audio, since a cached clip without timings would silently fall back to even spacing and a re-render would look different from the first.

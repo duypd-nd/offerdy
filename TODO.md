@@ -1,5 +1,52 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-23 (khuya) — phụ đề một dòng nhiều chữ, ảnh to, chữ đè lên ảnh
+
+Bốn yêu cầu của anh, làm xong cả bốn. Xem `out/mau-1470.mp4`.
+
+**1. Một dòng nhiều chữ, tô chữ đang đọc** — thay vì một chữ một lúc. Chỗ này phải **đổi cả
+cách vẽ chữ**: `drawtext` không nói cho ai biết bề rộng của nó, nên không đặt được một chữ
+vào giữa dòng. Nay dùng **ASS + libass** (`subtitles=phude.ass`) — libass dàn chữ bằng chính
+font sẽ vẽ, nên việc đó thành miễn phí.
+
+**2. Chữ bé lại** — `chuChayCo` 104 → **62** (trên khung 1920).
+
+**3. Ảnh to lên** — `anhKhung` 920 → **1040** trên 1080 chiều rộng; cảnh có chữ lớn 720 → 900.
+Khung ảnh cũng bớt bị đẩy lên (`anhLech` 170 → 60).
+
+**4. Chữ đè lên ảnh** — hệ quả bắt buộc của (3): ảnh gần kín bề ngang thì không còn dải trống
+nào để đặt chữ. Ba con số này đi với nhau, đổi một cái phải xem lại hai cái kia.
+
+### Hai điều đáng ghi về cách làm
+
+**Tô sáng bằng MÀU và CHIỀU CAO, tuyệt đối không bằng chiều ngang.** `\fscx` làm dòng chữ
+rộng ra, mà dòng đang căn giữa nên cả dòng sẽ nhảy sang trái mỗi lần đổi chữ — nhìn như chữ
+bị rung. `\fscy` chỉ làm chữ cao thêm, bề ngang không đổi, nên dòng đứng yên còn điểm sáng
+chạy qua từng chữ.
+
+**Phụ đề đốt vào SAU khi nối các đoạn**, trên dòng thời gian cuối cùng — không vẽ từng đoạn
+rồi mới nối. Nhờ vậy một chữ nằm vắt qua hai cảnh không còn bị cắt làm đôi.
+
+### 📋 VIỆC TIẾP THEO
+
+**1. Anh xem `out/mau-1470.mp4`.** Chỉnh được ngay ở `PHONG_CACH_MAU`
+(`src/lib/video/videoStyle.ts`): `chuChayCo` · `anhKhung` · `anhLech` · `giayMoiAnh` ·
+`daiChuyen` · `soNhipToiDa`.
+
+**2. Đăng thử MỘT video lên TikTok** — vẫn là việc đáng giá nhất, vẫn chưa làm.
+
+**3. Xác nhận bản trên Vercel** · **hai tên store hỏng** · **mốc đo 27/08**.
+
+### Bẫy đo được
+
+- **Heredoc của bash nuốt dấu gạch chéo ngược — LẦN THỨ TƯ trong hai ngày.** Lần này biến
+  `{\\c...\\fscy...}` thành `{\c...}`, tức thẻ ASS hỏng hoàn toàn. **Soạn code có escape thì
+  KHÔNG bao giờ qua heredoc — dùng Write/Edit.**
+- **`const` khai báo cuối file nằm trong vùng chết** khi `main()` chạy ở cấp cao nhất module.
+  Chính `video-render.mjs` đã ghi cảnh báo này ở đầu file từ trước, và tôi vẫn mắc lại: hàm
+  `chuAss` viết bằng `const` → *"Cannot access before initialization"*. Phải là `function`.
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-23 — đã đo 4 video mẫu, đã áp vào bộ dựng
 
 ### Bốn video mẫu nói gì

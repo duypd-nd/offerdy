@@ -347,7 +347,7 @@ const MAU = { ...MAC_DINH, ten: 'thu-cat', giayMoiAnh: 1.3 }
 test('cắt nhỏ KHÔNG làm đổi tổng thời lượng của mỗi ý', () => {
   const cu = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
   const moi = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: MAU })
-  const tong = ds => ds.reduce((n, s) => n + s.duration, 0)
+  const tong = (ds: { duration: number }[]) => ds.reduce((n, s) => n + s.duration, 0)
   assert.ok(moi.scenes.length > cu.scenes.length, `${cu.scenes.length} -> ${moi.scenes.length}`)
   assert.ok(Math.abs(tong(moi.scenes) - tong(cu.scenes)) < 0.05,
     `${tong(cu.scenes)} vs ${tong(moi.scenes)}`)

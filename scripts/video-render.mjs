@@ -97,6 +97,13 @@ async function main(specPath) {
   const tDur = spec.transition?.duration ?? 0.5
 
   /**
+   * Phong cach: vi tri, co chu, kich thuoc khung anh — tinh theo TI LE khung
+   * hinh chu khong phai pixel, de so duoc voi mot video mau o do phan giai khac.
+   * Kich ban cu khong co `style` thi moi cho deu roi ve con so viet cung truoc day.
+   */
+  const stChung = spec.style ?? {}
+
+  /**
    * Chuyen canh RA khoi scene `i` — moi mat noi mot con so rieng.
    *
    * ⚠️ Truoc 2026-08-22 ca video dung MOT kieu va MOT do dai. Kich ban cu khong
@@ -230,6 +237,7 @@ async function main(specPath) {
    * thay la sai nhung khong du de doan ra vi sao.
    */
   const TRE_TIENG = 0.25
+  const cacNhip = []
   for (let i = 0; i < scenes.length; i++) {
     const s = scenes[i]
     if (!s.voiceText || s.tiepNoi) continue
@@ -270,16 +278,10 @@ async function main(specPath) {
       tu[tu.length - 1] = { ...cuoi, het: cuoi.het + 0.35 }
     }
 
-    let batDau = 0
-    for (const k of nhom) {
-      const canh = scenes[k]
-      const t0 = batDau
-      canh._tuVe = tu
-        .map(w => ({ chu: w.chu, dau: TRE_TIENG + w.dau - t0, het: TRE_TIENG + w.het - t0 }))
-        .filter(w => w.het > 0.02 && w.dau < canh.duration)
-        .map(w => ({ chu: w.chu, dau: Math.max(0, w.dau), het: Math.min(canh.duration, w.het) }))
-      batDau += canh.duration
-    }
+    // Giu nguyen ca danh sach chu cho CA NHIP — khong cat theo tung canh nua.
+    // Phu de duoc dot vao sau khi noi cac doan, tren dong thoi gian cuoi cung,
+    // nen mot chu nam vat qua hai canh khong con bi cat lam doi.
+    cacNhip.push({ batDau: mocScene[i] + TRE_TIENG, tu })
   }
 
   // ── Luot 1: moi scene mot doan ───────────────────────────────────
@@ -306,13 +308,20 @@ async function main(specPath) {
     // `s=` cua zoompan lam ca viec cat lan viec doi kich thuoc, nen chi can
     // khung co cung ti le voi anh la khong con bien dang.
     const { w: aw, h: ah } = await docKichThuoc(s._anh)
-    const hop = s.badgeText ? 720 : 920
+    // ⚠️ Kich thuoc khung anh doc tu phong cach, tinh theo % chieu rong khung
+    // hinh. Phong cach hoc tu video mau de anh gan kin be ngang va chu de len
+    // anh — mau khong chua dai trong nao de dat chu.
+    const hop = Math.round(W * (s.badgeText
+      ? (stChung.anhKhungBadge ?? 720 / 1080)
+      : (stChung.anhKhung ?? 920 / 1080)))
     const boxW = chan(aw >= ah ? hop : Math.round((hop * aw) / ah))
     const boxH = chan(aw >= ah ? Math.round((hop * ah) / aw) : hop)
     // Phong lon TRUOC khi zoompan (canh dai ~2200): zoompan lam tron toa do ve
     // so nguyen nen o kich thuoc nho no giat thay ro.
     const he = 2200 / Math.max(boxW, boxH)
-    const day = s.badgeText ? 300 : 170
+    const day = Math.round(H * (s.badgeText
+      ? (stChung.anhLechBadge ?? 300 / 1920)
+      : (stChung.anhLech ?? 170 / 1920)))
 
     const loc = [
       // Nen: chinh anh do, phu kin khung, lam mo va toi di
@@ -374,7 +383,7 @@ async function main(specPath) {
     // khong phai pixel: de so duoc voi mot video mau tai ve o do phan giai khac
     // (720×1280 hay 1080×1920 deu ra cung mot ti le). Thieu `style` — kich ban
     // cu — thi roi ve dung cac con so viet cung truoc day.
-    const st = spec.style ?? {}
+    const st = stChung
     const cachDay = (ti, macDinh) => Math.round(H * (ti ?? macDinh / 1920))
     const coChuTu = (ti, macDinh) => Math.round(H * (ti ?? macDinh / 1920))
 
@@ -389,55 +398,20 @@ async function main(specPath) {
     const PHU_DE_CACH_DAY = cachDay(st.phuDeCachDay, 560)
     const PHU_DE_Y = H - PHU_DE_CACH_DAY
 
-    /**
-     * Phu de CHAY THEO GIONG DOC: mot chu mot luc, chu dang doc thi noi len.
-     *
-     * ⚠️ VI SAO MOT CHU CHU KHONG PHAI MOT DONG CO CHU DUOC TO SANG: de to sang
-     * mot chu NAM TRONG mot dong thi phai biet chu do bat dau o toa do x nao,
-     * tuc phai do duoc be rong tung chu bang chinh font se ve. `chiaDong()` chi
-     * uoc luong `0,55 x co chu` cho moi ky tu — dung de biet mot dong co vua
-     * khong, nhung sai vai chuc pixel khi cong don, va vai chuc pixel nghia la
-     * cac manh chu chong len nhau hoac ho ra. Mot chu mot luc thi `drawtext` tu
-     * can giua (`x=(w-text_w)/2`), khong can do gi ca — va do cung dung la kieu
-     * phu de dang chay tren TikTok.
-     */
-    const veChuChay = tuVe => {
-      for (const w of tuVe) {
-        // Co chu vua khung: `chiaDong` tra ve co lon nhat ma chu do khong tran le.
-        const { coChu } = chiaDong(w.chu, W, coChuTu(st.chuChayCo, 104))
-        const ten = `chu-${i}-${dem}.txt`
-        fs.writeFileSync(path.join(viec, ten), w.chu, 'utf8')
-
-        // "Noi len": ve to hon trong khoang dau roi ve co thuong — hai khoang
-        // KHONG chong nhau, neu khong hai lop chu de len nhau thanh nhoe.
-        const noi = Math.min(0.09, Math.max(0, (w.het - w.dau) * 0.45))
-        const moc = [
-          { tu: w.dau, den: w.dau + noi, co: Math.round(coChu * 1.18) },
-          { tu: w.dau + noi, den: w.het, co: coChu },
-        ].filter(m => m.den - m.tu > 0.01)
-
-        for (const m of moc) {
-          const ra = `[chu${dem++}]`
-          loc.push(
-            `${nhan}drawtext=fontfile=font.ttf:textfile=${ten}:expansion=none:` +
-            `fontcolor=white:fontsize=${m.co}:borderw=7:bordercolor=black@0.75:` +
-            `x=(w-text_w)/2:y=h-${PHU_DE_CACH_DAY}:` +
-            `enable='between(t,${m.tu.toFixed(3)},${m.den.toFixed(3)})'${ra}`
-          )
-          nhan = ra
-        }
-      }
-      // Chu chay chi chiem MOT dong, luon luon.
-      return { soDong: 1, buoc: Math.round(coChuTu(st.chuChayCo, 104) * 1.24) }
-    }
-
-    const phuDe = s._tuVe?.length
-      ? veChuChay(s._tuVe)
-      : veChu(s.voiceText, {
-        toiDaCoChu: coChuTu(st.phuDeCo, 68),
-        y: `h-${PHU_DE_CACH_DAY}`,
-        vien: 6,
-      })
+    // ⚠️ PHU DE KHONG VE O DAY NUA — no duoc dot vao SAU khi noi cac doan, bang
+    // mot tep ASS tren dong thoi gian cuoi cung (xem `phuDeAss()` o cuoi file).
+    //
+    // Ly do: mot dong nhieu chu, chu dang doc thi noi len. De to sang mot chu
+    // NAM TRONG mot dong thi phai biet chu do bat dau o toa do x nao — tuc phai
+    // do be rong tung chu bang chinh font se ve. `drawtext` khong noi cho ai
+    // biet be rong cua no, con `chiaDong()` chi uoc luong `0,55 x co chu` moi ky
+    // tu: sai vai chuc pixel khi cong don, va vai chuc pixel nghia la cac manh
+    // chu chong len nhau hoac ho ra.
+    //
+    // libass thi dan chu bang chinh font do, nen viec nay thanh mien phi. Va ve
+    // tren dong thoi gian cuoi con bo luon mot cai kho khac: mot chu nam vat qua
+    // hai canh khong con bi cat lam doi.
+    const phuDe = { soDong: 1, buoc: Math.round(coChuTu(st.chuChayCo, 62) * 1.3) }
 
     // ── Dia chi web, chi o canh CTA ─────────────────────────────────
     //
@@ -485,12 +459,29 @@ async function main(specPath) {
   }
   if (doan.length === 1) chuoi.push('[0:v]null[ra]')
 
+  // ── Dot phu de chay len tren ────────────────────────────────────
+  //
+  // ⚠️ Dot O DAY, sau khi da noi cac doan: phu de chay theo GIONG DOC chu khong
+  // theo canh, va mot chu nam vat qua hai canh se bi cat lam doi neu ve o luot
+  // truoc. Tren dong thoi gian cuoi cung thi khong con chuyen do.
+  let raCuoi = '[ra]'
+  if (cacNhip.length) {
+    const coChuAss = Math.round(H * (stChung.chuChayCo ?? 62 / 1920))
+    const cachDayAss = Math.round(H * (stChung.phuDeCachDay ?? 560 / 1920))
+    fs.writeFileSync(path.join(viec, 'phude.ass'),
+      phuDeAss(cacNhip, { W, H, coChu: coChuAss, cachDay: cachDayAss }), 'utf8')
+    // `fontsdir=.` de libass dung dung tep font da chep vao thu muc viec, khong
+    // phai di tim trong he thong. Ten tep tran vi lenh chay voi cwd la thu muc do.
+    chuoi.push(`[ra]subtitles=phude.ass:fontsdir=.[pd]`)
+    raCuoi = '[pd]'
+  }
+
   const raTep = `${spec.output ?? 'video'}.mp4`
   const chuaTieng = coTieng ? 'hinh.mp4' : raTep
   await chay([
     '-y', ...dau,
     '-filter_complex', chuoi.join(';'),
-    '-map', '[ra]',
+    '-map', raCuoi,
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '20',
     '-pix_fmt', 'yuv420p', '-r', String(FPS),
     '-movflags', '+faststart',
@@ -610,3 +601,109 @@ function docKichThuoc(tep) {
   })
 }
 
+
+// ── Phu de chay: mot dong nhieu chu, chu dang doc thi noi len ──────
+//
+// ⚠️ VI SAO LA ASS CHU KHONG PHAI `drawtext`: de to sang mot chu NAM TRONG mot
+// dong thi phai biet chu do bat dau o toa do x nao, tuc phai do be rong tung chu
+// bang CHINH font se ve. `drawtext` khong tra ve be rong, va `chiaDong()` chi
+// uoc luong `0,55 x co chu` moi ky tu — sai vai chuc pixel khi cong don, du de
+// cac manh chu chong len nhau hoac ho ra. libass dan chu bang chinh font do nen
+// viec do thanh mien phi: ta chi viet ra chu, no lo phan hinh hoc.
+//
+// ⚠️ VA VE TREN DONG THOI GIAN CUOI CUNG, khong ve tung doan roi moi noi: mot
+// chu nam vat qua hai canh se bi cat lam doi neu ve theo doan.
+
+/** Giay -> `0:00:01.23` cua ASS. */
+function gioAss(giay) {
+  const g = Math.max(0, giay)
+  const h = Math.floor(g / 3600)
+  const p = Math.floor((g % 3600) / 60)
+  const s = g % 60
+  return `${h}:${String(p).padStart(2, '0')}:${s.toFixed(2).padStart(5, '0')}`
+}
+
+/**
+ * Gom chu thanh tung DONG.
+ *
+ * Cat theo so KY TU chu khong theo so tu: "a" va "extraordinary" khong the tinh
+ * ngang nhau. `toiDa` la so ky tu uoc chung mot dong chua duoc o co chu dang dung.
+ */
+function gomDong(tu, toiDa) {
+  const dong = []
+  let hienTai = []
+  let dai = 0
+  for (const w of tu) {
+    const them = w.chu.length + (hienTai.length ? 1 : 0)
+    if (hienTai.length && dai + them > toiDa) { dong.push(hienTai); hienTai = []; dai = 0 }
+    hienTai.push(w)
+    dai += w.chu.length + (hienTai.length > 1 ? 1 : 0)
+  }
+  if (hienTai.length) dong.push(hienTai)
+  return dong
+}
+
+/**
+ * Chu trong o Text cua ASS: bo `{` `}` (do la cu phap the cua ASS) va xuong dong.
+ *
+ * ⚠️ PHAI la `function`, khong duoc la `const`. `main()` chay o cap cao nhat cua
+ * module nen no goi ham nay TRUOC khi cac `const` cuoi file kip khoi tao — dung
+ * cai bay da ghi o dau file. Da mac lai lan nay: "Cannot access 'chuAss' before
+ * initialization" ngay dong phu de dau tien.
+ */
+function chuAss(t) {
+  return String(t).replace(/[{}]/g, '').replace(/\r?\n/g, ' ').trim()
+}
+
+/**
+ * Sinh tep ASS cho ca video.
+ *
+ * `cacNhip` = [{ batDau, tu: [{chu, dau, het}] }] voi `batDau` la moc cua nhip do
+ * tren dong thoi gian cuoi cung, con `dau`/`het` tinh tu dau nhip.
+ */
+function phuDeAss(cacNhip, { W, H, coChu, cachDay }) {
+  // ⚠️ To sang bang MAU va bang chieu cao, TUYET DOI khong bang chieu ngang:
+  // `\fscx` lam dong chu rong ra, ma dong dang can giua nen ca dong se nhay sang
+  // trai mot chut moi lan doi chu — nhin nhu chu bi rung. `\fscy` chi lam chu
+  // cao them, be ngang khong doi, nen dong dung yen.
+  const NOI_CAO = 116
+  const MAU_NOI = '&H0034CBF9&'   // ABGR — vang cam
+  const dau = [
+    '[Script Info]',
+    'ScriptType: v4.00+',
+    'WrapStyle: 2',
+    'ScaledBorderAndShadow: yes',
+    `PlayResX: ${W}`,
+    `PlayResY: ${H}`,
+    '',
+    '[V4+ Styles]',
+    'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
+    // Alignment 2 = duoi, can giua. Vien day de chu doc duoc khi de len anh sang.
+    `Style: PD,Segoe UI,${coChu},&H00FFFFFF&,&H00FFFFFF&,&H00000000&,&H00000000&,-1,0,0,0,100,100,0,0,1,${Math.max(3, Math.round(coChu * 0.09))},0,2,90,90,${cachDay},1`,
+    '',
+    '[Events]',
+    'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
+  ]
+
+  const dong = []
+  for (const nhip of cacNhip) {
+    if (!nhip.tu?.length) continue
+    // ~26 ky tu mot dong o co chu 62 tren khung 1080 — de libass tu xuong dong
+    // neu lo qua, `WrapStyle: 2` khong tu can lai nen ta chu dong cat truoc.
+    for (const d of gomDong(nhip.tu, 26)) {
+      for (let k = 0; k < d.length; k++) {
+        const w = d[k]
+        // Moi chu mot su kien: ca dong hien nguyen, chi doi chu duoc to sang.
+        // Nho vay dong chu dung yen con diem sang chay qua tung chu.
+        const chu = d.map((x, j) => (j === k
+          ? `{\\c${MAU_NOI}\\fscy${NOI_CAO}}${chuAss(x.chu)}{\\r}`
+          : chuAss(x.chu))).join(' ')
+        const tu0 = nhip.batDau + w.dau
+        const tu1 = nhip.batDau + w.het
+        if (tu1 - tu0 < 0.02) continue
+        dong.push(`Dialogue: 0,${gioAss(tu0)},${gioAss(tu1)},PD,,0,0,0,,${chu}`)
+      }
+    }
+  }
+  return [...dau, ...dong].join('\n') + '\n'
+}

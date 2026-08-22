@@ -63,12 +63,21 @@ export type PhongCachVideo = {
   soNhipToiDa: number | null
 
   /**
-   * Co chu toi da cua PHU DE CHAY (mot chu mot luc), theo % chieu cao.
+   * Co chu cua PHU DE CHAY, theo % chieu cao khung.
    *
-   * Lon hon phu de nhieu dong vi chi co mot chu tren man — 104/1920 o khung
-   * 1080x1920. `chiaDong()` tu ha xuong neu gap mot chu dai.
+   * Mot dong nhieu chu nen phai nho hon han ban "mot chu mot luc" truoc day
+   * (104/1920) — neu khong mot dong bon chu se tran ra ngoai le.
    */
   chuChayCo: number
+
+  /** Canh dai cua khung anh, theo % CHIEU RONG khung hinh. */
+  anhKhung: number
+  /** Canh dai cua khung anh o nhung canh co chu LON, theo % chieu rong. */
+  anhKhungBadge: number
+  /** Day khung anh len bao nhieu, theo % chieu cao. */
+  anhLech: number
+  /** Day khung anh len o canh co chu LON, theo % chieu cao. */
+  anhLechBadge: number
 }
 
 /**
@@ -91,6 +100,10 @@ export const MAC_DINH: PhongCachVideo = {
   giayMoiAnh: null,
   soNhipToiDa: null,
   chuChayCo: 104 / 1920,
+  anhKhung: 920 / 1080,
+  anhKhungBadge: 720 / 1080,
+  anhLech: 170 / 1920,
+  anhLechBadge: 300 / 1920,
 }
 
 /**
@@ -123,7 +136,16 @@ export const PHONG_CACH_MAU: PhongCachVideo = {
   badgeCo: 92 / 1920,
   giayMoiAnh: 1.3,
   soNhipToiDa: 4,
-  chuChayCo: 104 / 1920,
+  // Chu NHO hon va anh TO hon ban mac dinh, va chu duoc phep de len anh.
+  //
+  // ⚠️ Ba con so nay di voi nhau: anh to len thi khong con dai trong duoi de dat
+  // chu, nen chu buoc phai de len anh; va chu de len anh thi phai nho lai, neu
+  // khong no che mat chinh mon hang dang ban.
+  chuChayCo: 62 / 1920,
+  anhKhung: 1040 / 1080,
+  anhKhungBadge: 900 / 1080,
+  anhLech: 60 / 1920,
+  anhLechBadge: 120 / 1920,
 }
 
 /**
