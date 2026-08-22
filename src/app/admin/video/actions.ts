@@ -22,6 +22,8 @@ export type KetQuaPhanTich =
       canhBao: string[]
       /** Du de dung lai kich ban khi nguoi van hanh bo bot anh — khong goi lai AI. */
       nguon: NguonKichBan
+      /** Anh thuc su dua vao kich ban, dung thu tu. */
+      anhDung: string[]
       anhBo: { url: string; lyDo: string }[]
       daChamAnh: boolean
     }
@@ -41,6 +43,7 @@ export async function phanTichDeal(dealCode: number): Promise<KetQuaPhanTich> {
       thoiLuong: tongThoiLuong(r.spec.scenes),
       canhBao: r.canhBao,
       nguon: r.nguon,
+      anhDung: r.anhDung,
       anhBo: r.anhBo,
       daChamAnh: r.daChamAnh,
     }
@@ -50,7 +53,7 @@ export async function phanTichDeal(dealCode: number): Promise<KetQuaPhanTich> {
 }
 
 export type KetQuaDungLai =
-  | { ok: true; spec: VideoSpec; thoiLuong: number; soAnh: number }
+  | { ok: true; spec: VideoSpec; thoiLuong: number; anhDung: string[] }
   | { ok: false; error: string }
 
 /**
@@ -66,11 +69,17 @@ export type KetQuaDungLai =
  * Ca hai deu qua `requireAdmin()`, va bo dung video chi chay o may nguoi dung.
  * Ghi ra day de lan sau khong ai nham tuong co mot vong chan o day.
  */
-export async function dungLaiKichBan(nguon: NguonKichBan, boUrls: string[]): Promise<KetQuaDungLai> {
+export async function dungLaiKichBan(nguon: NguonKichBan, anhChon: string[]): Promise<KetQuaDungLai> {
   await requireAdmin()
   try {
-    const bo = new Set(boUrls)
-    const anh = nguon.anhGoc.filter(u => !bo.has(u))
+    // ⚠️ `anhChon` la danh sach DAY DU va DA XEP mà trang admin muốn dùng, không
+    // phải "những ảnh cần bỏ". Bản đầu nhận danh sách bỏ và tự lọc từ `anhGoc`,
+    // và nó sai một cách kín đáo: mỗi lần bấm một ảnh thì mọi ảnh Claude đã loại
+    // lại lặng lẽ quay vào kịch bản, vì `anhGoc` là danh sách TRƯỚC khi chấm.
+    //
+    // Vẫn lọc theo `anhGoc` để một URL lạ không lọt vào bộ dựng video.
+    const hopLe = new Set(nguon.anhGoc)
+    const anh = anhChon.filter(u => hopLe.has(u))
     if (!anh.length) return { ok: false, error: 'Phải giữ lại ít nhất một ảnh' }
 
     const spec = buildSpec({
@@ -80,7 +89,7 @@ export async function dungLaiKichBan(nguon: NguonKichBan, boUrls: string[]): Pro
       couponCode: nguon.couponCode,
       storeName: nguon.storeName,
     })
-    return { ok: true, spec, thoiLuong: tongThoiLuong(spec.scenes), soAnh: anh.length }
+    return { ok: true, spec, thoiLuong: tongThoiLuong(spec.scenes), anhDung: anh }
   } catch (err) {
     return { ok: false, error: String(err).slice(0, 200) }
   }

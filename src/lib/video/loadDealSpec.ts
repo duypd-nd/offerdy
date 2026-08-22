@@ -48,6 +48,8 @@ export type KetQuaNap =
       maCoupon: string | null
       canhBao: string[]
       nguon: NguonKichBan
+      /** Anh thuc su dua vao kich ban, dung thu tu da xep. */
+      anhDung: string[]
       /** Anh bi cham diem thap va bi bo, kem ly do. */
       anhBo: { url: string; lyDo: string }[]
       /** Model co cham duoc anh khong. Sai thi thu tu anh giu nguyen nhu cao ve. */
@@ -144,6 +146,7 @@ export async function loadDealSpec(dealCode: number): Promise<KetQuaNap> {
     maCoupon: coupon?.code ?? null,
     canhBao,
     nguon,
+    anhDung: cham.anh,
     anhBo: cham.bo,
     daChamAnh: cham.daCham,
     spec: buildSpec({

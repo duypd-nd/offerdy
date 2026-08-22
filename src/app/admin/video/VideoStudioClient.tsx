@@ -23,7 +23,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   const [loiDung, setLoiDung] = useState<string | null>(null)
   const [dangDung, setDangDung] = useState(false)
   const [daChep, setDaChep] = useState(false)
-  const [boAnh, setBoAnh] = useState<string[]>([])
+  const [anhChon, setAnhChon] = useState<string[]>([])
   const [dangXep, setDangXep] = useState(false)
 
   const loc = deals.filter(d => {
@@ -33,7 +33,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   })
 
   const phanTich = (d: DealChon) => {
-    setChon(d); setKq(null); setKetQuaDung(null); setLoiDung(null); setBoAnh([])
+    setChon(d); setKq(null); setKetQuaDung(null); setLoiDung(null); setAnhChon([])
     batDau(async () => setKq(await phanTichDeal(d.code)))
   }
 
@@ -81,13 +81,17 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
    */
   const doiAnh = async (url: string) => {
     if (!kq?.ok) return
-    const moi = boAnh.includes(url) ? boAnh.filter(u => u !== url) : [...boAnh, url]
-    setBoAnh(moi)
+    const dangDung = anhChon.length ? anhChon : kq.anhDung
+    // ⚠️ Gửi cả danh sách muốn dùng, KHÔNG gửi "ảnh cần bỏ". Ảnh lấy lại thì
+    // xếp cuối: nó là ảnh Claude đã chấm thấp, không nên chiếm cảnh mở đầu.
+    const moi = dangDung.includes(url) ? dangDung.filter(u => u !== url) : [...dangDung, url]
     setDangXep(true); setKetQuaDung(null); setLoiDung(null)
     try {
       const r = await dungLaiKichBan(kq.nguon, moi)
-      if (r.ok) setKq({ ...kq, spec: r.spec, thoiLuong: r.thoiLuong, soAnh: r.soAnh })
-      else setLoiDung(r.error)
+      if (r.ok) {
+        setAnhChon(r.anhDung)
+        setKq({ ...kq, spec: r.spec, thoiLuong: r.thoiLuong, soAnh: r.anhDung.length })
+      } else setLoiDung(r.error)
     } finally {
       setDangXep(false)
     }
@@ -166,19 +170,19 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
                 <div className="vid-anh-luoi">
                   {kq.nguon.anhGoc.map((url, i) => {
                     const d = kq.nguon.danhGia?.find(x => x.index === i)
-                    const tuBo = kq.anhBo.some(b => b.url === url)
-                    const taBo = boAnh.includes(url)
-                    // Ảnh nằm trong kịch bản hiện tại — nguồn sự thật duy nhất,
-                    // vì `scoreImages` còn bù lại ảnh khi bỏ quá tay.
-                    const dung = kq.spec.scenes.some(sc => sc.image === url)
+                    const aiBo = kq.anhBo.some(b => b.url === url)
+                    // Danh sách đang dùng là nguồn sự thật duy nhất — KHÔNG đọc
+                    // từ `spec.scenes`: nhiều ảnh hơn số cảnh thì có ảnh không
+                    // xuất hiện cảnh nào mà vẫn đang được chọn.
+                    const dung = (anhChon.length ? anhChon : kq.anhDung).includes(url)
                     return (
                       <button key={url} type="button" onClick={() => doiAnh(url)} disabled={dangXep}
                         className={`vid-anh-o${dung ? '' : ' vid-anh-o--bo'}`}
-                        title={taBo ? 'Bấm để dùng lại ảnh này' : 'Bấm để bỏ ảnh này'}>
+                        title={dung ? 'Bấm để bỏ ảnh này' : 'Bấm để dùng lại ảnh này'}>
                         <Image src={url} alt="" width={72} height={72} unoptimized />
                         <span className="vid-anh-diem">{d ? `${d.diem}/10` : '—'}</span>
                         <span className="vid-anh-ly">
-                          {taBo ? 'anh đã bỏ' : !dung && tuBo ? 'AI bỏ' : d?.lyDo || (i === 0 ? 'ảnh trong kho' : '')}
+                          {!dung && aiBo ? 'AI bỏ' : !dung ? 'anh đã bỏ' : d?.lyDo || (i === 0 ? 'ảnh trong kho' : '')}
                         </span>
                       </button>
                     )
