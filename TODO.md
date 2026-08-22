@@ -1,5 +1,20 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-23 — phụ đề xuống dưới ảnh
+
+Anh khoanh đỏ vùng dưới ảnh. `phuDeCachDay` của `PHONG_CACH_MAU`: 560 → **300** (tính từ đáy).
+
+⚠️ **Con số này bị kẹp giữa hai phía.** Khung ảnh cao 1040 và được đẩy lên 60 nên nó kết thúc
+ở y=1420; còn **giao diện TikTok ăn mất khoảng 250 pixel cuối** (tên kênh, caption, nút). Dải
+đặt chữ thật sự chỉ là 1420..1670, tức cách đáy từ 250 đến 500.
+
+Đặt **300** là nằm gọn trong đó: dưới ảnh hẳn, mà vẫn cao hơn vạch giao diện. Vùng anh khoanh
+đỏ ở khoảng **190** từ đáy — thấp hơn nữa thì chữ bắt đầu bị chính giao diện TikTok che, và
+**đó là thứ không phát hiện được bằng cách xem tệp MP4 trên máy**. Muốn xuống đúng chỗ khoanh
+thì nói, tôi hạ tiếp.
+
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-23 (khuya) — phụ đề một dòng nhiều chữ, ảnh to, chữ đè lên ảnh
 
 Bốn yêu cầu của anh, làm xong cả bốn. Xem `out/mau-1470.mp4`.

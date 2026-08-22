@@ -130,7 +130,19 @@ export const PHONG_CACH_MAU: PhongCachVideo = {
   chuyenCanh: [CAT_CUNG, 'slideleft', 'pixelize', 'circleopen', CAT_CUNG, 'wiperight', 'hblur', 'squeezeh'],
   daiChuyen: 0.4,
   nhipCanh: 1,
-  phuDeCachDay: 560 / 1920,
+  /**
+   * Phu de nam DUOI anh, trong dai nen mo — khong de len anh nua.
+   *
+   * ⚠️ CON SO NAY BI KEP GIUA HAI PHIA. Khung anh cao 1040 va duoc day len 60,
+   * nen no ket thuc o y=1420; con giao dien TikTok (ten kenh, caption, nut) an
+   * mat khoang **250 pixel cuoi**. Dai dat chu that su chi la 1420..1670, tuc
+   * cach day tu 250 den 500. Dat 300 la nam gon trong do: duoi anh han, ma van
+   * cao hon vach giao dien.
+   *
+   * Ha xuong duoi 250 thi chu bat dau bi chinh giao dien TikTok che — va do la
+   * thu khong the phat hien duoc bang cach xem tep MP4 tren may.
+   */
+  phuDeCachDay: 300 / 1920,
   phuDeCo: 68 / 1920,
   badgeCachDay: 830 / 1920,
   badgeCo: 92 / 1920,
