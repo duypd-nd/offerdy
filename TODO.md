@@ -45,8 +45,24 @@ tấm anh đã phàn nàn — giữ 7/9 ảnh.
 **1. Mở `/admin/video` trên trình duyệt thật.** ⚠️ **Bảng ảnh mới CHƯA được lái bằng trình
 duyệt** — mới kiểm bằng `tsc` + `build` + đường lệnh `npm run video:spec`. Bộ e2e cũ
 (`.scratch/login-e2e.mjs`) dùng tài khoản `chu@test.local` không còn tồn tại, mà tạo tài
-khoản thử trong kho thật thì không đáng. Bấm thử: bỏ một ảnh → số cảnh đổi, bấm lại → ảnh
-quay về **cuối** danh sách.
+khoản thử trong kho thật thì không đáng.
+
+🟢 **Dev server đã bật sẵn ở `http://localhost:3000`** (kiểm: `/` 200 · `/deals` 200 ·
+`/admin/login` 200 · `/admin/video` 307 về đăng nhập). Cần bấm thử:
+
+1. Chọn một deal → chờ AI chấm ~20–30 giây (hai lượt gọi song song: viết lời đọc + nhìn ảnh)
+2. Bảng **"Ảnh dùng trong video"** hiện điểm `x/10` và lý do dưới mỗi ảnh; ảnh bị bỏ xám và mờ
+3. Bấm một ảnh đang dùng → xám lại, **số cảnh và thời lượng đổi ngay**, không gọi lại AI
+4. Bấm một ảnh đã bỏ → quay lại nhưng **xếp cuối**
+5. Ô **"Link dán vào bio / caption"** ra `https://www.offerdy.com/d/<mã>?s=video`, nút Chép
+   báo "Đã chép"
+
+⚠️ **Bẫy dev server đã trả giá sáng nay** (chép đủ vào `PROJECT_CONTEXT.md` mục *Running the
+dev server*): chạy `npm run build` rồi bật `next dev` trên **cùng `.next`** làm `/admin/login`
+trả **404** ở máy trong khi production trả 200 — `rm -rf .next` là hết, **đừng đi tìm lỗi
+trong code đăng nhập**. Và giết `next dev` xong tiến trình cũ vẫn giữ cổng 3000 (trả 500),
+lần bật sau âm thầm nhảy sang 3001; lọc theo cổng rồi `Stop-Process`, **đừng** giết hết
+`node.exe`.
 
 **2. Xác nhận bản đang chạy trên Vercel.** Việc cũ chưa xong: tài khoản Vercel nối qua MCP
 không phải tài khoản chứa Offerdy, HTML production không lộ mã bản dựng. Mở bảng điều khiển.

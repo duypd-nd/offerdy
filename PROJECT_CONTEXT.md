@@ -28,6 +28,15 @@
 - **Language split**: public-facing pages are 100% English; `/admin/*` stays Vietnamese. Don't "fix" Vietnamese strings inside `/admin`.
 - **Third-party scripts go through `next/script`, and an inline one needs an `id`** — without it Next can't track or optimise the script. GTM (`GTM-K3N8W8B8`) uses `strategy="afterInteractive"`, which the Next docs name specifically for tag managers; the trade-off is that it starts after hydration rather than immediately, so a visitor who leaves within a few hundred ms may go unrecorded. Two things that are **not** exceptions to fix: the `<script type="application/ld+json">` blocks are the pattern Next itself recommends and must stay raw `<script>`, and the GTM `<noscript>` iframe must stay the first thing in `<body>`. The root layout has **no manual `<head>`** — App Router builds it from `generateMetadata` (fixed 2026-08-01; the old `<head>` existed only to hold the GTM snippet).
 
+### Running the dev server on this machine (Windows, repo on `E:`)
+
+`npm run dev` → `http://localhost:3000`. Two things bite every time:
+
+- ⚠️ **Never run `next dev` over a `.next` left by `npm run build`.** Observed 2026-08-22: after three production builds, `next dev` served `/admin/login` as a **404** — the real custom 404 page, complete with its two `/api/search-suggest?q=admin` and `?q=login` lookups — while production served the same route 200 and `/`, `/deals`, `/admin` behaved normally on the same dev server. `rm -rf .next` and restart fixes it. The mechanism is not pinned down; the symptom is. **Do not go hunting in the login code.**
+- ⚠️ **Killing `next dev` does not free port 3000.** The old `start-server.js` keeps listening and answers 500 once its `.next` is gone, so the next `npm run dev` silently moves to 3001. Find it with `Get-NetTCPConnection -LocalPort 3000 -State Listen` and `Stop-Process` that PID — never `Stop-Process -Name node`, which takes the editor and every Turbopack worker with it (a previous session left 277 node processes holding 13.9 GB that way).
+- First compile of each route takes 20–90s; Next itself prints *"Slow filesystem detected"* for `E:\Offerdy\.next`. Subsequent hits are fast. Budget for this before deciding something is hung.
+- In Git Bash, `curl -w "/ -> %{http_code}"` has its leading `/` rewritten to `C:/Program Files/Git/`. Prefix the command with `MSYS_NO_PATHCONV=1`.
+
 ## Public Pages
 | Route | Status | Notes |
 |-------|--------|-------|
