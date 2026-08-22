@@ -12,7 +12,7 @@ công khai mặc định của Sanity là `_id in path("*")` (MỘT dấu sao), 
 khớp id có dấu chấm. Đúng cơ chế giấu `drafts.*`. Nghĩa là **đừng bao giờ đổi id ô sao lưu
 sang dạng không có dấu chấm** — làm thế là đem cả `AUTH_PEPPER` (đã mã hoá) ra công khai.
 
-### ✅ Xong sáng nay — 3 commit, chưa push
+### ✅ Xong sáng nay — 5 commit, ĐÃ PUSH (`e712489`)
 
 **1. Nối link đo được vào CTA của video** (`3fe317f`). Hai dạng của cùng một địa chỉ, cố ý khác nhau:
 - trên màn hình: `offerdy.com/d/1470` — gõ tay được
@@ -67,7 +67,7 @@ lần bật sau âm thầm nhảy sang 3001; lọc theo cổng rồi `Stop-Proce
 **2. Xác nhận bản đang chạy trên Vercel.** Việc cũ chưa xong: tài khoản Vercel nối qua MCP
 không phải tài khoản chứa Offerdy, HTML production không lộ mã bản dựng. Mở bảng điều khiển.
 
-**3. Push 3 commit sáng nay.** `main` đang ở `787a260`, `origin/main` ở `349baca`.
+✅ **Đã push** — `4a8cf13..e712489`, 5 commit. Vercel tự deploy.
 
 **4. Hai lỗi dữ liệu chờ anh quyết** (không tự sửa vì là dữ liệu thật): một store tên
 **"You are now leaving the internet.Get ready to find your fit."** và một store tên
