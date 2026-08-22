@@ -1582,6 +1582,12 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .vid-canh-chu span{font-size:13px;color:#1e293b;font-weight:600}
 .vid-canh-chu em{font-size:12px;color:#64748b;font-style:italic}
 .vid-nut{display:flex;gap:10px;margin-top:14px}
+.vid-link{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.vid-link label{display:block;font-size:12px;color:#64748b;margin-bottom:5px}
+.vid-link-hang{display:flex;gap:8px}
+.vid-link-hang input{flex:1;min-width:0;font-family:ui-monospace,monospace;font-size:12px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b}
+.vid-link p{font-size:11px;color:#94a3b8;margin:7px 0 0;line-height:1.5}
+.vid-link code{background:#e2e8f0;border-radius:3px;padding:0 3px;color:#475569}
 @media(max-width:900px){.vid-cot{grid-template-columns:1fr}.vid-ds{max-height:320px}}
 .vid-dem{font-size:12px;color:#64748b;margin:0 0 8px}
 .vid-dem b{color:#334155}

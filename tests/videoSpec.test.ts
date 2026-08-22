@@ -9,7 +9,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildSpec, tongThoiLuong, docGia, danhVan, type NhipKichBan } from '../src/lib/video/buildSpec'
+import { buildSpec, tongThoiLuong, docGia, danhVan, NHAN_CHIEN_DICH, type NhipKichBan } from '../src/lib/video/buildSpec'
+import { parseCampaign } from '../src/lib/shortLinkSource'
 
 const NHIP: NhipKichBan[] = [
   { type: 'hook', voiceText: 'Tired of aching arms before your baby even naps?', overlayText: 'ACHING ARMS?' },
@@ -141,6 +142,45 @@ test('màn cuối có cả lời mời mua lẫn chỉ dẫn tìm link', () => {
   const cta = scenes.at(-1)!
   assert.match(cta.overlayText, /SHOP NOW/)
   assert.match(cta.overlayText, /LINK IN BIO/)
+})
+
+// ── Link đo được ───────────────────────────────────────────────────
+//
+// ⚠️ Hai dạng của cùng một địa chỉ, và chúng CỐ Ý khác nhau:
+//   · trên màn hình  `offerdy.com/d/1470`          — gõ tay được
+//   · trong bio      `https://www.offerdy.com/d/1470?s=video` — đo được
+// Không ai gõ tay một chuỗi truy vấn, mà gõ sai thì hỏng cả địa chỉ. Nên đường
+// đo được là link ở bio, còn chữ trên màn chỉ lo phần nhớ tên miền.
+
+test('THẬT: link trên màn gõ tay được — không có chuỗi truy vấn', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY' })
+  const cta = scenes.at(-1)!
+  assert.equal(cta.linkText, 'offerdy.com/d/1470')
+  assert.ok(!cta.linkText!.includes('?'), 'chữ trên màn không được mang chuỗi truy vấn')
+  assert.ok(!cta.linkText!.includes(' '), 'địa chỉ có dấu cách thì gõ ra trang khác')
+})
+
+test('chỉ cảnh CTA mới có dòng địa chỉ', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY' })
+  const coLink = scenes.filter(s => s.linkText)
+  assert.equal(coLink.length, 1)
+  assert.equal(coLink[0].type, 'cta')
+})
+
+test('THẬT: link bio mang nhãn video và sống sót qua parseCampaign', () => {
+  const spec = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY' })
+  const url = new URL(String(spec.product.ctaUrl))
+  assert.equal(url.pathname, '/d/1470')
+  // ⚠️ `?s=` đi qua `parseCampaign()` — cắt còn [a-z0-9_-] và 24 ký tự. Một nhãn
+  // bị cắt mất là một cột trống ở /admin/reports, và không ai nhận ra.
+  assert.equal(parseCampaign(url.searchParams.get('s')), NHAN_CHIEN_DICH)
+  assert.equal(spec.product.ctaCampaign, NHAN_CHIEN_DICH)
+})
+
+test('link bio và link trên màn cùng trỏ về một deal', () => {
+  const { scenes, product } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  const duong = new URL(String(product.ctaUrl)).pathname
+  assert.ok(String(scenes.at(-1)!.linkText).endsWith(duong), `${scenes.at(-1)!.linkText} vs ${duong}`)
 })
 
 // ── Chữ trên màn khớp với giọng đọc ────────────────────────────────

@@ -235,8 +235,9 @@ async function main(specPath) {
     // cua duong dan Windows.
     let nhan = '[nen]'
     let dem = 0
-    const veChu = (chu, { toiDaCoChu, y, vien }) => {
+    const veChu = (chu, { toiDaCoChu, y, vien, khung }) => {
       const { dong, coChu } = chiaDong(String(chu ?? ''), W, toiDaCoChu)
+      const buoc = Math.round(coChu * 1.24)
       dong.forEach((d, k) => {
         const ten = `chu-${i}-${dem}.txt`
         fs.writeFileSync(path.join(viec, ten), d, 'utf8')
@@ -248,15 +249,37 @@ async function main(specPath) {
           // video deal. Tat han co che do di.
           `${nhan}drawtext=fontfile=font.ttf:textfile=${ten}:expansion=none:` +
           `fontcolor=white:fontsize=${coChu}:borderw=${vien}:bordercolor=black@0.6:` +
-          `x=(w-text_w)/2:y=${y}+${k * Math.round(coChu * 1.24)}${ra}`
+          (khung ? `box=1:boxcolor=black@0.55:boxborderw=20:` : '') +
+          `x=(w-text_w)/2:y=${y}+${k * buoc}${ra}`
         )
         nhan = ra
       })
+      // Tra ve so dong va buoc dong de nguoi goi biet dong ke tiep dat o dau.
+      // Phu de dai ngan tuy cau noi, nen mot toa do co dinh cho dong link se
+      // chong len phu de o nhung canh cau dai.
+      return { soDong: dong.length, buoc }
     }
 
     // Chu lon cua canh cuoi (% giam, ma giam gia, CTA) nam giua anh va phu de
     if (s.badgeText) veChu(s.badgeText, { toiDaCoChu: 92, y: 'h-830', vien: 8 })
-    veChu(s.voiceText, { toiDaCoChu: 68, y: 'h-560', vien: 6 })
+    const PHU_DE_Y = H - 560
+    const phuDe = veChu(s.voiceText, { toiDaCoChu: 68, y: 'h-560', vien: 6 })
+
+    // ── Dia chi web, chi o canh CTA ─────────────────────────────────
+    //
+    // ⚠️ Mot video khong do duoc chi la mot tai san dep. Duong do duoc chinh la
+    // link o bio/caption (`spec.product.ctaUrl`, mang nhan `?s=video`); dong chu
+    // nay lam hai viec con lai: nho ten mien, va cho nguoi xem mot cach vao
+    // dung deal ma khong phai tim trong bio.
+    //
+    // Khong ve `?s=video` len man: khong ai go mot chuoi truy van, va go sai thi
+    // hong ca dia chi.
+    if (s.linkText) {
+      const y = PHU_DE_Y + phuDe.soDong * phuDe.buoc + 26
+      // Ngoi duoi cung nen phai tranh dai giao dien TikTok (~250px cuoi man).
+      if (y + 62 > H - 250) info(`scene ${n}: link nam thap (${y}px) — co the bi giao dien TikTok che`)
+      veChu(s.linkText, { toiDaCoChu: 52, y: String(y), vien: 4, khung: true })
+    }
 
     loc.push(`${nhan}null[chu]`)
 

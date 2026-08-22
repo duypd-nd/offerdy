@@ -17,6 +17,20 @@
  * ma. Truong `verifiedFacts` ghi tung con so den tu dau.
  */
 
+import { shortLink, shortLinkUrl } from '@/lib/socialCaption'
+
+/**
+ * Nhan chien dich gan vao moi link ra tu video.
+ *
+ * Mot video = mot deal, nen `?s=video` + `/d/<ma>` la du de biet video NAO ra
+ * tien: bang chien dich o `/admin/reports` cho tong luot bam tu video, con cot
+ * ma deal cho biet cua video nao. Khong can nhan rieng cho tung video.
+ *
+ * ⚠️ `parseCampaign()` cat con `[a-z0-9_-]` va 24 ky tu — doi nhan nay thi phai
+ * doi trong khuon do.
+ */
+export const NHAN_CHIEN_DICH = 'video'
+
 export type DealNguon = {
   code: number
   title: string
@@ -58,6 +72,16 @@ export type Scene = {
   badgeText?: string
   couponBadge?: string
   priceBadge?: { sale?: string; orig?: string }
+  /**
+   * Dia chi ngan ve len man, duoi phu de. Chi canh CTA co.
+   *
+   * ⚠️ Co y KHONG kem `?s=video`. Nguoi xem TikTok go tay duoc `offerdy.com/d/1470`
+   * chu khong ai go mot chuoi truy van; ma mot dia chi go sai thi khong dan ai di
+   * dau ca. Duong DO DUOC la link o bio/caption — `product.ctaUrl` — con dong chu
+   * nay lo phan nho ten mien va van rot ve dung deal (chi la tinh vao luot bam
+   * truc tiep thay vi vao nhan `video`).
+   */
+  linkText?: string
 }
 
 export type VideoSpec = {
@@ -170,6 +194,7 @@ export function buildSpec(input: {
     overlayText: 'SHOP NOW\nLINK IN BIO',
     badgeText: 'SHOP NOW\nLINK IN BIO',
     voiceText: "Tap the link to check today's price.",
+    linkText: shortLink(deal.code, deal.slug, 'deal'),
   })
 
   return {
@@ -185,7 +210,11 @@ export function buildSpec(input: {
       priceOrig: deal.priceOrig ?? null,
       discountPercent: deal.discount ?? null,
       couponCode: ma,
-      ctaUrl: `https://www.offerdy.com/d/${deal.code}?s=video`,
+      // ⚠️ Mot cho dung URL duy nhat. Truoc day dong nay tu noi chuoi
+      // `https://www.offerdy.com/d/<ma>?s=video` — tuc ban thu hai cua
+      // `shortLinkUrl()`, va la cho de lech khi ten mien hay duong dan doi.
+      ctaUrl: shortLinkUrl(deal.code, deal.slug, 'deal', NHAN_CHIEN_DICH),
+      ctaCampaign: NHAN_CHIEN_DICH,
       sourceUrl: deal.dealUrl ?? null,
     },
     verifiedFacts: [

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { phanTichDeal, dungVideo, type KetQuaPhanTich } from './actions'
 import type { DealChon } from './page'
 
@@ -21,6 +22,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   const [ketQuaDung, setKetQuaDung] = useState<string | null>(null)
   const [loiDung, setLoiDung] = useState<string | null>(null)
   const [dangDung, setDangDung] = useState(false)
+  const [daChep, setDaChep] = useState(false)
 
   const loc = deals.filter(d => {
     const q = tim.trim().toLowerCase()
@@ -55,6 +57,17 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
     a.download = `spec-${kq.spec.product?.dealCode ?? 'video'}.json`
     a.click()
     URL.revokeObjectURL(a.href)
+  }
+
+  const chepLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setDaChep(true)
+      setTimeout(() => setDaChep(false), 2000)
+    } catch {
+      // Clipboard bi tu choi (trang khong https, hoac nguoi dung chan) — o input
+      // ben duoi van chon-va-chep tay duoc, nen khong bao loi om som.
+    }
   }
 
   return (
@@ -114,6 +127,29 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
                 <span>{kq.maCoupon ? `Mã: ${kq.maCoupon}` : 'Shop không có mã'}</span>
               </div>
 
+              {/* ── Link do duoc ──────────────────────────────────────
+                  Mot video khong do duoc chi la mot tai san dep. Day la duong
+                  DUY NHAT biet video nao ra tien: dan link nay vao bio hoac
+                  caption, moi luot bam se hien o /admin/reports duoi nhan
+                  `video` va dung ma deal cua no. */}
+              {typeof kq.spec.product?.ctaUrl === 'string' && (
+                <div className="vid-link">
+                  <label htmlFor="vid-cta">Link dán vào bio / caption</label>
+                  <div className="vid-link-hang">
+                    <input id="vid-cta" readOnly value={String(kq.spec.product.ctaUrl)}
+                      onFocus={e => e.currentTarget.select()} />
+                    <button className="oa-btn" onClick={() => chepLink(String(kq.spec.product.ctaUrl))}>
+                      {daChep ? 'Đã chép' : 'Chép'}
+                    </button>
+                  </div>
+                  <p>
+                    Đếm lượt bấm ở <Link href="/admin/reports">/admin/reports</Link> — nhãn <code>video</code>.
+                    Trên màn hình video chỉ hiện <code>offerdy.com/d/{String(kq.spec.product.dealCode ?? '')}</code> (không có
+                    <code> ?s=video</code>) vì không ai gõ tay chuỗi truy vấn; lượt gõ tay vẫn về đúng deal, chỉ không mang nhãn.
+                  </p>
+                </div>
+              )}
+
               {kq.canhBao.map(c => <p key={c} className="usr-warn" style={{ marginBottom: 6 }}>{c}</p>)}
               {kq.thoiLuong < 30 && <p className="usr-warn">Dưới 30 giây — trang sản phẩm ít ảnh quá.</p>}
 
@@ -129,6 +165,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
                           nó không được vẽ lên video, mà một bản xem trước cho thấy thứ
                           không có trên video thì tệ hơn là không xem trước. */}
                       {s.voiceText && <em>“{s.voiceText}”</em>}
+                      {s.linkText && <span>{s.linkText}</span>}
                     </div>
                   </div>
                 ))}
