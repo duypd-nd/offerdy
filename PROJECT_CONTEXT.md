@@ -149,6 +149,17 @@ So: `judgeImages()` (`src/lib/ai/judgeImages.ts`) shows Claude each photo and as
 
 ⚠️ **Say whether inset panels are pictures or text.** The first prompt lumped "photo with small inset thumbnails" in with "size chart", so the model scored a perfectly good mother-and-baby shot 3/10 for having four small circular insets, dropped 6 of 8 photos, and left a 3-image video. Separating the two concepts put those same photos back at 5/10.
 
+### The posting pack — three things in one place
+
+Four videos sat rendered and unposted. Not for want of a feature: posting one meant visiting **three places** — the MP4 in `out/`, the caption on `/admin/social-kit`, the measurable link on `/admin/video`. The bottleneck was the gathering, so `/admin/video` now carries a **Gói đăng bài** block: bio link, video file, TikTok caption, and a *mark as posted* button.
+
+- **The file row asks the disk, not the deal code.** `spec.output` is the exact name `video-render.mjs` writes, so a video rendered in an earlier session still shows up with its timestamp instead of being rendered again just to find out where it went. `path.basename()` guards the lookup — `output` arrives from the client.
+- ⚠️ **Captions come from `generateCaptionsForDeal`, the same one `/admin/social-kit` uses — never a second generator.** Every anti-fabrication guard lives in there (`findUnsafeText`, the `{price}`/`{discount}` placeholders code substitutes). A copy would diverge on the first brief edit, and what diverges is a wrong number in a published post.
+- **Mark-as-posted writes the same `lastPostedAt`** the social kit rotates deals by. A separate field would make the two pages suggest the same deal twice.
+- The caption's CTA names the **product code** (`#1470`) rather than a URL, because TikTok does not linkify caption URLs — the measurable link belongs in the bio, which is item 1 of the same block.
+
+⚠️ **Clipboard comparisons on Windows**: `navigator.clipboard.readText()` returns CRLF while `textarea.value` holds LF. An end-to-end check that compares them directly fails on identical text — normalise first. Not a page bug.
+
 ### Not built yet
 
 The paste-a-URL path for products not in the database · image 0 (the stored photo) and image 1 (the shop's first photo) are the same picture from two sources, so `imageKey()` does not match them and both survive · the model skips image 0 in its judgement even when told not to (harmless — it is pinned — but `scoreImages` must keep treating "no judgement" as "keep").

@@ -3,7 +3,11 @@
 import { useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { phanTichDeal, dungVideo, dungLaiKichBan, type KetQuaPhanTich } from './actions'
+import {
+  phanTichDeal, dungVideo, dungLaiKichBan, vietCaptionVideo, tepVideoDaCo, danhDauDaDang,
+  type KetQuaPhanTich, type BienTheCaption,
+} from './actions'
+import { CAPTION_ANGLES, type CaptionAngle } from '@/lib/ai/generateCaption'
 import type { DealChon } from './page'
 
 /**
@@ -22,7 +26,16 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   const [ketQuaDung, setKetQuaDung] = useState<string | null>(null)
   const [loiDung, setLoiDung] = useState<string | null>(null)
   const [dangDung, setDangDung] = useState(false)
-  const [daChep, setDaChep] = useState(false)
+  // Mot khoa thay vi mot bien boolean: goi dang bai co nhieu nut Chep, mot cai
+  // boolean chung se lam ca ba nut cung bao "Da chep".
+  const [daChep, setDaChep] = useState<string | null>(null)
+  const [goc, setGoc] = useState<CaptionAngle>('question')
+  const [caption, setCaption] = useState<BienTheCaption[] | null>(null)
+  const [boCaption, setBoCaption] = useState<string[]>([])
+  const [loiCaption, setLoiCaption] = useState<string | null>(null)
+  const [dangViet, setDangViet] = useState(false)
+  const [tepVideo, setTepVideo] = useState<{ tep: string; luc: string } | null>(null)
+  const [daDang, setDaDang] = useState(false)
   const [anhChon, setAnhChon] = useState<string[]>([])
   const [dangXep, setDangXep] = useState(false)
 
@@ -34,7 +47,14 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
 
   const phanTich = (d: DealChon) => {
     setChon(d); setKq(null); setKetQuaDung(null); setLoiDung(null); setAnhChon([])
-    batDau(async () => setKq(await phanTichDeal(d.code)))
+    setCaption(null); setBoCaption([]); setLoiCaption(null); setTepVideo(null); setDaDang(false)
+    batDau(async () => {
+      const r = await phanTichDeal(d.code)
+      setKq(r)
+      // Hoi ngay trong cung mot transition, KHONG dung useEffect: ESLint cua repo
+      // tu choi mau useEffect + setState, va o day khong can no that.
+      if (r.ok) setTepVideo(await tepVideoDaCo(r.spec.output))
+    })
   }
 
   const dung = async () => {
@@ -61,15 +81,33 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
     URL.revokeObjectURL(a.href)
   }
 
-  const chepLink = async (url: string) => {
+  const chepLink = async (url: string, khoa: string) => {
     try {
       await navigator.clipboard.writeText(url)
-      setDaChep(true)
-      setTimeout(() => setDaChep(false), 2000)
+      setDaChep(khoa)
+      setTimeout(() => setDaChep(null), 2000)
     } catch {
       // Clipboard bi tu choi (trang khong https, hoac nguoi dung chan) — o input
       // ben duoi van chon-va-chep tay duoc, nen khong bao loi om som.
     }
+  }
+
+  const viet = async () => {
+    if (!kq?.ok || !kq.spec.product?.dealCode) return
+    setDangViet(true); setLoiCaption(null)
+    try {
+      const r = await vietCaptionVideo(Number(kq.spec.product.dealCode), goc)
+      if (r.ok) { setCaption(r.bienThe); setBoCaption(r.bo) }
+      else setLoiCaption(r.error)
+    } finally {
+      setDangViet(false)
+    }
+  }
+
+  const danhDau = async () => {
+    if (!kq?.ok || !kq.spec.product?.dealCode) return
+    const r = await danhDauDaDang(Number(kq.spec.product.dealCode))
+    setDaDang(r.ok)
   }
 
   /**
@@ -196,23 +234,115 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
                   DUY NHAT biet video nao ra tien: dan link nay vao bio hoac
                   caption, moi luot bam se hien o /admin/reports duoi nhan
                   `video` va dung ma deal cua no. */}
-              {typeof kq.spec.product?.ctaUrl === 'string' && (
+              {/* ── Gói đăng bài ──────────────────────────────────────
+                  Ba thứ cần để đăng một bài, ở MỘT chỗ. Trước đây chúng nằm ba
+                  nơi — tệp MP4 ở `out/`, caption ở /admin/social-kit, link đo
+                  được ở đây — và đó là lý do bốn video đã dựng xong vẫn chưa
+                  đăng cái nào. Công cụ không thiếu tính năng; nó thiếu chỗ gom. */}
+              <div className="vid-goi">
+                <div className="vid-goi-dau">
+                  <b>Gói đăng bài</b>
+                  <span>ba thứ cần để đăng, ở một chỗ</span>
+                </div>
+
+                {typeof kq.spec.product?.ctaUrl === 'string' && (
+                  <div className="vid-link">
+                    <label htmlFor="vid-cta">1 · Link dán vào bio / caption</label>
+                    <div className="vid-link-hang">
+                      <input id="vid-cta" readOnly value={String(kq.spec.product.ctaUrl)}
+                        onFocus={e => e.currentTarget.select()} />
+                      <button className="oa-btn" onClick={() => chepLink(String(kq.spec.product.ctaUrl), 'link')}>
+                        {daChep === 'link' ? 'Đã chép' : 'Chép'}
+                      </button>
+                    </div>
+                    <p>
+                      Đếm lượt bấm ở <Link href="/admin/reports">/admin/reports</Link> — nhãn <code>video</code>.
+                      Trên màn hình video chỉ hiện <code>offerdy.com/d/{String(kq.spec.product.dealCode ?? '')}</code> (không có
+                      <code> ?s=video</code>) vì không ai gõ tay chuỗi truy vấn; lượt gõ tay vẫn về đúng deal, chỉ không mang nhãn.
+                    </p>
+                  </div>
+                )}
+
+                {/* ── Tệp video ──
+                    Hỏi ổ đĩa chứ không đoán theo mã deal: `spec.output` là tên tệp
+                    thật mà bộ dựng ghi ra. Nhờ vậy video dựng từ phiên trước vẫn
+                    hiện ở đây, không phải dựng lại chỉ để biết nó nằm đâu. */}
                 <div className="vid-link">
-                  <label htmlFor="vid-cta">Link dán vào bio / caption</label>
+                  <label>2 · Tệp video</label>
+                  {tepVideo ? (
+                    <>
+                      <div className="vid-link-hang">
+                        <input readOnly value={tepVideo.tep} onFocus={e => e.currentTarget.select()} />
+                        <button className="oa-btn" onClick={() => chepLink(tepVideo.tep, 'tep')}>
+                          {daChep === 'tep' ? 'Đã chép' : 'Chép'}
+                        </button>
+                      </div>
+                      <p>Dựng lúc {new Date(tepVideo.luc).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })} (giờ VN).</p>
+                    </>
+                  ) : (
+                    <p style={{ marginTop: 0 }}>Chưa dựng — bấm <b>Dựng video ngay</b> ở cuối trang.</p>
+                  )}
+                </div>
+
+                {/* ── Caption ──
+                    ⚠️ Dùng lại `generateCaptionsForDeal` của /admin/social-kit,
+                    KHÔNG viết bộ sinh caption thứ hai. Hàng rào chống bịa số nằm
+                    trong đó; một bản sao sẽ lệch ngay lần sửa brief đầu tiên, và
+                    cái lệch ra là một con số sai trong bài đã đăng. */}
+                <div className="vid-link">
+                  <label htmlFor="vid-goc">3 · Caption TikTok</label>
                   <div className="vid-link-hang">
-                    <input id="vid-cta" readOnly value={String(kq.spec.product.ctaUrl)}
-                      onFocus={e => e.currentTarget.select()} />
-                    <button className="oa-btn" onClick={() => chepLink(String(kq.spec.product.ctaUrl))}>
-                      {daChep ? 'Đã chép' : 'Chép'}
+                    <select id="vid-goc" className="vid-goc" value={goc}
+                      onChange={e => setGoc(e.target.value as CaptionAngle)}>
+                      {CAPTION_ANGLES.map(a => (
+                        <option key={a.id} value={a.id}>{a.label} — {a.hint}</option>
+                      ))}
+                    </select>
+                    <button className="oa-btn" onClick={viet} disabled={dangViet}>
+                      {dangViet ? 'Đang viết…' : caption ? 'Viết lại' : 'Viết caption'}
                     </button>
                   </div>
-                  <p>
-                    Đếm lượt bấm ở <Link href="/admin/reports">/admin/reports</Link> — nhãn <code>video</code>.
-                    Trên màn hình video chỉ hiện <code>offerdy.com/d/{String(kq.spec.product.dealCode ?? '')}</code> (không có
-                    <code> ?s=video</code>) vì không ai gõ tay chuỗi truy vấn; lượt gõ tay vẫn về đúng deal, chỉ không mang nhãn.
-                  </p>
+
+                  {loiCaption && <p className="usr-err" style={{ marginTop: 8 }}>{loiCaption}</p>}
+
+                  {caption?.map((c, i) => (
+                    <div key={i} className="vid-cap">
+                      {/* 10 dòng: caption TikTok là hook + 2-3 dòng thân + CTA +
+                          dòng hashtag, cách nhau bằng dòng trống. Để 7 dòng thì
+                          đúng dòng hashtag bị đẩy khuất — mà đó là dòng người ta
+                          hay sửa nhất. */}
+                      <textarea defaultValue={c.text} rows={10} />
+                      <button className="oa-btn" onClick={e => {
+                        const ta = e.currentTarget.previousElementSibling as HTMLTextAreaElement
+                        chepLink(ta.value, `cap${i}`)
+                      }}>{daChep === `cap${i}` ? 'Đã chép' : 'Chép caption'}</button>
+                    </div>
+                  ))}
+
+                  {/* Caption bị hàng rào loại thì NÓI RA. Im lặng trả về ít biến thể
+                      hơn làm người dùng tưởng model lười, chứ không biết là nó vừa
+                      định viết một con số không kiểm chứng được. */}
+                  {boCaption.length > 0 && (
+                    <p style={{ marginTop: 8 }}>
+                      {boCaption.length} biến thể bị hàng rào loại (viết số không kiểm chứng được).
+                    </p>
+                  )}
+
+                  {caption && (
+                    <p style={{ marginTop: 8 }}>
+                      TikTok không biến URL trong caption thành link bấm được, nên caption chỉ nhắc
+                      mã sản phẩm — link đo được nằm ở bio, mục 1 phía trên.
+                    </p>
+                  )}
                 </div>
-              )}
+
+                <div className="vid-goi-cuoi">
+                  <button className="oa-btn" onClick={danhDau} disabled={daDang}>
+                    {daDang ? 'Đã đánh dấu' : 'Đánh dấu đã đăng'}
+                  </button>
+                  <span>Cùng ô <code>lastPostedAt</code> mà /admin/social-kit dùng để xoay vòng deal — đánh dấu ở đây thì bên kia không đề xuất lại deal này.</span>
+                </div>
+              </div>
 
               {kq.canhBao.map(c => <p key={c} className="usr-warn" style={{ marginBottom: 6 }}>{c}</p>)}
               {kq.thoiLuong < 30 && <p className="usr-warn">Dưới 30 giây — trang sản phẩm ít ảnh quá.</p>}

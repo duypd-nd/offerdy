@@ -1,5 +1,60 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-22 (chiều) — gói đăng bài cho video
+
+✅ **`/admin/video` giờ có khối "Gói đăng bài"** — ba thứ cần để đăng một bài, ở một chỗ.
+Đã lái bằng Chrome thật: **26/26 phép kiểm đạt** (`.scratch/video-e2e.mjs`).
+
+**Vì sao làm cái này trước.** Đo trước khi chọn: Google **0 lượt bấm suốt 30 ngày**, 3 URL
+trong chỉ mục — kênh đó đang tắc và mốc đo tiếp theo là 27/08. Kênh video thì **đã render
+4 video** ở `out/` mà **chưa đăng cái nào**. Công cụ không thiếu tính năng; để đăng một bài
+phải nhảy qua **ba chỗ**: tệp MP4 ở `out/`, caption ở `/admin/social-kit`, link đo được ở
+`/admin/video`. Nút thắt là chỗ gom, không phải chất lượng.
+
+Khối mới gồm:
+1. **Link dán vào bio** — `https://www.offerdy.com/d/<mã>?s=video`, nút Chép
+2. **Tệp video** — hỏi thẳng ổ đĩa theo `spec.output`, nên video dựng từ **phiên trước** vẫn
+   hiện ra kèm giờ dựng; chưa dựng thì nói rõ bấm nút nào
+3. **Caption TikTok** — chọn 1 trong 5 góc, ra 2 biến thể sửa được tại chỗ, mỗi cái một nút Chép
+4. **Đánh dấu đã đăng** — ghi vào **đúng ô `lastPostedAt`** mà `/admin/social-kit` dùng để
+   xoay vòng deal, nên hai trang không đề xuất trùng deal
+
+⚠️ **KHÔNG viết bộ sinh caption thứ hai.** Dùng lại `generateCaptionsForDeal` của
+`/admin/social-kit` — toàn bộ hàng rào chống bịa số nằm trong đó (`findUnsafeText`, chỗ trống
+`{price}`/`{discount}` do code thay). Một bản sao sẽ lệch ngay lần sửa brief đầu tiên, và cái
+lệch ra là **một con số sai trong bài đã đăng**.
+
+Caption chạy thật cho deal #1470 (10 giây, 2 biến thể): giá `$49.95`/`$89.95`, `44% OFF` và
+mã `OFFERDY` đều là số thật từ kho, không phải model viết ra. CTA nhắc **mã sản phẩm `#1470`**
+chứ không dán URL — TikTok không biến URL trong caption thành link bấm được.
+
+### 📋 VIỆC TIẾP THEO
+
+**1. Đăng thử MỘT video lên TikTok.** Giờ chỉ còn ba nút Chép. Đăng xong bấm *Đánh dấu đã
+đăng*, rồi 24–48 tiếng sau xem `/admin/reports` nhãn `video` — đây là lần đầu tiên dự án có
+số đo cho một kênh **ngoài Google**.
+
+**2. Xác nhận bản đang chạy trên Vercel** (việc cũ chưa xong — tài khoản Vercel nối qua MCP
+không phải tài khoản chứa Offerdy).
+
+**3. Hai lỗi dữ liệu chờ anh quyết**: store tên **"You are now leaving the internet.Get ready
+to find your fit."** và store **"Yazv -"** thừa dấu gạch ngang.
+
+**4. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
+
+### Bẫy đo được chiều nay
+
+- **Bash heredoc nuốt dấu gạch chéo ngược trong chuỗi xuống dòng** — viết script qua
+  `python - <<PY` thì một chuỗi `'\n'` (gạch chéo ngược + n) biến thành **xuống dòng thật**,
+  làm hỏng cú pháp JS. Đây là lần thứ hai dự án trả giá cho việc soạn chuỗi có escape qua
+  heredoc — và trớ trêu là chính đoạn ghi lại cái bẫy này cũng bị nó nuốt. **Soạn bằng
+  Write/Edit, đừng qua heredoc.**
+- **Clipboard trên Windows trả về CRLF** trong khi `textarea.value` là LF, nên so sánh thẳng
+  thì sai dù nội dung y hệt. Chuẩn hoá trước khi so — không phải lỗi của trang.
+- `npm run build` đè lên `.next` của dev server đang chạy: lần này **không** gây 404 như hôm
+  qua, nhưng vẫn nên kiểm `/admin/login` ngay sau khi build.
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-22 (trưa) — bảng ảnh đã lái bằng trình duyệt thật
 
 ✅ **Việc số 1 của điểm dừng trước ĐÃ XONG.** `/admin/video` giờ đã được lái bằng Chrome

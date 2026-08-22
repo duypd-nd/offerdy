@@ -6,6 +6,8 @@ import { spawn } from 'node:child_process'
 import { requireAdmin } from '@/lib/adminSession'
 import { loadDealSpec, type NguonKichBan } from '@/lib/video/loadDealSpec'
 import { buildSpec, tongThoiLuong, type VideoSpec } from '@/lib/video/buildSpec'
+import { generateCaptionsForDeal, markDealsPosted } from '@/app/admin/social-kit/actions'
+import type { CaptionAngle } from '@/lib/ai/generateCaption'
 
 /**
  * ⚠️ Module `'use server'` CHI export duoc ham async. Moi hang so hay kieu deu
@@ -152,4 +154,65 @@ export async function dungVideo(spec: VideoSpec): Promise<KetQuaDung> {
   const tep = path.join(root, 'out', `${spec.output}.mp4`)
   if (!fs.existsSync(tep)) return { ok: false, error: 'Lenh chay xong nhung khong thay tep video', nhatKy }
   return { ok: true, tep, giay: Math.round((Date.now() - batDau) / 1000), nhatKy }
+}
+
+// ── Goi dang bai ──────────────────────────────────────────────────
+//
+// Nut that cua kenh video KHONG con la cong cu — 4 video da dung xong ma chua
+// dang cai nao. Ly do rat tam thuong: de dang mot bai phai nhay qua ba cho —
+// tep MP4 o `out/`, caption o `/admin/social-kit`, link do duoc o day. Goi nay
+// gom ca ba vao mot cho, ngay canh video vua dung.
+//
+// ⚠️ KHONG viet lai bo may caption. `generateCaptionsForDeal` la NGUON DUY NHAT
+// sinh caption — no da mang theo toan bo hang rao chong bia so (`findUnsafeText`,
+// cho trong `{price}`/`{discount}` do code thay). Mot ban sao thu hai o day se
+// lech khoi ban goc ngay lan sua brief dau tien, va cai lech ra la mot con so
+// sai doc len trong bai dang.
+
+export type BienTheCaption = { text: string; hashtags: string[] }
+
+export type KetQuaCaption =
+  | { ok: true; bienThe: BienTheCaption[]; bo: string[] }
+  | { ok: false; error: string }
+
+/**
+ * Caption cho TikTok — nen tang nay KHONG bien URL trong caption thanh link
+ * bam duoc, nen `generateCaption` tu chuyen CTA sang nhac MA san pham. Link do
+ * duoc nam o bio, va o link ngay ben tren trong cung mot goi.
+ */
+export async function vietCaptionVideo(code: number, goc: CaptionAngle): Promise<KetQuaCaption> {
+  await requireAdmin()
+  const r = await generateCaptionsForDeal({
+    code, angle: goc, platform: 'tiktok', count: 2,
+    // `campaign: 'video'` de neu sau nay dan sang mot nen tang CO link bam duoc
+    // thi link trong caption cung mang dung nhan `video` nhu link o bio.
+    style: 'deal', campaign: 'video',
+  })
+  if (!r.ok) return r
+  return { ok: true, bienThe: r.captions.map(c => ({ text: c.text, hashtags: c.hashtags })), bo: r.rejected }
+}
+
+/**
+ * Tep MP4 da dung cho deal nay chua — ke ca dung tu phien truoc.
+ *
+ * Khong doan theo ma deal: `spec.output` la ten tep that ma `video-render.mjs`
+ * ghi ra, nen hoi dung cai ten do.
+ */
+export async function tepVideoDaCo(output: string): Promise<{ tep: string; luc: string } | null> {
+  await requireAdmin()
+  if (process.env.VERCEL) return null
+  // Chan duong dan di ra ngoai `out/` — `output` di tu client len.
+  const ten = path.basename(output)
+  const tep = path.join(process.cwd(), 'out', `${ten}.mp4`)
+  if (!fs.existsSync(tep)) return null
+  return { tep, luc: fs.statSync(tep).mtime.toISOString() }
+}
+
+/**
+ * Danh dau da dang — cung mot o `lastPostedAt` ma `/admin/social-kit` dung de
+ * xoay vong deal. Neu goi nay ghi cho khac thi hai trang se de xuat trung deal.
+ */
+export async function danhDauDaDang(code: number): Promise<{ ok: boolean }> {
+  await requireAdmin()
+  return markDealsPosted([code])
 }
