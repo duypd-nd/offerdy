@@ -3,7 +3,9 @@ import { writeClient } from '@/sanity/writeClient'
 import { couponForDealUrl, type StoreHostRow } from '@/lib/dealStoreMatch'
 import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
 import { buildSpec, type VideoSpec, type DealNguon } from '@/lib/video/buildSpec'
-import { generateVideoScript } from '@/lib/ai/generateVideoScript'
+import { generateVideoScript, type Beat } from '@/lib/ai/generateVideoScript'
+import { judgeImages } from '@/lib/ai/judgeImages'
+import { scoreImages, type DanhGiaAnh } from '@/lib/video/scoreImages'
 
 /**
  * Nap du lieu that cho mot deal roi dung kich ban video.
@@ -21,8 +23,36 @@ const STORE_HOSTS = `*[_type == "store"]{
     | order(coalesce(order, 9999) asc)[0].offerText
 }`
 
+/**
+ * Du lieu THO cua mot deal, du de dung lai kich ban ma KHONG goi lai AI.
+ *
+ * ⚠️ Ton tai vi trang admin cho nguoi van hanh bo bot anh bang tay. Moi lan bo
+ * mot anh ma phai goi lai Claude viet loi doc va cham anh la vua cham vua ton
+ * tien, cho mot thao tac dang le phai tuc thi.
+ */
+export type NguonKichBan = {
+  deal: DealNguon
+  beats: Beat[]
+  /** Toan bo anh theo THU TU GOC — khong phai thu tu da xep lai. */
+  anhGoc: string[]
+  danhGia: DanhGiaAnh[] | null
+  couponCode: string | null
+  storeName: string
+}
+
 export type KetQuaNap =
-  | { ok: true; spec: VideoSpec; soAnh: number; maCoupon: string | null; canhBao: string[] }
+  | {
+      ok: true
+      spec: VideoSpec
+      soAnh: number
+      maCoupon: string | null
+      canhBao: string[]
+      nguon: NguonKichBan
+      /** Anh bi cham diem thap va bi bo, kem ly do. */
+      anhBo: { url: string; lyDo: string }[]
+      /** Model co cham duoc anh khong. Sai thi thu tu anh giu nguyen nhu cao ve. */
+      daChamAnh: boolean
+    }
   | { ok: false; error: string }
 
 export async function loadDealSpec(dealCode: number): Promise<KetQuaNap> {
@@ -79,26 +109,46 @@ export async function loadDealSpec(dealCode: number): Promise<KetQuaNap> {
   // ⚠️ `verifiedFacts` la hang rao: AI chi duoc dung so nam trong do, va
   // `kiemTraKichBan()` bat lai moi con so trong dau ra de doi chieu. Gia va ma
   // coupon KHONG do AI viet — code noi them cac canh do vao sau, tu du lieu kho.
+  const ten = String(deal.title).split('—')[0].trim()
   const suThat = suThatCuaDeal(deal, coupon?.code ?? null, images.length, rating, reviewCount)
-  const beats = await generateVideoScript({
-    ten: String(deal.title).split('—')[0].trim(),
-    shop,
-    moTa,
-    // Chua tinh canh gia / ma / CTA — chung duoc noi them sau, moi canh ~4 giay.
-    giayMucTieu: 26,
-    suThatDaKiemChung: suThat,
-    rating,
-    reviewCount,
-  })
+
+  // ⚠️ Hai lan goi AI chay SONG SONG. Chung khong phu thuoc nhau — mot ben doc
+  // chu, mot ben nhin anh — va noi tiep nhau thi nguoi van hanh phai cho gap
+  // doi cho khong duoc gi.
+  const [beats, danhGia] = await Promise.all([
+    generateVideoScript({
+      ten,
+      shop,
+      moTa,
+      // Chua tinh canh gia / ma / CTA — chung duoc noi them sau, moi canh ~4 giay.
+      giayMucTieu: 26,
+      suThatDaKiemChung: suThat,
+      rating,
+      reviewCount,
+    }),
+    judgeImages(ten, images),
+  ])
+
+  const cham = scoreImages(images, danhGia)
+  if (!cham.daCham) canhBao.push('Chưa chấm được ảnh — thứ tự ảnh giữ nguyên như cào về')
+  for (const b of cham.bo) canhBao.push(`Bỏ một ảnh: ${b.lyDo}`)
+
+  const nguon: NguonKichBan = {
+    deal, beats, anhGoc: images, danhGia,
+    couponCode: coupon?.code ?? null, storeName: shop,
+  }
 
   return {
     ok: true,
-    soAnh: images.length,
+    soAnh: cham.anh.length,
     maCoupon: coupon?.code ?? null,
     canhBao,
+    nguon,
+    anhBo: cham.bo,
+    daChamAnh: cham.daCham,
     spec: buildSpec({
       deal,
-      images,
+      images: cham.anh,
       beats,
       couponCode: coupon?.code ?? null,
       storeName: shop,

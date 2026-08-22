@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { phanTichDeal, dungVideo, type KetQuaPhanTich } from './actions'
+import { phanTichDeal, dungVideo, dungLaiKichBan, type KetQuaPhanTich } from './actions'
 import type { DealChon } from './page'
 
 /**
@@ -23,6 +23,8 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   const [loiDung, setLoiDung] = useState<string | null>(null)
   const [dangDung, setDangDung] = useState(false)
   const [daChep, setDaChep] = useState(false)
+  const [boAnh, setBoAnh] = useState<string[]>([])
+  const [dangXep, setDangXep] = useState(false)
 
   const loc = deals.filter(d => {
     const q = tim.trim().toLowerCase()
@@ -31,7 +33,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   })
 
   const phanTich = (d: DealChon) => {
-    setChon(d); setKq(null); setKetQuaDung(null); setLoiDung(null)
+    setChon(d); setKq(null); setKetQuaDung(null); setLoiDung(null); setBoAnh([])
     batDau(async () => setKq(await phanTichDeal(d.code)))
   }
 
@@ -67,6 +69,27 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
     } catch {
       // Clipboard bi tu choi (trang khong https, hoac nguoi dung chan) — o input
       // ben duoi van chon-va-chep tay duoc, nen khong bao loi om som.
+    }
+  }
+
+  /**
+   * Bo / lay lai mot anh.
+   *
+   * ⚠️ Dung lai kich ban NGAY, khong doi bam nut "ap dung". Mot danh sach canh
+   * khong khop voi cac o tick la cach chac chan de dung ra mot video khac han
+   * cai vua xem truoc. Buoc nay khong goi AI nen no gan nhu tuc thi.
+   */
+  const doiAnh = async (url: string) => {
+    if (!kq?.ok) return
+    const moi = boAnh.includes(url) ? boAnh.filter(u => u !== url) : [...boAnh, url]
+    setBoAnh(moi)
+    setDangXep(true); setKetQuaDung(null); setLoiDung(null)
+    try {
+      const r = await dungLaiKichBan(kq.nguon, moi)
+      if (r.ok) setKq({ ...kq, spec: r.spec, thoiLuong: r.thoiLuong, soAnh: r.soAnh })
+      else setLoiDung(r.error)
+    } finally {
+      setDangXep(false)
     }
   }
 
@@ -125,6 +148,43 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
               <div className="vid-tomtat">
                 <b>{kq.spec.scenes.length} cảnh · {kq.thoiLuong.toFixed(1)} giây · {kq.soAnh} ảnh</b>
                 <span>{kq.maCoupon ? `Mã: ${kq.maCoupon}` : 'Shop không có mã'}</span>
+              </div>
+
+              {/* ── Chấm ảnh ─────────────────────────────────────────
+                  Claude nhìn từng ảnh và nói nó thấy gì; `scoreImages()` cầm
+                  nhận xét đó rồi quyết định bỏ ảnh nào. Bảng này để anh xem lại
+                  và sửa tay — model chấm sai một tấm là chuyện thường, mà một
+                  tấm ảnh sai làm hỏng cả cảnh. */}
+              <div className="vid-anh">
+                <div className="vid-anh-dau">
+                  <b>Ảnh dùng trong video</b>
+                  <span>
+                    {kq.daChamAnh ? 'Claude đã chấm' : 'chưa chấm được — giữ nguyên thứ tự cào về'}
+                    {dangXep && ' · đang dựng lại…'}
+                  </span>
+                </div>
+                <div className="vid-anh-luoi">
+                  {kq.nguon.anhGoc.map((url, i) => {
+                    const d = kq.nguon.danhGia?.find(x => x.index === i)
+                    const tuBo = kq.anhBo.some(b => b.url === url)
+                    const taBo = boAnh.includes(url)
+                    // Ảnh nằm trong kịch bản hiện tại — nguồn sự thật duy nhất,
+                    // vì `scoreImages` còn bù lại ảnh khi bỏ quá tay.
+                    const dung = kq.spec.scenes.some(sc => sc.image === url)
+                    return (
+                      <button key={url} type="button" onClick={() => doiAnh(url)} disabled={dangXep}
+                        className={`vid-anh-o${dung ? '' : ' vid-anh-o--bo'}`}
+                        title={taBo ? 'Bấm để dùng lại ảnh này' : 'Bấm để bỏ ảnh này'}>
+                        <Image src={url} alt="" width={72} height={72} unoptimized />
+                        <span className="vid-anh-diem">{d ? `${d.diem}/10` : '—'}</span>
+                        <span className="vid-anh-ly">
+                          {taBo ? 'anh đã bỏ' : !dung && tuBo ? 'AI bỏ' : d?.lyDo || (i === 0 ? 'ảnh trong kho' : '')}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="vid-anh-chu">Bấm vào một ảnh để bỏ hoặc dùng lại. Không gọi lại AI, lời đọc giữ nguyên.</p>
               </div>
 
               {/* ── Link do duoc ──────────────────────────────────────

@@ -4,8 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { requireAdmin } from '@/lib/adminSession'
-import { loadDealSpec } from '@/lib/video/loadDealSpec'
-import { tongThoiLuong, type VideoSpec } from '@/lib/video/buildSpec'
+import { loadDealSpec, type NguonKichBan } from '@/lib/video/loadDealSpec'
+import { buildSpec, tongThoiLuong, type VideoSpec } from '@/lib/video/buildSpec'
 
 /**
  * ⚠️ Module `'use server'` CHI export duoc ham async. Moi hang so hay kieu deu
@@ -13,7 +13,18 @@ import { tongThoiLuong, type VideoSpec } from '@/lib/video/buildSpec'
  */
 
 export type KetQuaPhanTich =
-  | { ok: true; spec: VideoSpec; soAnh: number; maCoupon: string | null; thoiLuong: number; canhBao: string[] }
+  | {
+      ok: true
+      spec: VideoSpec
+      soAnh: number
+      maCoupon: string | null
+      thoiLuong: number
+      canhBao: string[]
+      /** Du de dung lai kich ban khi nguoi van hanh bo bot anh — khong goi lai AI. */
+      nguon: NguonKichBan
+      anhBo: { url: string; lyDo: string }[]
+      daChamAnh: boolean
+    }
   | { ok: false; error: string }
 
 export async function phanTichDeal(dealCode: number): Promise<KetQuaPhanTich> {
@@ -29,7 +40,47 @@ export async function phanTichDeal(dealCode: number): Promise<KetQuaPhanTich> {
       maCoupon: r.maCoupon,
       thoiLuong: tongThoiLuong(r.spec.scenes),
       canhBao: r.canhBao,
+      nguon: r.nguon,
+      anhBo: r.anhBo,
+      daChamAnh: r.daChamAnh,
     }
+  } catch (err) {
+    return { ok: false, error: String(err).slice(0, 200) }
+  }
+}
+
+export type KetQuaDungLai =
+  | { ok: true; spec: VideoSpec; thoiLuong: number; soAnh: number }
+  | { ok: false; error: string }
+
+/**
+ * Dung lai kich ban voi mot danh sach anh khac — khi nguoi van hanh tu bo anh.
+ *
+ * ⚠️ KHONG goi lai AI. Loi doc va diem cham anh da co trong `nguon`; goi lai
+ * vua ton tien vua khien cung mot deal ra hai loi doc khac nhau giua hai lan
+ * bam, va nguoi van hanh se tuong minh bam nham.
+ *
+ * ⚠️ `nguon` di tu trinh duyet len nen KHONG phai du lieu dang tin. Day khong
+ * phai lo hong moi: `dungVideo()` von da nhan ca tep kich ban tu client, tuc
+ * ranh gioi tin cay cua trang nay von la "quan tri vien dua gi thi dung nay".
+ * Ca hai deu qua `requireAdmin()`, va bo dung video chi chay o may nguoi dung.
+ * Ghi ra day de lan sau khong ai nham tuong co mot vong chan o day.
+ */
+export async function dungLaiKichBan(nguon: NguonKichBan, boUrls: string[]): Promise<KetQuaDungLai> {
+  await requireAdmin()
+  try {
+    const bo = new Set(boUrls)
+    const anh = nguon.anhGoc.filter(u => !bo.has(u))
+    if (!anh.length) return { ok: false, error: 'Phải giữ lại ít nhất một ảnh' }
+
+    const spec = buildSpec({
+      deal: nguon.deal,
+      images: anh,
+      beats: nguon.beats,
+      couponCode: nguon.couponCode,
+      storeName: nguon.storeName,
+    })
+    return { ok: true, spec, thoiLuong: tongThoiLuong(spec.scenes), soAnh: anh.length }
   } catch (err) {
     return { ok: false, error: String(err).slice(0, 200) }
   }
