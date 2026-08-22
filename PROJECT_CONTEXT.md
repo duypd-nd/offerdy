@@ -236,6 +236,30 @@ The subtitle now shows one word at a time, timed to the voice, the current word 
 
 The paste-a-URL path for products not in the database · image 0 (the stored photo) and image 1 (the shop's first photo) are the same picture from two sources, so `imageKey()` does not match them and both survive · the model skips image 0 in its judgement even when told not to (harmless — it is pinned — but `scoreImages` must keep treating "no judgement" as "keep").
 
+## Admin on a phone
+
+⚠️ **`1fr` is shorthand for `minmax(auto, 1fr)`, and `auto` will not shrink below the content's minimum width.** One unbreakable element inside makes the whole grid wider than its container. Measured at 390px: `.vid-cot`'s column came out 397px in a 362px space, and `.adm-main{overflow-x:hidden}` clipped the extra 35px **silently** — no scrollbar, no hint, text simply cut at the right edge. Use `minmax(0, 1fr)` plus `min-width: 0` on grid children.
+
+⚠️ **A measurement that scans `body *` misses `body` itself**, and comparing element edges against a container rather than the viewport hides exactly this class of bug. The first scan reported "nothing is clipped" while the screenshot showed otherwise. Compare against `documentElement.clientWidth`, and always look at the screenshot.
+
+Wide tables scroll horizontally inside their container — a deliberate choice (squeezing 11 columns into 390px leaves one word per cell). What was missing was any sign that they scroll, so `.oa-table-wrap`, `.adm-scroll-x` and `.usr-table-wrap` carry a four-layer CSS background: two `local` layers travel with the content, two `scroll` layers stay put, so a shadow appears only on the side that still has content and switches itself off at the end. No JavaScript.
+
+⚠️ **`.oa-btn` has a fixed 36px height**, so a long label wraps and spills out of the button. Under 900px the buttons grow with their text and treat 36px as a minimum.
+
+⚠️ **Chrome on Windows cannot open a window narrower than ~485px** — `--window-size=390,900` yields `clientWidth = 485`. Phone widths must come from `Emulation.setDeviceMetricsOverride`. And `captureBeyondViewport: true` re-lays out the page and can capture at a different width than the one being displayed, producing screenshots that look clipped when the page is fine.
+
+## Downloading the video's images
+
+`/admin/video/tai-anh` serves one image (GET) or the whole set as a zip (POST).
+
+⚠️ **It has to go through the server.** The `<a download>` attribute **is ignored for cross-origin links**, and the images live on each shop's CDN — tapping one merely opens the image. Proxying lets us set `Content-Disposition: attachment`, which every browser honours.
+
+⚠️ **That makes the route an outbound gate**, so it keeps three guards: an authenticated admin, `https` only, and a block list for private ranges (localhost, 127/10/192.168/169.254, link-local, `.local`, `.internal`). Verified: four internal addresses all answer 400.
+
+`src/lib/zipStore.ts` writes the zip itself — store only, no compression. Images are already compressed, so the one thing a zip library would add is the part we do not use. ⚠️ **Windows opens a zip with a wrong CRC; Android and iOS refuse it** — meaning that bug would only appear on the device the operator actually uses, so a test extracts the archive with PowerShell rather than trusting our own reader.
+
+⚠️ **The viewer role can download single images (GET) but not the zip (POST)**, because viewers are blocked from every POST. That rule is worth more than the convenience.
+
 ## AI Engines (Anthropic Claude Sonnet 5 + Vercel Cron)
 9/9 built as of 2026-07-08 (scaled-down vs. the aspirational multi-agent/queue spec in `docs/03-workflows/*.md`, which assumes infra this project doesn't have — real affiliate network APIs, job queues):
 - **Content** — `src/lib/ai/generateStoreContent.ts` / `generateOfferContent.ts` / `generateDealContent.ts`, structured output (`zodOutputFormat`), hard constraint: never invent numbers/promos/codes. Cron `/api/cron/ai-content-nightly` (batch, drafts only) + manual trigger APIs under `/api/ai/content/*`. Approval in `/admin/ai-review`.

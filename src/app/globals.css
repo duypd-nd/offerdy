@@ -747,7 +747,21 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .oa-btn-green:hover:not(:disabled){background:#15803d}
 .oa-btn-red{background:#dc2626;color:white}
 .oa-btn-red:hover:not(:disabled){background:#b91c1c}
-.oa-table-wrap{margin:20px 28px 0;background:white;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;overflow-x:auto}
+/* ⚠️ BANG CUON NGANG PHAI TRONG NHU MOT THU CUON DUOC.
+   Do that tren khung 390px: bang Offer can 1080px, tuc chi thay mot phan ba —
+   ma khong co dau hieu nao cho biet con cot phia sau, nen no chi trong nhu bi
+   cat cut. Bon lop nen duoi day la meo CSS thuan: hai lop `local` troi theo noi
+   dung, hai lop `scroll` dung yen, nen bong chi hien o ben CON noi dung va tu
+   tat khi da cuon toi mep. Khong can mot dong JavaScript nao. */
+.oa-table-wrap,.adm-scroll-x,.usr-table-wrap{
+  background:
+    linear-gradient(to right,#fff 30%,rgba(255,255,255,0)) 0 0/26px 100% no-repeat local,
+    linear-gradient(to left,#fff 30%,rgba(255,255,255,0)) 100% 0/26px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%,rgba(15,23,42,.17),rgba(15,23,42,0)) 0 0/12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%,rgba(15,23,42,.17),rgba(15,23,42,0)) 100% 0/12px 100% no-repeat scroll,
+    #fff;
+}
+.oa-table-wrap{margin:20px 28px 0;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;overflow-x:auto}
 .oa-table{width:100%;border-collapse:collapse;font-size:13px}
 .oa-table thead{background:#f9fafb;border-bottom:1px solid #e5e7eb}
 .oa-table th{padding:11px 12px;text-align:left;font-weight:700;color:#374151;font-size:12px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
@@ -1158,8 +1172,12 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
   .oa-table{min-width:1080px}
   .oa-table th:nth-child(3),.oa-table td:nth-child(3){min-width:250px}
   .oa-search,.oa-select{flex:1;min-width:120px}
-  .oa-actions{width:100%}
-  .oa-actions .oa-btn{flex:1;justify-content:center}
+  .oa-actions{width:100%;flex-wrap:wrap}
+  /* ⚠️ `.oa-btn` cao co dinh 36px. Tren dien thoai nhan "Tao noi dung AI (0)"
+     xuong ba dong va TRAN RA NGOAI nut — chu nam de len thu khac. Cho nut tu
+     cao theo chu; 36px thanh chieu cao TOI THIEU de cham tay van de. */
+  .oa-actions .oa-btn{flex:1 1 45%;justify-content:center;height:auto;min-height:36px;
+    padding:8px 12px;white-space:normal;line-height:1.25;text-align:center}
 }
 
 /* ── ADMIN DASHBOARD ── */
@@ -1563,7 +1581,14 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 @media(max-width:640px){.allidx{padding:22px 18px 44px}}
 
 /* ── Trang tạo video (/admin/video) ────────────────────────────── */
-.vid-cot{display:grid;grid-template-columns:380px 1fr;gap:22px;align-items:start}
+.vid-cot{display:grid;grid-template-columns:380px minmax(0,1fr);gap:22px;align-items:start}
+/* ⚠️ `minmax(0,1fr)` chu KHONG phai `1fr`. `1fr` la viet tat cua `minmax(auto,1fr)`,
+   ma `auto` khong cho cot co xuong duoi be rong noi dung toi thieu — nen chi can mot
+   phan tu ben trong khong xuong dong duoc la CA LUOI phinh ra. Do that o khung 390px:
+   cot rong 397 trong khi cho chi co 362, va `.adm-main{overflow-x:hidden}` xen mat
+   35px do trong im lang — khong co thanh cuon, khong co dau hieu gi, chu cu the ma
+   cut o mep phai. `minmax(0,...)` bo cai san do di. */
+.vid-cot>*{min-width:0}
 .vid-ds{max-height:640px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
 .vid-deal{display:flex;gap:10px;align-items:center;width:100%;padding:8px 10px;border:none;border-bottom:1px solid #f1f5f9;background:none;cursor:pointer;text-align:left;font-family:inherit}
 .vid-deal:hover{background:#f8fafc}
@@ -1583,10 +1608,23 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .vid-canh-chu em{font-size:12px;color:#64748b;font-style:italic}
 .vid-nut{display:flex;gap:10px;margin-top:14px}
 .vid-anh{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;margin-bottom:10px}
-.vid-anh-dau{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.vid-anh-dau{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.vid-anh-dau span{flex:1;min-width:0}
+.vid-anh-taihet{height:30px;padding:0 10px;font-size:12px;white-space:nowrap}
 .vid-anh-dau b{font-size:13px;color:#1e293b}
 .vid-anh-dau span{font-size:11px;color:#94a3b8}
 .vid-anh-luoi{display:flex;flex-wrap:wrap;gap:8px}
+/* ⚠️ O anh la mot the BOC, con `.vid-anh-o` van la cai NUT ben trong. Nut khong
+   long duoc the `<a>` — HTML khong cho — ma nut tai lai phai la mot lien ket
+   that de trinh duyet dien thoai xu ly viec tai. Nen boc them mot lop. */
+.vid-anh-cell{position:relative;display:flex}
+.vid-anh-o{flex:1}
+.vid-anh-tai{position:absolute;top:3px;right:3px;width:26px;height:26px;display:flex;
+  align-items:center;justify-content:center;border-radius:6px;background:rgba(15,23,42,.62);
+  color:#fff;font-size:14px;line-height:1;text-decoration:none;backdrop-filter:blur(2px)}
+.vid-anh-tai:hover{background:rgba(15,23,42,.85)}
+/* Ngon tay day hon con tro chuot: tren khung cham, nut tai phai to hon han. */
+@media(hover:none){.vid-anh-tai{width:32px;height:32px;font-size:16px}}
 .vid-anh-o{width:88px;display:flex;flex-direction:column;align-items:center;gap:2px;background:#fff;border:2px solid #16a34a;border-radius:8px;padding:5px;cursor:pointer;text-align:center}
 .vid-anh-o img{width:72px;height:72px;object-fit:cover;border-radius:5px;background:#f1f5f9}
 .vid-anh-o--bo{border-color:#e2e8f0;opacity:.45}
@@ -1613,7 +1651,24 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .vid-goi-cuoi{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0}
 .vid-goi-cuoi button{white-space:nowrap;flex:none}
 .vid-goi-cuoi span{font-size:11px;color:#94a3b8;line-height:1.5}
-@media(max-width:900px){.vid-cot{grid-template-columns:1fr}.vid-ds{max-height:320px}}
+@media(max-width:900px){
+  .vid-cot{grid-template-columns:minmax(0,1fr)}
+  /* ⚠️ 320px cat dung giua mot dong deal, trong nhu trang bi hong chu khong
+     trong nhu mot danh sach cuon duoc. 380px vua het 4 dong, va lop `local`
+     duoi day lam dong cuoi mo dan khi con noi dung ben duoi — het cuon thi no
+     tu tat, dung meo da dung cho bang. */
+  .vid-ds{
+    max-height:380px;
+    background:
+      linear-gradient(#fff 30%,rgba(255,255,255,0)) 0 0/100% 22px no-repeat local,
+      linear-gradient(rgba(255,255,255,0),#fff 70%) 0 100%/100% 22px no-repeat local,
+      radial-gradient(farthest-side at 50% 0,rgba(15,23,42,.14),rgba(15,23,42,0)) 0 0/100% 10px no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%,rgba(15,23,42,.14),rgba(15,23,42,0)) 0 100%/100% 10px no-repeat scroll,
+      #fff;
+  }
+  /* Hai cot xep chong thi phan ket qua nam DUOI danh sach, khong con "ben trai" */
+  .vid-goi,.vid-anh{margin-top:4px}
+}
 .vid-pc{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .vid-pc span{font-size:12px;color:#64748b;white-space:nowrap}
 .vid-pc select{flex:1;min-width:0;font-size:12px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b}

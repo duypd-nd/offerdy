@@ -40,6 +40,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   const [phongCach, setPhongCach] = useState<TenPhongCach>('mac-dinh')
   const [anhChon, setAnhChon] = useState<string[]>([])
   const [dangXep, setDangXep] = useState(false)
+  const [dangTai, setDangTai] = useState(false)
 
   const loc = deals.filter(d => {
     const q = tim.trim().toLowerCase()
@@ -103,6 +104,46 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
       else setLoiCaption(r.error)
     } finally {
       setDangViet(false)
+    }
+  }
+
+  /**
+   * Tai TAT CA anh dang dung ve mot tep .zip.
+   *
+   * ⚠️ Vi sao khong bam lien tiep nhieu lien ket tai: trinh duyet dien thoai
+   * chan tu tep thu hai tro di. Mot tep zip la duong duy nhat "bam mot cai duoc
+   * het" that su chay tren dien thoai.
+   *
+   * ⚠️ Va vi sao la POST + blob chu khong phai mot lien ket GET: danh sach anh
+   * la 9 dia chi CDN, noi lai thanh chuoi truy van thi vuot gioi han do dai URL
+   * cua may chu.
+   */
+  const taiHet = async (k: Extract<KetQuaPhanTich, { ok: true }>) => {
+    const dung = anhChon.length ? anhChon : k.anhDung
+    if (!dung.length) return
+    setDangTai(true)
+    try {
+      const r = await fetch('/admin/video/tai-anh', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ urls: dung, ten: `anh-deal-${k.spec.product?.dealCode ?? 'video'}` }),
+      })
+      if (!r.ok) { setLoiDung(`Tải ảnh hỏng: ${r.status} ${(await r.text()).slice(0, 120)}`); return }
+      // Nói thật khi có ảnh tải hỏng, thay vì lặng lẽ giao một tệp thiếu.
+      const soAnh = r.headers.get('x-so-anh')
+      const blob = await r.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `anh-deal-${k.spec.product?.dealCode ?? 'video'}.zip`
+      a.click()
+      URL.revokeObjectURL(a.href)
+      if (soAnh && soAnh.split('/')[0] !== soAnh.split('/')[1]) {
+        setLoiDung(`Chỉ tải được ${soAnh} ảnh — số còn lại CDN của shop từ chối.`)
+      }
+    } catch (e) {
+      setLoiDung(String(e).slice(0, 200))
+    } finally {
+      setDangTai(false)
     }
   }
 
@@ -196,7 +237,10 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
 
         {/* ── Kết quả ── */}
         <div>
-          {!chon && <p className="usr-hint">Chọn một deal ở bên trái để bắt đầu.</p>}
+          {/* ⚠️ KHONG viet "ben trai": duoi 900px hai cot xep chong nen danh sach
+              nam BEN TREN, khong nam ben trai. Mot chi dan sai huong con te hon
+              khong co chi dan. */}
+          {!chon && <p className="usr-hint">Chọn một deal trong danh sách để bắt đầu.</p>}
           {dang && <p className="usr-hint">Đang lấy ảnh từ trang sản phẩm…</p>}
 
           {kq && !kq.ok && <p className="usr-err">{kq.error}</p>}
@@ -220,6 +264,9 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
                     {kq.daChamAnh ? 'Claude đã chấm' : 'chưa chấm được — giữ nguyên thứ tự cào về'}
                     {dangXep && ' · đang dựng lại…'}
                   </span>
+                  <button className="oa-btn vid-anh-taihet" onClick={() => taiHet(kq)} disabled={dangTai}>
+                    {dangTai ? 'Đang gói…' : '⤓ Tải hết (.zip)'}
+                  </button>
                 </div>
                 <div className="vid-anh-luoi">
                   {kq.nguon.anhGoc.map((url, i) => {
@@ -230,15 +277,24 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
                     // xuất hiện cảnh nào mà vẫn đang được chọn.
                     const dung = (anhChon.length ? anhChon : kq.anhDung).includes(url)
                     return (
-                      <button key={url} type="button" onClick={() => doiAnh(url)} disabled={dangXep}
-                        className={`vid-anh-o${dung ? '' : ' vid-anh-o--bo'}`}
-                        title={dung ? 'Bấm để bỏ ảnh này' : 'Bấm để dùng lại ảnh này'}>
-                        <Image src={url} alt="" width={72} height={72} unoptimized />
-                        <span className="vid-anh-diem">{d ? `${d.diem}/10` : '—'}</span>
-                        <span className="vid-anh-ly">
-                          {!dung && aiBo ? 'AI bỏ' : !dung ? 'anh đã bỏ' : d?.lyDo || (i === 0 ? 'ảnh trong kho' : '')}
-                        </span>
-                      </button>
+                      <div key={url} className="vid-anh-cell">
+                        <button type="button" onClick={() => doiAnh(url)} disabled={dangXep}
+                          className={`vid-anh-o${dung ? '' : ' vid-anh-o--bo'}`}
+                          title={dung ? 'Bấm để bỏ ảnh này' : 'Bấm để dùng lại ảnh này'}>
+                          <Image src={url} alt="" width={72} height={72} unoptimized />
+                          <span className="vid-anh-diem">{d ? `${d.diem}/10` : '—'}</span>
+                          <span className="vid-anh-ly">
+                            {!dung && aiBo ? 'AI bỏ' : !dung ? 'anh đã bỏ' : d?.lyDo || (i === 0 ? 'ảnh trong kho' : '')}
+                          </span>
+                        </button>
+                        {/* ⚠️ Phai la mot LIEN KET that, va phai di qua may chu.
+                            Thuoc tinh `download` bi trinh duyet BO QUA voi lien
+                            ket khac ten mien — ma anh nam tren CDN cua tung
+                            shop. Bam thang vao chi mo anh ra chu khong tai. */}
+                        <a className="vid-anh-tai" download
+                          href={`/admin/video/tai-anh?url=${encodeURIComponent(url)}&ten=${encodeURIComponent(`${kq.spec.product?.dealCode ?? 'anh'}-${String(i + 1).padStart(2, '0')}`)}`}
+                          title="Tải ảnh này về máy">⤓</a>
+                      </div>
                     )
                   })}
                 </div>

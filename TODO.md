@@ -1,5 +1,71 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-23 — admin trên điện thoại + tải ảnh về máy
+
+### 1. Nguyên nhân thật của "bị cắt" — một chữ trong CSS
+
+`.vid-cot{grid-template-columns:380px 1fr}`. **`1fr` là viết tắt của `minmax(auto,1fr)`**, mà
+`auto` không cho cột co xuống dưới bề rộng nội dung tối thiểu. Chỉ cần một phần tử bên trong
+không xuống dòng được là **cả lưới phình ra** — đo ở khung 390px: cột rộng **397** trong khi
+chỗ chỉ có **362**.
+
+Và `.adm-main{overflow-x:hidden}` **xén mất 35px đó trong im lặng**: không thanh cuộn, không
+dấu hiệu gì, chữ cứ thế cụt ở mép phải. Sửa: `minmax(0,1fr)` + `.vid-cot>*{min-width:0}`.
+
+⚠️ **Phép đo đầu tiên của tôi nói "không có gì bị cắt" — và nó SAI.** Tôi quét `body *` nên
+bỏ qua chính `body`, rồi so mép phần tử với `.adm-main` thay vì với khung nhìn. Ảnh chụp mới
+là thứ lộ ra sự thật. Bài học: **so với khung nhìn, và luôn nhìn ảnh chụp**.
+
+### 2. Ba sửa khác cho điện thoại
+
+- **Bảng cuộn ngang giờ TRÔNG như cuộn được** — bốn lớp nền CSS thuần (hai lớp `local` trôi
+  theo nội dung, hai lớp `scroll` đứng yên) nên bóng chỉ hiện ở bên còn nội dung và tự tắt khi
+  đã cuộn tới mép. Áp cho `.oa-table-wrap`, `.adm-scroll-x`, `.usr-table-wrap`. Bảng Offer cần
+  1080px trên màn 390 — cuộn là quyết định cũ, đúng; chỉ thiếu dấu hiệu.
+- **Nút không tràn chữ** — `.oa-btn` cao cứng 36px làm "Tạo nội dung AI (0)" xuống ba dòng và
+  chữ tràn ra ngoài nút. Trên điện thoại nút tự cao theo chữ.
+- **Danh sách deal** 320px cắt đúng giữa một dòng → 380px + mờ dần ở đáy.
+- **"Chọn một deal ở bên trái"** → "trong danh sách": dưới 900px hai cột xếp chồng, không còn
+  bên trái nào cả.
+
+### 3. Tải ảnh về máy
+
+- **Mỗi ảnh một nút ⤓** ở góc, và **"⤓ Tải hết (.zip)"** ở đầu bảng ảnh.
+- ⚠️ **Phải đi qua máy chủ.** Thuộc tính `download` của thẻ `<a>` **bị trình duyệt bỏ qua với
+  liên kết khác tên miền** — mà ảnh nằm trên CDN của từng shop. Bấm thẳng chỉ MỞ ảnh ra chứ
+  không tải. Đi qua `/admin/video/tai-anh` thì đặt được `Content-Disposition: attachment`.
+- ⚠️ **Và vì thế đường này là một cái cổng ra internet.** Ba hàng rào: phải đăng nhập · chỉ
+  `https` · chặn dải địa chỉ nội bộ (localhost, 127.x, 10.x, 192.168.x, 169.254.x, link-local).
+  Đã kiểm: 4/4 địa chỉ nội bộ bị trả 400.
+- **Bộ đóng gói ZIP tự viết** (`src/lib/zipStore.ts`, 6 test) — không cài thư viện vì ảnh đã
+  nén sẵn, nén lại gần như không giảm byte nào, tức phần duy nhất thư viện mang lại là thứ ta
+  không dùng. ⚠️ **Windows vẫn mở được tệp zip có CRC sai, nhưng Android và iOS thì từ chối** —
+  nên có một phép kiểm bắt PowerShell giải nén thật để chấm.
+- Kiểm đầu-cuối: **12/12** (`.scratch/thu-tai-anh.mjs`) — 7/7 ảnh vào zip, giải nén ra đủ.
+
+⚠️ **Vai Chỉ xem tải được từng ảnh (GET) nhưng không tải được cả gói (POST)** — luật "vai chỉ
+xem không được POST" chặn. Cố ý không đục lỗ cho một nút tải.
+
+### 📋 CÒN LẠI
+
+- `/admin/social-kit` còn hai khối rỗng tràn ra ngoài (rộng 419 và 260px, **không chứa chữ**)
+  — chưa sửa vì không mất nội dung đọc được nào.
+- `/admin/reports` có 26 phần tử tràn, nhưng đều nằm trong khối cắt-có-dấu-ba-chấm, tức **cố ý**.
+- Đăng thử MỘT video lên TikTok · xác nhận bản trên Vercel · hai tên store hỏng · mốc đo 27/08.
+
+### Bẫy đo được
+
+- **Chrome trên Windows không mở được cửa sổ hẹp hơn ~485px** — `--window-size=390,900` cho ra
+  `clientWidth = 485`. Muốn đo khổ điện thoại thì phải dùng `Emulation.setDeviceMetricsOverride`.
+- **`captureBeyondViewport: true` bố cục lại trang** và có thể chụp ở bề rộng khác bề rộng đang
+  hiện — ảnh ra trông như bị cắt trong khi trang thật thì không. Chụp đúng khung nhìn.
+- **Git Bash biến `/admin/video` thành `C:/Program Files/Git/admin/video`** — `MSYS_NO_PATHCONV=1`.
+  (Bẫy đã ghi từ trước, vẫn mắc lại.)
+- **Heredoc nuốt dấu gạch chéo ngược, lần thứ NĂM.** Lần này `'\\n'` trong một template literal
+  gửi sang trình duyệt thành xuống dòng thật → `SyntaxError`. **Đừng soạn code có escape qua
+  heredoc.**
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-23 — phụ đề xuống dưới ảnh
 
 Anh khoanh đỏ vùng dưới ảnh. `phuDeCachDay` của `PHONG_CACH_MAU`: 560 → **300** (tính từ đáy).
