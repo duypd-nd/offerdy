@@ -1,5 +1,72 @@
 # Offerdy — TODO
 
+## ⏸️ ĐIỂM DỪNG 2026-08-22 (chiều muộn) — bộ đo video mẫu + chuyển cảnh theo từng cảnh
+
+Anh hỏi: *"tôi có 2-3 video mẫu, bạn phân tích được không hay phải dùng công cụ khác rồi
+đưa bạn prompt?"* — **phân tích được, và đường "đưa prompt" là đường sai.** Bộ dựng không ăn
+prompt, nó ăn tham số: `xfade` nào, cảnh dài mấy giây, cỡ chữ mấy pixel, chữ đặt ở đâu. Một
+bản mô tả bằng lời vẫn phải dịch lại thành mấy con số đó, và bước dịch ấy chính là chỗ sai.
+
+⚠️ **CHƯA CÓ VIDEO MẪU NÀO.** Anh sẽ đưa sau — chép vào `E:\Offerdy\.scratch\mau\` rồi bảo
+tôi. Phần dựng sẵn đã xong và đã kiểm bằng một video **biết trước đáp án**.
+
+### Đã làm
+
+**1. `npm run video:analyze <tep.mp4>`** — đo một video ra bảng số + `.scratch/phan-tich-*.json`.
+ffmpeg đo nhịp cắt, Claude nhìn khung hình mô tả hiệu ứng, `mapTransition()` dịch sang tên
+`xfade`. Cùng bộ đo này chạy được trên **cả video mẫu lẫn video của ta**, nên "giống chưa"
+thành hai bảng số đặt cạnh nhau chứ không phải một ý kiến.
+
+**2. `mapTransition()`** — hàm thuần, 57 tên `xfade` lấy từ chính máy này, 8 test. Không nhận
+ra thì trả `fade` **kèm cờ `thay: true`** để báo cáo nói thật.
+
+**3. Chuyển cảnh riêng cho từng cảnh.** Trước đây cả video chỉ MỘT kiểu `fade` 0,5 giây.
+Nay `Scene.transitionOut` + `PhongCachVideo` trong `src/lib/video/videoStyle.ts`. **Phong cách
+mặc định = y hệt hôm nay** nên chưa đổi một khung hình nào.
+
+**4. Vị trí và cỡ chữ đọc từ phong cách**, tính theo **% chiều cao khung** chứ không phải
+pixel — để so được với video mẫu ở độ phân giải khác.
+
+### Đối chứng: dựng một video biết trước đáp án rồi bắt bộ đo tự đọc lại
+
+| Đặt vào | Đo ra | Model đoán |
+|---|---|---|
+| `slideleft` 1,2s @ 3,4s | **3,417s · 1,2s** | `revealleft` — đúng chiều, đúng họ "mép cứng chạy ngang" |
+| `pixelize` 0,2s @ 7,7s | **7,717s · 0,2s** | `pixelize` ✅ |
+| `circleopen` 0,8s @ 10,2s | **10,233s** · 0,3s | `dissolve` ❌ |
+
+**Mốc thời gian chính xác tới vài phần trăm giây; nhận dạng hiệu ứng thì gần đúng.** Và đây
+là ca KHÓ: bốn tấm ảnh gần giống hệt nhau của cùng một sản phẩm, lại đang Ken Burns phóng to.
+Video mẫu thật có các cảnh khác hẳn nhau sẽ dễ đọc hơn nhiều.
+
+⚠️ **Thời lượng tệp khớp phép tính tới 0,000 giây** khi ba mắt nối dài 1,2 / 0,2 / 0,8 —
+đây là phép kiểm quan trọng nhất, vì mốc đặt tiếng nói tính từ con số đó.
+
+### 📋 VIỆC TIẾP THEO
+
+**1. Anh chép 2–3 video mẫu vào `.scratch/mau/` rồi bảo tôi.** Tôi chạy bộ đo, đưa anh bảng
+số, anh duyệt rồi tôi mới gắn phong cách học được vào bộ dựng.
+
+**2. Đăng thử MỘT video lên TikTok** (việc từ điểm dừng trước, vẫn là việc đáng giá nhất).
+
+**3. Xác nhận bản đang chạy trên Vercel** · **hai tên store hỏng chờ anh quyết** · **mốc đo 27/08**.
+
+### Bẫy đo được
+
+- **`select='gt(scene,0.2)'` tìm thấy KHÔNG MỘT điểm cắt nào** trên video có ba lần chuyển
+  cảnh. Chuyển cảnh **dần** thì hai khung liền nhau khác nhau rất ít, điểm "cảnh đổi" không
+  bao giờ vượt ngưỡng. Phải dùng `scdet=threshold=0` lấy **cả đường tín hiệu** rồi tìm dải
+  cao: cắt cứng là đỉnh rộng một khung, chuyển dần là một dải — và **bề rộng dải chính là
+  thời lượng hiệu ứng**.
+- **Nới cửa sổ lấy khung ra rộng hơn lại làm TỆ đi**: cửa sổ ±0,3 giây nuốt luôn chuyển động
+  Ken Burns của chính cảnh đó, và một cú trượt bị mô tả thành "ảnh phóng to". Có một mức tối
+  ưu ở giữa — giữ 0,15.
+- **"Sang phải" nhập nhèm chết người**: model nói chiều ảnh mới *đến từ*, ffmpeg đặt tên theo
+  chiều mọi thứ *di chuyển*. Phải định nghĩa dứt khoát trong lời dẫn.
+- **Bash heredoc nuốt dấu gạch chéo ngược — lần thứ BA trong ngày**, lần này làm hỏng `\b`
+  trong regex và cả chữ `đ`. Soạn code có escape thì **luôn** dùng Write/Edit.
+
+
 ## ⏸️ ĐIỂM DỪNG 2026-08-22 (chiều) — gói đăng bài cho video
 
 ✅ **`/admin/video` giờ có khối "Gói đăng bài"** — ba thứ cần để đăng một bài, ở một chỗ.

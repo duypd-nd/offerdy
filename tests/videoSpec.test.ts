@@ -11,6 +11,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { buildSpec, tongThoiLuong, docGia, danhVan, NHAN_CHIEN_DICH, type NhipKichBan } from '../src/lib/video/buildSpec'
 import { parseCampaign } from '../src/lib/shortLinkSource'
+import { MAC_DINH } from '../src/lib/video/videoStyle'
+import { CAT_CUNG, DAI_CAT_CUNG } from '../src/lib/video/mapTransition'
 
 const NHIP: NhipKichBan[] = [
   { type: 'hook', voiceText: 'Tired of aching arms before your baby even naps?', overlayText: 'ACHING ARMS?' },
@@ -255,4 +257,81 @@ test('không có giá gốc: cảnh giá bán cũng lấy ảnh chưa dùng', ()
   })
   const offer = scenes.find(s => s.type === 'offer')!
   assert.equal(offer.image, '6.jpg')
+})
+
+// ── Chuyển cảnh riêng cho từng cảnh ────────────────────────────────
+//
+// ⚠️ Phép kiểm quan trọng nhất ở đây là TỔNG THỜI LƯỢNG, không phải tên hiệu ứng.
+// Bộ dựng đặt từng đoạn tiếng nói theo mốc tính từ tổng đó; sai một chút là tiếng
+// trôi khỏi hình, mỗi cảnh lệch thêm một ít, đến cảnh cuối lệch vài giây.
+
+test('mặc định: mọi mắt nối vẫn là fade 0,5 giây như trước', () => {
+  const { scenes, transition, style } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  assert.equal(style?.ten, 'mac-dinh')
+  assert.equal(transition.duration, 0.5)
+  for (const s of scenes.slice(0, -1)) {
+    assert.equal(s.transitionOut?.type, 'fade')
+    assert.equal(s.transitionOut?.duration, 0.5)
+  }
+})
+
+test('cảnh CUỐI không có chuyển cảnh — nó không nối vào đâu cả', () => {
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  assert.equal(scenes[scenes.length - 1].transitionOut, undefined)
+  assert.equal(scenes.filter(s => s.transitionOut).length, scenes.length - 1)
+})
+
+test('phong cách nhiều kiểu thì các mắt nối luân phiên', () => {
+  const pc = { ...MAC_DINH, ten: 'thu', chuyenCanh: ['slideleft', 'pixelize', 'circleopen'] as const }
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: pc })
+  assert.equal(scenes[0].transitionOut?.type, 'slideleft')
+  assert.equal(scenes[1].transitionOut?.type, 'pixelize')
+  assert.equal(scenes[2].transitionOut?.type, 'circleopen')
+  assert.equal(scenes[3].transitionOut?.type, 'slideleft')
+})
+
+test('cắt cứng thành một fade dài đúng một khung hình', () => {
+  const pc = { ...MAC_DINH, ten: 'cat', chuyenCanh: [CAT_CUNG] as const }
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: pc })
+  assert.equal(scenes[0].transitionOut?.type, 'fade')
+  assert.equal(scenes[0].transitionOut?.duration, DAI_CAT_CUNG)
+  // Cắt cứng gần như không ăn mất thời lượng — video dài gần bằng tổng các cảnh.
+  const tong = scenes.reduce((n, s) => n + s.duration, 0)
+  assert.ok(tong - tongThoiLuong(scenes) < 0.5, String(tong - tongThoiLuong(scenes)))
+})
+
+test('tongThoiLuong CỘNG DỒN từng mắt nối, không nhân', () => {
+  const scenes = [
+    { duration: 5, transitionOut: { type: 'fade', duration: 1 } },
+    { duration: 5, transitionOut: { type: 'fade', duration: 0.2 } },
+    { duration: 5 },
+  ]
+  // 15 − (1 + 0,2). Nhân 0,5 × 2 sẽ ra 14 — sai 0,8 giây, và đó chính là độ lệch
+  // tiếng nói ở cảnh cuối.
+  assert.equal(tongThoiLuong(scenes), 13.8)
+})
+
+test('kịch bản CŨ không có transitionOut vẫn tính đúng như trước', () => {
+  const cu = [{ duration: 5 }, { duration: 5 }, { duration: 5 }]
+  assert.equal(tongThoiLuong(cu), 14)
+})
+
+test('chuyển cảnh không được dài bằng cảnh nó nối', () => {
+  // Cảnh ngắn nhất mà buildSpec sinh ra là 2,6 giây; đặt chuyển cảnh 9 giây thì
+  // phải bị kéo xuống, nếu không ffmpeg trả về đoạn ngắn hơn dự kiến và MỌI mốc
+  // phía sau lệch theo.
+  const pc = { ...MAC_DINH, ten: 'qua-dai', daiChuyen: 9 }
+  const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: pc })
+  for (const s of scenes.slice(0, -1)) {
+    const dai = s.transitionOut?.duration ?? 0
+    assert.ok(dai > 0 && dai < s.duration, `${dai} vs ${s.duration}`)
+  }
+  assert.ok(tongThoiLuong(scenes) > 0)
+})
+
+test('nhịp nhanh hơn thì cảnh ngắn lại, nhưng không dưới sàn 2,6 giây', () => {
+  const nhanh = buildSpec({ deal: DEAL, images: ANH, beats: NHIP, phongCach: { ...MAC_DINH, ten: 'nhanh', nhipCanh: 0.7 } })
+  const thuong = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
+  assert.ok(tongThoiLuong(nhanh.scenes) < tongThoiLuong(thuong.scenes))
+  for (const s of nhanh.scenes) assert.ok(s.duration >= 2.6, String(s.duration))
 })

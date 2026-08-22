@@ -95,7 +95,34 @@ async function main(specPath) {
   if (!scenes.length) { bad('Kich ban khong co scene nao'); process.exitCode = 1; return }
 
   const tDur = spec.transition?.duration ?? 0.5
-  const tongDai = scenes.reduce((n, s) => n + s.duration, 0) - tDur * (scenes.length - 1)
+
+  /**
+   * Chuyen canh RA khoi scene `i` — moi mat noi mot con so rieng.
+   *
+   * ⚠️ Truoc 2026-08-22 ca video dung MOT kieu va MOT do dai. Kich ban cu khong
+   * co `transitionOut` nen roi ve `spec.transition` va chay y nhu truoc.
+   */
+  const chuyenRa = i => ({
+    type: scenes[i]?.transitionOut?.type ?? spec.transition?.type ?? 'fade',
+    dai: scenes[i]?.transitionOut?.duration ?? tDur,
+  })
+
+  /**
+   * Moc bat dau cua tung scene tren dong thoi gian CUOI CUNG — MOT bang duy nhat.
+   *
+   * ⚠️ VI SAO PHAI DUNG CHUNG: con so nay quyet dinh ca hai thu — `offset` cua
+   * `xfade` khi noi hinh, va `adelay` khi dat tung doan tieng. Truoc day hai cho
+   * tu tinh lay, moi cho mot vong lap giong nhau. Chung khop nhau chi vi ca hai
+   * cung nhan `tDur`; tu khi moi mat noi mot do dai rieng thi hai ban sao chac
+   * chan se lech, va cai lech ra la TIENG TROI KHOI HINH — moi canh mot chut,
+   * den canh cuoi la vai giay.
+   */
+  const mocScene = []
+  for (let i = 0, t = 0; i < scenes.length; i++) {
+    if (i > 0) t += scenes[i - 1].duration - chuyenRa(i - 1).dai
+    mocScene.push(t)
+  }
+  const tongDai = mocScene[scenes.length - 1] + scenes[scenes.length - 1].duration
   ok(`${scenes.length} scene · ${W}x${H} · ${FPS}fps · dai ${tongDai.toFixed(1)}s`)
 
   const viec = path.join(root, '.scratch', 'video-job')
@@ -260,10 +287,29 @@ async function main(specPath) {
       return { soDong: dong.length, buoc }
     }
 
+    // ⚠️ Vi tri va co chu doc tu `spec.style`, tinh theo % CHIEU CAO khung chu
+    // khong phai pixel: de so duoc voi mot video mau tai ve o do phan giai khac
+    // (720×1280 hay 1080×1920 deu ra cung mot ti le). Thieu `style` — kich ban
+    // cu — thi roi ve dung cac con so viet cung truoc day.
+    const st = spec.style ?? {}
+    const cachDay = (ti, macDinh) => Math.round(H * (ti ?? macDinh / 1920))
+    const coChuTu = (ti, macDinh) => Math.round(H * (ti ?? macDinh / 1920))
+
     // Chu lon cua canh cuoi (% giam, ma giam gia, CTA) nam giua anh va phu de
-    if (s.badgeText) veChu(s.badgeText, { toiDaCoChu: 92, y: 'h-830', vien: 8 })
-    const PHU_DE_Y = H - 560
-    const phuDe = veChu(s.voiceText, { toiDaCoChu: 68, y: 'h-560', vien: 6 })
+    if (s.badgeText) {
+      veChu(s.badgeText, {
+        toiDaCoChu: coChuTu(st.badgeCo, 92),
+        y: `h-${cachDay(st.badgeCachDay, 830)}`,
+        vien: 8,
+      })
+    }
+    const PHU_DE_CACH_DAY = cachDay(st.phuDeCachDay, 560)
+    const PHU_DE_Y = H - PHU_DE_CACH_DAY
+    const phuDe = veChu(s.voiceText, {
+      toiDaCoChu: coChuTu(st.phuDeCo, 68),
+      y: `h-${PHU_DE_CACH_DAY}`,
+      vien: 6,
+    })
 
     // ── Dia chi web, chi o canh CTA ─────────────────────────────────
     //
@@ -301,12 +347,12 @@ async function main(specPath) {
   const dau = doan.flatMap(f => ['-i', f])
   const chuoi = []
   let truoc = '[0:v]'
-  let moc = 0
   for (let i = 1; i < doan.length; i++) {
-    // moc = tong thoi luong da ghep TRU di phan chong nhau cua cac lan chuyen
-    moc += scenes[i - 1].duration - tDur
+    // Mat noi thu `i` bat dau dung o thoi diem scene `i` bat dau tren dong thoi
+    // gian cuoi cung — lay tu `mocScene`, KHONG tu tinh lai (xem ly do o tren).
+    const { type, dai } = chuyenRa(i - 1)
     const ra = i === doan.length - 1 ? '[ra]' : `[v${i}]`
-    chuoi.push(`${truoc}[${i}:v]xfade=transition=${spec.transition?.type ?? 'fade'}:duration=${tDur}:offset=${moc.toFixed(3)}${ra}`)
+    chuoi.push(`${truoc}[${i}:v]xfade=transition=${type}:duration=${dai}:offset=${mocScene[i].toFixed(3)}${ra}`)
     truoc = ra
   }
   if (doan.length === 1) chuoi.push('[0:v]null[ra]')
@@ -325,15 +371,8 @@ async function main(specPath) {
 
   // ── Luot 3: dat tung doan tieng vao dung moc cua scene ───────────
   if (coTieng) {
-    // Moc bat dau cua scene i tren dong thoi gian CUOI CUNG. Phai tru phan chong
-    // nhau cua tung lan chuyen canh, neu khong tieng se troi dan ve sau — moi
-    // lan chuyen la lech them nua giay, den scene thu 10 thi lech 4,5 giay.
-    let batDau = 0
-    const mocScene = scenes.map((s, i) => {
-      if (i > 0) batDau += scenes[i - 1].duration - tDur
-      return batDau
-    })
-
+    // Moc dat tieng lay tu CHINH bang `mocScene` da dung de noi hinh. Hai ban
+    // sao cua cung mot phep tinh la cach chac chan de tieng troi khoi hinh.
     const tiengCo = scenes.map((s, i) => ({ s, i })).filter(x => x.s._tieng)
     const vaoTieng = tiengCo.flatMap(x => ['-i', path.basename(x.s._tieng)])
     const locTieng = tiengCo.map((x, k) => {

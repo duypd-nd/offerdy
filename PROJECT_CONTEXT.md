@@ -160,6 +160,28 @@ Four videos sat rendered and unposted. Not for want of a feature: posting one me
 
 ⚠️ **Clipboard comparisons on Windows**: `navigator.clipboard.readText()` returns CRLF while `textarea.value` holds LF. An end-to-end check that compares them directly fails on identical text — normalise first. Not a page bug.
 
+### Learning a style from a reference video
+
+`npm run video:analyze <file.mp4>` measures a video and prints a table (plus `.scratch/phan-tich-*.json`). It exists because **the renderer does not take a prompt, it takes parameters** — which `xfade`, how many seconds a shot runs, how big the text is, where it sits. A prose description of a reference video, from any tool, still has to be translated into those numbers, and that translation is where the error enters. So measure straight to numbers.
+
+The same measuring tool runs on our own output, which turns "does it look like the reference yet" into two tables side by side rather than an opinion.
+
+Work is split three ways: **ffmpeg** measures cut rhythm (frame-accurate, free), **Claude** describes how the picture changes and how text is styled (description only), and **`mapTransition()`** — pure, whitelisted, tested — turns descriptions into ffmpeg names. Same rule as image scoring: the model looks, the code decides.
+
+⚠️ **`select='gt(scene,…)'` finds nothing on gradual transitions.** Measured on a video with three known transitions: zero detections at threshold 0.2. A crossfade changes very little between consecutive frames, so the scene score never spikes; lowering the threshold turns a slow camera move into a "cut". Use `scdet=threshold=0` and read the **whole mafd signal**, then find raised bands: a hard cut is a one-frame spike, a gradual transition is a band, **and the band's width is the effect's duration**. Verified against known answers — 1.167s / 0.167s / 0.333s for effects set to 1.2s / 0.2s / 0.8s.
+
+⚠️ **A wider frame window makes identification worse.** Sampling ±0.3s around the band swallows the shot's own Ken Burns move, and a slide gets described as "the picture zooms". There is an optimum in the middle; 0.15s.
+
+⚠️ **"To the right" is fatally ambiguous.** A person names the side the new picture arrives from; ffmpeg names the direction everything travels. The prompt has to pin this down explicitly.
+
+Accuracy on a deliberately hard case (four near-identical photos of one product, all under Ken Burns): timing exact to within 0.02s on 3/3, duration exact on 2/3, effect family right on 2/3, one miss (`circleopen` read as `dissolve`). Real references with visually distinct shots should read more cleanly. The operator reviews the table before any of it reaches the renderer.
+
+### Per-scene transitions
+
+Until 2026-08-22 the whole video used one transition (`spec.transition`), so no reference style involving varied cuts could be imitated. `Scene.transitionOut` now carries its own type and duration, chosen by a pure function of `PhongCachVideo` (`src/lib/video/videoStyle.ts`) and the scene index — never by the model. The default style reproduces the old output exactly, so nothing changed until a measured style is attached.
+
+⚠️ **The join timeline is now a single shared array.** `mocScene` in `video-render.mjs` decides both the `xfade` offsets and the `adelay` for each narration clip. Those used to be two identical loops that agreed only because both multiplied by one fixed `tDur`; with per-join durations, two copies would inevitably drift, and the drift is **narration sliding off the picture** — a little each scene, seconds by the end. `tongThoiLuong()` likewise sums real overlaps instead of `chuyen × (n − 1)`. Verified by rendering joins of 1.2s / 0.2s / 0.8s and comparing the file's real duration to the computed one: **exact to 0.000s**.
+
 ### Not built yet
 
 The paste-a-URL path for products not in the database · image 0 (the stored photo) and image 1 (the shop's first photo) are the same picture from two sources, so `imageKey()` does not match them and both survive · the model skips image 0 in its judgement even when told not to (harmless — it is pinned — but `scoreImages` must keep treating "no judgement" as "keep").

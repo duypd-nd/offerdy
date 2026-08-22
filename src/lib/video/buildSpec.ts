@@ -18,6 +18,7 @@
  */
 
 import { shortLink, shortLinkUrl } from '@/lib/socialCaption'
+import { MAC_DINH, chuyenCanhCho, keoVuaCanh, type PhongCachVideo } from './videoStyle'
 
 /**
  * Nhan chien dich gan vao moi link ra tu video.
@@ -82,6 +83,15 @@ export type Scene = {
    * truc tiep thay vi vao nhan `video`).
    */
   linkText?: string
+  /**
+   * Chuyen canh RA khoi canh nay — canh cuoi khong co.
+   *
+   * ⚠️ Truoc 2026-08-22 ca video chi co MOT kieu chuyen canh (`spec.transition`),
+   * nen khong bat chuoc duoc mot video CapCut von doi hieu ung theo tung canh.
+   * Thieu truong nay thi bo dung roi ve `spec.transition` nhu cu — kich ban cu
+   * van chay.
+   */
+  transitionOut?: { type: string; duration: number }
 }
 
 export type VideoSpec = {
@@ -94,7 +104,13 @@ export type VideoSpec = {
   product: Record<string, unknown>
   verifiedFacts: string[]
   voice: { provider: string; voice: string | null; rate: number }
+  /**
+   * Chuyen canh chung — chi con la duong lui cho canh nao khong co
+   * `transitionOut` rieng, va cho kich ban cu sinh truoc 2026-08-22.
+   */
   transition: { type: string; duration: number }
+  /** Phong cach dung ra video nay. Bo dung doc vi tri va co chu tu day. */
+  style?: PhongCachVideo
   scenes: Scene[]
 }
 
@@ -107,9 +123,14 @@ export type NhipKichBan = {
   overlayText: string
 }
 
-/** Uoc thoi luong tu so tu. ~2,6 tu/giay khi doc, cong khoang lang hai dau. */
-const uocGiay = (chu: string): number =>
-  Math.max(2.6, Math.round((chu.trim().split(/\s+/).length / 2.6 + 0.8) * 10) / 10)
+/**
+ * Uoc thoi luong tu so tu. ~2,6 tu/giay khi doc, cong khoang lang hai dau.
+ *
+ * `nhip` la he so cua phong cach: 1 = toc do hien tai. Nho hon 1 thi canh ngan
+ * lai — nhung san 2,6 giay van giu, duoi muc do thi mat khong kip doc phu de.
+ */
+const uocGiay = (chu: string, nhip = 1): number =>
+  Math.max(2.6, Math.round((chu.trim().split(/\s+/).length / 2.6 + 0.8) * nhip * 10) / 10)
 
 export function buildSpec(input: {
   deal: DealNguon
@@ -118,6 +139,8 @@ export function buildSpec(input: {
   couponCode?: string | null
   storeName?: string | null
   provider?: string
+  /** Thieu thi dung `MAC_DINH` — y het video truoc 2026-08-22. */
+  phongCach?: PhongCachVideo
 }): VideoSpec {
   const { deal, images, beats } = input
   if (!images.length) throw new Error('Khong co anh nao de dung video')
@@ -125,6 +148,7 @@ export function buildSpec(input: {
 
   const shop = input.storeName ?? deal.store ?? 'the store'
   const ma = input.couponCode ?? null
+  const pc = input.phongCach ?? MAC_DINH
 
   // ⚠️ Anh LAP LAI tu dau khi het, va so canh KHONG bi cat theo so anh.
   //
@@ -154,7 +178,7 @@ export function buildSpec(input: {
   beats.forEach((b, i) => {
     them(b.type, {
       image: lay(i),
-      duration: uocGiay(b.voiceText),
+      duration: uocGiay(b.voiceText, pc.nhipCanh),
       overlayText: b.overlayText,
       voiceText: b.voiceText,
     })
@@ -206,6 +230,19 @@ export function buildSpec(input: {
     linkText: shortLink(deal.code, deal.slug, 'deal'),
   })
 
+  // ── Chuyen canh cho tung mat noi ────────────────────────────────
+  //
+  // Gan SAU khi da dung xong moi canh, vi do dai chuyen canh phai biet ca canh
+  // truoc lan canh sau de keo cho vua. Canh CUOI khong co `transitionOut` — no
+  // khong noi vao dau ca.
+  for (let i = 0; i < scenes.length - 1; i++) {
+    const cc = chuyenCanhCho(pc, i)
+    scenes[i].transitionOut = {
+      type: cc.type,
+      duration: keoVuaCanh(cc.duration, scenes[i].duration, scenes[i + 1].duration),
+    }
+  }
+
   return {
     version: 1,
     format: '9:16',
@@ -234,14 +271,37 @@ export function buildSpec(input: {
       `${images.length} anh — tu ${deal.dealUrl ?? 'kho'}`,
     ],
     voice: { provider: input.provider ?? 'elevenlabs', voice: null, rate: 0 },
-    transition: { type: 'fade', duration: CHUYEN_CANH },
+    // Duong lui, giu de kich ban cu va bo dung cu van hieu. Lay kieu dau tien
+    // cua phong cach chu khong viet cung 'fade' nua.
+    transition: { type: scenes[0]?.transitionOut?.type ?? 'fade', duration: pc.daiChuyen },
+    style: pc,
     scenes,
   }
 }
 
-/** Tong do dai sau khi tru phan chong nhau cua cac lan chuyen canh. */
-export const tongThoiLuong = (scenes: { duration: number }[], chuyen = CHUYEN_CANH): number =>
-  scenes.reduce((n, s) => n + s.duration, 0) - chuyen * Math.max(0, scenes.length - 1)
+/**
+ * Tong do dai sau khi tru phan chong nhau cua cac lan chuyen canh.
+ *
+ * ⚠️ PHAI CONG DON TUNG MAT NOI, khong duoc nhan `chuyen × (so canh − 1)`. Tu khi
+ * moi canh co chuyen canh rieng, cac mat noi dai ngan khac nhau — mot phep nhan
+ * se tra ve mot con so KHONG phai do dai that. Va do dai that lai la thu quyet
+ * dinh moc dat tung doan tieng noi trong bo dung: sai o day thi tieng troi dan
+ * khoi hinh, moi canh lech them mot chut, den canh cuoi lech vai giay.
+ *
+ * Tham so `chuyen` chi con dung cho canh khong khai bao `transitionOut` (kich ban
+ * sinh truoc 2026-08-22).
+ */
+export const tongThoiLuong = (
+  scenes: { duration: number; transitionOut?: { duration: number } }[],
+  chuyen = CHUYEN_CANH,
+): number => {
+  const tong = scenes.reduce((n, s) => n + s.duration, 0)
+  // Chi cac mat noi THAT: canh cuoi khong noi vao dau ca.
+  const chongNhau = scenes
+    .slice(0, Math.max(0, scenes.length - 1))
+    .reduce((n, s) => n + (s.transitionOut?.duration ?? chuyen), 0)
+  return tong - chongNhau
+}
 
 /**
  * "$79.95" -> "79 dollars 95" de giong doc phat am tu nhien.
