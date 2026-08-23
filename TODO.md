@@ -419,6 +419,26 @@ một cái là xong, không phải chọn deal trước. Bật thì ghi `lastPos
 mất ~50px. Đo: 260 → hàng cao **85px** · 320 kèm ô tick → vẫn **85px** · 370 → **61px**, tên gọn
 một dòng.
 
+✅ **Caption có mã giảm giá và mức ưu đãi (23/08).** Thêm một dòng giữa dòng giá và dòng link:
+
+```
+$89.95 (was $129.95) — 31% OFF
+
+Store code: OFFERDY (5% off) — worth trying at checkout      ← mới
+
+Product #1471 — full details: offerdy.com/d/1471
+```
+
+Mức giảm đọc từ `offerText` **thật** qua `docUuDaiMa()` — cùng bộ đọc mà video dùng. Đọc không
+ra thì **chỉ hiện mã, không bịa số**. Mã khớp theo **domain của `dealUrl`** qua
+`couponForDealUrl` (gọi bằng `getDealCouponsBatch` mới — lấy bảng store một lần thay vì 451 lần).
+Khớp sai ở đây nghĩa là **hiện mã của shop khác lên caption**, tức đưa người mua đi nhập một mã
+không bao giờ áp được.
+
+⚠️ **Câu chữ cấm hứa cộng dồn**, cùng luật đã áp cho cảnh mã trong video: *"Store code: X (5%
+off)"* mô tả **cái mã**; *"use X for an extra 5% off"* là lời hứa ta không giữ được vì nhiều shop
+loại trừ hàng đang sale. Có test canh `extra|additional|stack|on top|combine`. **7 test.**
+
 🔴 **Bẫy CDN lặp lại lần thứ hai trong ngày**: `social-kit/page.tsx` vẫn dùng `client` mặc định
 `useCdn: true`, nên tick xong **tải lại trang là dấu biến mất**. Đã đổi sang
 `client.withConfig({ useCdn: false })`. **Mọi trang admin vừa-ghi-vừa-đọc đều phải soi điểm này**

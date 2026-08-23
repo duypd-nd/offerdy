@@ -324,6 +324,23 @@ const getCachedStoreHosts = unstable_cache(
  * nay dang co ma X"), khong duoc hua ma ap dung cho san pham. Ma sai o buoc thanh
  * toan lam mat long tin nhieu hon la khong hien gi.
  */
+/**
+ * Ma coupon cho NHIEU deal mot lut.
+ *
+ * ⚠️ Ton tai vi `/admin/social-kit` liet ke 451 deal. Goi `getDealCoupon()` cho
+ * tung cai la 451 lan `await` mot bo nho dem — dung ket qua, nhung phi. O day
+ * lay bang store MOT lan roi khop bang ham thuan.
+ */
+export async function getDealCouponsBatch(dealUrls: (string | undefined)[]): Promise<(DealCoupon | null)[]> {
+  if (!isConfigured()) return dealUrls.map(() => null)
+  try {
+    const hosts = (await getCachedStoreHosts()) ?? []
+    return dealUrls.map(u => (u ? couponForDealUrl(u, hosts) : null))
+  } catch {
+    return dealUrls.map(() => null)
+  }
+}
+
 export async function getDealCoupon(dealUrl?: string): Promise<DealCoupon | null> {
   if (!isConfigured() || !dealUrl) return null
   try {

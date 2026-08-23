@@ -9,7 +9,7 @@ import { parseCampaign } from '@/lib/shortLinkSource'
 import { CAPTION_ANGLES, CAPTION_PLATFORMS, platformById, type CaptionAngle, type CaptionPlatform } from '@/lib/ai/generateCaption'
 import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, danhDauDaDangMotDeal, logCaptionUsed, layAnhSanPham, type GeneratedCaption, type WeekItem } from './actions'
 
-type KitDeal = {
+export type KitDeal = {
   code: number
   title: string
   priceSale: string
@@ -27,6 +27,10 @@ type KitDeal = {
   daDangLuc?: string
   /** Co link san pham khong. Khong co thi khong cao duoc bo anh. */
   coDealUrl?: boolean
+  /** Ma coupon that cua shop deal nay dan toi — trang server ghep vao. */
+  couponCode?: string
+  /** `offerText` cua offer mang ma do, vi du "5% Off". */
+  couponOfferText?: string
 }
 
 const QR_SIZE = 220

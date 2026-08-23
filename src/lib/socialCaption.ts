@@ -1,4 +1,5 @@
 import { dealDiscountBadge } from './dealDiscountLabel'
+import { docUuDaiMa } from './video/couponOffer'
 
 export type CaptionDeal = {
   code?: number
@@ -9,6 +10,10 @@ export type CaptionDeal = {
   discountByAmount?: boolean
   categoryName?: string
   slug?: string
+  /** Ma coupon that cua SHOP ma deal nay dan toi. Xem `couponForDealUrl()`. */
+  couponCode?: string
+  /** `offerText` cua offer mang ma do — vi du "5% Off". Xem `docUuDaiMa()`. */
+  couponOfferText?: string
 }
 
 export type LinkStyle = 'deal' | 'go'
@@ -83,6 +88,7 @@ export function buildCaption(deal: CaptionDeal, opts: {
     deal.title,
     '',
     discountLine,
+    ...(couponLine(deal) ? ['', couponLine(deal)] : []),
     '',
     deal.code
       ? `Product ${'#'}${deal.code} — full details: ${shortLink(deal.code, deal.slug, opts.style, opts.campaign)}`
@@ -90,4 +96,26 @@ export function buildCaption(deal: CaptionDeal, opts: {
     '',
     tags,
   ].join('\n')
+}
+
+/**
+ * Dong ma giam gia trong caption, hoac chuoi rong neu shop khong co ma.
+ *
+ * ⚠️ NOI DUNG MUC DO, KHONG HUA. Day la ma cua CA SHOP, khong phai ma rieng cho
+ * san pham nay, va nhieu shop loai tru hang dang giam gia khoi ma. Nen
+ * "Store code: X (5% off) — worth trying at checkout" thi duoc, con
+ * "use X for an extra 5% off" thi KHONG: cau sau la mot loi hua, va mot ma khong
+ * ap duoc o buoc thanh toan lam mat long tin nhieu hon la khong hien ma nao.
+ * Cung luat da ap cho canh ma trong video (`buildSpec.ts`).
+ *
+ * ⚠️ Muc giam doc tu `offerText` THAT qua `docUuDaiMa()`. Doc khong ra thi chi
+ * hien ma, KHONG bia mot con so nao.
+ */
+export function couponLine(deal: CaptionDeal): string {
+  const ma = deal.couponCode?.trim()
+  if (!ma) return ''
+  const uuDai = docUuDaiMa(deal.couponOfferText)
+  return uuDai
+    ? `Store code: ${ma} (${uuDai.hienThi.replace(/ OFF$/, ' off')}) — worth trying at checkout`
+    : `Store code: ${ma} — worth trying at checkout`
 }

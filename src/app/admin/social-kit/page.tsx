@@ -1,7 +1,11 @@
 import { client } from '@/sanity/client'
-import SocialKitClient from './SocialKitClient'
+import SocialKitClient, { type KitDeal } from './SocialKitClient'
+import { getDealCouponsBatch } from '@/sanity/queries'
 
 export const dynamic = 'force-dynamic'
+
+/** Deal doc tu Sanity, TRUOC khi ghep ma coupon vao. */
+type KitDealRaw = Omit<KitDeal, 'couponCode' | 'couponOfferText'> & { dealUrl?: string }
 
 /**
  * ⚠️ `useCdn: false` — đo thật 23/08: tick "đã đăng" ghi xong, đọc lại bằng CDN
@@ -23,7 +27,7 @@ const QUERY = `*[_type == "deal" && defined(code)] | order(code desc) {
   "categoryName": category->name,
   "shortLinkClicks": coalesce(shortLinkClicks, 0),
   "dealClicks": coalesce(dealClicks, 0),
-  store,
+  store, dealUrl,
   "daDangLuc": lastPostedAt,
   "coDealUrl": defined(dealUrl)
 }`
@@ -40,16 +44,29 @@ export default async function SocialKitPage({ searchParams }: {
   searchParams: Promise<{ code?: string }>
 }) {
   const [deals, missingCode, params] = await Promise.all([
-    readClient.fetch(QUERY),
+    readClient.fetch<KitDealRaw[]>(QUERY),
     readClient.fetch<number>(MISSING_CODE_QUERY),
     searchParams,
   ])
+
+  // ⚠️ Ma coupon khop theo DOMAIN cua `dealUrl`, khong phai theo ten shop. Dung
+  // dung `couponForDealUrl` ma trang deal va trang review dang dung (goi qua
+  // `getDealCouponsBatch`) — tu viet mot phep khop thu hai la tao mot cho de lech,
+  // va cho lech o day nghia la hien ma cua SHOP KHAC len caption, tuc dua nguoi
+  // mua di nhap mot ma khong bao gio ap duoc.
+  const ds = deals ?? []
+  const coupons = await getDealCouponsBatch(ds.map(d => d.dealUrl))
+  const kem = ds.map((d, i) => ({
+    ...d,
+    couponCode: coupons[i]?.code,
+    couponOfferText: coupons[i]?.offerText,
+  }))
   // `?code=` de nut 📣 tren /admin/deals nhay thang sang day voi deal da chon san —
   // them deal roi dang bai la mot chuoi lam lien nhau, truoc day phai tim lai ma.
   const initialCode = Number(params?.code)
   return (
     <SocialKitClient
-      deals={deals ?? []}
+      deals={kem}
       missingCode={missingCode ?? 0}
       initialCode={Number.isFinite(initialCode) && initialCode > 0 ? initialCode : undefined}
     />
