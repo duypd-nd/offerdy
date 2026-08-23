@@ -383,6 +383,29 @@ Phân biệt **loại tự hết** với **loại phải trả tiền** — đâ
 đã cạn thì anh ngồi bấm mãi. Có test canh cả hai chiều. **8 test**, và đã lái Chrome thật trên
 đúng lỗi thật (ví đang cạn nên đo được ngay).
 
+✅ **15. `/admin/social-kit`: cột trái giống trang video + bộ ảnh sản phẩm tải được (23/08)**
+
+**Cột trái** giờ dùng **chung lớp CSS `.vid-*`** với `/admin/video` — ảnh thu nhỏ, tên hai
+dòng, dòng phụ `#mã · shop · giá · -%`, và dấu `✓ đã đăng` (đọc từ `lastPostedAt`, đúng ô mà
+trang này vốn đã dùng để xoay vòng deal). Không chép lại CSS: hai trang hiển thị cùng một danh
+sách deal thì phải trông y hệt, mà một bản sao thứ hai chắc chắn lệch ngay lần chỉnh đầu tiên.
+
+**Khối *Ảnh sản phẩm*** — bấm một nút là ra cả bộ ảnh, mỗi ảnh một nút ⤓, kèm *Tải hết (.zip)*.
+Dùng lại đường `/admin/video/tai-anh` đã có (phải đi qua máy chủ: thuộc tính `download` của thẻ
+`<a>` **bị trình duyệt bỏ qua với liên kết khác tên miền**, mà ảnh nằm trên CDN của từng shop).
+
+🔑 **KHÔNG TỐN CREDIT API.** Đây là điểm mấu chốt anh yêu cầu, và nó làm được vì
+`scrapeProductPage()` là **cheerio thuần, không chạm Claude**. Bên `/admin/video` muốn có ảnh
+thì phải qua `phanTichDeal()` → `loadDealSpec()` → gọi Claude **hai lần** (viết lời đọc + chấm
+ảnh), nên ví cạn tiền là không lấy nổi một tấm. Đường mới đi thẳng tới bước cào.
+
+**Đã lái Chrome thật, 7/7 đạt — trong đó phép quan trọng nhất: lấy được 9 ảnh trong khi ví API
+vẫn đang cạn.** Khung điện thoại 390px: 0 chỗ xén, 0 chỗ vượt.
+
+⚠️ Bẫy mắc lại lần thứ ba trong ngày: **backtick trong chú thích nằm giữa một template literal
+đóng chuỗi lại giữa chừng**. Lần này ở chuỗi GROQ của `social-kit/page.tsx`. Chú thích cho
+chuỗi phải để **ngoài** chuỗi.
+
 **5. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
 
 ### Còn nợ, đã biết nhưng chưa sửa

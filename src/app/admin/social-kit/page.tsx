@@ -10,8 +10,17 @@ const QUERY = `*[_type == "deal" && defined(code)] | order(code desc) {
   "slug": slug.current, "imageUrl": image.asset->url,
   "categoryName": category->name,
   "shortLinkClicks": coalesce(shortLinkClicks, 0),
-  "dealClicks": coalesce(dealClicks, 0)
+  "dealClicks": coalesce(dealClicks, 0),
+  store,
+  "daDangLuc": lastPostedAt,
+  "coDealUrl": defined(dealUrl)
 }`
+// Ba o cuoi truy van tren la cho COT TRAI, de no giong het cot cua /admin/video:
+// ten shop + dau "da dang". Con `coDealUrl` quyet dinh co lay duoc bo anh san
+// pham hay khong — khong co link thi khong co gi de cao ve.
+//
+// ⚠️ Chu thich phai nam NGOAI chuoi: mot dau backtick trong template literal la
+// dong chuoi lai giua chung. Da mac loi nay hai lan trong ngay.
 
 const MISSING_CODE_QUERY = `count(*[_type == "deal" && !defined(code)])`
 

@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
+import { formatAdminDateTime } from '@/lib/adminDateTime'
 import { buildCaption, shortLinkUrl, type LinkStyle } from '@/lib/socialCaption'
 import { parseCampaign } from '@/lib/shortLinkSource'
 import { CAPTION_ANGLES, CAPTION_PLATFORMS, platformById, type CaptionAngle, type CaptionPlatform } from '@/lib/ai/generateCaption'
-import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, logCaptionUsed, type GeneratedCaption, type WeekItem } from './actions'
+import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, logCaptionUsed, layAnhSanPham, type GeneratedCaption, type WeekItem } from './actions'
 
 type KitDeal = {
   code: number
@@ -19,6 +21,12 @@ type KitDeal = {
   categoryName?: string
   shortLinkClicks: number
   dealClicks: number
+  /** Ten shop, cho dong phu o cot trai. */
+  store?: string
+  /** `lastPostedAt` — da soan bai cho deal nay chua. */
+  daDangLuc?: string
+  /** Co link san pham khong. Khong co thi khong cao duoc bo anh. */
+  coDealUrl?: boolean
 }
 
 const QR_SIZE = 220
@@ -55,6 +63,15 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
   const [weekSkipped, setWeekSkipped] = useState<string[]>([])
   const [weekError, setWeekError] = useState('')
   const [weekPending, startWeek] = useTransition()
+  // Ma vua danh dau trong phien nay — de cot trai doi ngay, khong doi tai lai trang.
+  const [vuaDanhDau, setVuaDanhDau] = useState<number[]>([])
+  // ── Bo anh san pham ──
+  // ⚠️ Khoa theo MA DEAL chu khong phai mot mang tran: doi deal roi quay lai thi
+  // khong phai cao lai, va khong bao gio hien nham anh cua deal truoc.
+  const [anhTheoMa, setAnhTheoMa] = useState<Record<number, string[]>>({})
+  const [anhLoi, setAnhLoi] = useState('')
+  const [anhPending, startAnh] = useTransition()
+  const [dangGoiZip, setDangGoiZip] = useState(false)
 
   const campaign = parseCampaign(campaignRaw)
   const deal = deals.find(d => d.code === selectedCode) ?? null
@@ -136,9 +153,66 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
 
   const markPosted = () => {
     startWeek(async () => {
-      const res = await markDealsPosted(weekItems.map(i => i.code))
+      const ma = weekItems.map(i => i.code)
+      const res = await markDealsPosted(ma)
+      // Ghi lai ngay tren man hinh: may chu chi doc `lastPostedAt` mot lan luc
+      // dung trang, khong co cai nay thi cot trai van hien "chua" toi khi tai lai.
+      if (res.ok) setVuaDanhDau(cu => [...new Set([...cu, ...ma])])
       showToast(res.ok ? `Đã đánh dấu ${weekItems.length} deal` : 'Không đánh dấu được')
     })
+  }
+
+  /**
+   * Lay bo anh cua san pham dang chon.
+   *
+   * ⚠️ Duong nay KHONG goi AI. Ben /admin/video muon co anh thi phai qua
+   * `phanTichDeal()`, ma ham do goi Claude hai lan (viet loi doc + cham anh) —
+   * nen vi API can tien la khong lay noi mot tam anh. Viec cao anh von chang can
+   * AI ti nao, nen o day di thang toi `scrapeProductPage()`.
+   */
+  const layAnh = (code: number) => {
+    setAnhLoi('')
+    startAnh(async () => {
+      const r = await layAnhSanPham(code)
+      if (!r.ok) { setAnhLoi(r.error); return }
+      setAnhTheoMa(cu => ({ ...cu, [code]: r.anh }))
+    })
+  }
+
+  /**
+   * Tai ca bo anh ve mot tep zip.
+   *
+   * ⚠️ Di qua may chu, dung chinh duong `/admin/video/tai-anh` da co. Thuoc tinh
+   * `download` cua the `<a>` BI TRINH DUYET BO QUA voi lien ket khac ten mien —
+   * ma anh nam tren CDN cua tung shop. Bam thang chi mo anh ra chu khong tai ve.
+   */
+  const taiHetAnh = async (code: number, urls: string[]) => {
+    if (!urls.length) return
+    setDangGoiZip(true)
+    setAnhLoi('')
+    try {
+      const r = await fetch('/admin/video/tai-anh', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ urls, ten: `anh-deal-${code}` }),
+      })
+      if (!r.ok) { setAnhLoi(`Tải ảnh hỏng: ${r.status} ${(await r.text()).slice(0, 120)}`); return }
+      const soAnh = r.headers.get('x-so-anh')
+      const blob = await r.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `anh-deal-${code}.zip`
+      a.click()
+      URL.revokeObjectURL(a.href)
+      // Noi that khi co anh tai hong, thay vi lang le giao mot tep thieu.
+      if (soAnh && soAnh.split('/')[0] !== soAnh.split('/')[1]) {
+        setAnhLoi(`Chỉ tải được ${soAnh} ảnh — số còn lại CDN của shop từ chối.`)
+      }
+    } catch (e) {
+      setAnhLoi(String(e).slice(0, 200))
+    } finally {
+      setDangGoiZip(false)
+    }
   }
 
   const copy = (text: string, label: string) => {
@@ -285,21 +359,37 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
+            {/* ⚠️ Dùng CHUNG lớp `.vid-*` với /admin/video, không chép lại 20 dòng
+                CSS. Tên có chữ "vid" là do nó ra đời ở trang video trước, nhưng
+                nội dung thuần trình bày — hai trang hiển thị cùng một danh sách
+                deal thì phải trông y hệt nhau, và một bản sao thứ hai chắc chắn
+                sẽ lệch ngay lần chỉnh đầu tiên. */}
             <div className="sk-ds">
-              {filtered.map(d => (
-                <button
-                  key={d.code}
-                  onClick={() => { setSelectedCode(d.code); setCaptionOverride(null) }}
-                  style={{
-                    display: 'flex', gap: 10, alignItems: 'center', width: '100%', textAlign: 'left',
-                    padding: '9px 12px', background: d.code === selectedCode ? '#F0FDF4' : 'transparent',
-                    borderBottom: '1px solid #F8FAFC', borderLeft: d.code === selectedCode ? '3px solid #16A34A' : '3px solid transparent',
-                  }}
-                >
-                  <strong style={{ fontSize: 12, color: '#16A34A', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>#{d.code}</strong>
-                  <span style={{ fontSize: 12, color: '#1E293B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
-                </button>
-              ))}
+              {filtered.map(d => {
+                const daDang = !!d.daDangLuc || vuaDanhDau.includes(d.code)
+                return (
+                  <div key={d.code} className={`vid-hang${d.code === selectedCode ? ' vid-hang--chon' : ''}${daDang ? ' vid-deal--xong' : ''}`}>
+                    <button
+                      className="vid-deal"
+                      onClick={() => { setSelectedCode(d.code); setCaptionOverride(null) }}
+                    >
+                      {d.imageUrl
+                        ? <Image src={`${d.imageUrl}?w=88&h=88&fit=crop&auto=format`} alt="" width={44} height={44} className="vid-deal-anh" />
+                        : <span className="vid-deal-anh" />}
+                      <span className="vid-deal-chu">
+                        <b>{d.title.length > 54 ? d.title.slice(0, 54) + '…' : d.title}</b>
+                        <span>#{d.code} · {d.store ?? '—'} · {d.priceSale}{d.discount ? ` · -${d.discount}%` : ''}</span>
+                      </span>
+                      {daDang && (
+                        <span className="vid-dau vid-dau--da-dang"
+                          title={d.daDangLuc ? `Đã soạn bài lúc ${formatAdminDateTime(d.daDangLuc)}` : 'Vừa đánh dấu đã đăng'}>
+                          ✓ đã đăng
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
               {filtered.length === 0 && <div style={{ padding: 14, fontSize: 13, color: '#9CA3AF' }}>Không tìm thấy</div>}
             </div>
           </div>
@@ -481,6 +571,70 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                   </div>
                 </div>
                 <a href={`/deals/${deal.slug}`} target="_blank" rel="noopener noreferrer" className="oa-btn" style={{ textDecoration: 'none', flexShrink: 0 }}>Xem trang</a>
+              </div>
+            )}
+
+            {/* ── Ảnh sản phẩm ─────────────────────────────────────
+                ⚠️ Khối này KHÔNG gọi AI. Bên /admin/video muốn có ảnh thì phải
+                qua `phanTichDeal()` — hàm đó gọi Claude hai lần, nên ví API cạn
+                tiền là không lấy nổi một tấm ảnh. Việc cào ảnh vốn chẳng cần AI. */}
+            {deal && (
+              <div style={card}>
+                <div className="vid-anh-dau">
+                  <b>Ảnh sản phẩm</b>
+                  <span>
+                    {anhTheoMa[deal.code]
+                      ? `${anhTheoMa[deal.code].length} ảnh · lấy thẳng từ trang shop, không dùng AI`
+                      : 'chưa lấy — bấm nút bên phải'}
+                  </span>
+                  {anhTheoMa[deal.code] && (
+                    <button className="oa-btn vid-anh-taihet" disabled={dangGoiZip}
+                      onClick={() => taiHetAnh(deal.code, anhTheoMa[deal.code])}>
+                      {dangGoiZip ? 'Đang gói…' : '⤓ Tải hết (.zip)'}
+                    </button>
+                  )}
+                </div>
+
+                {!anhTheoMa[deal.code] && (
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                    <button className="oa-btn oa-btn-green" disabled={anhPending || !deal.coDealUrl}
+                      onClick={() => layAnh(deal.code)}>
+                      {anhPending ? 'Đang lấy ảnh…' : '🖼 Lấy ảnh sản phẩm'}
+                    </button>
+                    <span style={{ fontSize: 11.5, color: '#9CA3AF', lineHeight: 1.6 }}>
+                      {deal.coDealUrl
+                        ? 'Mở trang sản phẩm rồi nhặt ảnh về. Không tốn credit API.'
+                        : 'Deal này không có link sản phẩm nên chỉ có ảnh trong kho.'}
+                    </span>
+                  </div>
+                )}
+
+                {anhLoi && <p className="usr-warn" style={{ marginTop: 10 }}>{anhLoi}</p>}
+
+                {anhTheoMa[deal.code] && (
+                  <>
+                    <div className="vid-anh-luoi" style={{ marginTop: 10 }}>
+                      {anhTheoMa[deal.code].map((url, i) => (
+                        <div key={url} className="vid-anh-cell">
+                          <a className="vid-anh-o" href={url} target="_blank" rel="noopener noreferrer"
+                            title="Mở ảnh gốc ở tab mới">
+                            <Image src={url} alt="" width={72} height={72} unoptimized />
+                            <span className="vid-anh-diem">{i + 1}</span>
+                          </a>
+                          {/* ⚠️ Phải là một LIÊN KẾT thật và phải đi qua máy chủ.
+                              Thuộc tính `download` bị trình duyệt BỎ QUA với liên
+                              kết khác tên miền — mà ảnh nằm trên CDN của từng shop. */}
+                          <a className="vid-anh-tai" download
+                            href={`/admin/video/tai-anh?url=${encodeURIComponent(url)}&ten=${encodeURIComponent(`${deal.code}-${String(i + 1).padStart(2, '0')}`)}`}
+                            title="Tải ảnh này về máy">⤓</a>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="vid-anh-chu">
+                      Bấm ⤓ để tải một ảnh, hoặc <b>Tải hết</b> để lấy cả bộ. Bấm vào ảnh để mở bản gốc.
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>

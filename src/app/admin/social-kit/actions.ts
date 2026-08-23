@@ -8,6 +8,8 @@ import {
 } from '@/lib/ai/generateCaption'
 import type { LinkStyle } from '@/lib/socialCaption'
 import { getDealCoupon } from '@/sanity/queries'
+import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
+import { requireAdmin } from '@/lib/adminSession'
 
 export type GeneratedCaption = { text: string; hashtags: string[]; suggestedTag: string }
 
@@ -255,5 +257,48 @@ export async function markDealsPosted(codes: number[]): Promise<{ ok: boolean }>
     return { ok: true }
   } catch {
     return { ok: false }
+  }
+}
+
+// ── Bo anh san pham, KHONG goi AI ─────────────────────────────────
+//
+// ⚠️ VI SAO TACH KHOI DUONG CUA /admin/video: ben do `phanTichDeal()` goi
+// `loadDealSpec()`, ma ham do goi Claude hai lan (viet loi doc + cham anh). Nen
+// khi vi API can tien thi khong lay noi mot tam anh — trong khi viec lay anh
+// von chang can AI ti nao: `scrapeProductPage()` la cheerio thuan.
+//
+// Duong nay chi lam dung mot viec: mo trang san pham, nhat anh ve, bo trung.
+// Do la ly do no van chay khi Claude khong chay.
+
+export type KetQuaLayAnh =
+  | { ok: true; anh: string[]; nguon: string }
+  | { ok: false; error: string }
+
+export async function layAnhSanPham(dealCode: number): Promise<KetQuaLayAnh> {
+  await requireAdmin()
+  if (!Number.isInteger(dealCode)) return { ok: false, error: 'Mã deal không hợp lệ' }
+  try {
+    const deal = await writeClient.fetch<{ dealUrl?: string; anh?: string } | null>(
+      `*[_type == "deal" && code == $code][0]{ dealUrl, "anh": image.asset->url }`,
+      { code: dealCode }, { cache: 'no-store' },
+    )
+    if (!deal) return { ok: false, error: `Không tìm thấy deal #${dealCode}` }
+    if (!deal.dealUrl) {
+      return { ok: false, error: 'Deal này không có link sản phẩm nên chỉ có ảnh trong kho.' }
+    }
+
+    const r = await scrapeProductPage(deal.dealUrl)
+    if ('error' in r) return { ok: false, error: `Không mở được trang sản phẩm: ${r.error}` }
+
+    // Ảnh trong kho luôn đứng đầu — đó là ảnh người vận hành đã chọn. Cùng thứ
+    // tự với /admin/video để hai trang không nói hai chuyện khác nhau.
+    const cao = r.images ?? []
+    const anh = deal.anh ? [deal.anh, ...cao.filter(a => a !== deal.anh)] : cao
+    if (!anh.length) return { ok: false, error: 'Trang sản phẩm không có ảnh nào lấy được.' }
+    return { ok: true, anh, nguon: deal.dealUrl }
+  } catch (e) {
+    // ⚠️ KHONG dung `describeAiError` o day: duong nay khong cham vao AI, va noi
+    // "het tien API" cho mot loi mang la chi sai huong nguoi di sua.
+    return { ok: false, error: String(e).slice(0, 200) }
   }
 }
