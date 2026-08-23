@@ -1,6 +1,7 @@
 'use server'
 
 import { writeClient } from '@/sanity/writeClient'
+import { describeAiError } from '@/lib/ai/describeAiError'
 import {
   generateCaptions, fillPlaceholders,
   type CaptionAngle, type CaptionPlatform, type CaptionDealInput, type Persona,
@@ -86,7 +87,7 @@ export async function generateCaptionsForDeal(input: {
   } catch (e) {
     // Tra loi ra UI: loi o day thuong la het credit Anthropic hoac thieu API key,
     // dung nhung thu can nhin thay de sua.
-    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    return { ok: false, error: describeAiError(e) }
   }
 }
 
@@ -166,13 +167,13 @@ export async function generateWeekPlan(input: {
         })
       } catch (e) {
         // Mot deal hong khong duoc lam hong ca tuan — ghi lai roi di tiep.
-        skipped.push(`#${deal.code} — ${e instanceof Error ? e.message : String(e)}`)
+        skipped.push(`#${deal.code} — ${describeAiError(e)}`)
       }
     }
 
     return { ok: true, items, skipped }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    return { ok: false, error: describeAiError(e) }
   }
 }
 

@@ -337,6 +337,52 @@ bằng cách hạ ngưỡng: thoát mã 1, giữ nguyên 76 tệp, báo rõ thi�
 tệp mở được — và cả hai lần chỉ lộ ra vì có người ngồi đo bằng ffprobe. `npm test` xanh không
 nói gì về chuyện này. **Mọi bước ffmpeg phải tự kiểm đầu ra, không tin mã thoát.**
 
+### 🔴 13. VÍ API ANTHROPIC ĐÃ CẠN — VIỆC CỦA ANH
+
+`/admin/video` báo lỗi khi chọn deal. **Không phải lỗi code.** Đo tách bạch:
+
+| Phép thử | Kết quả |
+|---|---|
+| `GET /v1/models` | **200** — khoá hợp lệ, chưa bị thu hồi |
+| `POST /v1/messages` | **400** — *credit balance is too low* |
+
+👉 **Nạp ở console.anthropic.com → Plans & Billing.** Đây là ví trả-theo-dùng của khoá
+`ANTHROPIC_API_KEY`, **tách hẳn** khỏi gói Claude Code. ⚠️ Nạp xong **xoay luôn khoá đó** —
+nó nằm trong nhóm 4 khoá đã lỡ dán vào phòng chat.
+
+**Đang kẹt**: chọn deal ở `/admin/video` (viết lời đọc + chấm ảnh) · caption ở `/admin/social-kit`
+· `/admin/article-ideas` · sinh mô tả offer/deal/review/store · báo cáo AI ở `/admin/reports`.
+
+**Vẫn chạy**: toàn bộ web công khai · admin · deep link · giọng đọc ElevenLabs (ví riêng) ·
+và **`npm run video:render` KHÔNG gọi Claude** (đo: 0 tham chiếu Anthropic trong
+`video-render.mjs` và `tts.mjs`). Có 9 kịch bản đã lưu, dựng lại được ngay:
+`npm run video:render .scratch/spec-1470.json`. Nhưng **deal MỚI thì vẫn phải qua Claude** —
+bước viết lời đọc nằm trước bước dựng.
+
+✅ **14. Thông báo lỗi AI giờ nói được phải làm gì (23/08)**
+
+Trước đây màn hình phun nguyên khối JSON: `Error: 400 {"type":"error",...}`. Đọc xong không
+biết bấm vào đâu — mà lỗi hết tiền **chắc chắn còn gặp lại**, nó là trạng thái bình thường
+của một ví trả trước chứ không phải sự cố.
+
+⚠️ **Đã có sẵn `describeAiError`** (dùng ở `/admin/article-ideas` và `/admin/reviews`) — tôi
+suýt tạo bản thứ hai. **Mở rộng bản cũ** đúng theo nguyên tắc một-bộ-đọc-duy-nhất, và nối
+thêm 3 trang chưa dùng nó: `/admin/video`, `/admin/social-kit`, `/admin/reports`.
+
+Phân biệt **loại tự hết** với **loại phải trả tiền** — đây là chỗ dễ sai và đắt nhất:
+
+| Lỗi | Câu trả về |
+|---|---|
+| hết tiền (**400**, không phải 402) | nạp ở đâu + nói rõ tách khỏi gói Claude Code |
+| 429 / 529 / 5xx / hết giờ | "thử lại" — **tuyệt đối không nhắc tiền** |
+| 401 khoá bị từ chối | cấp khoá mới (không bảo đi xem biến môi trường — biến CÓ, chỉ là sai) |
+| thiếu `x-api-key` | mở `/admin/cron-check` xem biến có tới runtime không |
+| không nhận ra | **trả nguyên văn**, không nuốt |
+
+⚠️ Nói "hết tiền" khi thật ra chỉ quá tải thì anh đi nạp tiền vô ích; nói "thử lại sau" khi ví
+đã cạn thì anh ngồi bấm mãi. Có test canh cả hai chiều. **8 test**, và đã lái Chrome thật trên
+đúng lỗi thật (ví đang cạn nên đo được ngay).
+
 **5. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
 
 ### Còn nợ, đã biết nhưng chưa sửa

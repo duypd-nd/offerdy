@@ -8,6 +8,7 @@ import { loadDealSpec, type NguonKichBan } from '@/lib/video/loadDealSpec'
 import { buildSpec, tongThoiLuong, type VideoSpec } from '@/lib/video/buildSpec'
 import { phongCachTheoTen, type TenPhongCach } from '@/lib/video/videoStyle'
 import { generateCaptionsForDeal, markDealsPosted } from '@/app/admin/social-kit/actions'
+import { describeAiError } from '@/lib/ai/describeAiError'
 import { writeClient } from '@/sanity/writeClient'
 import type { CaptionAngle } from '@/lib/ai/generateCaption'
 
@@ -52,7 +53,7 @@ export async function phanTichDeal(dealCode: number, phongCach?: TenPhongCach): 
       daChamAnh: r.daChamAnh,
     }
   } catch (err) {
-    return { ok: false, error: String(err).slice(0, 200) }
+    return { ok: false, error: describeAiError(err) }
   }
 }
 
@@ -102,7 +103,7 @@ export async function dungLaiKichBan(nguon: NguonKichBan, anhChon: string[], pho
     })
     return { ok: true, spec, thoiLuong: tongThoiLuong(spec.scenes), anhDung: anh }
   } catch (err) {
-    return { ok: false, error: String(err).slice(0, 200) }
+    return { ok: false, error: describeAiError(err) }
   }
 }
 

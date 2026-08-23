@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { generateDailyReport } from '@/lib/ai/generateDailyReport'
+import { describeAiError } from '@/lib/ai/describeAiError'
 
 /**
  * Tao lai bao cao AI ngay, khong cho cron.
@@ -26,6 +27,6 @@ export async function regenerateDailyReport(): Promise<{ ok: true } | { ok: fals
   } catch (e) {
     // Tra loi ve UI thay vi nuot: loi o day thuong la het credit Anthropic hoac
     // thieu ANTHROPIC_API_KEY — chinh la thu can nhin thay de sua.
-    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    return { ok: false, error: describeAiError(e) }
   }
 }
