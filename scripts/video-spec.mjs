@@ -17,13 +17,13 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1
 
 await run(async () => {
   const maDeal = Number(process.argv[2])
-  if (!Number.isInteger(maDeal)) { bad('Can ma deal.  npm run video:spec 1199 [mau-tiktok|mac-dinh]'); stop() }
+  if (!Number.isInteger(maDeal)) { bad('Can ma deal.  npm run video:spec 1199 [mau-tiktok|mau-giay|mac-dinh]'); stop() }
 
   // ⚠️ Truoc day lenh nay KHONG nhan phong cach nen luon dung `mac-dinh`, trong
   // khi trang /admin/video mac dinh `mau-tiktok`. Hai duong sinh ra hai video
   // khac han cho cung mot deal — dung cai ma file nay tu tuyen bo la khong duoc
   // phep. Mac dinh o day cung phai la `mau-tiktok`.
-  const PHONG_CACH_HOP_LE = ['mau-tiktok', 'mac-dinh']
+  const PHONG_CACH_HOP_LE = ['mau-tiktok', 'mau-giay', 'mac-dinh']
   const phongCach = process.argv[3] ?? 'mau-tiktok'
   if (!PHONG_CACH_HOP_LE.includes(phongCach)) {
     bad(`Phong cach khong hop le: "${phongCach}". Chon: ${PHONG_CACH_HOP_LE.join(' | ')}`); stop()

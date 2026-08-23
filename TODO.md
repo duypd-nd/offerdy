@@ -282,6 +282,61 @@ gốc, không tải lại được.
 📌 Còn `.scratch/spec-*.json` (10 tệp, 69 KB) — **cố ý giữ**: đó là đầu vào để dựng lại bằng
 tay (`npm run video:render .scratch/spec-1470.json`), và mỗi deal chỉ có một tệp nên không phình.
 
+✅ **11. Phong cách video thứ ba: `mau-giay`, học từ `.scratch/mau/Giay.mp4` (23/08)**
+
+Dấu nhận dạng của mẫu này là **chỗ đặt chữ**: chữ LỚN nằm **giữa màn, đè lên ảnh**, in hoa,
+viền mỏng — chứ không nằm dưới ảnh như hai phong cách kia.
+
+| Đo được | Mẫu Giay | Của ta |
+|---|---|---|
+| Cảnh trung bình | 1,11s | 0,91s |
+| Chuyển cảnh | 0,288s | 0,305s |
+| Cắt cứng | 5/19 = 26% | 9/31 = 29% |
+| Chữ lớn (từ đỉnh) | 44% | 44% *(đặt bằng `badgeCachDay` 0,56)* |
+| Cao chữ lớn | 7,0% | 7,0% |
+
+**Ba chỗ cố ý KHÔNG sao chép mẫu** — mỗi chỗ một lý do:
+1. **Vẫn giữ phụ đề dưới đáy.** Mẫu chỉ có chữ ở 2/12 cảnh vì nó chạy bằng nhạc; ta bán bằng
+   lời đọc, bỏ phụ đề là mất người xem để máy im tiếng. Hai lớp chữ không đâm nhau: chữ lớn
+   ở 56% từ đáy, phụ đề ở 16%.
+2. **Viền 3 chứ không bỏ hẳn.** Mẫu "không viền" vì nền studio phẳng; ảnh sản phẩm của ta đủ
+   kiểu nền, bỏ viền là có lúc chữ chìm mất. Đã tách `badgeVien` thành trường phong cách
+   (trước viết cứng `vien: 8` trong bộ dựng).
+3. **Ảnh không tràn kín khung.** Mẫu quay dọc 9:16 nên hình phủ kín; ảnh sản phẩm của ta phần
+   lớn vuông — phủ kín 9:16 là **cắt mất chính món hàng đang bán**. Có test chặn `anhKhung > 1`.
+
+Chọn ở ô *Phong cách* trên `/admin/video` (đã kiểm trên Chrome thật: đủ 3 mục), hoặc
+`npm run video:spec <mã> mau-giay`. Thêm **7 test** ở `tests/videoStyle.test.ts`.
+
+### 🔴 12. LỖI CẮT CỤT VIDEO — LẦN THỨ HAI, VÀ LẦN NÀY TÌM RA GỐC RỄ
+
+Dựng thử `mau-giay` (32 cảnh) thì video ra **6,5s** trong khi tiếng dài 28,4s — mất 24 cảnh.
+Bản vá buổi sáng (đo lại độ dài thật từng đoạn) **chưa đủ**.
+
+**Gốc rễ thật**: công thức mốc đặt `offset + duration` của `xfade` **đúng bằng** độ dài luồng
+tích luỹ, không dư một ly:
+
+```
+moc[i]                = moc[i-1] + dài[i-1] − chuyển[i-1]
+moc[i] + chuyển[i-1]  = moc[i-1] + dài[i-1]      ← đúng bằng
+```
+
+Nằm sát mép như vậy thì **bất kỳ sai số làm tròn nào cũng đẩy nó vượt**. Đo thật: một mắt nối
+cần `6,483s` trong khi luồng chỉ có `6,467s` — **thiếu nửa khung hình**. `xfade` không báo lỗi,
+nó chỉ trả về luồng cũ, và mọi cảnh phía sau biến mất.
+
+**Sửa**: tính toàn bộ dòng thời gian **bằng số khung nguyên** (`docSoKhung()` đếm thật bằng
+`ffprobe -count_frames`, không tin `nb_frames` trong header). Đẳng thức trên khi ấy đúng tuyệt
+đối. Thêm chốt chặn: chuyển cảnh không được dài bằng hoặc hơn hai cảnh nó nối.
+
+**🛡️ VÀ QUAN TRỌNG NHẤT — bộ dựng giờ TỰ KIỂM trước khi giao.** Đo chính tệp vừa xuất: track
+hình phải phủ hết track tiếng, thiếu quá 0,35s là **ném lỗi và giữ lại thư mục tạm**. Đã thử
+bằng cách hạ ngưỡng: thoát mã 1, giữ nguyên 76 tệp, báo rõ thiếu bao nhiêu giây.
+
+⚠️ **Bài học**: hai lần cắt cụt trong một ngày, cả hai lần ffmpeg đều báo "Xong", mã thoát 0,
+tệp mở được — và cả hai lần chỉ lộ ra vì có người ngồi đo bằng ffprobe. `npm test` xanh không
+nói gì về chuyện này. **Mọi bước ffmpeg phải tự kiểm đầu ra, không tin mã thoát.**
+
 **5. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
 
 ### Còn nợ, đã biết nhưng chưa sửa

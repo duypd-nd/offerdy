@@ -42,6 +42,15 @@ export type PhongCachVideo = {
   badgeCachDay: number
   /** Co chu toi da cua chu LON, theo % chieu cao. */
   badgeCo: number
+  /**
+   * Do day vien cua chu LON, theo % chieu cao. 0 = khong vien.
+   *
+   * ⚠️ Truoc day viet cung `vien: 8` trong bo dung. Tach ra vi mau `Giay.mp4`
+   * dat chu **khong vien, khong nen** — nhung do la video mot nen studio phang,
+   * con anh san pham cua ta thi du kieu. Bo vien han la co luc chu chim mat vao
+   * anh. Nen phong cach nao muon mong hon thi HA XUONG, dung ha ve 0.
+   */
+  badgeVien: number
 
   /**
    * Bao nhieu giay thi doi anh mot lan. `null` = mot anh cho ca cau noi (nhu cu).
@@ -97,6 +106,7 @@ export const MAC_DINH: PhongCachVideo = {
   phuDeCo: 68 / 1920,
   badgeCachDay: 830 / 1920,
   badgeCo: 92 / 1920,
+  badgeVien: 8 / 1920,
   giayMoiAnh: null,
   soNhipToiDa: null,
   chuChayCo: 104 / 1920,
@@ -146,6 +156,7 @@ export const PHONG_CACH_MAU: PhongCachVideo = {
   phuDeCo: 68 / 1920,
   badgeCachDay: 830 / 1920,
   badgeCo: 92 / 1920,
+  badgeVien: 8 / 1920,
   giayMoiAnh: 1.3,
   soNhipToiDa: 4,
   // Chu NHO hon va anh TO hon ban mac dinh, va chu duoc phep de len anh.
@@ -161,21 +172,87 @@ export const PHONG_CACH_MAU: PhongCachVideo = {
 }
 
 /**
+ * Phong cach hoc tu `.scratch/mau/Giay.mp4` (do ngay 2026-08-23).
+ *
+ * ⚠️ Khac han `mau-tiktok` o CHO DAT CHU, va do moi la dau nhan dang cua mau
+ * nay: chu LON nam GIUA MAN, de len anh, in hoa, vien mong. Mau do duoc
+ * `44% tinh tu dinh` — tuc 56% tinh tu day — va cao `7% chieu cao khung`, gap
+ * doi cho chu lon cua ta (92/1920 = 4,8%).
+ *
+ * Nguon tung con so (bang do cua `npm run video:analyze .scratch/mau/Giay.mp4`):
+ * - `giayMoiAnh` 1,1  — canh trung binh do duoc 1,107s (ngan nhat 0,10 · dai nhat 4,72)
+ * - `daiChuyen` 0,29  — trung binh 0,288s
+ * - Ti le cat cung 3/11 = 27% — mau do 5/19 = 26%
+ * - `badgeCachDay` 0,56 — mau dat chu o 44% tinh tu dinh
+ * - `badgeCo` 134/1920 = 7,0% — dung bang mau
+ * - Danh sach hieu ung: dung nhung kieu THUC SU thay trong mau
+ *   (coverleft, coverup, fadewhite, slideleft, hblur, slideright, zoomin, fadeblack)
+ *
+ * ⚠️ BA CHO CO TINH KHONG SAO CHEP MAU — va ly do:
+ *
+ * 1. **Van giu phu de duoi day.** Mau chi co chu o 2/12 canh: no la video chay
+ *    bang nhac, chu chi de trang tri. Ta ban bang loi doc, va phu de la CAU
+ *    DANG DUOC DOC — bo di la mat nguoi xem de may im tieng. Chu lon giua man
+ *    va phu de duoi day khong dam nhau: mot cai o 56% tu day, mot cai o 16%.
+ *
+ * 2. **Vien mong (3) chu khong bo han.** Mau ghi "khong vien, khong nen" —
+ *    nhung do la mot nen studio phang mau xam. Anh san pham cua ta du kieu nen
+ *    va do sang; bo vien han la co luc chu chim mat vao anh.
+ *
+ * 3. **Anh KHONG tran kin khung.** Mau la video quay doc 9:16 nen hinh phu kin
+ *    man. Anh san pham cua ta phan lon vuong hoac doc 3:4 — muon phu kin 9:16
+ *    thi phai cat mat hai ben, tuc **cat mat chinh mon hang dang ban**. Giu
+ *    1040/1080 nhu `mau-tiktok`: gan kin be ngang, khong cat gi.
+ */
+export const PHONG_CACH_GIAY: PhongCachVideo = {
+  ten: 'mau-giay',
+  chuyenCanh: [
+    CAT_CUNG, 'coverleft', 'coverup', CAT_CUNG, 'fadewhite',
+    'slideleft', 'hblur', CAT_CUNG, 'slideright', 'zoomin', 'fadeblack',
+  ],
+  daiChuyen: 0.29,
+  nhipCanh: 1,
+  phuDeCachDay: 300 / 1920,
+  phuDeCo: 68 / 1920,
+  // Chu lon len GIUA MAN: 44% tinh tu dinh = 56% tinh tu day.
+  badgeCachDay: 0.56,
+  badgeCo: 134 / 1920,
+  badgeVien: 3 / 1920,
+  giayMoiAnh: 1.1,
+  soNhipToiDa: 4,
+  chuChayCo: 62 / 1920,
+  anhKhung: 1040 / 1080,
+  // ⚠️ Canh co chu lon KHONG thu anh nho lai — chu de LEN anh, dung ben duoi
+  // anh nhu hai phong cach kia. Thu anh lai la mat chinh cai ve cua mau nay.
+  anhKhungBadge: 1040 / 1080,
+  anhLech: 60 / 1920,
+  anhLechBadge: 60 / 1920,
+}
+
+/**
  * Danh sach phong cach cho nguoi van hanh chon.
  *
- * ⚠️ Chi hai muc, va mac dinh van la `mac-dinh`. Phong cach hoc tu mau doi ca
- * nhip lan so canh, nen no phai la mot lua chon CO Y THUC — khong ap len moi
- * video roi de nguoi dung tu phat hien ra video cua minh vua khac han.
+ * ⚠️ Moi phong cach doi ca nhip lan so canh, nen phai la mot lua chon CO Y THUC
+ * — khong ap len moi video roi de nguoi dung tu phat hien ra video cua minh vua
+ * khac han.
  */
 export const DANH_SACH_PHONG_CACH = [
   { ten: 'mac-dinh', nhan: 'Mặc định — một ảnh mỗi câu, 45 giây' },
   { ten: 'mau-tiktok', nhan: 'Theo video mẫu — cắt 1,3 giây, ~30 giây' },
+  { ten: 'mau-giay', nhan: 'Theo mẫu Giay.mp4 — chữ lớn giữa màn, cắt 1,1 giây' },
 ] as const
 
 export type TenPhongCach = typeof DANH_SACH_PHONG_CACH[number]['ten']
 
+/**
+ * ⚠️ Tra ve `MAC_DINH` khi ten la rong HOAC khong nhan ra. Mot ten go sai lam
+ * ra video mac dinh 45 giay thay vi bao loi — nhung do la duong an toan: bo
+ * dung van chay, chi la khac phong cach.
+ */
 export function phongCachTheoTen(ten?: string | null): PhongCachVideo {
-  return ten === 'mau-tiktok' ? PHONG_CACH_MAU : MAC_DINH
+  if (ten === 'mau-tiktok') return PHONG_CACH_MAU
+  if (ten === 'mau-giay') return PHONG_CACH_GIAY
+  return MAC_DINH
 }
 
 export type ChuyenCanhCanh = { type: string; duration: number }

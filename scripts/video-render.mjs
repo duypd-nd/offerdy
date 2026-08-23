@@ -124,15 +124,48 @@ async function main(specPath) {
    * chan se lech, va cai lech ra la TIENG TROI KHOI HINH — moi canh mot chut,
    * den canh cuoi la vai giay.
    */
-  const tinhMoc = () => {
+  /**
+   * ⚠️ TINH BANG SO KHUNG NGUYEN, khong bang giay.
+   *
+   * `xfade` doi dau vao thu nhat phai dai it nhat `offset + duration`. Cong thuc
+   * o day dat no **dung bang**, khong du mot ly:
+   *
+   *     moc[i]            = moc[i-1] + dai[i-1] - chuyen[i-1]
+   *     moc[i] + chuyen[i-1] = moc[i-1] + dai[i-1]   <- dung bang do dai tich luy
+   *
+   * Nam sat mep nhu vay thi BAT KY sai so lam tron nao cung day no vuot. Do that
+   * 2026-08-23 tren phong cach `mau-giay` (32 canh): mot mat noi can toi 6,483s
+   * trong khi luong tich luy chi co 6,467s — **thieu nua khung hinh**. `xfade`
+   * khong bao loi, no chi tra ve luong cu; ca 24 canh phia sau bien mat, video
+   * ra 6,5s thay vi 29,4s.
+   *
+   * Chuyen het sang so khung nguyen thi dang thuc tren dung TUYET DOI, khong con
+   * cho cho sai so. Do lai cung kich ban: 29,39s dung bang ky vong.
+   */
+  /**
+   * ⚠️ Chuyen canh phai NGAN HON ca hai canh no noi. Mot canh 1,0s ma chuyen
+   * canh 1,2s thi khong con khung nao de fade — `xfade` nuot doan do. Ep xuong
+   * thay vi de no vo, va bao ra man hinh de nguoi dung biet phong cach dang doi
+   * hoi mot nhip nhanh hon canh cho phep.
+   */
+  const khungChuyen = i => {
+    const muon = Math.max(1, Math.round(chuyenRa(i).dai * FPS))
+    const tran = Math.max(1, Math.min(khungDoan[i] ?? muon, khungDoan[i + 1] ?? muon) - 1)
+    return Math.min(muon, tran)
+  }
+  /** So khung that cua tung doan — dat sau Luot 1. Truoc do uoc tu `duration`. */
+  let khungDoan = scenes.map(s => Math.max(1, Math.round(s.duration * FPS)))
+
+  const tinhMocKhung = () => {
     const m = []
-    for (let i = 0, t = 0; i < scenes.length; i++) {
-      if (i > 0) t += scenes[i - 1].duration - chuyenRa(i - 1).dai
-      m.push(t)
+    for (let i = 0, k = 0; i < scenes.length; i++) {
+      if (i > 0) k += khungDoan[i - 1] - khungChuyen(i - 1)
+      m.push(k)
     }
     return m
   }
-  const tongDaiHienTai = m => m[scenes.length - 1] + scenes[scenes.length - 1].duration
+  const tinhMoc = () => tinhMocKhung().map(k => k / FPS)
+  const tongDaiHienTai = m => m[scenes.length - 1] + khungDoan[scenes.length - 1] / FPS
   ok(`${scenes.length} scene · ${W}x${H} · ${FPS}fps · dai ${tongDaiHienTai(tinhMoc()).toFixed(1)}s`)
 
   const viec = path.join(root, '.scratch', 'video-job')
@@ -400,7 +433,11 @@ async function main(specPath) {
       veChu(s.badgeText, {
         toiDaCoChu: coChuTu(st.badgeCo, 92),
         y: `h-${cachDay(st.badgeCachDay, 830)}`,
-        vien: 8,
+        // ⚠️ Vien doc tu phong cach, khong viet cung nua. Mau `Giay.mp4` dat chu
+        // gan nhu khong vien; nhung 0 la nguy hiem tren anh san pham sang mau,
+        // nen phong cach do dung 3 chu khong phai 0. Kich ban cu khong khai
+        // `badgeVien` thi roi ve dung 8 nhu truoc — khong doi mot khung hinh nao.
+        vien: Math.max(0, cachDay(st.badgeVien, 8)),
       })
     }
     const PHU_DE_CACH_DAY = cachDay(st.phuDeCachDay, 560)
@@ -470,8 +507,14 @@ async function main(specPath) {
   //
   // Nen: do lai bang ffprobe roi lay CHINH con so do lam su that. Sau buoc nay
   // `scenes[i].duration` = do dai that cua `doan-i.mp4`, khong sai mot khung.
-  for (const [i, s] of scenes.entries()) {
-    s.duration = +(await docThoiLuong(`doan-${i}.mp4`, viec)).toFixed(6)
+  //
+  // ⚠️ Do bang SO KHUNG chu khong bang giay: dong thoi gian noi canh tinh toan
+  // bo bang khung nguyen (xem `tinhMocKhung`), nen phai lay dung don vi do.
+  khungDoan = []
+  for (let i = 0; i < scenes.length; i++) {
+    const k = await docSoKhung(`doan-${i}.mp4`, viec)
+    khungDoan.push(k)
+    scenes[i].duration = +(k / FPS).toFixed(6)
   }
   mocScene = tinhMoc()
   const cacNhip = dungNhip()
@@ -509,9 +552,14 @@ async function main(specPath) {
   for (let i = 1; i < doan.length; i++) {
     // Mat noi thu `i` bat dau dung o thoi diem scene `i` bat dau tren dong thoi
     // gian cuoi cung — lay tu `mocScene`, KHONG tu tinh lai (xem ly do o tren).
-    const { type, dai } = chuyenRa(i - 1)
+    const { type } = chuyenRa(i - 1)
+    // ⚠️ Do dai chuyen canh phai lay DUNG con so da dung de tinh moc — tuc ban
+    // da lam tron ve khung nguyen. Dua `chuyenRa().dai` tho vao day la hai ben
+    // lech nhau vai phan nghin giay, va vai phan nghin do du de `xfade` truot
+    // qua mep roi nuot ca doan sau.
+    const dai = khungChuyen(i - 1) / FPS
     const ra = i === doan.length - 1 ? '[ra]' : `[v${i}]`
-    chuoi.push(`${truoc}[s${i}]xfade=transition=${type}:duration=${dai}:offset=${mocScene[i].toFixed(3)}${ra}`)
+    chuoi.push(`${truoc}[s${i}]xfade=transition=${type}:duration=${dai.toFixed(6)}:offset=${mocScene[i].toFixed(6)}${ra}`)
     truoc = ra
   }
   if (doan.length === 1) chuoi.push('[s0]null[ra]')
@@ -575,11 +623,36 @@ async function main(specPath) {
     ok(`Tron ${tiengCo.length} doan tieng vao video`)
   }
 
+  // ── Tu kiem truoc khi giao ────────────────────────────────────────
+  //
+  // ⚠️ LOP CHAN NAY SINH RA TU HAI LAN BI CAT CUT TRONG CUNG MOT NGAY (23/08).
+  //
+  // Ca hai lan `xfade` truot khoi mep mot phan nho hon mot khung hinh, nuot sach
+  // cac canh phia sau, VA KHONG BAO GI: ma thoat 0, tep mo duoc, chi la track
+  // hinh dung o giua chung con tieng thi chay tiep. Lan dau mat 4 canh cuoi
+  // (gom canh ma giam gia va CTA), lan sau mat 24 canh — video 6,5s thay vi 29,4s.
+  // Ca hai lan chi lo ra vi co nguoi ngoi do lai bang ffprobe.
+  //
+  // Nen: do chinh tep vua giao. Hinh phai phu het tieng. Thieu la NEM LOI, va
+  // thu muc tam duoc giu lai de con soi.
+  const kiemHinh = await docSoKhung(raTep, viec)
+  const daiHinh = kiemHinh / FPS
+  if (coTieng) {
+    const daiTieng = await docThoiLuongTiengGiay(raTep, viec)
+    if (daiTieng !== null && daiHinh < daiTieng - 0.35) {
+      throw new Error(
+        `Track hinh chi dai ${daiHinh.toFixed(2)}s trong khi tieng dai ${daiTieng.toFixed(2)}s — ` +
+        `video BI CAT CUT, ${(daiTieng - daiHinh).toFixed(2)}s cuoi khong co hinh. ` +
+        `Thu muc tam da duoc giu lai o ${path.relative(root, viec)} de soi (xem chuoi-noi.txt).`
+      )
+    }
+  }
+
   const raDich = path.join(root, 'out', raTep)
   fs.mkdirSync(path.dirname(raDich), { recursive: true })
   fs.copyFileSync(path.join(viec, raTep), raDich)
   const kb = (fs.statSync(raDich).size / 1024).toFixed(0)
-  ok(`Xong: out/${raTep} (${kb} KB)`)
+  ok(`Xong: out/${raTep} (${kb} KB) · hinh ${daiHinh.toFixed(2)}s`)
 
   // ── Don rac ──────────────────────────────────────────────────────
   //
@@ -682,18 +755,39 @@ function chan(n) { return n % 2 ? n + 1 : n }
  * gan nua giay — va cai lech do lam `xfade` vut khung, cat cut ca doan cuoi
  * video. Xem chu thich o buoc noi.
  */
-function docThoiLuong(tep, cwd) {
+/** Do dai track TIENG, giay. `null` neu tep khong co tieng. */
+function docThoiLuongTiengGiay(tep, cwd) {
   return new Promise((res, rej) => {
     const p = spawn('ffprobe', [
-      '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', tep,
+      '-v', 'error', '-select_streams', 'a:0',
+      '-show_entries', 'stream=duration', '-of', 'csv=p=0', tep,
+    ], { cwd })
+    let ra = ''
+    p.stdout.on('data', d => { ra += d })
+    p.on('error', rej)
+    p.on('close', () => {
+      const so = Number(String(ra).trim().replace(/,+$/, ''))
+      res(Number.isFinite(so) && so > 0 ? so : null)
+    })
+  })
+}
+
+function docSoKhung(tep, cwd) {
+  return new Promise((res, rej) => {
+    // `-count_frames` dem THAT tung khung thay vi tin `nb_frames` trong header:
+    // vai bo ma hoa ghi thieu hoac bo trong o do, va mot con so sai o day lam
+    // lech ca dong thoi gian.
+    const p = spawn('ffprobe', [
+      '-v', 'error', '-select_streams', 'v:0', '-count_frames',
+      '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', tep,
     ], { cwd })
     let ra = ''
     p.stdout.on('data', d => { ra += d })
     p.on('error', rej)
     p.on('close', ma => {
-      const so = Number(String(ra).trim())
-      if (ma !== 0 || !Number.isFinite(so) || so <= 0) {
-        return rej(new Error(`ffprobe khong doc duoc do dai doan: ${tep}`))
+      const so = Number(String(ra).trim().replace(/,+$/, ''))
+      if (ma !== 0 || !Number.isInteger(so) || so <= 0) {
+        return rej(new Error(`ffprobe khong dem duoc so khung: ${tep}`))
       }
       res(so)
     })
