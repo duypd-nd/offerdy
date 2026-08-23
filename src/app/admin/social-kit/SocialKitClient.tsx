@@ -75,6 +75,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
 
   const campaign = parseCampaign(campaignRaw)
   const deal = deals.find(d => d.code === selectedCode) ?? null
+  const daDangDealNay = !!deal && (!!deal.daDangLuc || vuaDanhDau.includes(deal.code))
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -159,6 +160,23 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
       // dung trang, khong co cai nay thi cot trai van hien "chua" toi khi tai lai.
       if (res.ok) setVuaDanhDau(cu => [...new Set([...cu, ...ma])])
       showToast(res.ok ? `Đã đánh dấu ${weekItems.length} deal` : 'Không đánh dấu được')
+    })
+  }
+
+  /**
+   * Danh dau da dang cho MOT deal dang chon.
+   *
+   * ⚠️ Dung lai `markDealsPosted` — cung o `lastPostedAt` ma che do "soan ca
+   * tuan" va trang /admin/video deu ghi. Mot duong ghi thu hai la ba trang de
+   * xuat lech nhau ngay lan sua brief dau tien.
+   */
+  const danhDauMotDeal = () => {
+    if (!deal) return
+    const ma = deal.code
+    startWeek(async () => {
+      const res = await markDealsPosted([ma])
+      if (res.ok) setVuaDanhDau(cu => cu.includes(ma) ? cu : [...cu, ma])
+      showToast(res.ok ? `Đã đánh dấu #${ma} là đã đăng` : 'Không đánh dấu được')
     })
   }
 
@@ -614,6 +632,14 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                     Soạn lại từ đầu
                   </button>
                 )}
+                {/* ⚠️ Dat ngay canh nut Copy: day la buoc CUOI cua mot lan dang bai,
+                    va truoc day chi che do "soan ca tuan" moi danh dau duoc — dang le
+                    mot deal thi khong co cach nao ghi lai. */}
+                <button className="oa-btn" onClick={danhDauMotDeal}
+                  disabled={weekPending || !deal || daDangDealNay}
+                  title="Ghi vào lastPostedAt — /admin/social-kit và /admin/video đều dùng ô này để khỏi đăng lặp">
+                  {daDangDealNay ? '✓ Đã đánh dấu' : 'Đánh dấu đã đăng'}
+                </button>
                 <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 'auto' }}>{caption.length} ký tự</span>
               </div>
             </div>

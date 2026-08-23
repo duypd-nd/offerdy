@@ -404,6 +404,18 @@ thì phải qua `phanTichDeal()` → `loadDealSpec()` → gọi Claude **hai l�
 **Đã lái Chrome thật, 7/7 đạt — trong đó phép quan trọng nhất: lấy được 9 ảnh trong khi ví API
 vẫn đang cạn.** Khung điện thoại 390px: 0 chỗ xén, 0 chỗ vượt.
 
+**Thêm ngay sau đó:** nút **Đánh dấu đã đăng cho MỘT deal**, đặt cạnh *Copy caption* / *Copy
+link* — đó là bước cuối của một lần đăng bài. Trước đây chỉ chế độ *Soạn cả tuần* mới đánh dấu
+được, tức đăng lẻ một deal thì **không có cách nào ghi lại**. Dùng lại `markDealsPosted` chứ
+không viết đường ghi thứ hai: ba trang cùng ghi vào `lastPostedAt`, tách ra là chúng đề xuất
+lệch nhau ngay lần sửa đầu tiên.
+
+**Cột trái nới 260 → 320px.** Từ khi cột mang ảnh thu nhỏ + tên hai dòng + dòng phụ thì 260 quá
+chật: tên deal vỡ ba dòng, dòng phụ gãy làm đôi. Đo sau khi nới: **hàng deal 85px → 61px**.
+
+Đã lái Chrome thật **6/6 đạt**: bấm nút ghi thật vào Sanity · nút đổi chữ ngay · cột trái hiện
+dấu xanh ngay · deal thử đã trả về nguyên trạng. Khung 1440px và 390px đều 0 chỗ tràn.
+
 ⚠️ Bẫy mắc lại lần thứ ba trong ngày: **backtick trong chú thích nằm giữa một template literal
 đóng chuỗi lại giữa chừng**. Lần này ở chuỗi GROQ của `social-kit/page.tsx`. Chú thích cho
 chuỗi phải để **ngoài** chuỗi.
