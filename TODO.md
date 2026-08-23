@@ -1,22 +1,95 @@
 # Offerdy — TODO
 
-# 🔖 ĐIỂM DỪNG NGÀY 2026-08-23 — ĐỌC MỤC NÀY TRƯỚC
+# 🔖 ĐIỂM DỪNG 2026-08-23 (đêm) — ĐỌC MỤC NÀY TRƯỚC
 
-**Mọi thứ đã commit và push. `main` ở `38eacc5`, không còn gì lơ lửng.**
-✅ **Production ĐÃ XÁC NHẬN chạy `38eacc5`** (kiểm 23/08 tối qua `/admin/cron-check`) —
-bản này chứa cả `95bad1c` (sửa giao diện điện thoại) lẫn `dc3db12` (video + mã giảm).
-⚠️ `dc3db12` thêm ô `videoMadeAt` vào schema deal — hiện trong Sanity Studio, không
-ảnh hưởng trang công khai.
+**Mọi thứ đã commit và push. `main` = `origin/main` = `ae019d7`, cây làm việc sạch.**
+Hôm nay **11 commit**, từ `ea46a4c` → `ae019d7`.
+⚠️ **Production mới xác nhận tới `38eacc5`** — 8 commit sau đó (`feaa0bf`…`ae019d7`)
+**chưa kiểm trên production**. Việc đầu tiên sáng mai: đăng nhập
+`https://www.offerdy.com/admin/login` rồi mở `/admin/cron-check`, `VERCEL_GIT_COMMIT_SHA`
+phải là `ae019d7`. ⚠️ **Nhớ: mở nhầm localhost thì bảng vẫn hiện đầy đủ và trông y hệt —
+dấu hiệu duy nhất là `VERCEL_ENV` trống.**
+
+`npm test` **565** · type-check sạch · lint sạch · build sạch.
 Dev server đang chạy ở `http://localhost:3000` (kiểm: `/admin/login` trả 200).
-Có **5 tiến trình node, 3,5 GB** — nếu máy chậm thì tắt bớt, nhưng **đừng giết hết
-`node.exe`**, lọc theo `.nextdevbuild` (bẫy cũ đã ghi).
-
-`npm test` **531** · `/admin/video` e2e **28/28** · tải ảnh đầu-cuối **12/12** · build sạch ·
-lint 58 vấn đề (nợ cũ, đo trước-sau y nhau).
+⚠️ Tắt dev server **KHÔNG** giết worker Turbopack — lọc theo `.nextdevbuild`, đừng giết hết
+`node.exe`.
 
 ---
 
-## Hôm nay làm được gì — 6 commit
+## 🔴 VIỆC CỦA ANH — hai thứ chặn mọi thứ khác
+
+**1. NẠP CREDIT** ở console.anthropic.com → Plans & Billing, rồi **xoay khoá đó**
+(nằm trong nhóm 4 khoá đã lỡ dán vào phòng chat). Đo tách bạch 23/08:
+`GET /v1/models` → **200** (khoá tốt) · `POST /v1/messages` → **400** (hết tiền).
+Kẹt: *Viết 3 bản*, kịch bản video mới, viết bài, chấm ảnh, báo cáo AI.
+
+**2. ĐĂNG BÀI — đây mới là nút thắt thật.** Đo 23/08: **1/451 deal từng được đăng**
+(`#1471`, do anh tự tick). Công cụ đã đi trước việc dùng rất xa.
+
+🔑 **Và đăng bài mạng xã hội KHÔNG cần credit**: caption mặc định do code thuần dựng,
+ảnh sản phẩm cào bằng cheerio, QR + short link + ô tick đều cục bộ. **Chỉ video mới kẹt.**
+Mỗi bài vài phút: chọn deal → *Lấy ảnh sản phẩm* → *Copy caption* → đăng → tick *đã đăng*.
+
+## 📅 Hai mốc đo đã hẹn — đừng quyết gì lớn trước chúng
+
+| Ngày | Việc |
+|---|---|
+| **25/08** | Mở `/admin/reports` xem nhãn `video`. `#1471` đã đánh dấu nên mốc này sống. **Con số đầu tiên của dự án cho một kênh ngoài Google.** |
+| **27/08** | Đo lại `0/65` trang nội dung chưa được Google bò. |
+
+## 📊 Số đo trạng thái (đo thật 23/08, đừng đo lại)
+
+| | |
+|---|---|
+| Deal | **451** — 100% có mã, có link sản phẩm |
+| Đã đăng bài | **1 / 451** |
+| Offer có deep link | **185 / 423** (thiếu 238 — khách rơi về trang chủ shop) |
+| Offer có mã coupon | 98 / 423 |
+| Store có link affiliate | **107 / 107** |
+| Bài viết công khai | 42 · review 23 |
+| Google 30 ngày | **0 lượt bấm**, 3 URL trong chỉ mục |
+
+---
+
+## Hôm nay làm được gì — 11 commit
+
+| Commit | Việc |
+|---|---|
+| `95bad1c` | Sửa bố cục điện thoại 4 trang + **sửa chính phép đo** (nói dối 4 kiểu) |
+| `dc3db12` | Mức giảm của mã lên video + lồng tiếng · cột trái đánh dấu việc đã làm · **sửa video mất đoạn cuối** |
+| `feaa0bf` | **Phong cách thứ ba `mau-giay`** + **tìm ra gốc rễ** lỗi cắt cụt + bộ dựng tự kiểm |
+| `3bd53cc` | Lỗi AI nói được phải làm gì, thay vì phun JSON thô |
+| `432afc3` | `/admin/social-kit`: cột trái giống trang video + **bộ ảnh không tốn credit** |
+| `3fd4b98` | Đưa khối ảnh lên trên *Đăng ở đâu* |
+| `0af8a1c` | Nút *Đánh dấu đã đăng* cho một deal + nới cột trái |
+| `52555c5` | **Ô tick "đã đăng"** ngay trong danh sách |
+| `ae019d7` | **Caption có mã giảm giá và mức ưu đãi** |
+
+## ⚠️ Bốn bẫy trả giá trong ngày — đừng mắc lại
+
+1. **`xfade` trượt khỏi mép nửa khung hình là nuốt sạch các cảnh sau, KHÔNG báo gì.**
+   Công thức mốc đặt `offset + duration` **đúng bằng** độ dài luồng, không dư một ly.
+   Sửa: tính cả dòng thời gian bằng **số khung nguyên**. Và bộ dựng **giờ tự kiểm** —
+   hình phải phủ hết tiếng, thiếu là ném lỗi và giữ thư mục tạm.
+2. **`client` của Sanity `useCdn: true`** → ghi xong, tải lại trang là dấu **biến mất**.
+   `force-dynamic` không cứu được (nó bỏ cache của Next, đây là cache của Sanity).
+   Dính **hai lần** trong ngày: `/admin/video` và `/admin/social-kit`.
+   **Mọi trang admin vừa-ghi-vừa-đọc đều phải soi điểm này.**
+3. **Backtick trong chú thích nằm giữa template literal đóng chuỗi lại giữa chừng** —
+   mắc **ba lần** trong ngày. Chú thích cho chuỗi phải để **ngoài** chuỗi.
+4. **Đặt bố cục bằng inline style = tự vô hiệu hoá mọi media query.** Sáu lỗi giao diện
+   điện thoại đều là nó.
+
+📌 **Bài học phương pháp lớn nhất**: cả hai lần video bị cắt cụt, ffmpeg đều báo "Xong",
+mã thoát 0, tệp mở được — và cả hai lần **chỉ lộ ra vì có người ngồi đo bằng ffprobe**.
+`npm test` xanh không nói gì về chuyện đó. **Mọi bước ffmpeg phải tự kiểm đầu ra.**
+Và: **so hai lần chạy mà kịch bản do AI viết lại mỗi lần thì không phải phép so sánh** —
+phải giữ nguyên kịch bản, chỉ đổi đúng một biến.
+
+---
+
+## 📜 LỊCH SỬ — 6 commit ngày 22/08 (đã xong, giữ để tra cứu)
 
 | Commit | Việc |
 |---|---|
@@ -32,7 +105,10 @@ Video mẫu đo được: **45,5s → 29,7s**, **4,5s → 1,06s mỗi cảnh** (
 
 ---
 
-## 📋 MAI LÀM GÌ — theo thứ tự
+## 📜 LỊCH SỬ — nhật ký 15 việc ngày 23/08 (tất cả ✅, giữ vì chứa số đo và bẫy)
+
+⚠️ Mục này KHÔNG còn là việc phải làm. Việc của ngày mai nằm ở **ĐIỂM DỪNG đầu file**.
+Giữ lại vì mỗi mục ghi con số đo được và cái bẫy đã trả giá — đừng đo lại, đừng mắc lại.
 
 ✅ **1. Anh đã xem `out/mau-1470.mp4` (23/08)** — không yêu cầu chỉnh gì. Nếu sau này muốn
 sửa nhịp, sáu con số nằm cùng một chỗ trong `src/lib/video/videoStyle.ts` (`PHONG_CACH_MAU`):
