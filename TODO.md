@@ -390,7 +390,9 @@ dòng, dòng phụ `#mã · shop · giá · -%`, và dấu `✓ đã đăng` (đ
 trang này vốn đã dùng để xoay vòng deal). Không chép lại CSS: hai trang hiển thị cùng một danh
 sách deal thì phải trông y hệt, mà một bản sao thứ hai chắc chắn lệch ngay lần chỉnh đầu tiên.
 
-**Khối *Ảnh sản phẩm*** — bấm một nút là ra cả bộ ảnh, mỗi ảnh một nút ⤓, kèm *Tải hết (.zip)*.
+**Khối *Ảnh sản phẩm*** nằm **ngay trên *Đăng ở đâu*** (dưới *Nhãn bài đăng*) — bấm một nút là
+ra cả bộ ảnh, mỗi ảnh một nút ⤓, kèm *Tải hết (.zip)*. Đặt ở đó vì thứ tự làm việc thật là:
+chọn deal → xem ảnh → mới chọn nền tảng và viết caption.
 Dùng lại đường `/admin/video/tai-anh` đã có (phải đi qua máy chủ: thuộc tính `download` của thẻ
 `<a>` **bị trình duyệt bỏ qua với liên kết khác tên miền**, mà ảnh nằm trên CDN của từng shop).
 

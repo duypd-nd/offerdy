@@ -437,6 +437,70 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                 </div>
               </div>
 
+            {/* ── Ảnh sản phẩm ─────────────────────────────────────
+                ⚠️ Khối này KHÔNG gọi AI. Bên /admin/video muốn có ảnh thì phải
+                qua `phanTichDeal()` — hàm đó gọi Claude hai lần, nên ví API cạn
+                tiền là không lấy nổi một tấm ảnh. Việc cào ảnh vốn chẳng cần AI. */}
+            {deal && (
+              <div style={{ background: '#F8FAFC', border: '1px solid #E4EAF2', borderRadius: 10, padding: 12, marginBottom: 14 }}>
+                <div className="vid-anh-dau">
+                  <b>Ảnh sản phẩm</b>
+                  <span>
+                    {anhTheoMa[deal.code]
+                      ? `${anhTheoMa[deal.code].length} ảnh · lấy thẳng từ trang shop, không dùng AI`
+                      : 'chưa lấy — bấm nút bên phải'}
+                  </span>
+                  {anhTheoMa[deal.code] && (
+                    <button className="oa-btn vid-anh-taihet" disabled={dangGoiZip}
+                      onClick={() => taiHetAnh(deal.code, anhTheoMa[deal.code])}>
+                      {dangGoiZip ? 'Đang gói…' : '⤓ Tải hết (.zip)'}
+                    </button>
+                  )}
+                </div>
+
+                {!anhTheoMa[deal.code] && (
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+                    <button className="oa-btn oa-btn-green" disabled={anhPending || !deal.coDealUrl}
+                      onClick={() => layAnh(deal.code)}>
+                      {anhPending ? 'Đang lấy ảnh…' : '🖼 Lấy ảnh sản phẩm'}
+                    </button>
+                    <span style={{ fontSize: 11.5, color: '#9CA3AF', lineHeight: 1.6 }}>
+                      {deal.coDealUrl
+                        ? 'Mở trang sản phẩm rồi nhặt ảnh về. Không tốn credit API.'
+                        : 'Deal này không có link sản phẩm nên chỉ có ảnh trong kho.'}
+                    </span>
+                  </div>
+                )}
+
+                {anhLoi && <p className="usr-warn" style={{ marginTop: 10 }}>{anhLoi}</p>}
+
+                {anhTheoMa[deal.code] && (
+                  <>
+                    <div className="vid-anh-luoi" style={{ marginTop: 10 }}>
+                      {anhTheoMa[deal.code].map((url, i) => (
+                        <div key={url} className="vid-anh-cell">
+                          <a className="vid-anh-o" href={url} target="_blank" rel="noopener noreferrer"
+                            title="Mở ảnh gốc ở tab mới">
+                            <Image src={url} alt="" width={72} height={72} unoptimized />
+                            <span className="vid-anh-diem">{i + 1}</span>
+                          </a>
+                          {/* ⚠️ Phải là một LIÊN KẾT thật và phải đi qua máy chủ.
+                              Thuộc tính `download` bị trình duyệt BỎ QUA với liên
+                              kết khác tên miền — mà ảnh nằm trên CDN của từng shop. */}
+                          <a className="vid-anh-tai" download
+                            href={`/admin/video/tai-anh?url=${encodeURIComponent(url)}&ten=${encodeURIComponent(`${deal.code}-${String(i + 1).padStart(2, '0')}`)}`}
+                            title="Tải ảnh này về máy">⤓</a>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="vid-anh-chu">
+                      Bấm ⤓ để tải một ảnh, hoặc <b>Tải hết</b> để lấy cả bộ. Bấm vào ảnh để mở bản gốc.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
               {/* ── Viết bằng AI ────────────────────────────────
                   AI chi viet CHU; gia, % giam va link do code dien vao sau khi da
                   qua kiem tra an toan (xem src/lib/ai/generateCaption.ts). */}
@@ -571,70 +635,6 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                   </div>
                 </div>
                 <a href={`/deals/${deal.slug}`} target="_blank" rel="noopener noreferrer" className="oa-btn" style={{ textDecoration: 'none', flexShrink: 0 }}>Xem trang</a>
-              </div>
-            )}
-
-            {/* ── Ảnh sản phẩm ─────────────────────────────────────
-                ⚠️ Khối này KHÔNG gọi AI. Bên /admin/video muốn có ảnh thì phải
-                qua `phanTichDeal()` — hàm đó gọi Claude hai lần, nên ví API cạn
-                tiền là không lấy nổi một tấm ảnh. Việc cào ảnh vốn chẳng cần AI. */}
-            {deal && (
-              <div style={card}>
-                <div className="vid-anh-dau">
-                  <b>Ảnh sản phẩm</b>
-                  <span>
-                    {anhTheoMa[deal.code]
-                      ? `${anhTheoMa[deal.code].length} ảnh · lấy thẳng từ trang shop, không dùng AI`
-                      : 'chưa lấy — bấm nút bên phải'}
-                  </span>
-                  {anhTheoMa[deal.code] && (
-                    <button className="oa-btn vid-anh-taihet" disabled={dangGoiZip}
-                      onClick={() => taiHetAnh(deal.code, anhTheoMa[deal.code])}>
-                      {dangGoiZip ? 'Đang gói…' : '⤓ Tải hết (.zip)'}
-                    </button>
-                  )}
-                </div>
-
-                {!anhTheoMa[deal.code] && (
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
-                    <button className="oa-btn oa-btn-green" disabled={anhPending || !deal.coDealUrl}
-                      onClick={() => layAnh(deal.code)}>
-                      {anhPending ? 'Đang lấy ảnh…' : '🖼 Lấy ảnh sản phẩm'}
-                    </button>
-                    <span style={{ fontSize: 11.5, color: '#9CA3AF', lineHeight: 1.6 }}>
-                      {deal.coDealUrl
-                        ? 'Mở trang sản phẩm rồi nhặt ảnh về. Không tốn credit API.'
-                        : 'Deal này không có link sản phẩm nên chỉ có ảnh trong kho.'}
-                    </span>
-                  </div>
-                )}
-
-                {anhLoi && <p className="usr-warn" style={{ marginTop: 10 }}>{anhLoi}</p>}
-
-                {anhTheoMa[deal.code] && (
-                  <>
-                    <div className="vid-anh-luoi" style={{ marginTop: 10 }}>
-                      {anhTheoMa[deal.code].map((url, i) => (
-                        <div key={url} className="vid-anh-cell">
-                          <a className="vid-anh-o" href={url} target="_blank" rel="noopener noreferrer"
-                            title="Mở ảnh gốc ở tab mới">
-                            <Image src={url} alt="" width={72} height={72} unoptimized />
-                            <span className="vid-anh-diem">{i + 1}</span>
-                          </a>
-                          {/* ⚠️ Phải là một LIÊN KẾT thật và phải đi qua máy chủ.
-                              Thuộc tính `download` bị trình duyệt BỎ QUA với liên
-                              kết khác tên miền — mà ảnh nằm trên CDN của từng shop. */}
-                          <a className="vid-anh-tai" download
-                            href={`/admin/video/tai-anh?url=${encodeURIComponent(url)}&ten=${encodeURIComponent(`${deal.code}-${String(i + 1).padStart(2, '0')}`)}`}
-                            title="Tải ảnh này về máy">⤓</a>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="vid-anh-chu">
-                      Bấm ⤓ để tải một ảnh, hoặc <b>Tải hết</b> để lấy cả bộ. Bấm vào ảnh để mở bản gốc.
-                    </p>
-                  </>
-                )}
               </div>
             )}
           </div>
