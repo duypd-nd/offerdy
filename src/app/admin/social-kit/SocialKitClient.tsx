@@ -7,7 +7,7 @@ import { formatAdminDateTime } from '@/lib/adminDateTime'
 import { buildCaption, shortLinkUrl, type LinkStyle } from '@/lib/socialCaption'
 import { parseCampaign } from '@/lib/shortLinkSource'
 import { CAPTION_ANGLES, CAPTION_PLATFORMS, platformById, type CaptionAngle, type CaptionPlatform } from '@/lib/ai/generateCaption'
-import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, logCaptionUsed, layAnhSanPham, type GeneratedCaption, type WeekItem } from './actions'
+import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, danhDauDaDangMotDeal, logCaptionUsed, layAnhSanPham, type GeneratedCaption, type WeekItem } from './actions'
 
 type KitDeal = {
   code: number
@@ -65,6 +65,9 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
   const [weekPending, startWeek] = useTransition()
   // Ma vua danh dau trong phien nay — de cot trai doi ngay, khong doi tai lai trang.
   const [vuaDanhDau, setVuaDanhDau] = useState<number[]>([])
+  // Ma vua BO dau trong phien nay. Can rieng vi `daDangLuc` tu may chu van con
+  // gia tri cu cho toi khi tai lai trang — thieu no thi bo tick xong no nhay lai.
+  const [boDau, setBoDau] = useState<Set<number>>(new Set())
   // ── Bo anh san pham ──
   // ⚠️ Khoa theo MA DEAL chu khong phai mot mang tran: doi deal roi quay lai thi
   // khong phai cao lai, va khong bao gio hien nham anh cua deal truoc.
@@ -75,7 +78,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
 
   const campaign = parseCampaign(campaignRaw)
   const deal = deals.find(d => d.code === selectedCode) ?? null
-  const daDangDealNay = !!deal && (!!deal.daDangLuc || vuaDanhDau.includes(deal.code))
+  const daDangDealNay = !!deal && !boDau.has(deal.code) && (!!deal.daDangLuc || vuaDanhDau.includes(deal.code))
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -158,7 +161,10 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
       const res = await markDealsPosted(ma)
       // Ghi lai ngay tren man hinh: may chu chi doc `lastPostedAt` mot lan luc
       // dung trang, khong co cai nay thi cot trai van hien "chua" toi khi tai lai.
-      if (res.ok) setVuaDanhDau(cu => [...new Set([...cu, ...ma])])
+      if (res.ok) {
+        setVuaDanhDau(cu => [...new Set([...cu, ...ma])])
+        setBoDau(cu => { const n = new Set(cu); for (const x of ma) n.delete(x); return n })
+      }
       showToast(res.ok ? `Đã đánh dấu ${weekItems.length} deal` : 'Không đánh dấu được')
     })
   }
@@ -175,8 +181,34 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
     const ma = deal.code
     startWeek(async () => {
       const res = await markDealsPosted([ma])
-      if (res.ok) setVuaDanhDau(cu => cu.includes(ma) ? cu : [...cu, ma])
+      if (res.ok) {
+        setVuaDanhDau(cu => cu.includes(ma) ? cu : [...cu, ma])
+        // Xoa khoi danh sach "vua bo dau" — neu khong thi bam nut xong o tick
+        // ben trai van hien chua tick, hai cho noi hai chuyen khac nhau.
+        setBoDau(cu => { const n = new Set(cu); n.delete(ma); return n })
+      }
       showToast(res.ok ? `Đã đánh dấu #${ma} là đã đăng` : 'Không đánh dấu được')
+    })
+  }
+
+  /**
+   * Bat/tat dau "da dang" ngay trong danh sach ben trai.
+   *
+   * ⚠️ Doi ngay tren man hinh roi moi goi may chu, va TRA VE trang thai cu neu
+   * may chu tu choi — mot o tick nhay roi lang le quay ve sai la kieu loi nguoi
+   * dung khong bao gio bao cao, chi thay "no khong luu".
+   */
+  const doiDauDaDang = (code: number, co: boolean) => {
+    setBoDau(cu => { const n = new Set(cu); if (co) n.delete(code); else n.add(code); return n })
+    setVuaDanhDau(cu => co ? (cu.includes(code) ? cu : [...cu, code]) : cu.filter(x => x !== code))
+    startWeek(async () => {
+      const r = await danhDauDaDangMotDeal(code, co)
+      if (!r.ok) {
+        // Tra ve dung trang thai truoc khi bam.
+        setBoDau(cu => { const n = new Set(cu); if (co) n.add(code); else n.delete(code); return n })
+        setVuaDanhDau(cu => co ? cu.filter(x => x !== code) : [...cu, code])
+        showToast(`Không lưu được dấu cho #${code}`)
+      }
     })
   }
 
@@ -384,7 +416,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                 sẽ lệch ngay lần chỉnh đầu tiên. */}
             <div className="sk-ds">
               {filtered.map(d => {
-                const daDang = !!d.daDangLuc || vuaDanhDau.includes(d.code)
+                const daDang = !boDau.has(d.code) && (!!d.daDangLuc || vuaDanhDau.includes(d.code))
                 return (
                   <div key={d.code} className={`vid-hang${d.code === selectedCode ? ' vid-hang--chon' : ''}${daDang ? ' vid-deal--xong' : ''}`}>
                     <button
@@ -398,13 +430,20 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                         <b>{d.title.length > 54 ? d.title.slice(0, 54) + '…' : d.title}</b>
                         <span>#{d.code} · {d.store ?? '—'} · {d.priceSale}{d.discount ? ` · -${d.discount}%` : ''}</span>
                       </span>
-                      {daDang && (
-                        <span className="vid-dau vid-dau--da-dang"
-                          title={d.daDangLuc ? `Đã soạn bài lúc ${formatAdminDateTime(d.daDangLuc)}` : 'Vừa đánh dấu đã đăng'}>
-                          ✓ đã đăng
-                        </span>
-                      )}
                     </button>
+
+                    {/* ⚠️ Ô tick nằm NGOÀI <button>, không lồng vào trong. HTML cấm
+                        lồng, và nếu lồng được thì mỗi cú bấm ô tick sẽ chọn luôn cả
+                        deal. Cùng cấu trúc đã dùng ở /admin/video. */}
+                    <label className="vid-tick" title={
+                      daDang
+                        ? (d.daDangLuc ? `Đã đăng lúc ${formatAdminDateTime(d.daDangLuc)} — bấm để bỏ dấu` : 'Vừa đánh dấu — bấm để bỏ dấu')
+                        : 'Tick khi đã đăng bài cho deal này'
+                    }>
+                      <input type="checkbox" checked={daDang}
+                        onChange={e => doiDauDaDang(d.code, e.target.checked)} />
+                      <span>đã đăng</span>
+                    </label>
                   </div>
                 )
               })}

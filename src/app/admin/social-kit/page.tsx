@@ -1,7 +1,19 @@
-import { client as readClient } from '@/sanity/client'
+import { client } from '@/sanity/client'
 import SocialKitClient from './SocialKitClient'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * ⚠️ `useCdn: false` — đo thật 23/08: tick "đã đăng" ghi xong, đọc lại bằng CDN
+ * vẫn trả bản CŨ nên tải lại trang thì dấu BIẾN MẤT, trông như không lưu được.
+ * `force-dynamic` không cứu được: nó bỏ cache của Next, còn đây là cache của
+ * Sanity. Dùng `withConfig` thay vì `writeClient` để đường đọc này không cần
+ * token ghi — cùng lý do đã ghi ở /admin/ai-review và /admin/video.
+ *
+ * Đây là lần THỨ HAI cùng một cái bẫy trong ngày. Mọi trang admin vừa-ghi-vừa-đọc
+ * đều phải soi điểm này.
+ */
+const readClient = client.withConfig({ useCdn: false })
 
 // Chi deal DA CO MA moi dung duoc o day: ca caption, short link va QR deu dua tren
 // ma. Deal thieu ma -> chay /admin/migrate/deal-codes truoc.

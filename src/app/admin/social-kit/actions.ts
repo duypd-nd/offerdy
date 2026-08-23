@@ -302,3 +302,30 @@ export async function layAnhSanPham(dealCode: number): Promise<KetQuaLayAnh> {
     return { ok: false, error: String(e).slice(0, 200) }
   }
 }
+
+/**
+ * Bat/tat dau "da dang" cho MOT deal — cho o tick ngay trong danh sach ben trai.
+ *
+ * ⚠️ Cung o `lastPostedAt` ma `markDealsPosted` va /admin/video ghi. Mot o thu
+ * hai la ba trang de xuat lech nhau ngay lan sua dau tien.
+ *
+ * ⚠️ Bo dau thi gui `null` chu KHONG phai `undefined`: Next BO cac khoa
+ * `undefined` trong payload cua server action, nen `set({lastPostedAt: undefined})`
+ * khong xoa gi ca — dau van con sau khi tai lai trang. Da mac loi nay o
+ * `videoMadeAt` truoc do.
+ */
+export async function danhDauDaDangMotDeal(code: number, co: boolean): Promise<{ ok: boolean; luc: string | null }> {
+  await requireAdmin()
+  if (!Number.isInteger(code)) return { ok: false, luc: null }
+  try {
+    const id = await writeClient.fetch<string | null>(
+      `*[_type == "deal" && code == $code][0]._id`, { code }, { cache: 'no-store' },
+    )
+    if (!id) return { ok: false, luc: null }
+    const luc = co ? new Date().toISOString() : null
+    await writeClient.patch(id).set({ lastPostedAt: luc }).commit()
+    return { ok: true, luc }
+  } catch {
+    return { ok: false, luc: null }
+  }
+}

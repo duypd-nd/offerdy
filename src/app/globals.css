@@ -1712,18 +1712,19 @@ a.cc-store-nm:hover{color:var(--green-dark)}
    khong phai quen viet, ma la khong the viet. Do that o khung 390px: noi dung rong
    975px, tran 585px, va `.adm-main{overflow-x:hidden}` xen cho do trong IM LANG.
    Cot giua (link, chon nen tang, goc tiep can, caption) mat gan hai phan ba. */
-/* ⚠️ Cot trai 320 chu khong phai 260. Tu khi cot nay mang ANH THU NHO + ten hai
-   dong + dong phu `#ma · shop · gia · -%` (dung khuon cua /admin/video) thi 260
-   qua chat: ten deal vo ba dong va dong phu gay lam doi, danh sach trong nhu bi
-   bop. 320 vua du cho ten hai dong va dong phu mot dong. */
-.sk-cot{display:grid;grid-template-columns:320px minmax(0,1fr) 260px;gap:18px;align-items:start}
+/* ⚠️ Cot trai 370 chu khong phai 260. Tu khi cot nay mang ANH THU NHO + ten hai
+   dong + dong phu `#ma · shop · gia · -%` + O TICK "da dang" (dung khuon cua
+   /admin/video) thi 260 qua chat: ten deal vo ba dong va dong phu gay lam doi.
+   Rieng o tick an mat ~50px, nen phai bu them. Do that: 260 -> hang cao 85px,
+   320 co o tick -> 85px, 370 -> 61px (ten gon hai dong). */
+.sk-cot{display:grid;grid-template-columns:370px minmax(0,1fr) 260px;gap:18px;align-items:start}
 /* `minmax(0,1fr)` chu KHONG phai `1fr` — cung ly do da ghi o `.vid-cot` ben tren. */
 .sk-cot>*{min-width:0}
 .sk-ds{max-height:560px;overflow-y:auto}
 
 @media(max-width:1100px){
   /* QR la cot phu: bo xuong duoi TRUOC, de cot caption giu duoc be rong lam viec. */
-  .sk-cot{grid-template-columns:320px minmax(0,1fr)}
+  .sk-cot{grid-template-columns:370px minmax(0,1fr)}
   .sk-qr{grid-column:1/-1}
 }
 @media(max-width:900px){

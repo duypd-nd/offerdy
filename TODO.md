@@ -410,8 +410,19 @@ link* — đó là bước cuối của một lần đăng bài. Trước đây 
 không viết đường ghi thứ hai: ba trang cùng ghi vào `lastPostedAt`, tách ra là chúng đề xuất
 lệch nhau ngay lần sửa đầu tiên.
 
-**Cột trái nới 260 → 320px.** Từ khi cột mang ảnh thu nhỏ + tên hai dòng + dòng phụ thì 260 quá
-chật: tên deal vỡ ba dòng, dòng phụ gãy làm đôi. Đo sau khi nới: **hàng deal 85px → 61px**.
+**Ô tick "đã đăng" ngay trong danh sách** — đúng khuôn ô tick "video" bên `/admin/video`, bấm
+một cái là xong, không phải chọn deal trước. Bật thì ghi `lastPostedAt`, tắt thì **gửi `null`**
+(không phải `undefined` — Next bỏ khoá `undefined` trong payload server action, đúng bẫy đã mắc
+ở `videoMadeAt`). Lạc quan trên màn hình rồi mới gọi máy chủ, hỏng thì **trả về trạng thái cũ**.
+
+**Cột trái nới 260 → 370px.** Cột mang ảnh thu nhỏ + tên + dòng phụ + ô tick; riêng ô tick ăn
+mất ~50px. Đo: 260 → hàng cao **85px** · 320 kèm ô tick → vẫn **85px** · 370 → **61px**, tên gọn
+một dòng.
+
+🔴 **Bẫy CDN lặp lại lần thứ hai trong ngày**: `social-kit/page.tsx` vẫn dùng `client` mặc định
+`useCdn: true`, nên tick xong **tải lại trang là dấu biến mất**. Đã đổi sang
+`client.withConfig({ useCdn: false })`. **Mọi trang admin vừa-ghi-vừa-đọc đều phải soi điểm này**
+— tính tới giờ đã dính `/admin/video` và `/admin/social-kit`.
 
 Đã lái Chrome thật **6/6 đạt**: bấm nút ghi thật vào Sanity · nút đổi chữ ngay · cột trái hiện
 dấu xanh ngay · deal thử đã trả về nguyên trạng. Khung 1440px và 390px đều 0 chỗ tràn.
