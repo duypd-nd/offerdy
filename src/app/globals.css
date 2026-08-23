@@ -761,6 +761,12 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
     radial-gradient(farthest-side at 100% 50%,rgba(15,23,42,.17),rgba(15,23,42,0)) 100% 0/12px 100% no-repeat scroll,
     #fff;
 }
+/* ⚠️ `overflow:hidden` o day chu KHONG phai o inline style cua tung trang. Ba cho
+   tung viet `style={{...,overflow:'hidden'}}` de bo goc tron, va inline style DE
+   BEP luat `.adm-scroll-x{overflow-x:auto}` trong media query ben duoi — ket qua
+   la bang bi xen 280px ma khong cuon duoc, khong dau hieu gi. Dat o day thi media
+   query ghi de duoc vi cung la stylesheet va nam sau. */
+.adm-scroll-x{overflow:hidden}
 .oa-table-wrap{margin:20px 28px 0;border-radius:10px;border:1px solid #e5e7eb;overflow:hidden;overflow-x:auto}
 .oa-table{width:100%;border-collapse:collapse;font-size:13px}
 .oa-table thead{background:#f9fafb;border-bottom:1px solid #e5e7eb}
@@ -1674,3 +1680,50 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .vid-pc select{flex:1;min-width:0;font-size:12px;padding:7px 9px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b}
 .vid-dem{font-size:12px;color:#64748b;margin:0 0 8px}
 .vid-dem b{color:#334155}
+
+/* ── Bo soan bai dang (/admin/social-kit) ──────────────────────── */
+/* ⚠️ Truoc day luoi ba cot nam trong INLINE STYLE `260px 1fr 260px`. Inline style
+   khong nhan media query, nen tren dien thoai khong co cach nao xep chong lai —
+   khong phai quen viet, ma la khong the viet. Do that o khung 390px: noi dung rong
+   975px, tran 585px, va `.adm-main{overflow-x:hidden}` xen cho do trong IM LANG.
+   Cot giua (link, chon nen tang, goc tiep can, caption) mat gan hai phan ba. */
+.sk-cot{display:grid;grid-template-columns:260px minmax(0,1fr) 260px;gap:18px;align-items:start}
+/* `minmax(0,1fr)` chu KHONG phai `1fr` — cung ly do da ghi o `.vid-cot` ben tren. */
+.sk-cot>*{min-width:0}
+.sk-ds{max-height:560px;overflow-y:auto}
+
+@media(max-width:1100px){
+  /* QR la cot phu: bo xuong duoi TRUOC, de cot caption giu duoc be rong lam viec. */
+  .sk-cot{grid-template-columns:260px minmax(0,1fr)}
+  .sk-qr{grid-column:1/-1}
+}
+@media(max-width:900px){
+  .sk-cot{grid-template-columns:minmax(0,1fr)}
+  /* 560px danh sach deal tren dien thoai day moi thu con lai xuong duoi hon mot man
+     hinh — nguoi dung tuong trang chi co danh sach. 300px vua 4 dong, va lop `local`
+     lam dong cuoi mo dan khi con noi dung ben duoi, het cuon thi tu tat. Cung meo
+     da dung o `.vid-ds`. */
+  .sk-ds{
+    max-height:300px;
+    background:
+      linear-gradient(#fff 30%,rgba(255,255,255,0)) 0 0/100% 22px no-repeat local,
+      linear-gradient(rgba(255,255,255,0),#fff 70%) 0 100%/100% 22px no-repeat local,
+      radial-gradient(farthest-side at 50% 0,rgba(15,23,42,.14),rgba(15,23,42,0)) 0 0/100% 10px no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%,rgba(15,23,42,.14),rgba(15,23,42,0)) 0 100%/100% 10px no-repeat scroll,
+      #fff;
+  }
+}
+
+/* ── Import Excel (/admin/import) ──────────────────────────────── */
+/* Cung mot lo voi `.sk-cot`: luoi hai cot nam trong INLINE STYLE `1fr 240px`.
+   Do that o khung 390px: `.adm-main` tran 548px va bi xen IM LANG — khoi upload,
+   bang huong dan cot va ca nut tai template deu cut o mep phai. 98 khoi. */
+.imp-cot{display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:20px;margin-bottom:20px}
+.imp-cot>*{min-width:0}
+/* Hang nut chon sheet (Stores/Deals/Posts/Reviews) khong xuong dong duoc thi chinh
+   no keo be rong toi thieu cua ca cot len — flex mac dinh KHONG tu xuong dong. */
+.imp-tab{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+@media(max-width:900px){
+  /* Cot template la phan phu, xuong duoi sau khoi upload. */
+  .imp-cot{grid-template-columns:minmax(0,1fr)}
+}

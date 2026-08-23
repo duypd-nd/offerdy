@@ -428,7 +428,7 @@ export default function ImportClient() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 240px', gap: 20, marginBottom: 20 }}>
+      <div className="imp-cot">
 
         {/* Left: Upload + Column guide */}
         <div style={{ background: '#fff', border: '1.5px solid #e4eaf2', borderRadius: 12, padding: 24 }}>
@@ -454,7 +454,7 @@ export default function ImportClient() {
 
           {/* Column guide — tabbed by sheet type */}
           <div style={{ marginTop: 20 }}>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <div className="imp-tab">
               {validSheets.map((t) => (
                 <button
                   key={t}

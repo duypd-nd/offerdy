@@ -2,7 +2,8 @@
 
 # 🔖 ĐIỂM DỪNG NGÀY 2026-08-23 — ĐỌC MỤC NÀY TRƯỚC
 
-**Mọi thứ đã commit và push. `main` ở `13d8018`, không còn gì lơ lửng.**
+**Mọi thứ đã commit và push. `main` ở `ea46a4c`, không còn gì lơ lửng.**
+**Production đang chạy đúng `ea46a4c`** — xác nhận 23/08 qua `/admin/cron-check`.
 Dev server đang chạy ở `http://localhost:3000` (kiểm: `/admin/login` trả 200).
 Có **5 tiến trình node, 3,5 GB** — nếu máy chậm thì tắt bớt, nhưng **đừng giết hết
 `node.exe`**, lọc theo `.nextdevbuild` (bẫy cũ đã ghi).
@@ -30,39 +31,152 @@ Video mẫu đo được: **45,5s → 29,7s**, **4,5s → 1,06s mỗi cảnh** (
 
 ## 📋 MAI LÀM GÌ — theo thứ tự
 
-**1. Anh xem `out/mau-1470.mp4` và nói nhịp đã đúng chưa.** Sáu con số chỉnh được nằm cùng
-một chỗ trong `src/lib/video/videoStyle.ts` (`PHONG_CACH_MAU`): `giayMoiAnh` 1,3 · `daiChuyen`
-0,4 · `soNhipToiDa` 4 · `chuChayCo` 62/1920 · `anhKhung` 1040/1080 · `phuDeCachDay` 300/1920.
+✅ **1. Anh đã xem `out/mau-1470.mp4` (23/08)** — không yêu cầu chỉnh gì. Nếu sau này muốn
+sửa nhịp, sáu con số nằm cùng một chỗ trong `src/lib/video/videoStyle.ts` (`PHONG_CACH_MAU`):
+`giayMoiAnh` 1,3 · `daiChuyen` 0,4 · `soNhipToiDa` 4 · `chuChayCo` 62/1920 · `anhKhung`
+1040/1080 · `phuDeCachDay` 300/1920.
 ⚠️ Ba con số ảnh–chữ **đi với nhau**: ảnh to thì chữ phải bé và phải đè lên ảnh.
 
-**2. ĐĂNG THỬ MỘT VIDEO LÊN TIKTOK.** Việc đáng giá nhất, và đã hoãn ba ngày. Giờ chỉ còn ba
-nút Chép ở `/admin/video`. Đăng xong bấm *Đánh dấu đã đăng*, 24–48 tiếng sau mở
-`/admin/reports` xem nhãn `video` — **lần đầu tiên dự án có số đo cho một kênh ngoài Google.**
+✅ **2. ĐÃ ĐĂNG VIDEO LÊN TIKTOK (23/08).** Mốc chờ: **24–48 tiếng sau mở `/admin/reports`
+xem nhãn `video`** — lần đầu tiên dự án có số đo cho một kênh ngoài Google. Hạn xem: 25/08.
 
-**3. Xác nhận bản đang chạy trên Vercel** (việc cũ chưa xong — tài khoản Vercel nối qua MCP
-không phải tài khoản chứa Offerdy, phải mở bảng điều khiển bằng tay).
+✅ **3. BẢN TRÊN VERCEL ĐÃ XÁC NHẬN (23/08) — `ea46a4c`, khớp `main`.** `VERCEL_ENV=production`.
+**Không cần mở bảng điều khiển Vercel nữa**: `/admin/cron-check` in thẳng `VERCEL_GIT_COMMIT_SHA`
+của chính bản đang phục vụ. Từ nay xác minh bản deploy = đăng nhập production rồi mở trang đó.
 
-**4. Hai lỗi dữ liệu chờ anh quyết**: store tên **"You are now leaving the internet.Get ready
-to find your fit."** và store **"Yazv -"** thừa dấu gạch ngang.
+⚠️ Hai bẫy khi dùng trang này:
+- **Phải mở trên `https://www.offerdy.com`, không phải localhost.** Mở nhầm localhost thì bảng
+  vẫn hiện đầy đủ và trông rất thật — nó đang phản chiếu `.env.local`. Dấu hiệu nhận biết duy
+  nhất: **`VERCEL_ENV` trống là đang xem máy mình**, có chữ `production` mới là web thật.
+- Phiên đăng nhập localhost **không dùng chung** với production, phải đăng nhập riêng.
+
+Đo được thêm ở lần này: trên production `CRON_SECRET` **có** (23 ký tự) và `AUTH_BACKUP_KEY`
+**có** (43 ký tự) — tức món nợ "thêm `AUTH_BACKUP_KEY` vào Vercel" **đã xong**.
+
+✅ **4. HAI LỖI DỮ LIỆU ĐÃ SỬA (23/08)** — anh chọn sửa cả tên lẫn slug.
+
+| Trước | Sau | Bằng chứng tên thật |
+|---|---|---|
+| `Yazv -` · `/stores/yazv-` | **Yazv** · `/stores/yazv` | `abbr: YAZ` · `yazv.com` · 5 offer ghi *"at Yazv"* |
+| `You are now leaving the internet.Get ready to find your fit.` · slug 57 ký tự | **Omniverse City** · `/stores/omniverse-city` | `abbr: OMN` · `theomniverse.city` · 4 offer ghi *"Omniverse City"* |
+
+Cái thứ hai là **khẩu hiệu trang chủ bị bắt nhầm thành tên** lúc nhập. Cả hai đang
+`published: true`, tức tên hỏng đã hiển thị cho khách một thời gian.
+Kiểm sau khi sửa: `/stores/yazv` 200 · `/stores/omniverse-city` 200 · `/stores/yazv-` 404
+(đúng ý đồ, không làm 301 vì ghi chú cũ đã chốt 301 cho trang đã xoá sẽ bị coi là soft-404).
+Thẻ `<title>` render đúng tên mới.
+
+⚠️ **Bẫy đã mất thời gian**: trang store nằm ở **`/stores/<slug>`**, KHÔNG phải `/store/<slug>`
+cũng không phải `/<slug>` — dù `src/app/[slug]/` có tồn tại (dùng cho trang khác).
+
+✅ **Đã quét cả 107 store** (`.scratch/quet-ten-store.mjs`): 9 tên đáng ngờ, **6 là báo động
+giả** — `ModelCars.com`, `N2Ofilters.com`, `TatkraftShop.fr`, `Mr.Nope`, `Yes! Athletics USA`,
+`dowinx-gaming-chair.EU` đều là tên thương hiệu thật. Sửa thêm **2 cái dính đúng lỗi cũ**:
+
+| Trước | Sau |
+|---|---|
+| `BYD ELECTRIC CAR ACCESSORIES\| ATTO 3\| E6\| SEAL\| - We Sell the Top BYD Aftermarket Car parts` (91 ký tự) | **BYD Electric Car Accessories** · `/stores/byd-electric-car-accessories` |
+| `Akolzol Trends: Where Fashion, Beauty, and Lifestyle Meet` | **Akolzol Trends** · `/stores/akolzol-trends` |
+
+Cả hai trả 200, `<title>` đúng. **`Frolk Personalized Whiskey Gift Sets` cố ý giữ nguyên** —
+dữ liệu offer dùng cả hai cách gọi (`at Frolk` và tên đầy đủ) nên sửa là đoán, không phải đo.
+
+📌 **Còn một món nhỏ chưa làm**: bộ sinh slug **xoá dấu chấm thay vì đổi thành gạch nối** →
+`modelcarscom`, `n2ofilterscom`, `tatkraftshopfr`, `mrnope`, `dowinx-gaming-chaireu`. Xấu
+nhưng đang chạy; sửa là đẻ thêm 5 URL 404, **chưa đáng**.
+
+✅ **6. `/admin/social-kit` TRÊN ĐIỆN THOẠI ĐÃ SỬA (23/08)** — cùng một lỗi với `/admin/video`.
+
+**Nguyên nhân**: `SocialKitClient.tsx:275` đặt lưới ba cột `260px 1fr 260px` bằng **inline
+style**. Inline style **không nhận media query**, nên không có cách nào xếp chồng lại trên
+điện thoại — không phải quên viết, mà là *không thể viết*. Cộng thêm `1fr` (= `minmax(auto,1fr)`)
+không cho cột co nhỏ hơn nội dung.
+
+**Số đo trước** (khung 390px): nội dung rộng **975px**, tràn **585px**, và
+`.adm-main{overflow-x:hidden}` xén chỗ đó **im lặng** — không thanh cuộn, không dấu hiệu.
+Cột giữa (link, chọn nền tảng, góc tiếp cận, caption) mất gần hai phần ba.
+
+**Cách sửa**: chuyển lưới ra CSS class `.sk-cot` trong `globals.css`, ba ngưỡng:
+
+| Bề rộng | Bố cục | Đã đo |
+|---|---|---|
+| ≥1100px | 3 cột `260px 641px 260px` | QR ở trên cùng (y=86) |
+| 900–1100px | 2 cột, **QR rớt xuống dưới** | `260px 479px`, QR y=1012 |
+| <900px | 1 cột, danh sách deal 560→**300px** + mờ dần ở đáy | `685px`, QR y=1377 |
+
+**Kết quả đo lại**: 390/360/320px đều **0 chỗ cắt thật**, 0 tràn ngang. Chế độ *Soạn cả tuần*
+cũng 0. Bản máy tính 1440px **không đổi gì**. `npm test` 531/531 · lint sạch.
+
+### Quét cả admin — còn 4 trang nữa dính, cùng một họ lỗi
+
+Sửa xong social-kit thì quét thử toàn bộ **32 trang `/admin`**. Kết quả:
+
+| Trang | Hỏng gì | Cách sửa |
+|---|---|---|
+| `/admin/import` | `.adm-main` **xén im lặng 548px** — lưới `1fr 240px` inline | class `.imp-cot` + `.imp-tab` (hàng nút sheet không xuống dòng được) |
+| `/admin` (Dashboard) | 2 bảng **xén 280px, không cuộn được** | xem dưới |
+| `/admin/audit` | như trên (dùng chung `AuditTable`) | xem dưới |
+| `/admin/deep-links` | bảng xén 256px | thêm `.adm-scroll-x` |
+
+**Nguyên nhân của ba cái sau — lần thứ ba cùng một họ**: `admin/page.tsx:267`,
+`_components/AuditTable.tsx:41` và `DeepLinksClient.tsx:214` viết
+`style={{...,overflow:'hidden'}}` **inline** để bo góc tròn. Inline style **đè bẹp**
+luật `.adm-scroll-x{overflow-x:auto}` trong media query, nên bảng bị xén mà **không
+cuộn được** — lớp bóng mờ báo "còn nội dung bên phải" vẫn hiện, nhưng kéo thì không nhúc nhích.
+Đã chuyển `overflow:hidden` vào `globals.css` để media query ghi đè được.
+
+📌 **Một câu đáng nhớ cho mọi lần sau**: đặt bố cục bằng **inline style là tự tay vô hiệu hoá
+mọi media query**. Ba lỗi trong hai ngày đều là nó — `/admin/video`, `/admin/social-kit`,
+`/admin/import`, cộng ba chỗ `overflow:hidden`.
+
+**Kiểm lại toàn bộ 32 trang admin ở khung 390px: 0 chỗ xén im lặng, 0 chỗ vượt khung.**
+
+### ⚠️ Phép đo tràn lề nói dối BỐN kiểu — bài học đắt nhất buổi này
+
+Bộ đo dùng lại được: **`.scratch/do-admin-mobile.mjs`** (truyền đường dẫn làm tham số,
+tự đúc cookie phiên từ kho `adminVault` nên không cần đăng nhập tay).
+
+| Báo động giả | Vì sao | Cách phân biệt |
+|---|---|---|
+| `text-overflow:ellipsis` | `span` có dấu ba chấm **luôn** có `scrollWidth > clientWidth` | bỏ qua khi `textOverflow==='ellipsis'` |
+| Nằm trong khối **cuộn ngang được** | cuộn ra là thấy, không mất gì | tìm tổ tiên có `overflow-x:auto` **và** `scrollWidth > clientWidth` thật |
+| Tổ tiên có dấu ba chấm | con vượt khung nhưng cha đã cắt có chủ ý | phải **leo lên cây tổ tiên**, không chỉ xét chính nó |
+| `<input>` / `<textarea>` | chữ dài hơn ô là chuyện thường, gõ là thấy | loại trừ theo tên thẻ |
+
+Lần đo đầu ra **377 khối "bị cắt"**, trong đó **374 là giả** — che mất đúng 3 cái thật.
+⚠️ Và **`overflow-y:auto` khiến CSS tự biến `overflow-x` thành `auto`** theo định nghĩa, nên
+chỉ đọc thuộc tính là che mất cả danh sách cuộn dọc; phải kiểm `scrollWidth > clientWidth`.
+
+Đây là lần **thứ hai** phép đo tràn lề đánh lừa dự án — lần trước ghi trong commit `13d8018`.
+🔧 Bẫy mới gặp khi sửa chính bộ đo: **backtick trong chú thích nằm bên trong template literal
+làm đứt chuỗi** → `SyntaxError`. Trong khối `DO = \`...\`` tuyệt đối không dùng backtick.
 
 **5. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
 
 ### Còn nợ, đã biết nhưng chưa sửa
 
-- `/admin/social-kit`: hai khối **rỗng** tràn ra ngoài khung điện thoại (419px và 260px) —
-  không mất nội dung đọc được nào nên để lại.
+- ~~`/admin/social-kit`: hai khối **rỗng** tràn ra ngoài khung điện thoại~~ ✅ **ĐÃ SỬA 23/08 —
+  và ghi chú cũ SAI**: không phải khối rỗng, mà **nội dung thật bị cắt mất gần hai phần ba**.
+  Xem mục riêng bên dưới.
 - `/admin/reports`: 26 phần tử tràn, nhưng đều nằm trong khối cắt-có-dấu-ba-chấm, tức **cố ý**.
 - Vai **Chỉ xem** tải được từng ảnh (GET) nhưng không tải được cả gói (POST) — luật "vai chỉ
   xem không được POST" chặn, và **cố ý không đục lỗ**.
 - Bố cục nhiều lớp của template CapCut (thẻ bay, khung viền, ảnh trong ảnh) **không dựng lại
   được bằng `xfade`** — muốn giống hẳn phải viết chuỗi `overlay` riêng cho từng phần tử.
+- **`.env.local` thiếu `CRON_SECRET`** (production thì có) → thử cron trên máy luôn trả 401.
+  Đo được 23/08 qua `/admin/cron-check` chạy trên localhost.
+- **`GA4_PRIVATE_KEY` trong `.env.local` có khoảng trắng thừa** (1703 ký tự) — đúng cái bẫy
+  heredoc nuốt `\` đã ghi ở dưới. GA4 vẫn chạy nên chưa gấp. Production **không** dính lỗi này.
 
 ### 📌 Việc của anh, không tự động hoá được
 
 Xoay bốn khoá API đã dán vào phòng chat (`ANTHROPIC_API_KEY`, `FAL_KEY`, `ELEVENLABS_API_KEY`,
 `ELEVENLABS_VOICE_ID`) · lưu `AUTH_SECRET` / `AUTH_PEPPER` / `AUTH_BACKUP_KEY` vào trình quản
-lý mật khẩu · chép một file `.enc` ra khỏi máy · thêm `AUTH_BACKUP_KEY` vào Vercel nếu chưa ·
-xoá `ADMIN_USERNAME`/`ADMIN_PASSWORD` khỏi Vercel.
+lý mật khẩu · chép một file `.enc` ra khỏi máy.
+
+✅ **Hai món nợ biến môi trường ĐÃ ĐÓNG, đo trên production 23/08:**
+~~thêm `AUTH_BACKUP_KEY` vào Vercel~~ — có, 43 ký tự.
+~~xoá `ADMIN_USERNAME`/`ADMIN_PASSWORD` khỏi Vercel~~ — cả hai "KHÔNG có ở runtime".
 
 ---
 

@@ -272,7 +272,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
           Chưa có deal nào có mã. Chạy <Link href="/admin/migrate/deal-codes" style={{ color: '#16A34A', fontWeight: 700 }}>/admin/migrate/deal-codes</Link> trước.
         </div>
       ) : weekMode ? null : (
-        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr 260px', gap: 18, alignItems: 'start' }}>
+        <div className="sk-cot">
 
           {/* ── Chọn sản phẩm ── */}
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
@@ -285,7 +285,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <div style={{ maxHeight: 560, overflowY: 'auto' }}>
+            <div className="sk-ds">
               {filtered.map(d => (
                 <button
                   key={d.code}
@@ -486,7 +486,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
           </div>
 
           {/* ── QR ── */}
-          <div style={{ ...card, textAlign: 'center' }}>
+          <div className="sk-qr" style={{ ...card, textAlign: 'center' }}>
             <span style={{ ...label, textAlign: 'left' }}>QR code</span>
             {qrSvg ? (
               <div

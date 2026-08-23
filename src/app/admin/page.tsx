@@ -264,7 +264,7 @@ export default async function AdminDashboard() {
 
       {/* ── Recent activity ── */}
       <DashSection label="Cập nhật gần đây" clock>
-        <div className="adm-scroll-x" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+        <div className="adm-scroll-x" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>

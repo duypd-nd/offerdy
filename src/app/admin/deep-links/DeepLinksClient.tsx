@@ -211,7 +211,7 @@ export default function DeepLinksClient({
         </div>
       )}
 
-      <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+      <div className="adm-scroll-x" style={{ border: '1px solid #e2e8f0', borderRadius: 10 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: '#f1f5f9' }}>
