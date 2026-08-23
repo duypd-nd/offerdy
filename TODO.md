@@ -2,11 +2,12 @@
 
 # 🔖 ĐIỂM DỪNG NGÀY 2026-08-23 — ĐỌC MỤC NÀY TRƯỚC
 
-**Mọi thứ đã commit và push. `main` ở `95bad1c`, không còn gì lơ lửng.**
+**Mọi thứ đã commit và push. `main` ở `dc3db12`, không còn gì lơ lửng.**
 **Production đã xác nhận chạy `ea46a4c`** lúc 23/08 qua `/admin/cron-check`.
-⏳ **`95bad1c` vừa push, chưa kiểm** — mở lại `/admin/cron-check` sau vài phút,
-`VERCEL_GIT_COMMIT_SHA` phải đổi thành `95bad1c` thì bản sửa giao diện điện thoại
-mới thực sự lên web.
+⏳ **`95bad1c` và `dc3db12` vừa push, chưa kiểm** — mở lại `/admin/cron-check`,
+`VERCEL_GIT_COMMIT_SHA` phải là `dc3db12`.
+⚠️ **`dc3db12` thêm ô `videoMadeAt` vào schema deal** — nó sẽ hiện trong Sanity Studio
+sau khi deploy. Không ảnh hưởng trang công khai.
 Dev server đang chạy ở `http://localhost:3000` (kiểm: `/admin/login` trả 200).
 Có **5 tiến trình node, 3,5 GB** — nếu máy chậm thì tắt bớt, nhưng **đừng giết hết
 `node.exe`**, lọc theo `.nextdevbuild` (bẫy cũ đã ghi).
