@@ -19,6 +19,7 @@
 
 import { shortLink, shortLinkUrl } from '@/lib/socialCaption'
 import { MAC_DINH, chuyenCanhCho, keoVuaCanh, type PhongCachVideo } from './videoStyle'
+import { docUuDaiMa } from './couponOffer'
 
 /**
  * Nhan chien dich gan vao moi link ra tu video.
@@ -159,6 +160,8 @@ export function buildSpec(input: {
   images: string[]
   beats: NhipKichBan[]
   couponCode?: string | null
+  /** `offerText` cua chinh offer mang ma do — vi du "5% Off". Xem `docUuDaiMa()`. */
+  couponOfferText?: string | null
   storeName?: string | null
   provider?: string
   /** Thieu thi dung `MAC_DINH` — y het video truoc 2026-08-22. */
@@ -241,13 +244,33 @@ export function buildSpec(input: {
   // phai "dung ma X de duoc giam them" — cau sau la mot loi hua, va mot ma khong
   // ap duoc o buoc thanh toan lam mat long tin nhieu hon la khong hien ma nao.
   if (ma) {
+    // ⚠️ Muc giam PHAI doc tu `offerText` that, khong suy ra tu gia. Doc khong
+    // ra thi canh ma van chay, chi la khong kem con so — im lang an toan hon doan.
+    //
+    // ⚠️ Cau chu KHONG duoc noi "giam THEM" hay "cong don voi khuyen mai":
+    // nhieu shop loai tru hang dang sale khoi ma. "Ma nay la ma giam 5%" la mo
+    // ta CAI MA; "dung ma nay de duoc giam them 5%" la mot loi hua ta khong giu
+    // duoc. Khac nhau mot chu, va chu do la chu lam mat long tin.
+    const uuDai = docUuDaiMa(input.couponOfferText)
+    // ⚠️ Doc khong ra muc giam thi cau chu GIU NGUYEN tung chu nhu truoc — de
+    // duong cu khong doi mot ly nao, va de test cu van la mot phep kiem that.
+    const moDau = uuDai
+      ? `${shop} currently has a ${uuDai.docLen} off code, ` // "a 5 percent off code, "
+      : `${shop} currently has the code `
+    // ⚠️ "5% OFF CODE / OFFERDY" chu KHONG phai "5% OFF / CODE OFFERDY". Canh gia
+    // ngay truoc do dang hien "44% OFF"; neu cảnh nay cung mo dau bang mot con so
+    // dung mot minh thi hai muc giam trong nhu da nhau. Dinh con so vao chu CODE
+    // thi no doc ra la "ma giam 5%", khong phai "san pham giam 5%". Va ma dung
+    // MOT MINH mot dong cung de nho va de go lai hon.
+    const chuTo = uuDai ? `${uuDai.hienThi} CODE\n${ma}` : `CODE\n${ma}`
     them('coupon', {
-      image: lay(0), duration: 5,
-      overlayText: `CODE\n${ma}`,
-      badgeText: `CODE\n${ma}`,
+      // Them mot mức giam vao cau thi cau dai them, nen canh phai dai them.
+      image: lay(0), duration: uuDai ? 5.6 : 5,
+      overlayText: chuTo,
+      badgeText: chuTo,
       couponBadge: ma,
-      voiceText: `${shop} currently has the code ${ma}. Worth trying at checkout.`,
-      speakText: `${shop} currently has the code ${danhVan(ma)}. Worth trying at checkout.`,
+      voiceText: `${moDau}${ma}. Worth trying at checkout.`,
+      speakText: `${moDau}${danhVan(ma)}. Worth trying at checkout.`,
     })
   }
 
@@ -336,6 +359,11 @@ export function buildSpec(input: {
       deal.priceOrig ? `priceOrig = ${deal.priceOrig} — tu deal #${deal.code}` : 'khong co gia goc -> KHONG noi ve giam gia',
       deal.discount ? `discountPercent = ${deal.discount} — code tinh tu hai gia tren` : 'khong co % giam',
       ma ? `couponCode = ${ma} — tu couponForDealUrl()` : 'shop khong co ma -> KHONG bia ma',
+      ma
+        ? (docUuDaiMa(input.couponOfferText)
+            ? `muc giam cua ma = ${docUuDaiMa(input.couponOfferText)!.hienThi} — doc tu offerText "${input.couponOfferText}"`
+            : `khong doc duoc muc giam tu offerText "${input.couponOfferText ?? '(trong)'}" -> KHONG noi con so nao`)
+        : 'khong co ma -> khong co muc giam',
       `${images.length} anh — tu ${deal.dealUrl ?? 'kho'}`,
     ],
     voice: { provider: input.provider ?? 'elevenlabs', voice: null, rate: 0 },

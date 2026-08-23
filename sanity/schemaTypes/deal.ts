@@ -41,6 +41,14 @@ export const dealType = defineType({
         'Đánh dấu khi bấm "Đã lên lịch" ở /admin/social-kit. Chỉ để nhắc khỏi đăng lặp một sản phẩm quá gần nhau — không ảnh hưởng gì tới trang công khai.',
     }),
     defineField({
+      name: 'videoMadeAt',
+      title: 'Đã có video',
+      type: 'datetime',
+      readOnly: true,
+      description:
+        'Tick ô "có video" ở /admin/video. Tự khai bằng tay vì máy chỉ nhìn thấy tệp .mp4 nằm trong out/ trên chính máy dựng — video render ở máy khác, hoặc đã xoá tệp đi, thì không có cách nào tự biết. Không ảnh hưởng gì tới trang công khai.',
+    }),
+    defineField({
       name: 'pinnedAt',
       title: 'Ghim lên đầu /links',
       type: 'datetime',

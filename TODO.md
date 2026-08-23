@@ -2,8 +2,11 @@
 
 # 🔖 ĐIỂM DỪNG NGÀY 2026-08-23 — ĐỌC MỤC NÀY TRƯỚC
 
-**Mọi thứ đã commit và push. `main` ở `ea46a4c`, không còn gì lơ lửng.**
-**Production đang chạy đúng `ea46a4c`** — xác nhận 23/08 qua `/admin/cron-check`.
+**Mọi thứ đã commit và push. `main` ở `95bad1c`, không còn gì lơ lửng.**
+**Production đã xác nhận chạy `ea46a4c`** lúc 23/08 qua `/admin/cron-check`.
+⏳ **`95bad1c` vừa push, chưa kiểm** — mở lại `/admin/cron-check` sau vài phút,
+`VERCEL_GIT_COMMIT_SHA` phải đổi thành `95bad1c` thì bản sửa giao diện điện thoại
+mới thực sự lên web.
 Dev server đang chạy ở `http://localhost:3000` (kiểm: `/admin/login` trả 200).
 Có **5 tiến trình node, 3,5 GB** — nếu máy chậm thì tắt bớt, nhưng **đừng giết hết
 `node.exe`**, lọc theo `.nextdevbuild` (bẫy cũ đã ghi).
@@ -150,6 +153,134 @@ chỉ đọc thuộc tính là che mất cả danh sách cuộn dọc; phải ki
 Đây là lần **thứ hai** phép đo tràn lề đánh lừa dự án — lần trước ghi trong commit `13d8018`.
 🔧 Bẫy mới gặp khi sửa chính bộ đo: **backtick trong chú thích nằm bên trong template literal
 làm đứt chuỗi** → `SyntaxError`. Trong khối `DO = \`...\`` tuyệt đối không dùng backtick.
+
+✅ **7. `/admin/video` — cột trái đánh dấu việc đã làm (23/08)**
+
+Danh sách 448 deal giờ nói rõ cái nào xong, theo đúng ba bước của quy trình thật:
+
+| Dấu | Nghĩa | Nguồn dữ liệu |
+|---|---|---|
+| *(trống)* | chưa làm gì | — |
+| ☑ **ô tick "video"** | đã dựng `.mp4`, **chưa đăng** | ô `videoMadeAt` **hoặc** tệp `out/deal-<mã>-*.mp4` |
+| 🟢 **✓ đã đăng** | xong hẳn | `lastPostedAt` trong Sanity |
+
+Ô tick **bấm được** — tự khai bằng tay. Cần thế vì máy chỉ nhìn thấy tệp `.mp4` nằm trong
+`out/` **trên chính máy đang chạy**: dựng ở máy khác, xoá tệp cho nhẹ ổ cứng, hay mở trang
+trên production (không có ffmpeg nên không có `out/`) — cả ba đều làm dấu tự động biến mất
+trong khi video vẫn còn. Tick lưu vào Sanity nên ở đâu cũng đúng.
+
+Dòng đã đăng **lùi về sau** (chữ xám, ảnh mờ) để cái chưa làm bật lên — thứ người dùng đi
+tìm là việc *còn lại*, không phải việc đã xong. Có dòng tổng ở đầu để khỏi tự đếm trong 448 dòng.
+
+⚙️ **Phong cách mặc định đổi thành "Theo video mẫu"** (`mau-tiktok`), không còn là `mac-dinh`.
+Nhịp học từ 4 video mẫu đo được 1,06 giây mỗi cảnh; `mac-dinh` 4,5 giây thì chậm hơn mọi mẫu.
+
+⚠️ **Hai bẫy phải trả giá mới sửa xong:**
+1. **Ô tick KHÔNG lồng được trong `<button>`.** Hàng deal trước đây là một `<button>` lớn;
+   HTML không cho lồng, và nếu lồng được thì mỗi cú bấm ô tick sẽ chọn luôn cả deal. Nay
+   hàng là `<div class="vid-hang">` bọc `<button>` + `<label>` riêng.
+2. 🔴 **`client` của Sanity dùng `useCdn: true`** — tick xong ghi thật vào kho, nhưng tải
+   lại trang thì **dấu biến mất** vì CDN trả bản cũ. `force-dynamic` KHÔNG cứu được:
+   nó bỏ cache của Next, còn đây là cache của Sanity. Đã đổi sang
+   `client.withConfig({ useCdn: false })` — khuôn có sẵn ở `/admin/ai-review`.
+   **Mọi trang admin vừa-ghi-vừa-đọc đều phải kiểm điểm này.**
+
+Đã lái Chrome thật kiểm đầu-cuối: **7/7 đạt** (`.scratch/thu-tick-video.mjs`) — bấm ô tick
+không chọn nhầm deal · ghi thật · tải lại vẫn còn · bỏ tick xoá thật · dòng tổng đếm đúng.
+🔧 Bẫy trong chính script kiểm: **`\d` nằm trong template literal bị nuốt dấu gạch chéo**
+thành `d`, regex `/#(\d+)/` thành `/#(d+)/` và không khớp gì. Dùng `[0-9]` cho khỏi vướng.
+
+🐞 **Sửa kèm một lỗi cũ**: `phanTich()` đặt `setDaDang(false)` mỗi lần chọn deal, nên mở một
+deal **đã đăng rồi** thì nút vẫn ghi "Đánh dấu đã đăng" như chưa làm gì. Nay đọc trạng thái thật.
+
+📌 **VIỆC CỦA ANH — đo được 0/448 deal có `lastPostedAt`.** Anh đã đăng TikTok hôm nay nhưng
+**chưa bấm *Đánh dấu đã đăng***. Chưa bấm thì: dấu xanh không hiện · `/admin/social-kit` vẫn
+đề xuất lại đúng deal đó · và 25/08 mở `/admin/reports` sẽ không biết bài nào ứng với deal nào.
+
+✅ **8. Video nói RÕ mã giảm được bao nhiêu (23/08)**
+
+Trước đây cảnh cuối chỉ hiện `CODE OFFERDY` — khách không biết mã đáng giá gì. Nay đọc
+mức giảm từ chính `offerText` của offer mang mã đó:
+
+| Trên màn hình | Lời đọc |
+|---|---|
+| `5% OFF CODE` / `OFFERDY` | *"BloomingBabies currently has a 5 percent off code, OFFERDY. Worth trying at checkout."* |
+
+Bộ đọc là hàm thuần `src/lib/video/couponOffer.ts`, **10 test riêng**. Dữ liệu thật chỉ có
+hai lối viết (`5% Off` và `€10 Off`); gặp dạng khác thì **trả `null` và không nói con số nào**
+— cảnh mã vẫn chạy, chỉ là không kèm mức giảm. Số tiền đi qua `parsePriceAmount()`, không tự
+bóc số (chính lỗi từng in ra "Save €5000"). Chặn trên 95% để một lỗi nhập `150% Off` không
+lọt lên video.
+
+⚠️ **Câu chữ cố tình KHÔNG hứa cộng dồn.** Nhiều shop loại trừ hàng đang sale khỏi mã, nên
+*"đây là mã giảm 5%"* thì được, *"dùng mã này để được giảm thêm 5%"* thì không. Có test canh
+đúng chuyện này (`extra|additional|stack|on top` là lỗi).
+
+⚠️ Màn hình phải là `5% OFF CODE` / `OFFERDY`, **không** phải `5% OFF` / `CODE OFFERDY` —
+cảnh giá ngay trước đó đã hiện `44% OFF`, nên một con số đứng một mình đầu dòng trông như
+hai mức giảm đá nhau.
+
+🔧 **Phong cách mặc định của `npm run video:spec` cũng đổi thành `mau-tiktok`** và nhận tham
+số thứ hai. Trước đó CLI luôn dùng `mac-dinh` trong khi trang admin dùng `mau-tiktok` — hai
+đường sinh ra hai video khác hẳn cho cùng một deal, đúng cái mà `buildSpec.ts` tự tuyên bố
+là không được phép.
+
+### 🔴 9. LỖI NẶNG PHÁT HIỆN KHI KIỂM: video mất hẳn đoạn cuối, không báo gì
+
+Dựng thử để xem cảnh mã có lên hình không thì lộ ra: **track hình chỉ dài 18,9s trong khi
+tiếng dài 27,6s.** Bốn cảnh cuối — gồm **chính cảnh mã** và cảnh CTA — **không hề có trong
+video**. ffmpeg vẫn báo "Xong", mã thoát 0, tệp mở được bình thường.
+
+**Nguyên nhân**: `mocScene` tính từ `s.duration` trong kịch bản, nhưng ffmpeg mã hoá theo
+**khung hình**. `-t 1.3` ở 30fps đáng lẽ 39 khung, mà `1.3 * 30` trong số thực là
+`39.000000000000007` nên thành **40 khung = 1,3333 giây**. Mỗi cảnh dư vài phần trăm giây;
+23 cảnh thì `offset` của `xfade` sớm gần nửa giây so với thực tế, PTS đâm nhau, bộ lọc `-r`
+vứt **352 khung**.
+
+**Cách sửa**: sau Lượt 1, **đo lại độ dài thật của từng đoạn bằng ffprobe** rồi lấy chính số
+đó làm sự thật — `scenes[i].duration` khớp tệp không sai một khung. Phụ đề và mốc đặt tiếng
+đều tính lại từ bảng mới. Thêm `settb=AVTB,setpts=PTS-STARTPTS,fps=N` cho từng đầu vào.
+
+**Đo sau khi sửa**: 28,87s / 866 khung, phủ hết tiếng 27,99s, `drop=0`. Cảnh mã và CTA đã lên
+hình — có ảnh chụp khung 24s.
+
+⚠️ **Lỗi này KHÔNG do tính năng mã giảm gây ra** — tôi đã kết luận nhầm như vậy một lần rồi
+đo lại: giữ nguyên kịch bản, chỉ đổi câu mã về bản cũ, **vẫn hỏng đúng 18,867s**. Nó có sẵn,
+chỉ lộ ra khi kịch bản đủ dài. Bài học: **so hai lần chạy mà kịch bản do AI viết lại mỗi lần
+thì không phải phép so sánh** — phải giữ nguyên kịch bản và chỉ đổi đúng một biến.
+
+✅ **Đã đo cả 7 video có sẵn trong `out/`: không cái nào cụt** — hình luôn dài hơn tiếng
+~1,6s. Vì chúng dựng bằng phong cách `mac-dinh` (~10 cảnh), sai số chưa dồn đủ để vỡ. Lỗi
+chỉ nổ với `mau-tiktok` vì phong cách đó cắt ra **23–26 cảnh**. Và `mau-tiktok` vừa thành
+mặc định — nếu không dựng thử hôm nay thì video đăng TikTok tiếp theo sẽ mất đoạn cuối.
+
+Kiểm nhanh về sau: `ffprobe -v error -show_entries stream=codec_type,duration -of csv=p=0`,
+track **hình phải dài hơn** track tiếng.
+
+✅ **10. Dựng video xong thì TỰ DỌN RÁC (23/08)**
+
+Mỗi lần dựng để lại **~19 MB** trong `.scratch/video-job`: mỗi cảnh một tệp MP4 riêng, ảnh
+đã tải, các đoạn tiếng, tệp chữ, bản font, bản hình chưa ghép tiếng. Dựng 20 deal là 400 MB
+nằm im. Nay xong xuôi là xoá, kèm dòng báo đã dọn bao nhiêu.
+
+⚠️ **Chỉ dọn khi THÀNH CÔNG. Hỏng ở giữa thì giữ lại** — chính mấy tệp đó đã tìm ra lỗi cắt
+cụt video hôm nay (phải đo độ dài từng `doan-i.mp4` mới thấy mốc lệch). Dọn sạch khi thất bại
+là vứt đi bằng chứng duy nhất. Muốn giữ cả khi thành công: `GIU_RAC=1 npm run video:render …`
+— cờ này cũng ghi thêm `chuoi-noi.txt` (chuỗi lệnh nối) để soi khi video ra sai độ dài.
+
+⚠️ **KHÔNG đụng tới `.scratch/tts-cache` (4,7 MB)** — bộ nhớ đệm giọng đọc. Xoá nó là mỗi lần
+dựng lại đều tốn tiền ElevenLabs.
+
+Đã kiểm cả ba đường: thành công → dọn 19,1 MB · hỏng → giữ nguyên 10 tệp · `GIU_RAC=1` → giữ
+kèm `chuoi-noi.txt`.
+
+**Dọn tay một lần**: xoá 6 thư mục `khung-*` (39 MB khung hình tách từ 4 video mẫu — dựng lại
+được bằng một lệnh ffmpeg) và toàn bộ script/ảnh/log dùng một lần của hôm nay.
+`.scratch` **69 MB → 30 MB**. ⚠️ **`.scratch/mau/` giữ nguyên** — đó là 4 video mẫu TikTok
+gốc, không tải lại được.
+
+📌 Còn `.scratch/spec-*.json` (10 tệp, 69 KB) — **cố ý giữ**: đó là đầu vào để dựng lại bằng
+tay (`npm run video:render .scratch/spec-1470.json`), và mỗi deal chỉ có một tệp nên không phình.
 
 **5. Mốc đo 27/08** — đo lại `0/65` trang nội dung chưa được Google bò.
 

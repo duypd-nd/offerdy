@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
-  phanTichDeal, dungVideo, dungLaiKichBan, vietCaptionVideo, tepVideoDaCo, danhDauDaDang,
+  phanTichDeal, dungVideo, dungLaiKichBan, vietCaptionVideo, tepVideoDaCo, danhDauDaDang, danhDauCoVideo,
   type KetQuaPhanTich, type BienTheCaption,
 } from './actions'
 import { CAPTION_ANGLES, type CaptionAngle } from '@/lib/ai/generateCaption'
 import { DANH_SACH_PHONG_CACH, type TenPhongCach } from '@/lib/video/videoStyle'
+import { formatAdminDateTime } from '@/lib/adminDateTime'
 import type { DealChon } from './page'
 
 /**
@@ -36,11 +37,41 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
   const [loiCaption, setLoiCaption] = useState<string | null>(null)
   const [dangViet, setDangViet] = useState(false)
   const [tepVideo, setTepVideo] = useState<{ tep: string; luc: string } | null>(null)
-  const [daDang, setDaDang] = useState(false)
-  const [phongCach, setPhongCach] = useState<TenPhongCach>('mac-dinh')
+  // ⚠️ Ma deal danh dau TRONG PHIEN NAY. Server chi doc `lastPostedAt` mot lan
+  // luc dung trang, nen khong co cai nay thi bam "Danh dau da dang" xong danh
+  // sach ben trai van hien "chua dang" cho toi khi tai lai trang.
+  const [vuaDanhDau, setVuaDanhDau] = useState<number[]>([])
+  // Tick "co video" nguoi dung vua doi trong phien nay: ma deal -> co/khong.
+  // Doi ngay tren man hinh roi moi goi server (lac quan), va TRA VE trang thai
+  // cu neu server tu choi — mot o tick nhay roi lang le quay ve sai la kieu loi
+  // nguoi dung khong bao gio bao cao, chi thay "no khong luu".
+  const [tickVideo, setTickVideo] = useState<Record<number, boolean>>({})
+  const [loiTick, setLoiTick] = useState<string | null>(null)
+  // `mau-tiktok` chu khong phai `mac-dinh`: nhip hoc tu 4 video mau do duoc la
+  // 1,06 giay moi canh (mau 1,11-2,41), con `mac-dinh` 4,5 giay thi cham hon
+  // moi video mau. Ai muon ban cham van chon lai duoc o o ben tren.
+  const [phongCach, setPhongCach] = useState<TenPhongCach>('mau-tiktok')
   const [anhChon, setAnhChon] = useState<string[]>([])
   const [dangXep, setDangXep] = useState(false)
   const [dangTai, setDangTai] = useState(false)
+
+  /**
+   * Ba trang thai cua mot deal, theo dung thu tu cong viec that:
+   *   chua lam  ->  da dung video (chua dang)  ->  da dang
+   *
+   * ⚠️ `coVideo` chi dung tren may cuc bo (xem chu thich o `page.tsx`), con
+   * `daDang` doc tu Sanity nen o dau cung dung. Khi hai dau mau thuan thi
+   * `daDang` thang — da dang roi thi con video hay khong khong con quan trong.
+   */
+  const coVideo = (d: DealChon): boolean =>
+    tickVideo[d.code] ?? (!!d.coVideoTay || d.coVideoTep)
+
+  const trangThai = (d: DealChon): 'da-dang' | 'co-video' | 'chua' =>
+    d.daDangLuc || vuaDanhDau.includes(d.code) ? 'da-dang' : coVideo(d) ? 'co-video' : 'chua'
+
+  const daDang = chon ? trangThai(chon) === 'da-dang' : false
+  const soDaDang = deals.filter(d => trangThai(d) === 'da-dang').length
+  const soCoVideo = deals.filter(d => trangThai(d) === 'co-video').length
 
   const loc = deals.filter(d => {
     const q = tim.trim().toLowerCase()
@@ -50,7 +81,7 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
 
   const phanTich = (d: DealChon) => {
     setChon(d); setKq(null); setKetQuaDung(null); setLoiDung(null); setAnhChon([])
-    setCaption(null); setBoCaption([]); setLoiCaption(null); setTepVideo(null); setDaDang(false)
+    setCaption(null); setBoCaption([]); setLoiCaption(null); setTepVideo(null)
     batDau(async () => {
       const r = await phanTichDeal(d.code, phongCach)
       setKq(r)
@@ -147,10 +178,21 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
     }
   }
 
+  const doiTickVideo = async (d: DealChon, co: boolean) => {
+    setTickVideo(cu => ({ ...cu, [d.code]: co }))
+    setLoiTick(null)
+    const r = await danhDauCoVideo(d.code, co)
+    if (!r.ok) {
+      setTickVideo(cu => ({ ...cu, [d.code]: !co }))
+      setLoiTick(`Không lưu được dấu cho #${d.code}. Thử lại.`)
+    }
+  }
+
   const danhDau = async () => {
     if (!kq?.ok || !kq.spec.product?.dealCode) return
-    const r = await danhDauDaDang(Number(kq.spec.product.dealCode))
-    setDaDang(r.ok)
+    const ma = Number(kq.spec.product.dealCode)
+    const r = await danhDauDaDang(ma)
+    if (r.ok) setVuaDanhDau(cu => cu.includes(ma) ? cu : [...cu, ma])
   }
 
   /**
@@ -218,19 +260,51 @@ export default function VideoStudioClient({ deals, soThieuAnh = 0 }: { deals: De
             {soThieuAnh > 0 && <> · {soThieuAnh} deal không có ảnh nên không tạo video được</>}
           </p>
 
+          {/* Bang tong: mot dong noi ro con bao nhieu viec, thay vi bat nguoi dung
+              tu dem dau tick trong danh sach 448 dong. */}
+          <p className="vid-dem">
+            <span className="vid-dau vid-dau--da-dang">✓ đã đăng</span> <b>{soDaDang}</b>
+            {' · '}<b>{soCoVideo}</b> có video chưa đăng
+            {' · còn '}<b>{deals.length - soDaDang - soCoVideo}</b> chưa làm
+          </p>
+          {loiTick && <p className="usr-warn" style={{ marginBottom: 6 }}>{loiTick}</p>}
+
           <div className="vid-ds">
-            {loc.map(d => (
-              <button key={d.code} className={`vid-deal${chon?.code === d.code ? ' vid-deal--chon' : ''}`}
-                onClick={() => phanTich(d)} disabled={dang}>
-                {d.imageUrl
-                  ? <Image src={d.imageUrl} alt="" width={44} height={44} className="vid-deal-anh" />
-                  : <span className="vid-deal-anh" />}
-                <span className="vid-deal-chu">
-                  <b>{d.title.length > 54 ? d.title.slice(0, 54) + '…' : d.title}</b>
-                  <span>#{d.code} · {d.store ?? '—'} · {d.priceSale ?? ''}{d.discount ? ` · -${d.discount}%` : ''}</span>
-                </span>
-              </button>
-            ))}
+            {/* ⚠️ Hang deal la <div> boc mot <button>, KHONG phai mot <button> lon
+                nhu truoc. HTML khong cho long o tick trong nut, va neu co long
+                duoc thi cu bam vao o tick se chay luon ca nut chon deal. */}
+            {loc.map(d => {
+              const tt = trangThai(d)
+              return (
+                <div key={d.code} className={`vid-hang${chon?.code === d.code ? ' vid-hang--chon' : ''}${tt === 'da-dang' ? ' vid-deal--xong' : ''}`}>
+                  <button className="vid-deal" onClick={() => phanTich(d)} disabled={dang}>
+                    {d.imageUrl
+                      ? <Image src={d.imageUrl} alt="" width={44} height={44} className="vid-deal-anh" />
+                      : <span className="vid-deal-anh" />}
+                    <span className="vid-deal-chu">
+                      <b>{d.title.length > 54 ? d.title.slice(0, 54) + '…' : d.title}</b>
+                      <span>#{d.code} · {d.store ?? '—'} · {d.priceSale ?? ''}{d.discount ? ` · -${d.discount}%` : ''}</span>
+                    </span>
+                    {tt === 'da-dang' && (
+                      <span className="vid-dau vid-dau--da-dang"
+                        title={d.daDangLuc ? `Đã đăng lúc ${formatAdminDateTime(d.daDangLuc)}` : 'Vừa đánh dấu đã đăng'}>
+                        ✓ đã đăng
+                      </span>
+                    )}
+                  </button>
+
+                  <label className="vid-tick" title={
+                    coVideo(d)
+                      ? (d.coVideoTay ? `Đánh dấu có video lúc ${formatAdminDateTime(d.coVideoTay)}` : 'Tìm thấy tệp .mp4 trong out/ trên máy này')
+                      : 'Tick khi đã dựng xong video cho deal này'
+                  }>
+                    <input type="checkbox" checked={coVideo(d)}
+                      onChange={e => doiTickVideo(d, e.target.checked)} />
+                    <span>video</span>
+                  </label>
+                </div>
+              )
+            })}
             {!loc.length && <p className="usr-hint">Không có deal nào khớp.</p>}
           </div>
         </div>

@@ -38,6 +38,8 @@ export type NguonKichBan = {
   anhGoc: string[]
   danhGia: DanhGiaAnh[] | null
   couponCode: string | null
+  /** `offerText` cua offer mang ma — vi du "5% Off". Giu lai de dung lai kich ban. */
+  couponOfferText: string | null
   storeName: string
 }
 
@@ -138,7 +140,9 @@ export async function loadDealSpec(dealCode: number, tenPhongCach?: TenPhongCach
 
   const nguon: NguonKichBan = {
     deal, beats, anhGoc: images, danhGia,
-    couponCode: coupon?.code ?? null, storeName: shop,
+    couponCode: coupon?.code ?? null,
+    couponOfferText: coupon?.offerText ?? null,
+    storeName: shop,
   }
 
   return {
@@ -155,6 +159,7 @@ export async function loadDealSpec(dealCode: number, tenPhongCach?: TenPhongCach
       images: cham.anh,
       beats,
       couponCode: coupon?.code ?? null,
+      couponOfferText: coupon?.offerText ?? null,
       storeName: shop,
       phongCach: phongCachTheoTen(tenPhongCach),
     }),

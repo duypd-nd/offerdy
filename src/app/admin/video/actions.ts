@@ -8,6 +8,7 @@ import { loadDealSpec, type NguonKichBan } from '@/lib/video/loadDealSpec'
 import { buildSpec, tongThoiLuong, type VideoSpec } from '@/lib/video/buildSpec'
 import { phongCachTheoTen, type TenPhongCach } from '@/lib/video/videoStyle'
 import { generateCaptionsForDeal, markDealsPosted } from '@/app/admin/social-kit/actions'
+import { writeClient } from '@/sanity/writeClient'
 import type { CaptionAngle } from '@/lib/ai/generateCaption'
 
 /**
@@ -90,6 +91,9 @@ export async function dungLaiKichBan(nguon: NguonKichBan, anhChon: string[], pho
       images: anh,
       beats: nguon.beats,
       couponCode: nguon.couponCode,
+      // ⚠️ Cung ly do voi `phongCach` ben duoi: thieu no thi bam bo mot anh se
+      // am tham lam mat muc giam o canh cuoi, ma khong ai bam gi lien quan toi ma.
+      couponOfferText: nguon.couponOfferText,
       storeName: nguon.storeName,
       // ⚠️ Phai truyen lai phong cach. Thieu no thi bam bo mot anh se am tham
       // dung lai kich ban bang phong cach MAC DINH — video dang 30 giay bong
@@ -220,4 +224,31 @@ export async function tepVideoDaCo(output: string): Promise<{ tep: string; luc: 
 export async function danhDauDaDang(code: number): Promise<{ ok: boolean }> {
   await requireAdmin()
   return markDealsPosted([code])
+}
+
+/**
+ * Tu tay danh dau mot deal "da co video" — bat/tat.
+ *
+ * ⚠️ Vi sao can tu khai thay vi de may tu biet: may chi nhin thay tep `.mp4`
+ * nam trong `out/` TREN CHINH MAY DANG CHAY. Render o may khac, xoa tep di cho
+ * nhe o cung, hay mo trang tren production (khong co ffmpeg nen khong co `out/`)
+ * — ba truong hop deu lam dau tu dong bien mat trong khi video van ton tai.
+ *
+ * ⚠️ Gui `null` chu KHONG phai `undefined` khi bo dau: Next BO khoa `undefined`
+ * trong payload server action, nen `set({videoMadeAt: undefined})` khong xoa gi ca.
+ */
+export async function danhDauCoVideo(code: number, co: boolean): Promise<{ ok: boolean; luc: string | null }> {
+  await requireAdmin()
+  if (!Number.isInteger(code)) return { ok: false, luc: null }
+  try {
+    const id = await writeClient.fetch<string | null>(
+      `*[_type == "deal" && code == $code][0]._id`, { code }
+    )
+    if (!id) return { ok: false, luc: null }
+    const luc = co ? new Date().toISOString() : null
+    await writeClient.patch(id).set({ videoMadeAt: luc }).commit()
+    return { ok: true, luc }
+  } catch {
+    return { ok: false, luc: null }
+  }
 }

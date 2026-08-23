@@ -1596,12 +1596,37 @@ a.cc-store-nm:hover{color:var(--green-dark)}
    cut o mep phai. `minmax(0,...)` bo cai san do di. */
 .vid-cot>*{min-width:0}
 .vid-ds{max-height:640px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:10px;background:#fff}
-.vid-deal{display:flex;gap:10px;align-items:center;width:100%;padding:8px 10px;border:none;border-bottom:1px solid #f1f5f9;background:none;cursor:pointer;text-align:left;font-family:inherit}
-.vid-deal:hover{background:#f8fafc}
-.vid-deal--chon{background:#dcfce7}
+/* Hang deal = <div> boc <button> + o tick. Duong ke chuyen len hang de o tick
+   nam CUNG mot khung voi nut, thay vi treo lo lung ben duoi. */
+.vid-hang{display:flex;align-items:center;border-bottom:1px solid #f1f5f9}
+.vid-hang:hover{background:#f8fafc}
+.vid-deal{display:flex;gap:10px;align-items:center;flex:1;min-width:0;padding:8px 10px;border:none;background:none;cursor:pointer;text-align:left;font-family:inherit}
+/* ⚠️ Nen "dang chon" nam o HANG chu khong o nut: nut chi chiem phan ben trai,
+   de o nut thi o tick ben phai giu nen trang va hang trong nhu bi cat doi. */
+.vid-hang--chon{background:#dcfce7}
+.vid-hang--chon:hover{background:#dcfce7}
 .vid-deal:disabled{opacity:.55;cursor:default}
+
+/* O tick "co video". Vung bam rong 44px cho ngon tay, chu nho de khong tranh
+   cho voi ten deal. */
+.vid-tick{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;min-width:44px;padding:6px 8px;cursor:pointer;user-select:none;
+  border-left:1px solid #f1f5f9;align-self:stretch}
+.vid-tick:hover{background:#f1f5f9}
+.vid-tick input{width:16px;height:16px;accent-color:#16a34a;cursor:pointer;margin:0}
+.vid-tick span{font-size:9.5px;color:#94a3b8;line-height:1;letter-spacing:.02em}
 .vid-deal-anh{width:44px;height:44px;border-radius:7px;object-fit:cover;background:#f1f5f9;flex:none}
-.vid-deal-chu{display:flex;flex-direction:column;gap:2px;min-width:0}
+.vid-deal-chu{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+/* Dau "da lam" o cuoi moi dong deal. `flex:none` + `margin-left:auto` de no luon
+   dinh mep phai va KHONG bi co lai khi ten deal dai — neu de no co duoc thi o
+   khung dien thoai chu trong dau se xuong dong thanh mot cot doc. */
+.vid-dau{flex:none;margin-left:auto;font-size:10.5px;font-weight:700;line-height:1;
+  padding:4px 7px;border-radius:999px;white-space:nowrap;letter-spacing:.01em}
+.vid-dau--da-dang{background:#dcfce7;color:#15803d;border:1px solid #86efac}
+/* Dong da xong lui ve sau mot chut de mat luot qua danh sach bat ngay cai CHUA
+   lam — do moi la thu nguoi dung di tim. Khong lam mo qua den muc kho doc. */
+.vid-deal--xong .vid-deal-chu b{color:#64748b;font-weight:500}
+.vid-deal--xong .vid-deal-anh{opacity:.6}
 .vid-deal-chu b{font-size:13px;color:#1e293b;font-weight:600}
 .vid-deal-chu span{font-size:11px;color:#94a3b8}
 .vid-tomtat{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#f1f5f9;border-radius:8px;padding:10px 14px;font-size:13px;color:#334155;margin-bottom:10px}

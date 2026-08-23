@@ -17,7 +17,17 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.slice(1
 
 await run(async () => {
   const maDeal = Number(process.argv[2])
-  if (!Number.isInteger(maDeal)) { bad('Can ma deal.  npm run video:spec 1199'); stop() }
+  if (!Number.isInteger(maDeal)) { bad('Can ma deal.  npm run video:spec 1199 [mau-tiktok|mac-dinh]'); stop() }
+
+  // ⚠️ Truoc day lenh nay KHONG nhan phong cach nen luon dung `mac-dinh`, trong
+  // khi trang /admin/video mac dinh `mau-tiktok`. Hai duong sinh ra hai video
+  // khac han cho cung mot deal — dung cai ma file nay tu tuyen bo la khong duoc
+  // phep. Mac dinh o day cung phai la `mau-tiktok`.
+  const PHONG_CACH_HOP_LE = ['mau-tiktok', 'mac-dinh']
+  const phongCach = process.argv[3] ?? 'mau-tiktok'
+  if (!PHONG_CACH_HOP_LE.includes(phongCach)) {
+    bad(`Phong cach khong hop le: "${phongCach}". Chon: ${PHONG_CACH_HOP_LE.join(' | ')}`); stop()
+  }
 
   console.log('\nSinh kich ban video cho deal #' + maDeal + '\n')
   Object.assign(process.env, loadEnv())
@@ -37,8 +47,8 @@ await run(async () => {
   })
   const { loadDealSpec, tongThoiLuong } = await import(pathToFileURL(path.join(tmp, 'entry.mjs')).href)
 
-  ok('Dang lay anh, ma giam gia, va nho AI viet loi doc...')
-  const r = await loadDealSpec(maDeal)
+  ok(`Dang lay anh, ma giam gia, va nho AI viet loi doc... (phong cach: ${phongCach})`)
+  const r = await loadDealSpec(maDeal, phongCach)
   if (!r.ok) { bad(r.error); stop() }
 
   for (const c of r.canhBao) console.log(`    ! ${c}`)

@@ -224,7 +224,10 @@ async function main(specPath) {
   // ⚠️ TINH MOC SAU BUOC GIONG DOC, khong truoc. Buoc tren vua KEO DAI cac canh
   // cho vua cau noi; tinh moc truoc do la tinh tren nhung con so da cu, va moi
   // doan tieng se bi dat sai cho.
-  const mocScene = tinhMoc()
+  //
+  // ⚠️ Va day VAN chua phai bang cuoi cung: sau Luot 1 con phai do lai do dai
+  // THAT cua tung doan da ma hoa roi tinh lai (xem "Do lai do dai that" ben duoi).
+  let mocScene = tinhMoc()
 
   /**
    * Moc tung chu tren TUNG CANH, de phu de chay dung theo giong doc.
@@ -237,6 +240,9 @@ async function main(specPath) {
    * thay la sai nhung khong du de doan ra vi sao.
    */
   const TRE_TIENG = 0.25
+  // ⚠️ Boc thanh HAM chu khong chay ngay: phai dung lai sau Luot 1, khi da biet
+  // do dai that cua tung doan. Chay mot lan o day thi phu de bam vao moc cu.
+  const dungNhip = () => {
   const cacNhip = []
   for (let i = 0; i < scenes.length; i++) {
     const s = scenes[i]
@@ -282,6 +288,8 @@ async function main(specPath) {
     // Phu de duoc dot vao sau khi noi cac doan, tren dong thoi gian cuoi cung,
     // nen mot chu nam vat qua hai canh khong con bi cat lam doi.
     cacNhip.push({ batDau: mocScene[i] + TRE_TIENG, tu })
+  }
+  return cacNhip
   }
 
   // ── Luot 1: moi scene mot doan ───────────────────────────────────
@@ -445,19 +453,68 @@ async function main(specPath) {
   }
   ok(`Dung ${doan.length} doan`)
 
+  // ── Do lai do dai THAT cua tung doan ─────────────────────────────
+  //
+  // ⚠️ ĐÂY LÀ CHỖ TỪNG LÀM MẤT ĐOẠN CUỐI CỦA VIDEO MÀ KHÔNG BÁO GÌ.
+  //
+  // Do that 2026-08-23, kich ban 24 canh: ffmpeg bao "Xong", ma track hinh chi
+  // dai 18,9s trong khi tieng dai 27,6s — bon canh cuoi, gom ca canh MA GIAM
+  // GIA va canh CTA, khong he co trong video. Chay rieng chuoi noi thi thay
+  // `drop=352`: ffmpeg vut di 352 khung.
+  //
+  // Nguyen nhan: `mocScene` tinh tu `s.duration` trong kich ban, nhung ffmpeg
+  // ma hoa theo KHUNG HINH. `-t 1.3` o 30fps dang le 39 khung, ma `1.3 * 30`
+  // trong so thuc la 39.000000000000007 nen thanh 40 khung = 1,3333 giay. Moi
+  // canh du ra vai phan tram giay; hai muoi ba canh thi `offset` cua `xfade`
+  // som gan nua giay so voi thuc te, PTS dam nhau, va bo loc `-r` vut khung.
+  //
+  // Nen: do lai bang ffprobe roi lay CHINH con so do lam su that. Sau buoc nay
+  // `scenes[i].duration` = do dai that cua `doan-i.mp4`, khong sai mot khung.
+  for (const [i, s] of scenes.entries()) {
+    s.duration = +(await docThoiLuong(`doan-${i}.mp4`, viec)).toFixed(6)
+  }
+  mocScene = tinhMoc()
+  const cacNhip = dungNhip()
+  info(`Do lai do dai that: ${tongDaiHienTai(mocScene).toFixed(2)}s`)
+
   // ── Luot 2: noi bang xfade ───────────────────────────────────────
   const dau = doan.flatMap(f => ['-i', f])
   const chuoi = []
-  let truoc = '[0:v]'
+
+  /**
+   * ⚠️ CHUAN HOA DAU THOI GIAN TRUOC KHI NOI — thieu buoc nay thi video BI CUT
+   * NGAN MA KHONG BAO LOI.
+   *
+   * Do that 2026-08-23 tren mot kich ban 24 canh: ffmpeg bao "Xong", ma track
+   * hinh chi dai 18,9s trong khi tieng dai 27,6s. Nghia la bon canh cuoi —
+   * gom ca canh MA GIAM GIA va canh CTA — khong he co trong video. Chay rieng
+   * chuoi noi de xem thi ffmpeg in `drop=830`: no vut di 830 khung.
+   *
+   * Ly do: moi `doan-i.mp4` la mot tep rieng, timebase va PTS goc cua chung
+   * khong dong bo. Noi mot hai cai thi khong sao; noi hai muoi ba cai thi sai
+   * so tich lai, PTS dam nhau, va bo loc `-r` o dau ra vut bot khung.
+   *
+   * `settb=AVTB` dua moi dau vao ve cung mot timebase, `setpts=PTS-STARTPTS`
+   * keo moc dau ve 0, `fps` ep dung nhip. Do lai cung kich ban: 27,167s dung
+   * bang ky vong, `drop=0`.
+   *
+   * ⚠️ Dung xoa ba bo loc nay cho gon. Chung khong lam gi thay doi duoc bang
+   * mat thuong — cho toi khi video dai hon mot chut la mat han doan cuoi.
+   */
+  for (let i = 0; i < doan.length; i++) {
+    chuoi.push(`[${i}:v]settb=AVTB,setpts=PTS-STARTPTS,fps=${FPS}[s${i}]`)
+  }
+
+  let truoc = '[s0]'
   for (let i = 1; i < doan.length; i++) {
     // Mat noi thu `i` bat dau dung o thoi diem scene `i` bat dau tren dong thoi
     // gian cuoi cung — lay tu `mocScene`, KHONG tu tinh lai (xem ly do o tren).
     const { type, dai } = chuyenRa(i - 1)
     const ra = i === doan.length - 1 ? '[ra]' : `[v${i}]`
-    chuoi.push(`${truoc}[${i}:v]xfade=transition=${type}:duration=${dai}:offset=${mocScene[i].toFixed(3)}${ra}`)
+    chuoi.push(`${truoc}[s${i}]xfade=transition=${type}:duration=${dai}:offset=${mocScene[i].toFixed(3)}${ra}`)
     truoc = ra
   }
-  if (doan.length === 1) chuoi.push('[0:v]null[ra]')
+  if (doan.length === 1) chuoi.push('[s0]null[ra]')
 
   // ── Dot phu de chay len tren ────────────────────────────────────
   //
@@ -476,6 +533,9 @@ async function main(specPath) {
     raCuoi = '[pd]'
   }
 
+  // Chuoi noi la thu dau tien can nhin khi video ra sai do dai. Ghi kem khi
+  // nguoi dung da yeu cau giu lai thu muc tam.
+  if (process.env.GIU_RAC) fs.writeFileSync(path.join(viec, 'chuoi-noi.txt'), chuoi.join(';\n'), 'utf8')
   const raTep = `${spec.output ?? 'video'}.mp4`
   const chuaTieng = coTieng ? 'hinh.mp4' : raTep
   await chay([
@@ -520,7 +580,38 @@ async function main(specPath) {
   fs.copyFileSync(path.join(viec, raTep), raDich)
   const kb = (fs.statSync(raDich).size / 1024).toFixed(0)
   ok(`Xong: out/${raTep} (${kb} KB)`)
+
+  // ── Don rac ──────────────────────────────────────────────────────
+  //
+  // Mot lan dung de lai ~20 MB trong `.scratch/video-job`: moi canh mot tep MP4
+  // rieng, cong anh da tai, cac doan tieng, cac tep chu, ban font, va ban hinh
+  // chua ghep tieng. Dung 20 deal la 400 MB nam im tren o cung.
+  //
+  // ⚠️ CHI DON KHI XONG XUOI. Hong o giua thi GIU LAI — chinh mo tep do la thu
+  // da tim ra loi cat cut video ngay 23/08: phai do do dai tung `doan-i.mp4`
+  // moi thay `mocScene` lech. Don sach khi that bai la vut di bang chung duy nhat.
+  //
+  // ⚠️ KHONG dung toi `.scratch/tts-cache` — bo nho dem giong doc nam o do, va
+  // xoa no la moi lan dung lai deu ton tien ElevenLabs.
+  if (process.env.GIU_RAC) {
+    info(`Giu lai ${path.relative(root, viec)} vi GIU_RAC=1`)
+  } else {
+    const mb = (docCoThuMuc(viec) / 1048576).toFixed(1)
+    fs.rmSync(viec, { recursive: true, force: true })
+    ok(`Da don ${mb} MB tep tam (dat GIU_RAC=1 de giu lai khi can soi loi)`)
+  }
+
   console.log(`\n  Mo bang: start "" "${raDich}"\n`)
+}
+
+/** Tong so byte cua mot thu muc, tinh ca thu muc con. */
+function docCoThuMuc(thuMuc) {
+  let n = 0
+  for (const m of fs.readdirSync(thuMuc, { withFileTypes: true })) {
+    const p = path.join(thuMuc, m.name)
+    n += m.isDirectory() ? docCoThuMuc(p) : fs.statSync(p).size
+  }
+  return n
 }
 
 /**
@@ -580,6 +671,34 @@ function chiaDong(chu, W, toiDaCoChu = 96) {
  */
 /** Lam tron ve so chan — H.264 doi chieu rong chia het cho 2. */
 function chan(n) { return n % 2 ? n + 1 : n }
+
+/**
+ * Hoi ffprobe do dai THAT cua mot doan da ma hoa.
+ *
+ * ⚠️ Bat buoc phai hoi, KHONG duoc tin con so `duration` trong kich ban.
+ * ffmpeg ma hoa theo KHUNG HINH: `-t 1.3` o 30fps dang le ra 39 khung, nhung
+ * `1.3 * 30` trong so thuc la 39.000000000000007 nen no lam tron len 40 khung
+ * = 1,3333 giay. Moi canh du ra vai phan tram giay, hai muoi ba canh thi lech
+ * gan nua giay — va cai lech do lam `xfade` vut khung, cat cut ca doan cuoi
+ * video. Xem chu thich o buoc noi.
+ */
+function docThoiLuong(tep, cwd) {
+  return new Promise((res, rej) => {
+    const p = spawn('ffprobe', [
+      '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', tep,
+    ], { cwd })
+    let ra = ''
+    p.stdout.on('data', d => { ra += d })
+    p.on('error', rej)
+    p.on('close', ma => {
+      const so = Number(String(ra).trim())
+      if (ma !== 0 || !Number.isFinite(so) || so <= 0) {
+        return rej(new Error(`ffprobe khong doc duoc do dai doan: ${tep}`))
+      }
+      res(so)
+    })
+  })
+}
 
 function docKichThuoc(tep) {
   if (boNhoKichThuoc.has(tep)) return Promise.resolve(boNhoKichThuoc.get(tep))

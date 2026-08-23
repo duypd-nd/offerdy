@@ -211,6 +211,45 @@ test('cảnh mã: màn hình hiện mã nguyên, máy đọc đánh vần', () =
   assert.match(String(ma.badgeText), /OFFERDY/)
 })
 
+test('cảnh mã nói RÕ giảm bao nhiêu khi có offerText', () => {
+  const { scenes, verifiedFacts } = buildSpec({
+    deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY',
+    storeName: 'BloomingBabies', couponOfferText: '5% Off',
+  })
+  const ma = scenes.find(s => s.type === 'coupon')!
+  // ⚠️ Màn hình: "5% OFF CODE" rồi xuống dòng mới tới mã. KHÔNG phải
+  // "5% OFF / CODE OFFERDY" — cảnh giá ngay trước đó đã hiện "44% OFF", nên một
+  // con số đứng một mình ở đầu dòng trông như hai mức giảm đá nhau.
+  assert.equal(ma.badgeText, '5% OFF CODE\nOFFERDY')
+  assert.equal(ma.overlayText, ma.badgeText)
+  // Lời đọc: "5 percent" chứ không phải "5%" — máy đọc phát âm ký hiệu rất tệ.
+  assert.match(ma.voiceText!, /a 5 percent off code, OFFERDY\b/)
+  assert.match(ma.speakText!, /a 5 percent off code, O F F E R D Y/)
+  assert.ok(!/%/.test(ma.speakText!), ma.speakText)
+
+  // ⚠️ TUYỆT ĐỐI không được hứa cộng dồn: nhiều shop loại trừ hàng đang sale
+  // khỏi mã. Mô tả CÁI MÃ thì được, hứa khách SẼ được giảm thêm thì không.
+  assert.ok(!/extra|additional|stack|on top/i.test(ma.voiceText!), ma.voiceText)
+
+  // Nguồn của con số phải truy được.
+  assert.ok(verifiedFacts.some(f => /muc giam cua ma = 5% OFF/.test(f)), verifiedFacts.join(' | '))
+})
+
+test('offerText không đọc được thì cảnh mã giữ NGUYÊN như cũ, không bịa số', () => {
+  for (const text of ['Free Shipping', '', 'Exclusive offer']) {
+    const { scenes, verifiedFacts } = buildSpec({
+      deal: DEAL, images: ANH, beats: NHIP, couponCode: 'OFFERDY',
+      storeName: 'BloomingBabies', couponOfferText: text,
+    })
+    const ma = scenes.find(s => s.type === 'coupon')!
+    assert.equal(ma.badgeText, 'CODE\nOFFERDY', text)
+    assert.match(ma.voiceText!, /has the code OFFERDY\b/, text)
+    // Không một con số phần trăm nào được xuất hiện từ hư không.
+    assert.ok(!/\d+\s*percent/.test(ma.voiceText!), ma.voiceText)
+    assert.ok(verifiedFacts.some(f => /KHONG noi con so nao/.test(f)), text)
+  }
+})
+
 test('nhịp do AI viết KHÔNG có bản riêng cho máy đọc — nghe sao thấy vậy', () => {
   const { scenes } = buildSpec({ deal: DEAL, images: ANH, beats: NHIP })
   for (const s of scenes.filter(s => NHIP.some(b => b.type === s.type))) {
