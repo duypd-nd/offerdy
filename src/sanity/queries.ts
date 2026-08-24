@@ -1231,3 +1231,44 @@ export async function getSeoAuditData(): Promise<SeoAuditData> {
     return (await getCachedSeoAuditData()) ?? empty
   } catch { return empty }
 }
+
+/* ── Ho so thu ma coupon (trang /how-we-test) ────────────────────────────────── */
+
+export type CouponTestRecord = {
+  storeName: string
+  storeSlug: string | null
+  code: string
+  testedAt: string
+  result: string | null
+  note: string | null
+}
+
+/**
+ * Moi lan MOT NGUOI THAT mang ma di ap vao quay thanh toan cua mot shop.
+ *
+ * Vi sao co ham rieng thay vi dung lai `getStores()`: day khong phai danh sach
+ * shop, ma la mot **ho so bang chung** — don vi la mot LAN THU, co ngay thang va
+ * ket qua. Mot shop co the co nhieu lan thu; mot shop chua thu lan nao thi khong
+ * xuat hien. Xep theo ngay giam dan roi den ten shop.
+ *
+ * ⚠️ Chi lay ban ghi CO `codeTestedAt`. Truong do chi duoc dien tay va cron bi
+ * cam ghi vao no (xem src/lib/offerTrust.ts) — chinh vi the no moi dang tin.
+ * Khong duoc noi long dieu kien nay de "cho bang day hon": mot dong khong ngay
+ * thang thi khong phai bang chung, va ca gia tri cua trang nay nam o cho do.
+ */
+export async function getCouponTestRecords(): Promise<CouponTestRecord[]> {
+  if (!isConfigured()) return []
+  try {
+    const rows = await readClient.fetch<CouponTestRecord[]>(
+      `*[_type == "offer" && defined(codeTestedAt) && defined(couponCode) && couponCode != ""]{
+        "storeName": coalesce(store->name, ""),
+        "storeSlug": store->slug.current,
+        "code": couponCode,
+        "testedAt": codeTestedAt,
+        "result": codeTestResult,
+        "note": codeTestNote
+      } | order(testedAt desc, storeName asc)`
+    )
+    return (rows ?? []).filter(r => r.storeName)
+  } catch { return [] }
+}

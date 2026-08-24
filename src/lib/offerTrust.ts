@@ -64,6 +64,24 @@ export function fmtDayUtc(iso?: string): string | null {
   return `${month} ${Number(m[3])}`
 }
 
+/**
+ * "2026-08-03T09:12:00Z" -> "Aug 3, 2026". Cung ky thuat doc thang tu chuoi ISO
+ * nhu `fmtDayUtc`, va cung ly do — xem chu thich o tren.
+ *
+ * Co nam, vi cho dung no la **ho so bang chung** (`/how-we-test`) chu khong phai
+ * mot cai nhan canh nut. Tren the offer thi "Aug 3" la du va gon; trong mot bang
+ * ghi lai viec da lam thi thieu nam la thieu mat dieu nguoi doc can nhat — cach
+ * day bao lau.
+ */
+export function fmtDayYearUtc(iso?: string): string | null {
+  if (!iso) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  if (!m) return null
+  const month = MONTHS[Number(m[2]) - 1]
+  if (!month) return null
+  return `${month} ${Number(m[3])}, ${m[1]}`
+}
+
 export function offerTrustBadge(offer: OfferTrustInput): OfferTrustBadge | null {
   const testedOn = fmtDayUtc(offer.codeTestedAt)
 

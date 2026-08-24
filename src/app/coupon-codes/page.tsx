@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import CouponCodesContent from './CouponCodesContent'
@@ -47,7 +48,18 @@ export default async function CouponCodesPage({ searchParams }: PageProps) {
         <div className="page-hero">
           <div className="page-hero-eyebrow">Coupon Codes</div>
           <h1 className="page-hero-title">🏷️ Verified Promo Codes</h1>
-          <p className="page-hero-sub">Every code tested and verified before it goes live. Updated daily.</p>
+          {/*
+            Cau cu: "Every code tested and verified before it goes live. Updated daily."
+            Do la hai loi hua khong giu duoc — do 24/08: 71/98 ma co ma da duoc thu, va
+            chung duoc thu ngay 03/08 va 05/08, khong phai hang ngay. Chinh du an nay da
+            chot mot ranh gioi o src/lib/offerTrust.ts: goi ket qua cua cron la
+            "code tested" la hua mot viec chua bao gio lam. Cau nay pham dung dieu do.
+            Nay noi that va DAN NGUOI DOC TOI BANG CHUNG thay vi bat ho tin.
+          */}
+          <p className="page-hero-sub">
+            We enter codes at the store checkout ourselves and publish the date we did it.{' '}
+            <Link href="/how-we-test" className="page-hero-link">See the full test log</Link>
+          </p>
         </div>
         <CouponCodesContent offers={offers} page={page} totalPages={totalPages} />
       </main>

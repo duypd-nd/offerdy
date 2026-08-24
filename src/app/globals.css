@@ -1803,3 +1803,46 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 }
 /* O luoi mac dinh `min-width:auto` — cung khong cho co. */
 .abs-card,.abs-card-title,.abs-card-text{min-width:0}
+
+/* ── /how-we-test : ho so thu ma coupon ──────────────────────────────────────
+   ⚠️ Dat bo cuc bang CLASS o day, khong bang inline style trong JSX: inline style
+   khong nhan media query, va do la nguyen nhan cua 6 loi giao dien dien thoai
+   trong hai ngay (xem PROJECT_CONTEXT muc "Admin on a phone").
+   Bang o day rong that su — no PHAI cuon ngang duoc, dung xen im lang. */
+.hwt-wrap{max-width:900px;margin:0 auto;padding:40px 24px 80px}
+.hwt-h1{font-family:var(--font-d),system-ui,sans-serif;font-size:clamp(26px,5vw,38px);font-weight:800;letter-spacing:-.6px;line-height:1.15;color:var(--text);margin:0 0 16px}
+.hwt-h2{font-family:var(--font-d),system-ui,sans-serif;font-size:19px;font-weight:800;color:var(--text);margin:36px 0 10px}
+.hwt-lead{font-size:17px;line-height:1.7;color:var(--text);margin:0 0 24px}
+.hwt-p{font-size:15px;line-height:1.75;color:var(--muted);margin:0 0 12px}
+.hwt-quiet{color:var(--muted);opacity:.75}
+.hwt-back{margin-top:36px;font-weight:600}
+
+.hwt-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:28px 0 8px}
+.hwt-stat{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);padding:16px 14px;text-align:center}
+.hwt-stat-n{font-family:var(--font-d),system-ui,sans-serif;font-size:28px;font-weight:900;color:var(--green-dark);line-height:1.1}
+.hwt-stat-l{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}
+
+/* Cuon ngang THAT SU, khong phai overflow:hidden. */
+.hwt-scroll{overflow-x:auto;border:1.5px solid var(--border);border-radius:var(--r);background:var(--white)}
+.hwt-table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:720px}
+.hwt-table th{text-align:left;padding:12px 14px;background:var(--bg);color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:1.5px solid var(--border);white-space:nowrap}
+.hwt-table td{padding:11px 14px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+.hwt-table tr:last-child td{border-bottom:none}
+.hwt-table a{color:var(--green-dark);font-weight:600;text-decoration:none}
+.hwt-table a:hover{text-decoration:underline}
+.hwt-nowrap{white-space:nowrap;color:var(--muted)}
+.hwt-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:700;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 7px;color:var(--text)}
+.hwt-note{color:var(--muted);max-width:280px}
+.hwt-res{display:inline-block;font-size:11.5px;font-weight:700;border-radius:99px;padding:3px 10px;white-space:nowrap}
+.hwt-res-ok{color:var(--green-dark);background:var(--green-50);border:1px solid var(--green-100)}
+.hwt-res-warn{color:#b45309;background:#fffbeb;border:1px solid #fde68a}
+.hwt-res-bad{color:#b91c1c;background:#fef2f2;border:1px solid #fecaca}
+
+@media(max-width:760px){
+  .hwt-wrap{padding:28px 16px 60px}
+  /* Bon o so tren mot hang 390px = moi o 80px, chu bi bop nat. Hai hang thi doc duoc. */
+  .hwt-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+/* Link trong dong gioi thieu cua page-hero — phai doc duoc tren nen hero. */
+.page-hero-link{color:var(--green-dark);font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.page-hero-link:hover{color:var(--text)}

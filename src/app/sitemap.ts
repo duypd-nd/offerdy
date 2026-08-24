@@ -112,6 +112,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ? [{ url: `${BASE}/tips-guides`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
       : []),
     { url: `${BASE}/categories`,            lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
+    // Uu tien 0.6 chu khong phai 0.3 nhu cac trang thong tin khac: day la trang
+    // duy nhat tren site chua thong tin TRUC TIEP khong noi nao khac co, va no
+    // link toi 67 trang store (giup ca chuyen link noi bo).
+    { url: `${BASE}/how-we-test`,           lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
     { url: `${BASE}/about`,                 lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE}/author`,                lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE}/contact`,               lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
