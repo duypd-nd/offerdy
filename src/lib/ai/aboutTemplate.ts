@@ -37,7 +37,7 @@ export function renderAboutHtml(storeName: string, about: AboutContent): string 
 .abs-title{font-size:clamp(24px,5vw,34px);font-weight:700;line-height:1.2;margin:0 0 8px;color:#1a1a2e}
 .abs-title em{font-style:italic;color:#228B22}
 .abs-sub{color:#5a5a7a;font-size:14.5px;margin:0}
-.abs-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.abs-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin-bottom:16px}
 .abs-card{background:#f8fff8;border:1.5px solid #e8e4f5;border-radius:14px;padding:24px 22px;transition:box-shadow .22s,transform .22s}
 .abs-card:hover{box-shadow:0 8px 28px rgba(34,139,34,.12);transform:translateY(-2px)}
 .abs-card-icon{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:14px}
@@ -48,7 +48,14 @@ export function renderAboutHtml(storeName: string, about: AboutContent): string 
 .abs-intro-badge{flex-shrink:0;width:48px;height:48px;border-radius:12px;background:#228B22;display:flex;align-items:center;justify-content:center;font-size:22px}
 .abs-intro-text{font-size:14px;color:#5a5a7a;line-height:1.75;margin:0}
 .abs-intro-text strong{color:#1a1a2e}
-@media(max-width:540px){.abs-grid{grid-template-columns:1fr}.abs-intro{flex-direction:column}}
+/* minmax(0,1fr) chu KHONG phai 1fr: 1fr chinh la minmax(auto,1fr), va auto khong cho
+   cot co nho hon be rong toi thieu cua noi dung. Voi mot cum chu khong ngat duoc
+   (tieng Thai/Khmer/Lao khong co dau cach giua tu, hoac mot URL dai) thi be rong toi
+   thieu do rat lon va ca luoi phinh ra. Do that @390px: cum 60 ky tu day trang rong
+   469px. overflow-wrap o body KHONG cuu duoc cho nay — no chan chu tran khoi DONG,
+   con day la chuyen tinh be rong toi thieu cua LUOI. Hai co che khac nhau.
+   ⚠️ Khoi nay nam trong mot template literal: TUYET DOI khong dung dau backtick o day. */
+@media(max-width:540px){.abs-grid{grid-template-columns:minmax(0,1fr)}.abs-intro{flex-direction:column}}
 /* ⚠️ TRUOC DAY viec nay do mot doan <script> o cuoi file lam: no leo nguoc len
    TUNG THE CHA cho toi <body> va ep border/box-shadow/background/padding bang
    !important. Cach do lam HONG HYDRATION tren ca 107 trang store — no sua chinh

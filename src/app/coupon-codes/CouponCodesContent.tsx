@@ -9,10 +9,15 @@ import { trackOfferClick } from '@/actions/trackClick'
 
 // Styles injected directly — avoids globals.css hot-reload issues
 const CSS = `
-.cc-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
-@media(max-width:1280px){.cc-grid{grid-template-columns:repeat(4,1fr)}}
-@media(max-width:960px){.cc-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:600px){.cc-grid{grid-template-columns:repeat(2,1fr)}}
+/* minmax(0,1fr) chu khong phai 1fr — xem chu thich o aboutTemplate.ts. 1fr chinh la
+   minmax(auto,1fr), khong cho cot co nho hon noi dung, nen mot ma coupon dai hoac mot
+   cum chu khong ngat duoc la phinh ca luoi. Trang nay CHUA vo trong phep do (ma coupon
+   deu ngan); va truoc chinh vi the — no la loi dang nam cho.
+   ⚠️ Khoi nay nam trong mot template literal: TUYET DOI khong dung dau backtick o day. */
+.cc-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+@media(max-width:1280px){.cc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:960px){.cc-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.cc-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .cc-card{background:#fff;border:1.5px solid #E4EAF2;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;transition:box-shadow .2s,border-color .2s,transform .2s;position:relative;overflow:hidden}
 .cc-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#22C55E,#34D399)}

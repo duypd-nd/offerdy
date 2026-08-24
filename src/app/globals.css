@@ -23,7 +23,14 @@
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{font-family:var(--font-b),system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+/* `overflow-wrap` KE THUA, va chi ngat KHI mot tu sap tran — chu binh thuong khong
+   he bi anh huong. Do that @390px: tu 40 ky tu khong sao · 60 ky tu day trang rong
+   465px · 91 ky tu day thanh 698px, tuc cuon ngang 308px tren man hinh 390px.
+   91 la do dai THAT cua ten shop cao ve ngay 23/08 ("BYD ELECTRIC CAR ACCESSORIES|
+   ATTO 3|..."). Lan do da chua bang cach sua DU LIEU, con CSS thi van mong manh
+   nguyen — lan sau cao ve mot ten dai, hoac ai dan mot URL dai vao mo ta, la vo lai.
+   Cung vá luon tieng Thai/Khmer/Lao: chung khong co dau cach giua tu. */
+body{font-family:var(--font-b),system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-wrap:break-word}
 a{text-decoration:none;color:inherit}
 button{cursor:pointer;font-family:inherit;border:none}
 
@@ -1772,3 +1779,27 @@ a.cc-store-nm:hover{color:var(--green-dark)}
   /* Cot template la phan phu, xuong duoi sau khoi upload. */
   .imp-cot{grid-template-columns:minmax(0,1fr)}
 }
+
+/* ── VA DE LEN CSS DA DONG BANG TRONG SANITY ──────────────────────────────────
+   src/lib/ai/aboutTemplate.ts sinh ra HTML KEM MOT KHOI <style> roi luu CA CUM DO
+   vao Sanity. Nghia la: sua template chi doi noi dung sinh MOI — 107 mo ta store
+   dang mang mot ban sao CSS dong bang tu luc chung duoc sinh ra. Da tra gia dung
+   mot vong build+do de biet dieu nay: va template xong, do lai, so khong nhuc nhich.
+
+   Khoi <style> do nam trong <body> nen no dung SAU globals.css trong tai lieu ->
+   cung do uu tien thi no thang. Nhan doi ten lop (.abs-grid.abs-grid) nang do uu
+   tien len 0,2,0, thang bat ke thu tu — sach hon !important va khong can biet the
+   nao boc ben ngoai.
+
+   Loi that duoc va: `1fr` = `minmax(auto,1fr)` khong cho cot co nho hon noi dung.
+   Voi mot cum chu khong ngat duoc — tieng Thai/Khmer/Lao khong co dau cach giua tu,
+   hay mot URL dai — ca luoi phinh ra. Do @390px: cum 60 ky tu day trang rong 469px,
+   tuc cuon ngang 79px. Sau khi de luat len: 390/390.
+   Cach dut diem hon la ghi lai HTML da luu cho 107 tai lieu, nhung do la di chuyen
+   du lieu; luat CSS nay va duoc ca noi dung cu lan moi, khong dung toi du lieu. */
+.abs-grid.abs-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:540px){
+  .abs-grid.abs-grid{grid-template-columns:minmax(0,1fr)}
+}
+/* O luoi mac dinh `min-width:auto` — cung khong cho co. */
+.abs-card,.abs-card-title,.abs-card-text{min-width:0}
