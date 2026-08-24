@@ -1073,6 +1073,54 @@ The deal form used to tell the operator *"Giá gốc phải tự nhập, shop h�
 - `.adm-page`, `.adm-stat-row`, `.adm-two-col`, `.adm-health-grid` replace the hard-coded inline `grid-template-columns` on the dashboard and report pages — inline styles cannot be overridden by a media query
 - heights use `100dvh`, not `100vh` (mobile address bar)
 
+## International readers: the browser translates, we add no languages (2026-08-24)
+
+The site is English-only and **stays** English-only. Foreign visitors are served by
+Chrome/Edge/Safari's built-in translation — free, no extra URLs, no SEO risk. Everything
+that makes that work was already in place and must stay that way:
+
+- `<html lang="en">` in `layout.tsx` — the one signal the browser keys off
+- no `notranslate` / `translate="no"` anywhere
+- no text baked into CSS `content:` (only the `✓`/`✕` glyphs in `.sol-proscons-*`)
+- every public image has `alt` (alt text gets translated too)
+- dates never render `vi-VN` outside `/admin`, and never in an ambiguous numeric form
+- prices keep the merchant's own symbol (`$` 381 · `₹` 44 · `€` 24 deals)
+
+`og:locale: 'en_US'` is set in `generateMetadata`. **`hreflang` is deliberately absent** —
+it annotates *alternate language versions of the same page*; on a single-language site a
+self-referencing `x-default` tells Google nothing.
+
+### Why not 10 languages (measured 2026-08-24)
+
+148,000 words × 9 = **1.33M words**, sitemap 197 → ~1,970 URLs — against a site with
+**3 URLs indexed, 0/65 content pages ever crawled, 0 clicks in 30 days**. Multiplying zero
+by ten is still zero, and it reverses the 2026-08-20 sitemap cut. It also trips Google's
+scaled-content-abuse policy (machine translation at scale, unreviewed) on a site whose
+articles are already AI-written. If it is ever revisited: measure GA4 country first, ship
+**one** human-reviewed language, wait 4–6 weeks to see if it gets indexed — and **never**
+redirect by IP (Googlebot crawls from US IPs, so the other versions go invisible).
+
+### Layout must survive longer words
+
+German runs 20–35% longer than English. `.scratch/do-dich-trinh-duyet.mjs` drives real
+Chrome, stretches **every word** to 135%, and re-measures — 5 pages × 2 viewports, diffing
+before/after so pre-existing clipping isn't mistaken for a regression. Two real bugs came
+out of the first run (fixed in `29ac54a`):
+
+- `.sol-cta{width:176px}` was **exactly the width of the English string "Get Code"**. Any
+  longer label clipped 28px, silently. Now `min-width`, with `.sol-row` on `minmax(0,1fr)`
+  and `.sol-get-code{flex-shrink:0}`.
+- ⚠️ **`overflow` other than `visible` makes a flex item's `min-width:auto` resolve to 0.**
+  `.sol-get-code` had `overflow:hidden` purely to round its children's corners, and that
+  alone gave the browser permission to squeeze and clip it. Whenever `overflow:hidden` is
+  added for rounding, add `flex-shrink:0` with it.
+- `.sol-tabs{overflow:hidden}` blocked scrolling, so the last tab was cut and **unreachable**
+  at 390px — hurting English readers too, not just translated ones. Now `overflow-x:auto`
+  under `max-width:600px`.
+
+Rule of thumb: **a fixed `width` sized to fit an English string is a latent clipping bug.**
+Use `min-width`.
+
 ## ⚠️ One price parser, because there were five (`src/lib/priceAmount.ts`)
 Prices are stored as display strings (`"€199,99"`, `"$1,299.99"`, `"Rp4.961.899"`). Five places pulled the number out with `parseFloat(s.replace(/[^0-9.]/g,''))`, which **throws the comma away instead of reading it**. Measured on this project's own data:
 

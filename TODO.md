@@ -1,19 +1,73 @@
 # Offerdy — TODO
 
-# 🔖 ĐIỂM DỪNG 2026-08-23 (đêm) — ĐỌC MỤC NÀY TRƯỚC
+# 🔖 ĐIỂM DỪNG 2026-08-24 — ĐỌC MỤC NÀY TRƯỚC
 
-**Mọi thứ đã commit và push. `main` = `origin/main` = `ae019d7`, cây làm việc sạch.**
-Hôm nay **11 commit**, từ `ea46a4c` → `ae019d7`.
-⚠️ **Production mới xác nhận tới `38eacc5`** — 8 commit sau đó (`feaa0bf`…`ae019d7`)
-**chưa kiểm trên production**. Việc đầu tiên sáng mai: đăng nhập
-`https://www.offerdy.com/admin/login` rồi mở `/admin/cron-check`, `VERCEL_GIT_COMMIT_SHA`
-phải là `ae019d7`. ⚠️ **Nhớ: mở nhầm localhost thì bảng vẫn hiện đầy đủ và trông y hệt —
-dấu hiệu duy nhất là `VERCEL_ENV` trống.**
+**`main` = `origin/main` = `29ac54a`, đã push, cây làm việc sạch.**
+✅ **Đã deploy và ĐO TRÊN PRODUCTION THẬT** (120s sau push): `og:locale` có mặt, bộ đo
+bố cục chạy trên `https://www.offerdy.com` cho **10/10 trang sạch**.
+📌 Vì `29ac54a` nằm sau tất cả, món nợ *"8 commit chưa kiểm trên production"* của ngày
+23/08 **coi như khép** — nhưng nếu muốn chắc thì mở `/admin/cron-check` xem
+`VERCEL_GIT_COMMIT_SHA` có đúng `29ac54a` không.
+⚠️ **Nhớ: mở nhầm localhost thì bảng vẫn hiện đầy đủ và trông y hệt — dấu hiệu duy nhất
+là `VERCEL_ENV` trống.**
 
-`npm test` **565** · type-check sạch · lint sạch · build sạch.
-Dev server đang chạy ở `http://localhost:3000` (kiểm: `/admin/login` trả 200).
-⚠️ Tắt dev server **KHÔNG** giết worker Turbopack — lọc theo `.nextdevbuild`, đừng giết hết
-`node.exe`.
+`npm test` **565** · type-check sạch · build sạch.
+⚠️ **`npm run lint` có 58 vấn đề (28 lỗi, 30 cảnh báo)** — chủ yếu `react-hooks/set-state-in-effect`.
+**CÓ SẴN TỪ TRƯỚC**, đã `git stash` bản chưa sửa chạy lại và ra **y hệt 58**. Ghi chú cũ nói
+*"lint sạch"* là **SAI** — nay sửa lại. Một con số sai trong sổ nguy hiểm hơn không có số.
+
+Dev server **đang tắt**. Bản dựng production cục bộ cũng đã tắt.
+
+## Hôm nay làm gì — 1 commit, `29ac54a`
+
+Câu hỏi mở màn: *"xây 10 ngôn ngữ theo vị trí khách hàng mất bao lâu"*.
+Trả lời sau khi đo: **đừng làm** — và cái cần làm thì gần như đã có sẵn.
+
+| Đo được | Số |
+|---|---|
+| Chữ phải dịch nếu làm thật | 148.000 từ × 9 = **1,33 triệu từ** |
+| Sitemap sẽ phình | 197 → **~1.970 URL** |
+| Trong khi đó: trang Google chưa từng bò | **0/65** · 3 URL chỉ mục · 0 bấm 30 ngày |
+
+Nhân 0 với 10 vẫn là 0, và nó đi ngược đúng phép cắt sitemap ngày 20/08 (mốc đo 27/08
+còn chưa tới). Chi tiết + bậc thang nếu sau này đổi ý: `PROJECT_CONTEXT.md`, mục
+*"International readers"*.
+
+**Thứ thật sự làm được:** trình duyệt tự dịch — miễn phí, 0 URL mới, 0 rủi ro SEO,
+**0 credit**. Rà soát cho thấy site đã đạt hết điều kiện từ trước (`<html lang="en">`,
+không `notranslate`, 0 ảnh thiếu `alt`, 0 ngày `vi-VN` lọt ra ngoài, giá giữ ký hiệu gốc).
+
+Nhưng tất cả những cái đó là **suy từ mã nguồn**. Ngồi đo bằng Chrome thật (kéo dài từng
+từ lên 135% — tiếng Đức dài hơn tiếng Anh 20–35%) thì ra **2 lỗi thật**:
+
+1. **Nút *Get Code* xén 28px** — `.sol-cta{width:176px}` khoá cứng, **vừa khít đúng chữ
+   tiếng Anh "Get Code"**. Cộng `.sol-row` dùng `1fr` không chịu co, cộng
+   `.sol-get-code{overflow:hidden}` làm `min-width:auto` của flex item **tụt về 0** theo
+   chuẩn CSS.
+2. **Tab *Deals(4)* không bấm tới được** @390px — `.sol-tabs{overflow:hidden}` chặn nốt
+   đường cuộn. **Lỗi có sẵn, hại khách tiếng Anh hôm nay**, không phải do dịch.
+
+Thêm `og:locale=en_US`. **KHÔNG thêm `hreflang`** — nó để khai *các bản ngôn ngữ khác*
+của cùng một trang; site một ngôn ngữ mà tự trỏ vào chính mình thì không nói gì với Google.
+
+## ⚠️ Bốn bẫy trả giá hôm nay
+
+1. **`pkill -f "next start"` KHÔNG giết được server trên Windows.** Server mới chết vì
+   `EADDRINUSE`, server **cũ vẫn trả lời**, vòng chờ `curl → 200` báo "sẵn sàng" →
+   **đo nhầm bản cũ hai lần liền, im lặng**. Phải `netstat -ano | grep :3100` lấy PID rồi
+   `taskkill //PID <pid> //F`, và **grep log tìm `EADDRINUSE` trước khi tin là đã khởi động**.
+2. **Bộ đo tràn lề giờ nói dối BẢY kiểu, không phải bốn.** Ba kiểu mới lộ ở trang công khai:
+   băng chạy marquee (báo mất 4526px), `-webkit-line-clamp`, và trang trí `::before/::after`
+   thò ra ngoài (`.rv-coupon` báo đúng 17px — chính là hai vết khuyết hình vé). **Phải chặn
+   ở cả hai chỗ**: vòng quét chính *và* hàm `capCat()` leo tổ tiên.
+3. **Trình rút gọn CSS của Next đảo thứ tự thuộc tính** — grep `sol-tabs{overflow-x:auto`
+   trả 0 trong khi luật có thật (thành `{scrollbar-width:none;overflow-x:auto}`). Suýt kết
+   luận nhầm "build không ăn".
+4. **Backtick trong heredoc bị shell phá** (lần thứ tư) — soạn file `.mjs` có template
+   literal thì dùng Write, đừng dùng `cat <<'EOF'`.
+
+📌 **Bài học phương pháp**: một `width` cố định đặt vừa khít một chuỗi tiếng Anh **là một
+lỗi xén đang nằm chờ**. Dùng `min-width`.
 
 ---
 
@@ -50,9 +104,21 @@ Mỗi bài vài phút: chọn deal → *Lấy ảnh sản phẩm* → *Copy capt
 | Bài viết công khai | 42 · review 23 |
 | Google 30 ngày | **0 lượt bấm**, 3 URL trong chỉ mục |
 
+**Thêm, đo 24/08 (đừng đo lại):**
+
+| | |
+|---|---|
+| Chữ nội dung trong Sanity | **318.076 từ** — store 64.5k · deal 170k · post 36.7k · offer 30.5k · review 16k |
+| Phần đáng dịch nếu làm đa ngữ | ~148.000 (bỏ deal ra — chúng đã bị cắt khỏi sitemap) |
+| Route công khai | 30 (chưa tính admin) · chuỗi chữ cứng trong giao diện ~115 |
+| Tiền tệ trên 451 deal | `$` 381 · **`₹` 44** · `€` 24 |
+
+📌 **`₹` 44 deal = 10% hàng đang là thị trường Ấn Độ** — chưa ai để ý. Chưa làm gì với
+thông tin này, nhưng nó là gợi ý khi bàn tới chuyện khách nước nào.
+
 ---
 
-## Hôm nay làm được gì — 11 commit
+## 📜 LỊCH SỬ — 11 commit ngày 23/08
 
 | Commit | Việc |
 |---|---|
@@ -66,7 +132,7 @@ Mỗi bài vài phút: chọn deal → *Lấy ảnh sản phẩm* → *Copy capt
 | `52555c5` | **Ô tick "đã đăng"** ngay trong danh sách |
 | `ae019d7` | **Caption có mã giảm giá và mức ưu đãi** |
 
-## ⚠️ Bốn bẫy trả giá trong ngày — đừng mắc lại
+## ⚠️ Bốn bẫy trả giá ngày 23/08 — đừng mắc lại
 
 1. **`xfade` trượt khỏi mép nửa khung hình là nuốt sạch các cảnh sau, KHÔNG báo gì.**
    Công thức mốc đặt `offset + duration` **đúng bằng** độ dài luồng, không dư một ly.
