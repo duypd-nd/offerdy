@@ -176,14 +176,40 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       ...(products.length
         ? [{
             '@type': 'ItemList',
+            /*
+             * ⚠️ DANH SACH THUAN — CO Y khong khai `@type: Product` cho tung muc.
+             *
+             * Chuoi ly le, doc het roi hay sua:
+             *
+             * 1. Gia trong du lieu co cau truc lech gia that cua shop la loi
+             *    rich-result, ma `priceAtWriting` bat dau troi ngay tu hom dang.
+             *    Nen KHONG duoc khai `offers` o day. Quyet dinh nay dung, giu nguyen.
+             *
+             * 2. Nhung Google doi mot `Product` PHAI co mot trong ba: `offers`,
+             *    `review`, hoac `aggregateRating`. Khai `Product` roi bo trong ca ba
+             *    la tao ra mot muc KHONG HOP LE.
+             *
+             * 3. Do that 24/08 qua Search Console: **221 muc khong hop le tren 41
+             *    trang blog** (co trang 12 muc). Chung khong sinh ra ket qua nhieu
+             *    dinh dang nao — `ItemList` chi duoc dung carousel cho Recipe/Course/
+             *    Movie/Restaurant, khong co Product. Tuc chung chi de ra loi, khong
+             *    doi lai gi.
+             *
+             * 4. Loi trong Search Console khong vo hai: no lam nhieu bang bao cao va
+             *    che mat van de that — dung luc du an dang co chan doan vi sao 0/65
+             *    trang chua duoc bo.
+             *
+             * => Bo `item` di, giu `name` + `url`. Day la dang "trang tom tat" cua
+             *    ItemList: hop le, khong khang dinh dieu gi minh khong chung minh
+             *    duoc, va van noi cho Google biet trang nay liet ke nhung gi.
+             *
+             * ⚠️ DUNG "sua" bang cach them `offers` vao. Doc lai muc 1.
+             */
             itemListElement: products.map((p, i) => ({
               '@type': 'ListItem',
               position: i + 1,
-              // ⚠️ **KHONG co `offers`.** Gia trong du lieu co cau truc lech gia that
-              // cua shop la loi rich-result, ma `priceAtWriting` bat dau troi ngay tu
-              // hom dang. Gia hien trong HTML thi khac: da co dong "gia tai thoi diem
-              // viet" ganh.
-              item: { '@type': 'Product', name: p.title, url: p.url, image: p.imageUrl || undefined },
+              name: p.title,
+              url: p.url,
             })),
           }]
         : []),
