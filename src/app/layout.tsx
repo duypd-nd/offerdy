@@ -36,6 +36,11 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       type: 'website',
       siteName: 'Offerdy',
+      // Thieu og:locale thi Facebook/LinkedIn tu DOAN ngon ngu tu chu trong the xem
+      // truoc — doan sai thi hien nham font va nham huong doc. Khai thang ra re hon.
+      // Khong khai hreflang o day: hreflang de chi cac BAN NGON NGU KHAC cua cung mot
+      // trang. Site mot ngon ngu ma tu tro vao chinh minh thi khong noi gi voi Google.
+      locale: 'en_US',
       title,
       description,
       url: 'https://www.offerdy.com',

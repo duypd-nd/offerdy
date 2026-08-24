@@ -554,7 +554,9 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 
 /* Offer list */
 .sol-list{background:var(--white);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden}
-.sol-row{display:grid;grid-template-columns:88px 1fr auto;gap:20px;padding:20px 20px;border-bottom:1px solid var(--border);align-items:center;transition:background .12s}
+/* Cot giua PHAI la minmax(0,1fr): `1fr` = `minmax(auto,1fr)` khong chiu co nho hon
+   noi dung, nen khi chu dai ra thi cot nut ben phai bi ep va xen im lang. */
+.sol-row{display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:20px;padding:20px 20px;border-bottom:1px solid var(--border);align-items:center;transition:background .12s}
 .sol-row:last-child{border-bottom:none}
 .sol-row:hover{background:rgba(0,0,0,.013)}
 
@@ -582,7 +584,11 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .sol-desc-tip,.sol-desc-eligibility{margin-top:4px;opacity:.85}
 
 /* CTA column */
-.sol-cta{flex-shrink:0;width:176px;display:flex;justify-content:flex-end}
+/* `min-width` chu KHONG phai `width`: 176px la be RONG VUA KHIT chu "Get Code" tieng
+   Anh. Khoa cung o do thi bat ky nhan nao dai hon — khach bat dich tu dong, hoac ma
+   giam gia dai hon — deu bi xen. Do that: chu dai them 35% lam mat 28px. Cot luoi la
+   `auto` nen trong tieng Anh no van ra dung 176px, bo cuc khong doi. */
+.sol-cta{min-width:176px;max-width:100%;display:flex;justify-content:flex-end}
 
 /* Expired offers */
 .sol-expired-section{margin-top:20px}
@@ -597,7 +603,11 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
 .sol-get-deal:hover{filter:brightness(1.1);color:white}
 
 /* Get Code button — main + dashed peek */
-.sol-get-code{display:inline-flex;align-items:center;border:none;background:none;cursor:pointer;padding:0;border-radius:var(--r-sm);overflow:hidden}
+/* `flex-shrink:0` la goc re. Theo chuan CSS, mot flex item co `overflow` khac
+   `visible` thi `min-width:auto` cua no tut ve 0 — tuc `overflow:hidden` o day (dat
+   de bo goc tron cho hai the con) da AM THAM cho phep nut co nho hon noi dung roi
+   xen di. Khoa co lai thi no khong bao gio bi ep nua. */
+.sol-get-code{display:inline-flex;align-items:center;flex-shrink:0;border:none;background:none;cursor:pointer;padding:0;border-radius:var(--r-sm);overflow:hidden}
 .sol-gc-btn{display:flex;align-items:center;height:38px;padding:0 16px;background:var(--green-dark);color:white;font-size:13px;font-weight:700;white-space:nowrap}
 .sol-gc-peek{display:flex;align-items:center;height:36px;padding:0 12px;border:1.5px dashed rgba(0,0,0,.18);border-left:none;background:white;font-family:monospace;font-size:11px;letter-spacing:2px;color:var(--muted)}
 
@@ -719,7 +729,12 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
   .sol-sb-mid{padding:10px 14px}
 }
 @media(max-width:600px){
-  .sol-row{grid-template-columns:70px 1fr;gap:12px;padding:16px}
+  .sol-row{grid-template-columns:70px minmax(0,1fr);gap:12px;padding:16px}
+  /* Tab khong co (`flex:0 0 auto`), khong xuong dong (`white-space:nowrap`), va bi
+     `overflow:hidden` (dat de bo goc tron) chan not duong cuon. Do that @390px: tab
+     cuoi "Deals(4)" mat 9px va KHONG CO CACH NAO bam toi. Mo duong cuon ngang ra. */
+  .sol-tabs{overflow-x:auto;scrollbar-width:none}
+  .sol-tabs::-webkit-scrollbar{display:none}
   .sol-cta{grid-column:2/3}
   .sol-gc-peek{display:none}
   .sol-disc{font-size:14px}
