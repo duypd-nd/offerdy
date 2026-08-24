@@ -1,5 +1,85 @@
 # Offerdy — Project Context
 
+> **File này là gì:** kiến trúc thật, quyết định đã chốt, và **bẫy đã trả giá**. Mỗi mục
+> tồn tại vì có người từng mất thời gian ở đó. Đây là nơi tra cứu, không phải nơi đọc từ
+> đầu tới cuối.
+>
+> **Ba file, ba việc — đừng gộp:**
+>
+> | File | Chứa gì |
+> |---|---|
+> | [`TODO.md`](TODO.md) | Việc **đang** làm, số đo **hiện tại** |
+> | **`PROJECT_CONTEXT.md`** (file này) | Kiến thức **dùng lại được** — không có ngày hết hạn |
+> | [`docs/NHAT_KY.md`](docs/NHAT_KY.md) | Điểm dừng **đã khép**, số đo **đã cũ** |
+>
+> Học được thứ dùng lại được thì viết vào đây. Việc làm xong hôm nay thì viết vào `TODO.md`.
+
+## Mục lục
+
+79 mục, nhóm theo chủ đề. **Dùng Ctrl+F với đúng tên mục** — cố ý không đặt link neo vì
+tên mục có backtick và dấu ngoặc, neo rất dễ gãy khi sửa tiêu đề.
+
+**Nền tảng & quy ước**
+Stack · Key Conventions · Tests (`npm test`) · Shared Components · Sanity Config IDs ·
+Static Fallback Data
+
+**Trang & định tuyến**
+Public Pages · Admin Pages · Empty pages are not advertised · Page titles: the brand suffix
+
+**Sanity & dữ liệu**
+Sanity: two clients, two quotas · `revalidatePath` clears `unstable_cache` ·
+The store count is derived, never typed · ⚠️ One price parser, because there were five ·
+Adding a deal from a pasted URL · "Lấy từ link" fills giá gốc · Scraping a merchant page ·
+Coupon code casing · Product images: the real gallery ·
+⚠️ CSS sinh từ template rồi lưu vào Sanity là CSS ĐÓNG BĂNG
+
+**Affiliate & doanh thu**
+Offer deep links · Deal URLs get the shop's ref automatically · Shop coupon on a deal ·
+Reviews auto-attach the affiliate ref · Reviews: affiliate ref resolved at render ·
+Deal ↔ store cross-links · Short link straight to merchant (`/g/`) ·
+Short-link tracking (`/d/`) · Attribution (`ofd_src` cookie) · Link previews ·
+`/links` ordering · Paid-ads break-even
+
+**Niềm tin: thử mã coupon** ← tài sản riêng, không ai chép được
+Coupon tests: the one thing competitors cannot copy ·
+Offers show a real date, and it says exactly what it means ·
+Store page: offers with a code come first ·
+`/how-we-test` — hồ sơ thử mã công khai
+
+**Nội dung AI**
+AI Engines · AI review queue · ⚠️ The AI content engine has never produced anything in
+production · Tier 2: the six generic blog posts are gone · Category articles go in `post` ·
+⚠️ A post with no `publishedAt` is PUBLIC · Blog posts finally carry affiliate tracking ·
+One list for post categories · The article honesty gate · Naming the ideas ·
+Writing the article · Writing rules — making the articles read human ·
+Approving an article, and rendering it · Article body: product cards ·
+Sidebar: related, not recent · Batch article writing
+
+**SEO / GEO**
+The sitemap is a Route Handler, and Route Handlers are cached ·
+Search: Google ranks pages that no longer exist · Search baseline frozen 2026-08-04 ·
+Search Console · "Has Google seen this page at all?" · The 404 page recovers traffic ·
+International readers: the browser translates, we add no languages
+
+**Video & mạng xã hội**
+Video studio · Downloading the video's images · Social kit · AI caption writer
+
+**Giao diện, ảnh, điện thoại**
+Admin on a phone ⚠️ *(có HAI mục cùng tên — một ở phần video, một ở cuối; cả hai đều đúng,
+chưa gộp)* · Images: resized by Sanity's CDN · Images: cap them at the Sanity CDN
+
+**Vận hành: cron, log, đo đạc**
+Product codes · Cron postmortem: `CRON_SECRET` · Cron auth · Daily report staleness ·
+One number, one source: broken-link count · Click totals: log vs counters ·
+Pageviews: read GA4, never count them ourselves · Sentry: never report from local dev ·
+Dates in admin · Flash sales countdown across timezones
+
+**Bảo mật & tài khoản**
+Sao lưu kho tài khoản quản trị · Cắt phiên khi đổi mật khẩu · Nhật ký thao tác ·
+Biến môi trường trên Vercel
+
+---
+
 ## Stack
 - **Framework**: Next.js (App Router), TypeScript, Tailwind CSS v4
 - **CMS**: Sanity (project ID: `ns0upb1t`) — all reads/writes via `writeClient`
@@ -1237,3 +1317,62 @@ Bốn nhóm, xếp theo hậu quả chứ không theo tên:
 - **Đã chết (2)** — `ADMIN_USERNAME`, `ADMIN_PASSWORD`, đã xoá 21/08
 
 Ghi chú khi đọc bảng trên Vercel: nó **sắp xếp theo thời điểm sửa, không theo bảng chữ cái**, và gộp cả Production/Preview/Development vào một bảng — một biến chỉ đặt cho Preview trông y hệt biến đã có cho Production. Dò bằng mắt trong bảng đó là cách chắc chắn bỏ sót; dùng ô Search hoặc `npx vercel env ls production`.
+
+## ⚠️ CSS sinh từ template rồi lưu vào Sanity là CSS ĐÓNG BĂNG (2026-08-24)
+
+`src/lib/ai/aboutTemplate.ts` không chỉ sinh HTML — nó sinh **HTML kèm một khối `<style>`**,
+và cả cụm đó được lưu thẳng vào tài liệu Sanity. Hệ quả mà không ai nghĩ tới cho tới khi trả
+giá: **sửa template chỉ ảnh hưởng nội dung sinh MỚI.** 107 mô tả store đang mang một bản sao
+CSS đóng băng từ đúng lúc chúng được sinh ra.
+
+Cách phát hiện: vá `1fr` → `minmax(0,1fr)` trong template, build, đo lại — **số không nhúc
+nhích một ly**. Mất trọn một vòng build + đo mới hiểu vì sao.
+
+Cách chữa đã chọn: **luật đè trong `globals.css`**, nhân đôi tên lớp để nâng độ ưu tiên.
+
+```css
+.abs-grid.abs-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+```
+
+Vì sao nhân đôi tên lớp chứ không `!important`: khối `<style>` kia nằm trong `<body>` nên nó
+đứng **sau** `globals.css` trong tài liệu — cùng độ ưu tiên thì nó thắng. `.abs-grid.abs-grid`
+có độ ưu tiên `0,2,0`, thắng bất kể thứ tự, và không cần biết thẻ nào bọc bên ngoài.
+
+Cách chữa dứt điểm hơn là ghi lại HTML đã lưu cho 107 tài liệu, nhưng đó là **di chuyển dữ
+liệu**. Luật CSS vá được cả nội dung cũ lẫn mới mà không đụng tới dữ liệu.
+
+📌 **Luật rút ra:** trước khi sửa CSS của một template sinh nội dung, hỏi ngay *"CSS này được
+render lúc chạy, hay đã bị đóng băng vào dữ liệu?"* — hai câu trả lời dẫn tới hai cách chữa
+hoàn toàn khác nhau.
+
+## `/how-we-test` — hồ sơ thử mã công khai (2026-08-24)
+
+`src/app/how-we-test/page.tsx` + `getCouponTestRecords()` trong `src/sanity/queries.ts`.
+
+Lý do tồn tại: gần như mọi chữ trên site do AI sinh, và trên một tên miền affiliate chưa có
+uy tín thì đó là hồ sơ kém. Trang này là thứ ngược lại — **không một câu nào được sinh ra**,
+tất cả là bản ghi của việc một người thật đã ngồi làm: mở quầy thanh toán từng shop và gõ mã
+vào. Thông tin trực tiếp, có ngày tháng, không đối thủ nào chép được.
+
+Đo lúc dựng: **71 lần thử trên 67 shop**, 71/71 áp được, làm trong 2 ngày (03/08 và 05/08).
+Trang tạo thêm **67 link nội bộ** tới trang store — giúp cả chuyện `0/65` trang chưa được bò.
+
+Ba quyết định về tính trung thực, đừng đảo ngược:
+
+1. **Mọi con số tính từ dữ liệu, không gõ tay cái nào.** Gõ tay là biến một hồ sơ bằng chứng
+   thành một lời quảng cáo. (Cùng nguyên tắc với *The store count is derived, never typed*.)
+2. **Giải thích tỉ lệ 100% thay vì khoe nó.** 63/71 lần thử dùng mã `OFFERDY` — mã đối tác
+   của chính mình, ở shop hợp tác trực tiếp. Một bảng "100% thành công" không kèm lý do thì
+   đọc như quảng cáo; nói ra lý do thì **dễ tin hơn**. Đoạn này tự tính mã chiếm đa số từ dữ
+   liệu, nên nó đúng cả khi dữ liệu đổi.
+3. **Cột "What we saw" hiện 70/71 dấu gạch — cố ý để nguyên.** Nó phơi ra đúng chỗ đang
+   thiếu. Chỗ hổng thật là **1 ghi chú / 71 lần thử**, và ghi chú duy nhất đó cũng chỉ là
+   ghép câu mẫu.
+
+Đường ống **vốn đã thông từ trước**: `offerTrustBadge()` trả về `detail`, và
+`StoreOfferList.tsx` đã vẽ nó ra. Không phải xây gì thêm — chỉ thiếu chữ để hiển thị.
+
+⚠️ Cùng lúc đã sửa một câu **không đúng sự thật** trên `/coupon-codes`: *"Every code tested
+and verified before it goes live. Updated daily."* Thực tế 71/98, thử ngày 03/08 và 05/08.
+Chính `src/lib/offerTrust.ts` đã chốt ranh giới này rồi — gọi kết quả của cron là
+"code tested" là hứa một việc chưa bao giờ làm. Câu quảng cáo kia phạm đúng vào đó.
