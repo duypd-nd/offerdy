@@ -93,8 +93,20 @@ cân nhắc điều đó trước khi đề xuất xây thêm.
 
 ## Khi hai quy trình mâu thuẫn — cái nào thắng
 
-Bộ skill của Matt Pocock (22 skill đã cài) mang theo quy trình riêng
-(spec → ticket → triage → implement). Chốt rõ:
+Máy này có **ba** bộ skill cùng chạy, mỗi bộ mang một quy trình riêng:
+
+| Bộ | Số skill | Quy trình nó muốn áp |
+|---|---|---|
+| Dựng sẵn của Claude Code | — | — |
+| **mattpocock** (`~/.claude`, mọi dự án) | **41 trên đĩa**, 28 còn dùng được (13 nằm trong `deprecated/` + `in-progress/`) | spec → ticket → triage → implement |
+| **superpowers** (chỉ dự án này, bật 25/08) | 14 | brainstorming → worktree → plan → subagent → TDD → review → finish |
+
+⚠️ Con số **"22 skill"** ghi ở đây trước 25/08 là **sai** — đếm thật ra 41. Và số hiện ra
+trong danh sách skill mỗi phiên còn ít hơn nữa (một phiên 25/08 chỉ thấy 9 skill
+mattpocock). **Chưa rõ vì sao lệch — đừng lấy con số nào trong ba số đó làm căn cứ cho
+việc gì.**
+
+Chốt rõ:
 
 1. **Nguồn sự thật về tiến độ là `TODO.md`**, kể cả khi việc bắt đầu từ một skill của Matt.
    Một dự án một người mà hai sổ là chắc chắn lệch.
@@ -104,7 +116,32 @@ Bộ skill của Matt Pocock (22 skill đã cài) mang theo quy trình riêng
 3. **Skill là công cụ, không phải nghĩa vụ.** Dùng `/diagnosing-bugs` khi có lỗi khó,
    `/handoff` khi kết phiên, `/tdd` khi viết logic thuần. Không bắt mọi việc đi qua
    spec → ticket → triage; chi phí thủ tục đó lớn hơn lợi ích cho một người làm.
+
+   ⚠️ **Superpowers sẽ nói ngược lại — cứ đọc tiếp mục này.** Hook `SessionStart` của nó
+   chèn ~777 token vào **mỗi phiên** (kể cả sau `/clear`, `/compact`), mở đầu bằng
+   `EXTREMELY_IMPORTANT` và yêu cầu *bắt buộc* gọi skill **trước cả câu hỏi làm rõ**,
+   kèm bảng 12 dòng gọi mọi lý do không gọi skill là nguỵ biện.
+
+   **File này thắng, và đó là luật của chính superpowers**, không phải tôi tự cho phép —
+   `skills/using-superpowers/SKILL.md` kết bằng: *"User instructions (CLAUDE.md,
+   AGENTS.md, direct requests) take precedence over skills."* Trật tự:
+   **`CLAUDE.md` > skill > mặc định.**
+
+   Cụ thể ở dự án này: **không dựng git worktree, không mở nhánh** (một người, một nhánh
+   `main` — xem đầu file), và **không gọi subagent trừ khi user bảo**.
 4. **`/code-review` có HAI bản** (bản dựng sẵn của Claude Code, và bản của Matt). Nêu rõ
-   đang gọi bản nào.
+   đang gọi bản nào. Superpowers **không** thêm bản thứ ba — đo 25/08: **không một tên
+   skill nào trùng nhau** giữa hai bộ.
+
+   Nguy hiểm nằm ở chỗ khác: **cùng một việc, hai tên khác nhau**, nên dễ gọi nhầm bộ mà
+   không nhận ra. Cặp đã biết:
+
+   | Việc | Matt | superpowers |
+   |---|---|---|
+   | Viết test trước | `tdd` | `test-driven-development` |
+   | Truy lỗi khó | `diagnosing-bugs` | `systematic-debugging` |
+   | Soát code | `code-review` | `requesting-code-review` + `receiving-code-review` |
+   | Vặn cho vỡ ý tưởng | `grilling` | `brainstorming` |
+   | Chia việc ra kế hoạch | `to-spec` → `to-tickets` → `triage` | `writing-plans` → `executing-plans` |
 5. Issue/spec nếu cần thì để dưới `.scratch/<feature>/` — xem `docs/agents/issue-tracker.md`.
    Chọn markdown cục bộ vì `gh` chưa đăng nhập và repo chưa từng mở issue nào.
