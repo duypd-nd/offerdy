@@ -16,7 +16,7 @@
 
 ## Mục lục
 
-79 mục, nhóm theo chủ đề. **Dùng Ctrl+F với đúng tên mục** — cố ý không đặt link neo vì
+80 mục, nhóm theo chủ đề. **Dùng Ctrl+F với đúng tên mục** — cố ý không đặt link neo vì
 tên mục có backtick và dấu ngoặc, neo rất dễ gãy khi sửa tiêu đề.
 
 **Nền tảng & quy ước**
@@ -56,6 +56,7 @@ Approving an article, and rendering it · Article body: product cards ·
 Sidebar: related, not recent · Batch article writing
 
 **SEO / GEO**
+⚠️ A validated URL is not a valid hostname ·
 The sitemap is a Route Handler, and Route Handlers are cached ·
 Search: Google ranks pages that no longer exist · Search baseline frozen 2026-08-04 ·
 Search Console · "Has Google seen this page at all?" · The 404 page recovers traffic ·
@@ -100,8 +101,8 @@ Biến môi trường trên Vercel
 - `isConfigured()` guard before every Sanity query. Static demo data (`src/data/*.ts`: Amazon/Nike/etc.) is a **local-dev-only** fallback — used **only** when `!isConfigured()` (no Sanity env). When Sanity IS configured (production), queries return the real result even if empty (`data ?? []` / `null`), and errors return empty too — they must **never** fall back to static demo data, or the live site shows fake brand partnerships (this happened once when store data was cleared; fixed 2026-07-24). If you add a new query fn, follow this pattern: `if (!isConfigured()) return staticX; try { return data ?? [] } catch { return [] }`. See `feedback_real_content_only` principle.
 - All public-facing UI text must be in **English** (international audience)
 - **Images**: use `next/image` (`fill` + `sizes` for card/grid images, explicit `width`/`height` for fixed-size logos/avatars) — `next.config.ts` allows `remotePatterns: hostname:'**'` since admin can paste external image URLs from any domain. One exception: review detail hero image stays a plain `<img>` (`reviews/[slug]/page.tsx`) because it intentionally preserves natural aspect ratio (no crop), unlike the blog hero which uses `fill`+`cover`.
-- **SEO config wiring**: `configSEO` and `configAuthor` (Sanity singletons) are read via `getConfigSeo()` / `getConfigAuthor()` in `src/sanity/queries.ts` and consumed in `layout.tsx` (`generateMetadata`) and blog/review detail pages (author byline + JSON-LD `Person`). Don't add new SEO/author admin fields without also wiring the read side — `configSEO`/`configAuthor` sat unused for a while before this was caught. Note: `configSEO.canonicalUrl` (the admin `/admin/config/seo` text field) is still **not** wired to anything — canonical tags are all hardcoded (see below) — so editing it in the admin has no effect.
-- **Production domain is `https://www.offerdy.com`** — the bare `offerdy.com` 308-redirects to it. Every canonical tag / sitemap URL / JSON-LD `@id` must use the `www.` form (hardcoded as `https://www.offerdy.com` per-file, not read from `NEXT_PUBLIC_SITE_URL` which is set on Vercel but unused by code). Fixed 2026-07-04 after an audit found all URLs pointing to the bare (redirecting) domain — if adding a new page with `generateMetadata`/JSON-LD, copy the `www.` form from an existing page, not the Vercel env var name.
+- **SEO config wiring**: `configSEO` and `configAuthor` (Sanity singletons) are read via `getConfigSeo()` / `getConfigAuthor()` in `src/sanity/queries.ts` and consumed in `layout.tsx` (`generateMetadata`) and blog/review detail pages (author byline + JSON-LD `Person`). Don't add new SEO/author admin fields without also wiring the read side — `configSEO`/`configAuthor` sat unused for a while before this was caught. Note: `configSEO.canonicalUrl` (the admin `/admin/config/seo` text field) **is wired as of 2026-08-26** — it drives `metadataBase`, `og:url`, and every JSON-LD `@id`/`url` in `layout.tsx`, through `siteBaseUrl()` in `src/lib/siteBaseUrl.ts`. It sat dead for months before that; see "⚠️ A validated URL is not a valid hostname" below for why wiring it was not the one-liner it looked like.
+- **Production domain is `https://www.offerdy.com`** — the bare `offerdy.com` 308-redirects to it. Every canonical tag / sitemap URL / JSON-LD `@id` must use the `www.` form. In `layout.tsx` this now comes from `siteBaseUrl(seo.canonicalUrl)` — one variable, used by both `generateMetadata` and `RootLayout`; **other files still hardcode it per-file**, and `NEXT_PUBLIC_SITE_URL` is set on Vercel but read by nothing. Fixed 2026-07-04 after an audit found all URLs pointing to the bare (redirecting) domain — if adding a new page with `generateMetadata`/JSON-LD, copy the `www.` form from an existing page, not the Vercel env var name.
 - **Favicon**: `src/app/icon.tsx` / `apple-icon.tsx` read `configGeneral.favicon` via `getFaviconUrl()`, falling back to a hardcoded navy/green icon if not configured. No static `favicon.ico` (removed — was the unused Next.js default).
 - `/llms.txt` (`src/app/llms.txt/route.ts`) auto-generates a GEO summary (categories, recent reviews/posts) from live Sanity data — update if major content sections change.
 - **Expired Coupon handling**: offers expired ≤30 days ago show under a "Recently Expired" badge (no CTA) instead of disappearing outright; `/coupon-codes` excludes expired codes from the main list rather than showing dead codes as if live.
@@ -780,6 +781,23 @@ Three places tell crawlers what exists — `sitemap.ts`, `/llms.txt`, and the on
 
 Why it matters here specifically: `/flash-sales` was submitted at **priority 0.9 with `changeFrequency: hourly`** while containing nothing, i.e. telling Google every hour that an empty page had just changed. On a site recovering from 93% of impressions landing on 404s, deliberately pointing the crawler at a blank page is the exact signal to avoid. The nav link stays — a human clicking "Flash Sales" and seeing "nothing right now" is a normal, honest outcome; a crawler being invited hourly is not.
 
+## ⚠️ A validated URL is not a valid hostname
+
+`configSEO.canonicalUrl` is an admin free-text box that, since 2026-08-26, decides `metadataBase` — the root of **every** absolute URL Next generates: canonical tags, `og:url`, JSON-LD. Wiring it looked like one line (`new URL(seo.canonicalUrl ?? FALLBACK)` in a try/catch). It is not, because **`try/catch` is a blind guard here.** Measured on Node 24:
+
+| Value | `new URL()` |
+|---|---|
+| `https://.offerdy.com/` ← **the value actually in the dataset until 25/08** | **valid**, hostname `.offerdy.com` |
+| `https://abc` | **valid**, hostname `abc` |
+| `https://offerdy.com.` | **valid**, hostname `offerdy.com.` |
+| `abc` · `''` · `//x.com` · `https://a b.com` | throws `ERR_INVALID_URL` |
+
+The one-line patch would have accepted the exact broken value already sitting in the database and made it the root of every absolute URL on the site — silently, on every page. `siteBaseUrl()` (`src/lib/siteBaseUrl.ts`) therefore inspects the **hostname**: every label non-empty, at least two labels. It also rejects non-http(s) protocols (`javascript:` and `data:` both parse, and would land straight inside `<link rel="canonical">`), strips path/query/hash, and **never throws** — `generateMetadata` runs on every page, so a mistyped config box must not become a 500. Eight tests in `tests/siteBaseUrl.test.ts` hold this.
+
+- **One variable, both functions.** `generateMetadata` and `RootLayout` each build `base` from the same helper. Two separate reads of "one source of truth" is still two sources — that cost 40 seconds of stale footer during the site-rename work on 25/08.
+- **Config changes take ~106 s to reach a page.** Measured end-to-end: changing the box to `https://dealwise.example` moved `og:url` after 106 seconds — `getConfigSeo()` reads through `readClient` (`useCdn: true`). Fine for a field edited once a year; **fatal to a measurement**, see below.
+- ⚠️ **The measurement lied first.** Round one concluded "the guard doesn't work" — but what it saw was `og:url` **unchanged**; if the guard had truly failed, `https://.offerdy.com` would have appeared. It had simply waited 121 s against a ~106 s CDN. Round two read the value back through `api.sanity.io` (**no CDN**) to confirm the box held the broken value *before* waiting on the page, which separates "CDN lag" from "guard broken". **A measurement where nothing changed has not told you anything.**
+
 ## The sitemap is a Route Handler, and Route Handlers are cached
 `src/app/sitemap.ts` declares **`export const revalidate = 3600`**. Removing that line silently un-publishes every piece of content added after the next deploy.
 
@@ -1002,8 +1020,16 @@ All three `Sentry.init` sites (`sentry.server.config.ts`, `sentry.edge.config.ts
 - **Why it matters more than noise**: `generateDailyReport` reads Sentry via `getRecentSentryIssues()`, so an error thrown while editing a file on `npm run dev` becomes a line in the operator's morning report and an action item telling them to fix something that never happened on the live site. This occurred on 2026-07-25 — most of that day's "5 unresolved production errors" were transient dev-server states.
 - `NODE_ENV` is the right switch: `npm run dev` → `development` (off); any Vercel build, production or preview → `production` (on). Running `npm start` locally would still report — rare enough to accept.
 - `environment` is `VERCEL_ENV` server-side and `NEXT_PUBLIC_VERCEL_ENV` client-side — the browser bundle only receives `NEXT_PUBLIC_*` variables.
-- ⚠️ `getRecentSentryIssues()` deliberately does **not** filter `environment=production` yet. Every issue recorded before 2026-07-26 is untagged, so the filter returns **zero** and would hide real production errors — the report would drop from "5 errors" to "0" and read as if everything were fixed. Add the filter once tagged issues dominate and the legacy ones are cleared.
 - The `SENTRY_AUTH_TOKEN` in `.env.local` is **read-only** (`403` on write), so issues cannot be resolved programmatically from here.
+
+### 2026-08-25: the local-dev leak was real, and two comments here were wrong
+
+The line above said `npm start` locally "would still report — rare enough to accept". Measured: of **7** open issues, **5 were not live-site errors at all**, two of them from this very machine (`localhost:3000/admin`, and `localhost:3399/admin/users` hit with `curl`). `npm run build && npm start` sets `NODE_ENV=production`, so `enabled` turns on while `VERCEL_ENV` is absent — and `environment: VERCEL_ENV ?? NODE_ENV` then stamped those errors **`production`**.
+
+- **Fix**: `environment: process.env.VERCEL_ENV ?? 'local'` at all three init sites (client uses `NEXT_PUBLIC_VERCEL_ENV`). Deliberately *not* `enabled: … && !!VERCEL_ENV` — if that variable ever failed to reach the runtime, monitoring would vanish silently; mislabelling still sends the event.
+- ⚠️ **`environment` must be its own query parameter.** The old note said to add `&environment=production` "later"; when that was finally attempted, the first patch put it inside `query=` and it **silently did nothing**. Measured: `query=is:unresolved`, `query=is:unresolved environment:production` and `query=is:unresolved !environment:local` all return the **same 7 issues**. Only `&environment=production` as a separate param filters (`local`/`preview`/`development` → 0).
+- ⚠️ **The "legacy issues are untagged" claim was also stale.** Every one of the 7 open issues carries `production=n`, including the two oldest. So the positive filter hides nothing, and `getRecentSentryIssues()` now uses it — with a fallback to the unfiltered query if the request fails, because an empty array here renders as the reassuring words "0 unresolved production errors".
+- **Lesson worth more than the fix**: a comment explaining why something is *not* done has a shelf life. Both comments were right when written and wrong when used. Re-measure before trusting one.
 
 ## Cron postmortem: `CRON_SECRET` had a key but an empty value
 All three crons were dead from 2026-07-07 to 07-26. Root cause, and the debugging lesson, are both worth keeping.
@@ -1029,6 +1055,15 @@ A cron-written report that silently stops updating is worse than no report: it k
 - **Why it stopped**: the report is written only by the Vercel cron, which authenticates with `CRON_SECRET`. `/api/cron/daily-report` returns **401 both when the secret is missing and when it mismatches**, and a cron that 401s fails silently — nothing surfaces anywhere. Evidence that no cron has ever fired: the only report ever written is timestamped 12:35 UTC while the schedule is 01:00 UTC, and neither of the other two crons has a Sanity write matching its schedule either (`link-check-nightly` last wrote 07-23 19:01 UTC, AI drafts 07-23 19:17 / 07-24 03:50 — all during working sessions). The Anthropic key was tested and is **alive with credit**, so cost was not the cause. Unconfirmed beyond that: the Vercel project lives on team `team_vFv3nz4DRjccZjLH3rfvUhtP`, which the connected Vercel MCP account cannot read (403) — check **Settings → Cron Jobs** and the Production `CRON_SECRET` in the dashboard.
 - **Staleness banner** at **48h**, not 24h: Vercel triggers a daily cron within an approximate window, so 24h would cry wolf whenever it ran a few hours late.
 - **"Tạo lại ngay"** (`src/app/admin/reports/actions.ts`) calls `generateDailyReport()` through a server action, so it is authorised by the admin Basic Auth in `proxy.ts` and needs no `CRON_SECRET` — an escape hatch that works even while the cron is broken. Errors are returned to the UI rather than swallowed, because the failure worth seeing here (missing key, exhausted credit) is exactly the kind that otherwise disappears. Each press is a real, billable Anthropic call, hence the `confirm()`.
+
+### 2026-08-25: "it dies loudly because someone reads it every morning" — measured false
+
+`vault-backup/route.ts` argues the vault backup should ride along inside `daily-report` rather than get its own cron, because `daily-report` produces something a human reads each morning, so **its** failure would surface immediately. It did not.
+
+- **Evidence that separates the schedule from the AI call**: `adminVaultBackup.mon` = 24/08 and `.tue` = 25/08 (the backup runs *first*, and succeeded both nights) while `dailyReport.generatedAt` stayed at **23/08**. So the cron fired on schedule both nights, the Anthropic call threw both times (exhausted credit), and the only signal was a `500` in Vercel Logs.
+- **The piggyback decision was still right** — the try/catch ordering did exactly what it was designed to do: the fragile part failed and the backup survived. What was wrong was believing a human would notice.
+- **Fix**: `Sentry.captureException` on report failure with a fixed `fingerprint` (N failed nights collapse into **one** issue with a counter, not N identical rows), plus a separate `captureMessage` if the **vault backup** fails — that is the most serious thing in the route. The staleness banner on `/admin/reports` is a *pull* channel: someone has to open the page. Sentry is the *push* channel into the red card on `/admin`.
+- **Verified end-to-end, not just compiled**: local `npm start` + a real call reproduced production exactly (`500`, `backup ok (slot tue, 2 users)`, `credit balance is too low`), Sentry received `JAVASCRIPT-NEXTJS-1F` with culprit `GET /api/cron/daily-report`, tagged `local=1`, and the production-filtered count stayed at 7. **Wiring that has never once run is not wiring.**
 
 ## One number, one source: broken-link count
 `/admin/reports` used to derive "N offer link hỏng" itself as `sum(linkChecked - linkOk)` over `getMerchantHealthData()`. The formula is correct — checked against `count(*[… linkStatus == "broken"])` and both give the same answer — but `getMerchantHealthData()` goes through `unstable_cache` (60s) while the dashboard card and sidebar badge read fresh via `adminWorkQueue`. While the nightly link-check cron is writing, the same screen showed **20** in one box and **18** in another, with nothing to tell the reader which was right. The report page now reads `queue.brokenLinks`, the same source as everywhere else.

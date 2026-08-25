@@ -25,7 +25,7 @@ làm việc**. Giữ lại để tra cứu, thế thôi.
 
 ---
 
-## Bảy luật đã trả giá — vi phạm là hỏng thật
+## Tám luật đã trả giá — vi phạm là hỏng thật
 
 **1. ĐO TRƯỚC KHI SỬA.** Kiểm chứng lỗi có thật không *trước khi* sửa code. Cấm suy luận
 "code này giống code đã hỏng nên chắc cũng hỏng". Phân biệt rõ **"đã đo"** với
@@ -39,7 +39,7 @@ làm việc**. Giữ lại để tra cứu, thế thôi.
 review, hay ghi chú thử mã. Thiếu dữ liệu thì **hỏi**, đừng điền. Trang này bán niềm tin;
 một con số bịa làm hỏng đúng thứ đang xây.
 
-**3. `npm test` TRƯỚC KHI COMMIT.** Hiện **565 assertion**. Kèm `npx tsc --noEmit` và
+**3. `npm test` TRƯỚC KHI COMMIT.** Hiện **582 assertion** (26/08). Kèm `npx tsc --noEmit` và
 `npm run build`.
 ⚠️ `npm run lint` đang có **62 vấn đề có sẵn** — đừng tưởng là mình vừa làm hỏng. Muốn biết
 chắc thì `git stash` bản chưa sửa rồi chạy lại mà đối chứng.
@@ -57,12 +57,36 @@ Soạn markdown hay code có backtick thì dùng Write/Edit, đừng dùng `cat 
 media query. Sáu lỗi giao diện điện thoại trong hai ngày đều là nó. Và dùng
 **`minmax(0,1fr)`**, không dùng `1fr`.
 
+**8. BA CÁCH TÔI DỰ ĐOÁN SAI ĐỀU ĐẶN — chặn từng cái một.**
+
+**(a) Đừng nói việc này to bao nhiêu trước khi đọc code.** Nói *"để tôi grep xem"*, đừng nói
+*"một dòng"*. Ngày 26/08 tôi bảo nối ô *Canonical URL* là "một dòng, có đường lùi về hằng
+số" — hoá ra `try/catch` quanh `new URL()` là hàng rào **mù** (`https://.offerdy.com/`,
+đúng giá trị đang nằm trong DB, được coi là **hợp lệ**), và có **7 chỗ** ghi cứng địa chỉ
+chứ không phải 1.
+
+**(b) Điều kiện lọc thì CHÉP, đừng gõ lại.** Query, regex, tên trường, tên giá trị — copy
+nguyên văn từ nguồn. Gõ lại theo trí nhớ cho ra *"451 deal đang chờ"* (thật ra **0**, vì
+route lọc `!defined(summary)` còn tôi gõ `description`), và *"0 mã chạy"* (thật ra 71/71,
+vì giá trị thật là `"worked"` chứ không phải `"works"`). Cùng một lỗi, hai lần, hai tháng.
+
+**(c) Phép đo phải phân biệt được HỎNG với CHƯA XẢY RA.** Một phép đo mà kết quả *không đổi
+gì cả* thì **chưa nói được gì** — đừng đọc nó thành "hỏng". Ngày 26/08 tôi kết luận "hàng
+rào không chặn được" trong khi thứ nhìn thấy chỉ là giá trị cũ chưa kịp đổi: chờ 121 giây
+mà CDN Sanity mất ~106 giây. Nếu hàng rào hỏng thật thì đã thấy giá trị hỏng hiện ra. Đo
+lại bằng đường **không qua CDN** mới tách được hai khả năng.
+
+📌 Và với API ngoài: **gọi thử một lần rồi mới viết bản vá.** Bộ lọc Sentry viết theo trí
+nhớ (`!environment:local` đặt trong `query=`) chạy trơn tru, trả 200, và **không lọc gì
+cả** — Sentry chỉ nhận `environment` như **tham số riêng**. Hai mươi giây gọi thử tiết
+kiệm một vòng sửa.
+
 ---
 
 ## Trước khi commit
 
 ```
-npm test          # phải 565, không giảm
+npm test          # phải 582, không giảm
 npx tsc --noEmit  # sạch
 npm run build     # sạch
 ```
@@ -99,7 +123,7 @@ Máy này có **ba** bộ skill cùng chạy, mỗi bộ mang một quy trình r
 |---|---|---|
 | Dựng sẵn của Claude Code | — | — |
 | **mattpocock** (`~/.claude`, mọi dự án) | **41 trên đĩa**, 28 còn dùng được (13 nằm trong `deprecated/` + `in-progress/`) | spec → ticket → triage → implement |
-| **superpowers** (chỉ dự án này, bật 25/08) | 14 | brainstorming → worktree → plan → subagent → TDD → review → finish |
+| **superpowers** (chỉ dự án này, bật 25/08) | **14 trên đĩa** (`6.3.0`) — ⚠️ phiên 26/08 nạp **0** | brainstorming → worktree → plan → subagent → TDD → review → finish |
 
 ⚠️ Con số **"22 skill"** ghi ở đây trước 25/08 là **sai** — đếm thật ra 41. Và số hiện ra
 trong danh sách skill mỗi phiên còn ít hơn nữa (một phiên 25/08 chỉ thấy 9 skill
@@ -145,3 +169,26 @@ Chốt rõ:
    | Chia việc ra kế hoạch | `to-spec` → `to-tickets` → `triage` | `writing-plans` → `executing-plans` |
 5. Issue/spec nếu cần thì để dưới `.scratch/<feature>/` — xem `docs/agents/issue-tracker.md`.
    Chọn markdown cục bộ vì `gh` chưa đăng nhập và repo chưa từng mở issue nào.
+6. **Dùng skill nào của superpowers — đã chốt 26/08, đừng cân nhắc lại từ đầu mỗi phiên.**
+   Đo trên đĩa: **đúng 14 skill**, bản `6.3.0`, cài cho riêng `E:\Offerdy` ngày 25/08.
+
+   | Skill | Dùng? | Vì sao |
+   |---|---|---|
+   | `verification-before-completion` | ✅ **hợp nhất với dự án này** | *"Evidence before claims"* — đúng họ lỗi đắt nhất ở `AGENTS.md`: ffmpeg báo Xong mà video cụt, server cũ vẫn trả lời, deep link chết mềm |
+   | `systematic-debugging` | ✅ khi lỗi khó | trùng việc với `/diagnosing-bugs` của Matt — chọn **một**, nói rõ đang gọi bản nào |
+   | `test-driven-development` | ✅ khi viết logic thuần | trùng việc với `/tdd` |
+   | `brainstorming` | ✅ khi cần vặn cho vỡ ý tưởng | trùng việc với `/grilling` |
+   | `writing-plans` · `executing-plans` | ⚠️ chỉ cho việc lớn nhiều bước | việc một buổi thì chi phí thủ tục lớn hơn lợi ích |
+   | `using-git-worktrees` · `finishing-a-development-branch` | ❌ **không** | một người, một nhánh `main` — xem đầu file |
+   | `dispatching-parallel-agents` · `subagent-driven-development` | ❌ **không** | không gọi subagent trừ khi user bảo |
+   | `requesting-code-review` · `receiving-code-review` | ❌ **không** | đã có **hai** bản `/code-review`; thêm bản thứ ba chỉ làm rối |
+   | `using-superpowers` · `writing-skills` | — | siêu-skill, không phải việc của dự án |
+
+   ⚠️ **Cài xong ≠ nạp được.** Đo phiên 26/08: plugin bật đúng trong
+   `.claude/settings.json` (`superpowers@superpowers-marketplace: true`), 14 skill nằm
+   sẵn ở `~/.claude/plugins/cache/`, mà phiên đó **không nạp một skill superpowers nào**
+   và **không hề có khối `EXTREMELY_IMPORTANT`** mà hook `SessionStart` lẽ ra chèn vào.
+   Chưa rõ vì sao. Cách kiểm: gõ `/plugin`, hoặc hỏi thẳng *"có thấy skill
+   `verification-before-completion` không?"* — **đừng cho rằng nó đang chạy chỉ vì đã
+   cài**. Đây cũng là lời giải cho ghi chú "số skill lệch" ở trên: một phần là do plugin
+   không nạp chứ không phải đếm sai.
