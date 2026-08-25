@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getAllDeals, getSiteSettings, getCouponOffers } from '@/sanity/queries'
+import { getAllDeals, getSiteName, getSiteSettings, getCouponOffers } from '@/sanity/queries'
 import LinkInBioDeals from '@/components/LinkInBioDeals'
 import LinkInBioCodes from '@/components/LinkInBioCodes'
 import { rankDealsForLinks } from '@/lib/dealRanking'
@@ -8,17 +8,20 @@ import type { Deal } from '@/data/deals'
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  // absolute: bo qua titleTemplate cua layout. Tieu de nay da mo dau bang ten
-  // thuong hieu, de template noi them "| Offerdy - Real Deals. Verified" nua thi
-  // tren tab trinh duyet hien "Offerdy ... | Offerdy ..." — day la trang dich cua
-  // toan bo traffic Instagram/TikTok nen cai nhin dau tien phai sach.
-  title: { absolute: 'Offerdy — Today’s Best Deals' },
-  description: 'Hand-picked deals, verified before they go live. Tap any deal to see full details.',
-  // Trang tien ich cho traffic mang xa hoi, noi dung trung voi /deals. Cho index
-  // se tao trang thu hai canh tranh chinh /deals tren Google. Van de follow de
-  // link equity chay tiep vao cac trang deal.
-  robots: { index: false, follow: true },
+export async function generateMetadata(): Promise<Metadata> {
+  const siteName = await getSiteName()
+  return {
+    // absolute: bo qua titleTemplate cua layout. Tieu de nay da mo dau bang ten
+    // thuong hieu, de template noi them "| <ten> - Real Deals. Verified" nua thi
+    // tren tab trinh duyet hien "<ten> ... | <ten> ..." — day la trang dich cua
+    // toan bo traffic Instagram/TikTok nen cai nhin dau tien phai sach.
+    title: { absolute: `${siteName} — Today’s Best Deals` },
+    description: 'Hand-picked deals, verified before they go live. Tap any deal to see full details.',
+    // Trang tien ich cho traffic mang xa hoi, noi dung trung voi /deals. Cho index
+    // se tao trang thu hai canh tranh chinh /deals tren Google. Van de follow de
+    // link equity chay tiep vao cac trang deal.
+    robots: { index: false, follow: true },
+  }
 }
 
 export default async function LinksPage() {
@@ -78,7 +81,7 @@ export default async function LinksPage() {
               the <a> (phai dangerouslySetInnerHTML) va dai 3 cau — qua nang cho
               footer tren dien thoai. Cau ngan + link toi trang cong bo day du la
               mau chuan va van dat yeu cau "clear and conspicuous". */}
-          Offerdy may earn a commission from links on this page.
+          {settings.siteName} may earn a commission from links on this page.
           <br />
           <Link href="/affiliate-disclosure">Affiliate disclosure</Link>
           {' · '}

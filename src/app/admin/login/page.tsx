@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { getSiteName } from '@/sanity/queries'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import LoginForm from './LoginForm'
@@ -6,10 +7,12 @@ import { currentAdmin } from '@/lib/adminSession'
 import { landingPath } from '@/lib/adminAuth'
 import { missingAuthConfig } from '@/lib/adminConfig'
 
-export const metadata: Metadata = {
-  title: 'Đăng nhập — Offerdy Admin',
-  // Trang dang nhap khong duoc vao chi muc tim kiem
-  robots: { index: false, follow: false },
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: `Đăng nhập — ${await getSiteName()} Admin`,
+    // Trang dang nhap khong duoc vao chi muc tim kiem
+    robots: { index: false, follow: false },
+  }
 }
 
 export const dynamic = 'force-dynamic'
@@ -42,6 +45,8 @@ export default async function LoginPage({
   const stillValid = await currentAdmin()
   if (stillValid) redirect(landingPath(stillValid.role))
 
+  const siteName = await getSiteName()
+
   const missing = missingAuthConfig()
 
   return (
@@ -52,7 +57,10 @@ export default async function LoginPage({
               (`logo-offerdy-light.png`) danh cho thanh ben nen toi. */}
           <Image
             src="/logo-offerdy.png"
-            alt="Offerdy"
+            // ⚠️ Chinh TEP ANH khong doi theo ten — doi ten website xong van phai
+            // thay logo bang tay. Chu `alt` thi doi duoc, va no la thu may doc
+            // man hinh va bo tim kiem thuc su doc.
+            alt={siteName}
             width={480}
             height={124}
             className="lg-logo"

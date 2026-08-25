@@ -2,21 +2,24 @@
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getCategories } from '@/sanity/queries'
+import { getSiteName, getCategories } from '@/sanity/queries'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Shop by Category',
-  description: 'Browse verified deals and coupon codes by category — tech, fashion, home, beauty and more.',
-  alternates: { canonical: 'https://www.offerdy.com/categories' },
-  openGraph: {
-    title: 'Shop by Category — Offerdy',
-    description: 'Browse verified deals and coupon codes by category.',
-    url: 'https://www.offerdy.com/categories',
-    type: 'website',
-  },
-  twitter: { card: 'summary', title: 'Shop by Category — Offerdy' },
+export async function generateMetadata(): Promise<Metadata> {
+  const siteName = await getSiteName()
+  return {
+    title: 'Shop by Category',
+    description: 'Browse verified deals and coupon codes by category — tech, fashion, home, beauty and more.',
+    alternates: { canonical: 'https://www.offerdy.com/categories' },
+    openGraph: {
+      title: `Shop by Category — ${siteName}`,
+      description: 'Browse verified deals and coupon codes by category.',
+      url: 'https://www.offerdy.com/categories',
+      type: 'website',
+    },
+    twitter: { card: 'summary', title: `Shop by Category — ${siteName}` },
+  }
 }
 
 export default async function CategoriesPage() {

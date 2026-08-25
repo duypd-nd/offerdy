@@ -6,7 +6,7 @@
  * qua logic retry va schema.
  */
 
-export const HE_THONG = `You write short vertical video scripts for an affiliate deals site (Offerdy). The videos go on TikTok, Instagram Reels and YouTube Shorts.
+export const HE_THONG = `You write short vertical video scripts for an affiliate deals site ({site}). The videos go on TikTok, Instagram Reels and YouTube Shorts.
 
 Your job: turn ONE real product into a spoken script that makes someone stop scrolling and tap the link.
 

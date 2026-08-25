@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { fillSiteName } from '@/lib/siteNameToken'
+import { getSiteName } from '@/sanity/queries'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { getSubmitDealPage, type SubmitDealData } from '@/app/admin/submit-deal/actions'
@@ -26,7 +28,7 @@ const DEFAULTS: Required<SubmitDealData> = {
     'Deals must be applicable to real purchases.',
   ],
   seoTitle: 'Submit a Deal — Help Us Find the Best Coupons',
-  seoDescription: "Know a coupon code or deal we're missing? Submit it to Offerdy. We verify every submission before it goes live.",
+  seoDescription: "Know a coupon code or deal we're missing? Submit it to {site}. We verify every submission before it goes live.",
   indexPage: true,
 }
 
@@ -51,12 +53,21 @@ async function get(): Promise<Required<SubmitDealData>> {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const d = await get()
-  return { title: d.seoTitle, description: d.seoDescription, alternates: { canonical: `${BASE}/submit-deal` }, robots: d.indexPage ? undefined : { index: false } }
+  const [d, siteName] = await Promise.all([get(), getSiteName()])
+  return { title: fillSiteName(d.seoTitle, siteName), description: fillSiteName(d.seoDescription, siteName), alternates: { canonical: `${BASE}/submit-deal` }, robots: d.indexPage ? undefined : { index: false } }
 }
 
 export default async function SubmitDealPage() {
-  const d = await get()
+  // Dien o `{site}` TRUOC khi day xuong SubmitDealClient: no la 'use client' nen
+  // khong tu hoi Sanity duoc — va van ban chua dien se lot ca vao goi RSC.
+  const [raw, siteName] = await Promise.all([get(), getSiteName()])
+  const n = (t: string) => fillSiteName(t, siteName)
+  const d: Required<SubmitDealData> = { ...raw,
+    h1: n(raw.h1), heroLead: n(raw.heroLead),
+    formHeading: n(raw.formHeading), formDesc: n(raw.formDesc),
+    steps: raw.steps.map(st => ({ ...st, title: n(st.title), desc: n(st.desc) })),
+    guidelines: raw.guidelines.map(n),
+    seoTitle: n(raw.seoTitle), seoDescription: n(raw.seoDescription) }
   return (
     <>
       <HeaderWrapper />

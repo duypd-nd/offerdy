@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import DealsPageContent from '@/components/DealsPageContent'
-import { getAllDeals } from '@/sanity/queries'
+import { getSiteName, getAllDeals } from '@/sanity/queries'
 import type { Deal } from '@/data/deals'
 import { dealsItemListJsonLd } from '@/lib/dealSchema'
 import { parsePriceAmount } from '@/lib/priceAmount'
@@ -30,7 +30,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 
   // Ten danh muc lay tu chinh deal (khong query them) — neu slug khong khop deal
   // nao thi coi nhu khong loc, tranh title kieu "Deals in undefined".
-  const allDeals = await getAllDeals()
+  const [allDeals, siteName] = await Promise.all([getAllDeals(), getSiteName()])
   const catName = category
     ? allDeals.find((d: Deal) => d.category?.slug === category)?.category?.name
     : undefined
@@ -49,7 +49,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
     // URL rong duoc index. Danh muc that van index binh thuong.
     ...(category && !catName && { robots: { index: false, follow: true } }),
     openGraph: {
-      title: `${title} — Offerdy`,
+      title: `${title} — ${siteName}`,
       description,
       url: buildCanonical(page, catName ? category : undefined),
       type: 'website',

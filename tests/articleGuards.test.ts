@@ -11,6 +11,7 @@ import { findUnsafeArticle, type ArticleContent, type ArticleGuardContext } from
 
 const ctx: ArticleGuardContext = {
   storeName: 'Frizzlife',
+  siteName: 'Offerdy',
   productCount: 2,
   sourceText: [
     'Frizzlife PD600-TAM3 600GPD Tankless Reverse Osmosis Water Filter System',
@@ -307,4 +308,11 @@ test('⚠️ doan van day viet tat KHONG sinh canh bao "ten rieng la"', () => {
   }), ctx)
   assert.deepEqual(p.hard, [])
   assert.deepEqual(p.soft.filter(s => /tên riêng lạ/.test(s)), [])
+})
+
+// ── Hang rao thuong hieu trong metaTitle phai DI THEO ten website ─
+test('metaTitle chua ten website MOI -> loi cung', () => {
+  const doiTen: ArticleGuardContext = { ...ctx, siteName: 'Dealio' }
+  const p = findUnsafeArticle(article({ metaTitle: 'Best Filters | Dealio' }), doiTen)
+  assert.match(p.hard.join(' '), /Dealio/)
 })

@@ -6,7 +6,7 @@ import { saveConfigDoc } from '../actions'
 type Step = { title: string; description: string }
 type Faq = { question: string; answer: string }
 
-export default function ContentConfigForm({ initial }: { initial: Record<string, unknown> }) {
+export default function ContentConfigForm({ initial, siteName }: { initial: Record<string, unknown>; siteName: string }) {
   const [dealsPerPage, setDealsPerPage] = useState(Number(initial.dealsPerPage ?? 8))
   const [reviewsPerPage, setReviewsPerPage] = useState(Number(initial.reviewsPerPage ?? 8))
   const [postsPerPage, setPostsPerPage] = useState(Number(initial.postsPerPage ?? 9))
@@ -192,7 +192,7 @@ export default function ContentConfigForm({ initial }: { initial: Record<string,
             className="cfg-input"
             value={articleReviewedBy}
             onChange={e => setArticleReviewedBy(e.target.value)}
-            placeholder="Offerdy Editorial Team"
+            placeholder={`${siteName} Editorial Team`}
           />
         </label>
       </div>

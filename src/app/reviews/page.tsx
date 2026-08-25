@@ -2,21 +2,24 @@ import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import ReviewsPageContent from '@/components/ReviewsPageContent'
-import { getReviews } from '@/sanity/queries'
+import { getSiteName, getReviews } from '@/sanity/queries'
 import AllLinksIndex from '@/components/AllLinksIndex'
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  title: 'Product Reviews — Honest, Tested & Verified',
-  description: 'In-depth product reviews written by real buyers. No sponsored content, no bias — just honest assessments to help you shop smarter.',
-  alternates: { canonical: 'https://www.offerdy.com/reviews' },
-  openGraph: {
-    title: 'Product Reviews — Honest, Tested & Verified — Offerdy',
-    description: 'In-depth product reviews written by real buyers. No sponsored content, no bias.',
-    url: 'https://www.offerdy.com/reviews',
-    type: 'website',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const siteName = await getSiteName()
+  return {
+    title: 'Product Reviews — Honest, Tested & Verified',
+    description: 'In-depth product reviews written by real buyers. No sponsored content, no bias — just honest assessments to help you shop smarter.',
+    alternates: { canonical: 'https://www.offerdy.com/reviews' },
+    openGraph: {
+      title: `Product Reviews — Honest, Tested & Verified — ${siteName}`,
+      description: 'In-depth product reviews written by real buyers. No sponsored content, no bias.',
+      url: 'https://www.offerdy.com/reviews',
+      type: 'website',
+    },
+  }
 }
 
 export default async function ReviewsPage() {

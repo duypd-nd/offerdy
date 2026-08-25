@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { getSiteName } from '@/sanity/queries'
+import { fillSiteName } from '@/lib/siteNameToken'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { writeClient } from '@/sanity/writeClient'
@@ -30,12 +32,12 @@ const DEFAULTS: ContactData = {
   showFaq: true,
   faqHeading: 'Frequently asked questions',
   faqItems: [
-    { _key: 'f1', question: "A coupon code on Offerdy didn't work — what should I do?", answer: "Let us know by emailing us with the store name and code. We'll verify it and remove it if it's expired." },
+    { _key: 'f1', question: "A coupon code on {site} didn't work — what should I do?", answer: "Let us know by emailing us with the store name and code. We'll verify it and remove it if it's expired." },
     { _key: 'f2', question: 'How do I suggest a store to add?', answer: "Send us the store name and URL. If it's a good fit, we'll add it and start tracking deals." },
-    { _key: 'f3', question: 'Can I partner with Offerdy?', answer: "Yes — if you're a brand or affiliate network looking to list deals on Offerdy, reach out via email." },
+    { _key: 'f3', question: 'Can I partner with {site}?', answer: "Yes — if you're a brand or affiliate network looking to list deals on {site}, reach out via email." },
   ],
-  seoTitle: "Contact Offerdy — We'd Love to Hear from You",
-  seoDescription: 'Get in touch with the Offerdy team. Report a broken coupon code, suggest a store, or ask about partnerships.',
+  seoTitle: "Contact {site} — We'd Love to Hear from You",
+  seoDescription: 'Get in touch with the {site} team. Report a broken coupon code, suggest a store, or ask about partnerships.',
   indexPage: true,
 }
 
@@ -70,15 +72,17 @@ async function getContact(): Promise<ContactData> {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const d = await getContact()
+  const [d, siteName] = await Promise.all([getContact(), getSiteName()])
+  const seoTitle = fillSiteName(d.seoTitle, siteName)
+  const seoDescription = fillSiteName(d.seoDescription, siteName)
   return {
-    title: d.seoTitle,
-    description: d.seoDescription,
+    title: seoTitle,
+    description: seoDescription,
     alternates: { canonical: `${BASE}/contact` },
     robots: d.indexPage ? undefined : { index: false },
     openGraph: {
-      title: d.seoTitle,
-      description: d.seoDescription,
+      title: seoTitle,
+      description: seoDescription,
       url: `${BASE}/contact`,
       type: 'website',
     },
@@ -86,7 +90,18 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ContactPage() {
-  const d = await getContact()
+  const [raw, siteName] = await Promise.all([getContact(), getSiteName()])
+  // Dien o `{site}` MOT LAN o day, truoc khi day xuong client component:
+  // ContactPageClient la 'use client' nen khong tu hoi Sanity duoc.
+  const n = (t: string) => fillSiteName(t, siteName)
+  const d: ContactData = {
+    ...raw,
+    h1: n(raw.h1), heroLead: n(raw.heroLead),
+    formHeading: n(raw.formHeading), formDesc: n(raw.formDesc),
+    faqHeading: n(raw.faqHeading),
+    faqItems: raw.faqItems.map(f => ({ ...f, question: n(f.question), answer: n(f.answer) })),
+    seoTitle: n(raw.seoTitle), seoDescription: n(raw.seoDescription),
+  }
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -96,7 +111,7 @@ export default async function ContactPage() {
     description: d.seoDescription,
     mainEntity: {
       '@type': 'Organization',
-      name: 'Offerdy',
+      name: siteName,
       url: BASE,
       email: d.email,
       ...(d.phone ? { telephone: d.phone } : {}),
@@ -108,7 +123,7 @@ export default async function ContactPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <HeaderWrapper />
       <main style={{ flex: 1, background: 'var(--bg)' }}>
-        <ContactPageClient data={d} />
+        <ContactPageClient data={d} siteName={siteName} />
       </main>
       <Footer />
     </>

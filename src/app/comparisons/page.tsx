@@ -3,7 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getComparisonPosts } from '@/sanity/queries'
+import { getSiteName, getComparisonPosts } from '@/sanity/queries'
 
 export const revalidate = 60
 
@@ -12,7 +12,7 @@ export const revalidate = 60
 // Tu dong index lai ngay khi co bai dau tien, khong can sua code.
 // Sitemap cung loai /comparisons ra trong cung dieu kien — xem src/app/sitemap.ts
 export async function generateMetadata(): Promise<Metadata> {
-  const posts = await getComparisonPosts()
+  const [posts, siteName] = await Promise.all([getComparisonPosts(), getSiteName()])
 
   return {
     title: 'Comparisons — Side-by-Side Deal Analysis',
@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
     alternates: { canonical: 'https://www.offerdy.com/comparisons' },
     ...(posts.length === 0 && { robots: { index: false, follow: true } }),
     openGraph: {
-      title: 'Comparisons — Side-by-Side Deal Analysis | Offerdy',
+      title: `Comparisons — Side-by-Side Deal Analysis | ${siteName}`,
       description: 'Unbiased store and product comparisons to help you find the best deal.',
       url: 'https://www.offerdy.com/comparisons',
       type: 'website',

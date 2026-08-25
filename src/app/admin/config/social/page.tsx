@@ -1,9 +1,10 @@
 ﻿import { client as readClient } from '@/sanity/client'
+import { getSiteName } from '@/sanity/queries'
 import SocialConfigForm from './SocialConfigForm'
 
 export const dynamic = 'force-dynamic'
 
 export default async function SocialConfigPage() {
   const data = await readClient.fetch(`*[_type == "configSocial"][0]`)
-  return <SocialConfigForm initial={data ?? {}} />
+  return <SocialConfigForm initial={data ?? {}} siteName={await getSiteName()} />
 }

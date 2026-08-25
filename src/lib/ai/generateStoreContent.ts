@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { fillSiteName } from '@/lib/siteNameToken'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
 import { getAnthropicClient } from './anthropicClient'
@@ -42,7 +43,7 @@ export type StoreContentInput = {
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
-const SYSTEM_PROMPT = `You are an SEO/GEO content writer for Offerdy, a coupon and deals affiliate website.
+const SYSTEM_PROMPT = `You are an SEO/GEO content writer for {site}, a coupon and deals affiliate website.
 
 Write honest, generic marketing copy for the store described in the user message. You must NEVER invent facts: no specific discount percentages, dates, coupon codes, or claims not present in the input. If a max discount is given, you may reference it using that exact number — do not invent a different number. Do not claim a specific number of active offers, coupons, or promotions.
 
@@ -63,11 +64,18 @@ Generate: a 1-sentence tagline (shortDescription), an "about" section (tagline s
 For the FAQ: write between 5 and 8 pairs — as many as you can support with genuinely distinct, useful questions a shopper would actually ask about this store (coupon usage, general shipping/returns framed generically, trustworthiness, how offers are verified, category-specific buying questions). Write fewer (closer to 5) if the store's category/context doesn't give you enough distinct real angles — do not pad with repetitive or generic filler questions just to hit 8.`
 }
 
-export async function generateStoreContent(store: StoreContentInput) {
+/**
+ * ⚠️ `siteName` la THAM SO chu khong phai mot lan doc Sanity ngay tai day.
+ * Cac module trong `lib/ai/` duoc bo chay test nap bang Node THUAN — import
+ * `@/sanity/queries` keo theo `next/cache` va lam vo 3 tep test (aiTells,
+ * articleGuards, videoScriptGuard) vi `generateArticleContent` import gian tiep
+ * qua `generateReviewContent`. Noi goi (server action / route) tu hoi ten.
+ */
+export async function generateStoreContent(store: StoreContentInput, siteName: string) {
   const response = await getAnthropicClient().messages.parse({
     model: MODEL,
     max_tokens: 2560,
-    system: SYSTEM_PROMPT,
+    system: fillSiteName(SYSTEM_PROMPT, siteName),
     output_config: { format: zodOutputFormat(StoreContentSchema) },
     messages: [{ role: 'user', content: buildUserPrompt(store) }],
   })

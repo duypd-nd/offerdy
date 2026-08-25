@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { fillSiteName } from '@/lib/siteNameToken'
+import { getSiteName } from '@/sanity/queries'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
 import { getAnthropicClient } from './anthropicClient'
@@ -15,7 +17,7 @@ const DailyReportSchema = z.object({
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 export const DAILY_REPORT_ID = 'dailyReport-singleton'
 
-const SYSTEM_PROMPT = `You are an operations analyst for Offerdy, a coupon and deals affiliate website. You write a short daily internal report for the team based on real platform metrics.
+const SYSTEM_PROMPT = `You are an operations analyst for {site}, a coupon and deals affiliate website. You write a short daily internal report for the team based on real platform metrics.
 
 You must NEVER invent facts, numbers, or store names not present in the input. Only reference figures and names exactly as given. If a category has zero issues, say so positively — do not manufacture a problem. Recommendations must be concrete and actionable (e.g. "Review and fix broken links for X offers", "Add missing content for stores: A, B, C" using only names given), not generic advice like "keep monitoring performance".
 
@@ -141,7 +143,7 @@ export async function generateDailyReport(triggeredBy: 'cron' | 'admin' = 'cron'
   const response = await getAnthropicClient().messages.parse({
     model: MODEL,
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
+    system: fillSiteName(SYSTEM_PROMPT, await getSiteName()),
     output_config: { format: zodOutputFormat(DailyReportSchema) },
     messages: [{ role: 'user', content: buildUserPrompt(input) }],
   })

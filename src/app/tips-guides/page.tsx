@@ -2,20 +2,23 @@ import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import BlogPageContent from '@/components/BlogPageContent'
-import { getTipsGuidePosts } from '@/sanity/queries'
+import { getSiteName, getTipsGuidePosts } from '@/sanity/queries'
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  title: 'Tips & Guides — Smart Shopping Advice',
-  description: 'Shopping tips, saving strategies, and expert guides to help you get the best deals online every time.',
-  alternates: { canonical: 'https://www.offerdy.com/tips-guides' },
-  openGraph: {
-    title: 'Tips & Guides — Smart Shopping Advice | Offerdy',
-    description: 'Practical guides on how to save more, stack coupons, and shop smarter.',
-    url: 'https://www.offerdy.com/tips-guides',
-    type: 'website',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const siteName = await getSiteName()
+  return {
+    title: 'Tips & Guides — Smart Shopping Advice',
+    description: 'Shopping tips, saving strategies, and expert guides to help you get the best deals online every time.',
+    alternates: { canonical: 'https://www.offerdy.com/tips-guides' },
+    openGraph: {
+      title: `Tips & Guides — Smart Shopping Advice | ${siteName}`,
+      description: 'Practical guides on how to save more, stack coupons, and shop smarter.',
+      url: 'https://www.offerdy.com/tips-guides',
+      type: 'website',
+    },
+  }
 }
 
 export default async function TipsGuidesPage() {

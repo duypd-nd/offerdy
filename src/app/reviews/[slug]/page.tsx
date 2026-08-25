@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { fillSiteName } from '@/lib/siteNameToken'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Metadata } from 'next'
@@ -6,7 +7,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import FaqAccordion from '@/components/FaqAccordion'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
-import { getReviewBySlug, getReviews, getConfigContent, getConfigAuthor, getStoreRefForUrl, getStoreRefForHtml, getDealCoupon } from '@/sanity/queries'
+import { getSiteName, getReviewBySlug, getReviews, getConfigContent, getConfigAuthor, getStoreRefForUrl, getStoreRefForHtml, getDealCoupon } from '@/sanity/queries'
 import { reviews as staticReviews } from '@/data/reviews'
 import { productNameOf } from '@/lib/reviewProductName'
 
@@ -22,10 +23,10 @@ const BASE = 'https://www.offerdy.com'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const review = await getReviewBySlug(slug)
+  const [review, siteName] = await Promise.all([getReviewBySlug(slug), getSiteName()])
   if (!review) return {}
   const title = review.metaTitle ?? review.title
-  const description = review.metaDescription ?? review.excerpt ?? `Read our in-depth review of ${review.title}, verified by the Offerdy team.`
+  const description = review.metaDescription ?? review.excerpt ?? `Read our in-depth review of ${review.title}, verified by the ${siteName} team.`
   const url = `${BASE}/reviews/${slug}`
   return {
     title,
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       title,
       description,
       url,
-      siteName: 'Offerdy',
+      siteName,
       type: 'article',
       publishedTime: review.date ?? undefined,
       modifiedTime: review.updatedAt ?? undefined,
@@ -52,16 +53,17 @@ function fmtDate(d: string) {
 
 export default async function ReviewDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const [review, allReviews, globalConfig, authorConfig] = await Promise.all([
+  const [review, allReviews, globalConfig, authorConfig, siteName] = await Promise.all([
     getReviewBySlug(slug),
     getReviews(),
     getConfigContent(),
     getConfigAuthor(),
+    getSiteName(),
   ])
 
   if (!review) notFound()
 
-  const authorName = review.author || authorConfig.defaultName
+  const authorName = fillSiteName(review.author || authorConfig.defaultName, siteName)
   const authorTwitterUrl = authorConfig.twitterHandle
     ? `https://x.com/${authorConfig.twitterHandle.replace(/^@/, '')}`
     : undefined
@@ -120,11 +122,11 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
           reviewRating: { '@type': 'Rating', ratingValue: review.stars, bestRating: 5, worstRating: 1 },
           author: authorName
             ? { '@type': 'Person', name: authorName, url: `${BASE}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined }
-            : { '@type': 'Organization', name: 'Offerdy', url: BASE },
+            : { '@type': 'Organization', name: siteName, url: BASE },
           datePublished: review.date ?? undefined,
           dateModified: review.updatedAt ?? review.date ?? undefined,
           url: `${BASE}/reviews/${slug}`,
-          publisher: { '@type': 'Organization', name: 'Offerdy', url: BASE },
+          publisher: { '@type': 'Organization', name: siteName, url: BASE },
         },
       },
       {
@@ -206,7 +208,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
               </a>
             )}
 
-            {(review.couponCode || shopCoupon?.code) && <ReviewCouponBox code={(review.couponCode || shopCoupon?.code) as string} link={buyUrl} />}
+            {(review.couponCode || shopCoupon?.code) && <ReviewCouponBox code={(review.couponCode || shopCoupon?.code) as string} link={buyUrl} siteName={siteName} />}
 
             <div className="article-hero-img" style={{ background: review.imageUrl ? undefined : review.imgBg }}>
               {review.imageUrl
@@ -253,11 +255,11 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
             {(globalConfig.articleDisclaimer || globalConfig.articleReviewedBy) && (
               <div className="article-disclaimer">
                 {globalConfig.articleDisclaimer && (
-                  <p dangerouslySetInnerHTML={{ __html: globalConfig.articleDisclaimer.replace(/\{site\}/g, 'Offerdy').replace(/\{store\}/g, '<span style="color:#16a34a;font-weight:700">the store</span>') }} />
+                  <p dangerouslySetInnerHTML={{ __html: globalConfig.articleDisclaimer.replace(/\{site\}/g, siteName).replace(/\{store\}/g, '<span style="color:#16a34a;font-weight:700">the store</span>') }} />
                 )}
                 {globalConfig.articleReviewedBy && (
                   <p className="article-disclaimer-meta">
-                    {(review.updatedAt || review.date) && `Last updated: ${fmtDate(review.updatedAt ?? review.date)} · `}{globalConfig.articleReviewedBy}
+                    {(review.updatedAt || review.date) && `Last updated: ${fmtDate(review.updatedAt ?? review.date)} · `}{fillSiteName(globalConfig.articleReviewedBy, siteName)}
                   </p>
                 )}
               </div>
@@ -272,7 +274,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
                     <Link href="/author" style={{ color: 'inherit' }}>{authorName}</Link>{authorConfig.role && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {authorConfig.role}</span>}
                   </div>
-                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{authorConfig.bio}</p>
+                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{fillSiteName(authorConfig.bio, siteName)}</p>
                 </div>
               </div>
             )}

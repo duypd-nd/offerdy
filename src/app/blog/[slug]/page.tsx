@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation'
+import { fillSiteName } from '@/lib/siteNameToken'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getPostBySlug, getPosts, getConfigContent, getConfigAuthor, getStoreRefForHtml, getStoreTopCoupon } from '@/sanity/queries'
+import { getSiteName, getPostBySlug, getPosts, getConfigContent, getConfigAuthor, getStoreRefForHtml, getStoreTopCoupon } from '@/sanity/queries'
 import { renderPostTokens, priceNote, type RenderProduct } from '@/lib/postRender'
 import { pickSidebarPosts, type RelatablePost } from '@/lib/relatedPosts'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
@@ -36,27 +37,27 @@ type SidebarPost = RelatablePost & {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const post = await getPostBySlug(slug)
+  const [post, siteName] = await Promise.all([getPostBySlug(slug), getSiteName()])
   if (!post) return {}
-  // ⚠️ `metaTitle` KHONG duoc chua chu "Offerdy": `titleTemplate` o layout tu them
-  // duoi thuong hieu, va truoc day 24 trang da tung in ra "... | Offerdy | Offerdy".
+  // ⚠️ `metaTitle` KHONG duoc chua ten website: `titleTemplate` o layout tu them
+  // duoi thuong hieu, va truoc day 24 trang da tung in ra "... | <ten> | <ten>".
   // OpenGraph thi nguoc lai — no KHONG di qua titleTemplate nen phai tu mang thuong hieu.
   const title = post.metaTitle ?? post.title
-  const description = post.metaDescription ?? post.excerpt ?? `Read ${post.title} on Offerdy.`
+  const description = post.metaDescription ?? post.excerpt ?? `Read ${post.title} on ${siteName}.`
   const url = `${BASE}/blog/${slug}`
   return {
     title,
     description,
     alternates: { canonical: url },
     openGraph: {
-      title: `${title} — Offerdy`,
+      title: `${title} — ${siteName}`,
       description,
       url,
-      siteName: 'Offerdy',
+      siteName,
       type: 'article',
       publishedTime: post.date ?? undefined,
       modifiedTime: post.updatedAt ?? undefined,
-      authors: post.author ? [post.author] : undefined,
+      authors: post.author ? [fillSiteName(post.author, siteName)] : undefined,
     },
     twitter: {
       card: 'summary_large_image',
@@ -68,11 +69,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const [post, allPosts, globalConfig, authorConfig] = await Promise.all([
+  const [post, allPosts, globalConfig, authorConfig, siteName] = await Promise.all([
     getPostBySlug(slug),
     getPosts(),
     getConfigContent(),
     getConfigAuthor(),
+    getSiteName(),
   ])
 
   if (!post) notFound()
@@ -119,7 +121,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const articleHtml = await getStoreRefForHtml(rendered)
   const capturedNote = priceNote(products)
 
-  const authorName = post.author || authorConfig.defaultName
+  const authorName = fillSiteName(post.author || authorConfig.defaultName, siteName)
   const authorTwitterUrl = authorConfig.twitterHandle
     ? `https://x.com/${authorConfig.twitterHandle.replace(/^@/, '')}`
     : undefined
@@ -148,7 +150,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         author: authorName ? { '@type': 'Person', name: authorName, url: `${BASE}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined } : undefined,
         datePublished: post.date ?? undefined,
         dateModified: post.updatedAt ?? post.date ?? undefined,
-        publisher: { '@type': 'Organization', name: 'Offerdy', url: BASE },
+        publisher: { '@type': 'Organization', name: siteName, url: BASE },
         url: `${BASE}/blog/${slug}`,
       },
       {
@@ -268,6 +270,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             {coupon?.code && (
               <div style={{ padding: '0 clamp(16px, 4vw, 40px)' }}>
                 <ReviewCouponBox
+                  siteName={siteName}
                   code={coupon.code}
                   heading={`${article.sourceStore?.name ?? 'This shop'} discount code`}
                   sub="Store-wide code — try it at checkout; some shops exclude items already on sale."
@@ -315,11 +318,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             {(globalConfig.articleDisclaimer || globalConfig.articleReviewedBy) && (
               <div className="article-disclaimer">
                 {globalConfig.articleDisclaimer && (
-                  <p dangerouslySetInnerHTML={{ __html: globalConfig.articleDisclaimer.replace(/\{site\}/g, 'Offerdy').replace(/\{store\}/g, '<span style="color:#16a34a;font-weight:700">the store</span>') }} />
+                  <p dangerouslySetInnerHTML={{ __html: globalConfig.articleDisclaimer.replace(/\{site\}/g, siteName).replace(/\{store\}/g, '<span style="color:#16a34a;font-weight:700">the store</span>') }} />
                 )}
                 {globalConfig.articleReviewedBy && (
                   <p className="article-disclaimer-meta">
-                    {(post.updatedAt || post.date) && `Last updated: ${fmtDate(post.updatedAt ?? post.date)} · `}{globalConfig.articleReviewedBy}
+                    {(post.updatedAt || post.date) && `Last updated: ${fmtDate(post.updatedAt ?? post.date)} · `}{fillSiteName(globalConfig.articleReviewedBy, siteName)}
                   </p>
                 )}
               </div>
@@ -334,7 +337,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
                     <Link href="/author" style={{ color: 'inherit' }}>{authorName}</Link>{authorConfig.role && <span style={{ fontWeight: 500, color: 'var(--muted)' }}> · {authorConfig.role}</span>}
                   </div>
-                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{authorConfig.bio}</p>
+                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: '4px 0 0', lineHeight: 1.6 }}>{fillSiteName(authorConfig.bio, siteName)}</p>
                 </div>
               </div>
             )}

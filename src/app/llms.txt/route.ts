@@ -1,4 +1,4 @@
-import { getCategories, getPosts, getReviews, getFlashSaleOffers, getComparisonPosts, getTipsGuidePosts } from '@/sanity/queries'
+import { getSiteName, getCategories, getPosts, getReviews, getFlashSaleOffers, getComparisonPosts, getTipsGuidePosts } from '@/sanity/queries'
 
 const BASE = 'https://www.offerdy.com'
 
@@ -10,19 +10,20 @@ export async function GET() {
   // Do 2026-08-04 tren server that: sitemap da loai ca /flash-sales lan /comparisons
   // (0 offer co han, 0 bai Comparison) trong khi file nay van quang cao ca hai. Hai
   // ban do cua cung mot site khong duoc mau thuan nhau.
-  const [categories, posts, reviews, flashSales, comparisons, tipsGuides] = await Promise.all([
+  const [categories, posts, reviews, flashSales, comparisons, tipsGuides, siteName] = await Promise.all([
     getCategories(),
     getPosts(),
     getReviews(),
     getFlashSaleOffers(),
     getComparisonPosts(),
     getTipsGuidePosts(),
+    getSiteName(),
   ])
 
   const lines: string[] = []
-  lines.push('# Offerdy')
+  lines.push(`# ${siteName}`)
   lines.push('')
-  lines.push('> Offerdy is a deals and coupon aggregator. Every coupon code and deal is manually tested before publishing — no expired codes, no untested links. Content is organized by store, category, deal, and independent product reviews/comparisons.')
+  lines.push(`> ${siteName} is a deals and coupon aggregator. Every coupon code and deal is manually tested before publishing — no expired codes, no untested links. Content is organized by store, category, deal, and independent product reviews/comparisons.`)
   lines.push('')
 
   lines.push('## Core sections')

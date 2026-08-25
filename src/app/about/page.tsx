@@ -4,8 +4,9 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { writeClient } from '@/sanity/writeClient'
 import { isConfigured } from '@/sanity/client'
-import { getPublishedStoreCount } from '@/sanity/queries'
+import { getPublishedStoreCount, getSiteName } from '@/sanity/queries'
 import { fillStoreCount } from '@/lib/storeCount'
+import { fillSiteName } from '@/lib/siteNameToken'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,10 +30,10 @@ type AboutData = {
 
 const DEFAULTS: Required<AboutData> = {
   h1: 'Verified coupon codes you can actually use',
-  heroLead: 'Offerdy is a free deals platform covering {storeCount} stores worldwide. Every promo code and discount code listed here is tested before it goes live — so you never hit "Invalid code" at checkout.',
+  heroLead: '{site} is a free deals platform covering {storeCount} stores worldwide. Every promo code and discount code listed here is tested before it goes live — so you never hit "Invalid code" at checkout.',
   storyQuote: '"I had a full cart, found a discount code online, typed it in — and got an error. The code had expired two weeks earlier. Nobody told me."',
-  storyBody: "That moment is the entire reason Offerdy exists. Most coupon sites aggregate codes from anywhere and publish them without ever checking if they work. We do things differently. Every code you see here has been tested against a real store checkout. If it fails, it doesn't go live — full stop.",
-  founderName: 'The Offerdy Team',
+  storyBody: "That moment is the entire reason {site} exists. Most coupon sites aggregate codes from anywhere and publish them without ever checking if they work. We do things differently. Every code you see here has been tested against a real store checkout. If it fails, it doesn't go live — full stop.",
+  founderName: 'The {site} Team',
   foundingYear: '2026',
   stats: [
     { _key: 's1', num: '{storeCount}', label: 'Stores worldwide' },
@@ -54,9 +55,9 @@ const DEFAULTS: Required<AboutData> = {
     { _key: 'c4', title: 'Beauty & Personal Care', desc: 'The Cosmetics Fridge, Consistentderma, Skinhubbeauty, CLAWSIE Nails, Tennail — skincare, nails and beauty storage.' },
   ],
   promiseTitle: 'No expired codes. No surprises at checkout.',
-  promiseBody: "If a code on Offerdy doesn't work, we want to know immediately. Every deal listed is one we'd use ourselves. Offerdy will always be free for shoppers — we earn a small affiliate commission when you buy, at no extra cost to you, ever.",
-  seoTitle: 'About Offerdy — How We Verify Every Coupon',
-  seoDescription: 'Offerdy was built because expired coupon codes are frustrating. Every promo code and discount code on Offerdy is verified before going live — free for shoppers worldwide.',
+  promiseBody: "If a code on {site} doesn't work, we want to know immediately. Every deal listed is one we'd use ourselves. {site} will always be free for shoppers — we earn a small affiliate commission when you buy, at no extra cost to you, ever.",
+  seoTitle: 'About {site} — How We Verify Every Coupon',
+  seoDescription: '{site} was built because expired coupon codes are frustrating. Every promo code and discount code on {site} is verified before going live — free for shoppers worldwide.',
   showStory: true, showStats: true, showCoverage: true, indexPage: true,
 }
 
@@ -96,15 +97,17 @@ async function getAbout(): Promise<Required<AboutData>> {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const d = await getAbout()
+  const [d, siteName] = await Promise.all([getAbout(), getSiteName()])
+  const seoTitle = fillSiteName(d.seoTitle, siteName)
+  const seoDescription = fillSiteName(d.seoDescription, siteName)
   return {
-    title: d.seoTitle,
-    description: d.seoDescription,
+    title: seoTitle,
+    description: seoDescription,
     alternates: { canonical: `${BASE}/about` },
     robots: d.indexPage ? undefined : { index: false },
     openGraph: {
-      title: d.seoTitle,
-      description: d.seoDescription,
+      title: seoTitle,
+      description: seoDescription,
       url: `${BASE}/about`,
       type: 'website',
     },
@@ -113,8 +116,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AboutPage() {
   // So store lay TU DU LIEU, khong go tay — xem src/lib/storeCount.ts de biet vi sao.
-  const [d, storeCount] = await Promise.all([getAbout(), getPublishedStoreCount()])
-  const n = (t: string) => fillStoreCount(t, storeCount)
+  const [d, storeCount, siteName] = await Promise.all([getAbout(), getPublishedStoreCount(), getSiteName()])
+  // Mot ham cho CA HAI o: van ban chi viet `{storeCount}` va `{site}`, con so
+  // that va ten that duoc dien luc render. Xem lib/storeCount.ts va lib/siteNameToken.ts.
+  const n = (t: string) => fillSiteName(fillStoreCount(t, storeCount), siteName)
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -122,24 +127,24 @@ export default async function AboutPage() {
       {
         '@type': 'Organization',
         '@id': `${BASE}/#organization`,
-        name: 'Offerdy',
+        name: siteName,
         url: BASE,
         foundingDate: d.foundingYear,
-        description: d.seoDescription,
+        description: n(d.seoDescription),
       },
       {
         '@type': 'WebPage',
         '@id': `${BASE}/about#webpage`,
         url: `${BASE}/about`,
-        name: d.seoTitle,
-        description: d.seoDescription,
+        name: n(d.seoTitle),
+        description: n(d.seoDescription),
       },
       {
         '@type': 'FAQPage',
         mainEntity: [
-          { '@type': 'Question', name: 'Are coupon codes on Offerdy verified?', acceptedAnswer: { '@type': 'Answer', text: 'Yes. Every coupon code on Offerdy is tested at a real store checkout before it is published.' } },
-          { '@type': 'Question', name: 'Is Offerdy free to use?', acceptedAnswer: { '@type': 'Answer', text: 'Offerdy is completely free for shoppers. We earn a small affiliate commission when you buy through our links.' } },
-          { '@type': 'Question', name: 'How many stores does Offerdy cover?', acceptedAnswer: { '@type': 'Answer', text: `Offerdy covers ${storeCount} stores worldwide, including fashion, electronics, travel, food delivery, and more.` } },
+          { '@type': 'Question', name: `Are coupon codes on ${siteName} verified?`, acceptedAnswer: { '@type': 'Answer', text: `Yes. Every coupon code on ${siteName} is tested at a real store checkout before it is published.` } },
+          { '@type': 'Question', name: `Is ${siteName} free to use?`, acceptedAnswer: { '@type': 'Answer', text: `${siteName} is completely free for shoppers. We earn a small affiliate commission when you buy through our links.` } },
+          { '@type': 'Question', name: `How many stores does ${siteName} cover?`, acceptedAnswer: { '@type': 'Answer', text: `${siteName} covers ${storeCount} stores worldwide, including fashion, electronics, travel, food delivery, and more.` } },
         ],
       },
     ],
@@ -155,10 +160,10 @@ export default async function AboutPage() {
           {/* Hero */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--green-dark)', marginBottom: 18 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
-            About Offerdy
+            About {siteName}
           </div>
           <h1 style={{ fontSize: 'clamp(28px,5vw,42px)', fontWeight: 900, color: 'var(--navy)', lineHeight: 1.1, letterSpacing: '-.8px', textWrap: 'balance', marginBottom: 16, maxWidth: 620 }}>
-            {d.h1}
+            {n(d.h1)}
           </h1>
           <p style={{ fontSize: 17, color: 'var(--muted)', lineHeight: 1.72, maxWidth: 560, marginBottom: 48 }}>
             {n(d.heroLead)}
@@ -168,12 +173,12 @@ export default async function AboutPage() {
           {d.showStory && (
             <div style={{ background: 'var(--navy)', borderRadius: 18, padding: 'clamp(28px,5vw,40px) clamp(24px,5vw,44px)', marginBottom: 44, position: 'relative', overflow: 'hidden' }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--green)', marginBottom: 16 }}>Why we built this</div>
-              <blockquote style={{ fontSize: 19, fontWeight: 700, color: '#fff', lineHeight: 1.5, marginBottom: 18 }}>{d.storyQuote}</blockquote>
-              <p style={{ fontSize: 15, color: '#7A8BA8', lineHeight: 1.8, marginBottom: 26 }}>{d.storyBody}</p>
+              <blockquote style={{ fontSize: 19, fontWeight: 700, color: '#fff', lineHeight: 1.5, marginBottom: 18 }}>{n(d.storyQuote)}</blockquote>
+              <p style={{ fontSize: 15, color: '#7A8BA8', lineHeight: 1.8, marginBottom: 26 }}>{n(d.storyBody)}</p>
               <div style={{ borderTop: '1px solid rgba(255,255,255,.07)', paddingTop: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(34,197,94,.12)', border: '1.5px solid rgba(34,197,94,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: 'var(--green)', flexShrink: 0 }}>O</div>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(34,197,94,.12)', border: '1.5px solid rgba(34,197,94,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 800, color: 'var(--green)', flexShrink: 0 }}>{siteName.slice(0, 1).toUpperCase()}</div>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{d.founderName}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{n(d.founderName)}</div>
                   <div style={{ fontSize: 12, color: '#5A6880' }}>Founded {d.foundingYear} · Independent &amp; solo-run</div>
                 </div>
               </div>
@@ -194,8 +199,8 @@ export default async function AboutPage() {
 
           {/* Verify steps */}
           <section style={{ marginBottom: 52 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-.35px', textWrap: 'balance', marginBottom: 10 }}>{d.verifyHeading}</h2>
-            <p style={{ fontSize: 15, color: 'var(--muted)', lineHeight: 1.7, marginBottom: 22 }}>{d.verifyLead}</p>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-.35px', textWrap: 'balance', marginBottom: 10 }}>{n(d.verifyHeading)}</h2>
+            <p style={{ fontSize: 15, color: 'var(--muted)', lineHeight: 1.7, marginBottom: 22 }}>{n(d.verifyLead)}</p>
             <div style={{ background: 'var(--white)', border: '1.5px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,25,41,.04)' }}>
               {d.steps.map((s, i) => (
                 <div key={s._key} style={{ display: 'flex', alignItems: 'flex-start', gap: 18, padding: '22px 28px', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
@@ -238,8 +243,8 @@ export default async function AboutPage() {
                 </svg>
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--green-dark)', marginBottom: 8 }}>{d.promiseTitle}</div>
-                <p style={{ fontSize: 14, color: '#166534', lineHeight: 1.72 }}>{d.promiseBody}</p>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--green-dark)', marginBottom: 8 }}>{n(d.promiseTitle)}</div>
+                <p style={{ fontSize: 14, color: '#166534', lineHeight: 1.72 }}>{n(d.promiseBody)}</p>
                 <div style={{ marginTop: 14, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
                   <Link href="/deals"   style={{ fontSize: 13, fontWeight: 600, color: 'var(--green-dark)' }}>Browse active deals →</Link>
                   <Link href="/stores"  style={{ fontSize: 13, fontWeight: 600, color: 'var(--green-dark)' }}>Explore all {storeCount} stores →</Link>

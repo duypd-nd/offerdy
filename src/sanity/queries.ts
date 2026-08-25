@@ -1,4 +1,5 @@
 import { unstable_cache } from 'next/cache'
+import { cache } from 'react'
 // ⚠️ HAI CLIENT, HAI HAN MUC KHAC NHAU — chon dung cai.
 //
 // `readClient` (useCdn: true) di qua CDN cua Sanity: re, cache ~60s, va KHONG tinh
@@ -17,7 +18,7 @@ import { unstable_cache } from 'next/cache'
 //     dang len mang xa hoi thi khong sua duoc.
 //   - bao cao admin (daily report, click analytics): vua bam "Tao lai ngay" phai thay
 //     ngay, cho 60s se tuong la hong.
-import { client as readClient, isConfigured } from './client'
+import { client as readClient, freshClient, isConfigured } from './client'
 import { writeClient } from './writeClient'
 import { deals as staticDeals, expiringDeals as staticExpiring } from '@/data/deals'
 import { stores as staticStores } from '@/data/stores'
@@ -25,6 +26,7 @@ import { categories as staticCategories } from '@/data/categories'
 import { reviews as staticReviews } from '@/data/reviews'
 import { posts as staticPosts } from '@/data/posts'
 import { defaultSiteSettings } from '@/data/siteSettings'
+import { fillSiteName } from '@/lib/siteNameToken'
 import { DEAL_CODE_START } from '@/lib/dealCode'
 import { resolveOfferUrl } from '@/lib/affiliateUrl'
 import { applyStoreRefToHtmlLinks, couponForDealUrl, dealBelongsToStore, displayStoreName, resolveDealLink, type DealCoupon, type StoreHostRow } from '@/lib/dealStoreMatch'
@@ -83,6 +85,41 @@ const SOCIAL_LABEL: Record<string, string> = {
   pinterest: 'Pinterest', telegram: 'Telegram',
 }
 
+/**
+ * Ten website — MOT nguon su that duy nhat cho ca trang cong khai.
+ *
+ * ⚠️ Truoc 2026-08-25 chu "Offerdy" bi ghi cung o 176 cho trong `src/`, nen o
+ * *Ten website* trong /admin/config/general chi doi duoc header, footer va
+ * /links — moi tieu de trang, anh OG, JSON-LD va llms.txt van giu ten cu.
+ * Doi ten la mot viec HIEM, nhung khi lam thi phai doi HET, khong de sot.
+ *
+ * Hai lop cache, moi lop mot viec:
+ *   - `unstable_cache` giu ket qua GIUA cac request (goi Sanity ~350ms la tran
+ *     vat ly cua du an nay — khong the tra gia do o moi `generateMetadata`).
+ *     `saveConfigDoc` da goi `revalidatePath('/', 'layout')` nen luu o day
+ *     duoc doi ngay khi bam Luu, khong phai cho het 300s.
+ *   - `cache` cua React gop cac lan goi TRONG cung mot request: mot trang co
+ *     the hoi ten o `generateMetadata`, o layout va o JSON-LD — van mot lan doc.
+ *
+ * Roi ve `defaultSiteSettings.siteName` khi chua cau hinh Sanity hoac o con
+ * trong: trang khong ten thi te hon trang mang ten cu.
+ */
+const getCachedSiteName = unstable_cache(
+  // ⚠️ `freshClient` (useCdn: false), KHONG phai `readClient`. Xem chu thich cua
+  // no trong client.ts: doc qua CDN o day lam ten cu bi uop lai them 300 giay.
+  async () => freshClient.fetch<string | null>(`*[_type == "configGeneral" && _id == "configGeneral"][0].siteName`),
+  ['site-name'],
+  { revalidate: 300 }
+)
+
+export const getSiteName = cache(async (): Promise<string> => {
+  if (!isConfigured()) return defaultSiteSettings.siteName
+  try {
+    const name = (await getCachedSiteName())?.trim()
+    return name || defaultSiteSettings.siteName
+  } catch { return defaultSiteSettings.siteName }
+})
+
 export async function getSiteSettings() {
   if (!isConfigured()) return defaultSiteSettings
   try {
@@ -101,7 +138,12 @@ export async function getSiteSettings() {
       : defaultSiteSettings.socialMedia
 
     return {
-      siteName: general.siteName ?? defaultSiteSettings.siteName,
+      // ⚠️ Dung CHUNG `getSiteName()` chu khong doc `general.siteName` o day.
+      // Do 2026-08-25: hai duong doc cung mot truong nhung khac do tuoi — sau khi
+      // doi ten, tieu de trang da mang ten moi trong khi footer con giu ten cu
+      // **40 giay** (CDN cua Sanity tra ban cu). Mot nguon su that ma hai duong
+      // doc thi van la hai nguon.
+      siteName: await getSiteName(),
       tagline: general.tagline ?? defaultSiteSettings.tagline,
       seoDescription: defaultSiteSettings.seoDescription,
       logoUrl: general.logoUrl ?? undefined,
@@ -609,8 +651,20 @@ const POST_BY_SLUG_QUERY = `*[_type == "post" && slug.current == $slug && ${POST
   "sourceStore": sourceStore->{ name, "slug": slug.current }
 }`
 
+/**
+ * Bai mau tinh (chi dung khi CHUA cau hinh Sanity) ghi tac gia la `{site} Team`.
+ * Dien o ngay tai day de moi noi goi — ke ca client component nhu BlogPageContent
+ * — nhan duoc chuoi da hoan chinh, khong phai tu biet ve o.
+ *
+ * Roi ve ten mac dinh chu khong goi `getSiteName()`: nhanh nay chi chay khi Sanity
+ * chua cau hinh, tuc khong co gi de hoi.
+ */
+function staticPostsWithSiteName() {
+  return staticPosts.map(p => ({ ...p, author: fillSiteName(p.author, defaultSiteSettings.siteName) }))
+}
+
 export async function getPosts() {
-  if (!isConfigured()) return staticPosts
+  if (!isConfigured()) return staticPostsWithSiteName()
   try {
     const data = await readClient.fetch(POSTS_QUERY)
     return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)
@@ -618,7 +672,7 @@ export async function getPosts() {
 }
 
 export async function getPostBySlug(slug: string) {
-  if (!isConfigured()) return staticPosts.find(p => p.slug === slug) ?? null
+  if (!isConfigured()) return staticPostsWithSiteName().find(p => p.slug === slug) ?? null
   try {
     return await readClient.fetch(POST_BY_SLUG_QUERY, { slug }) ?? null
   } catch { return null }
@@ -960,7 +1014,7 @@ const TIPS_GUIDES_QUERY = `*[_type == "post" && category == "Tips & Guides" && $
 }`
 
 export async function getTipsGuidePosts() {
-  if (!isConfigured()) return staticPosts.filter(p => p.category === 'Tips & Guides')
+  if (!isConfigured()) return staticPostsWithSiteName().filter(p => p.category === 'Tips & Guides')
   try {
     const data = await readClient.fetch(TIPS_GUIDES_QUERY)
     return data ?? []   // configured: tra ket qua that ke ca rong (xem getStores)

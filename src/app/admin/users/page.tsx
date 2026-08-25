@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
+import { getSiteName } from '@/sanity/queries'
 import UsersAdmin from './UsersAdmin'
 import { requireOwner, listAdminUsers } from '@/lib/adminSession'
 import { vaultBackupStatus } from '@/lib/adminVaultBackup'
 
-export const metadata: Metadata = { title: 'Người dùng — Offerdy Admin' }
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `Người dùng — ${await getSiteName()} Admin` }
+}
 export const dynamic = 'force-dynamic'
 
 export default async function UsersPage() {

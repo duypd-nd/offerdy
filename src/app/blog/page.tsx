@@ -2,20 +2,23 @@ import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import BlogPageContent from '@/components/BlogPageContent'
-import { getPosts, getConfigContent } from '@/sanity/queries'
+import { getSiteName, getPosts, getConfigContent } from '@/sanity/queries'
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  title: 'Blog — Shopping Tips, Deal Guides & More',
-  description: 'Shopping tips, deal guides, and store breakdowns to help you save more money every time you shop online.',
-  alternates: { canonical: 'https://www.offerdy.com/blog' },
-  openGraph: {
-    title: 'Blog — Shopping Tips, Deal Guides & More — Offerdy',
-    description: 'Shopping tips, deal guides, and store breakdowns to help you save more money.',
-    url: 'https://www.offerdy.com/blog',
-    type: 'website',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const siteName = await getSiteName()
+  return {
+    title: 'Blog — Shopping Tips, Deal Guides & More',
+    description: 'Shopping tips, deal guides, and store breakdowns to help you save more money every time you shop online.',
+    alternates: { canonical: 'https://www.offerdy.com/blog' },
+    openGraph: {
+      title: `Blog — Shopping Tips, Deal Guides & More — ${siteName}`,
+      description: 'Shopping tips, deal guides, and store breakdowns to help you save more money.',
+      url: 'https://www.offerdy.com/blog',
+      type: 'website',
+    },
+  }
 }
 
 export default async function BlogPage() {

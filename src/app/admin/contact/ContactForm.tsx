@@ -16,12 +16,12 @@ const DEFAULTS: Required<ContactData> = {
   showFaq: true,
   faqHeading: 'Frequently asked questions',
   faqItems: [
-    { _key: 'f1', question: 'A coupon code on Offerdy didn\'t work — what should I do?', answer: 'Let us know by emailing us with the store name and code. We\'ll verify it and remove it if it\'s expired.' },
+    { _key: 'f1', question: 'A coupon code on {site} didn\'t work — what should I do?', answer: 'Let us know by emailing us with the store name and code. We\'ll verify it and remove it if it\'s expired.' },
     { _key: 'f2', question: 'How do I suggest a store to add?', answer: 'Send us the store name and URL. If it\'s a good fit, we\'ll add it and start tracking deals.' },
-    { _key: 'f3', question: 'Can I partner with Offerdy?', answer: 'Yes — if you\'re a brand or affiliate network looking to list deals on Offerdy, reach out via email.' },
+    { _key: 'f3', question: 'Can I partner with {site}?', answer: 'Yes — if you\'re a brand or affiliate network looking to list deals on {site}, reach out via email.' },
   ],
-  seoTitle: 'Contact Offerdy — We\'d Love to Hear from You',
-  seoDescription: 'Get in touch with the Offerdy team. Report a broken coupon code, suggest a store, or ask about partnerships.',
+  seoTitle: 'Contact {site} — We\'d Love to Hear from You',
+  seoDescription: 'Get in touch with the {site} team. Report a broken coupon code, suggest a store, or ask about partnerships.',
   indexPage: true,
 }
 

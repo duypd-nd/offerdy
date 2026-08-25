@@ -1,10 +1,13 @@
 import type { Metadata } from 'next'
+import { getSiteName } from '@/sanity/queries'
 import AdminNav from './AdminNav'
 import { getAdminWorkQueue } from '@/lib/adminWorkQueue'
 import { headers } from 'next/headers'
 import { readSession, requireAdmin } from '@/lib/adminSession'
 
-export const metadata: Metadata = { title: 'Admin — Offerdy' }
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `Admin — ${await getSiteName()}` }
+}
 
 // Huy hieu tren thanh ben phai la so THAT tai thoi diem mo trang. Neu de Next
 // dung ban tinh, huy hieu se dong bang o con so cua lan build va noi doi mot
@@ -30,11 +33,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // trang ke tiep chu khong phai doi het 8 tieng.
   const user = await requireAdmin()
 
-  const queue = await getAdminWorkQueue(new Date())
+  const [queue, siteName] = await Promise.all([getAdminWorkQueue(new Date()), getSiteName()])
 
   return (
     <div className="adm-root">
       <AdminNav
+        siteName={siteName}
         role={user.role}
         badges={{
           '/admin/ai-review': queue.pendingTotal,

@@ -5,10 +5,10 @@ import { saveAboutPage, type AboutData } from './actions'
 
 const DEFAULTS: Required<AboutData> = {
   h1: 'Verified coupon codes you can actually use',
-  heroLead: 'Offerdy is a free deals platform covering 500+ stores worldwide. Every promo code and discount code listed here is tested before it goes live — so you never hit "Invalid code" at checkout.',
+  heroLead: '{site} is a free deals platform covering 500+ stores worldwide. Every promo code and discount code listed here is tested before it goes live — so you never hit "Invalid code" at checkout.',
   storyQuote: '"I had a full cart, found a discount code online, typed it in — and got an error. The code had expired two weeks earlier. Nobody told me."',
-  storyBody: 'That moment is the entire reason Offerdy exists. Most coupon sites aggregate codes from anywhere and publish them without ever checking if they work. We do things differently. Every code you see here has been tested against a real store checkout. If it fails, it doesn\'t go live — full stop.',
-  founderName: 'The Offerdy Team',
+  storyBody: 'That moment is the entire reason {site} exists. Most coupon sites aggregate codes from anywhere and publish them without ever checking if they work. We do things differently. Every code you see here has been tested against a real store checkout. If it fails, it doesn\'t go live — full stop.',
+  founderName: 'The {site} Team',
   foundingYear: '2026',
   stats: [
     { _key: 'stat1', num: '500+', label: 'Stores worldwide' },
@@ -30,9 +30,9 @@ const DEFAULTS: Required<AboutData> = {
     { _key: 'cat4', title: 'Beauty & Personal Care', desc: 'The Cosmetics Fridge, Consistentderma, Skinhubbeauty, CLAWSIE Nails, Tennail — skincare, nails and beauty storage.' },
   ],
   promiseTitle: 'No expired codes. No surprises at checkout.',
-  promiseBody: "If a code on Offerdy doesn't work, we want to know immediately. Every deal listed is one we'd use ourselves. Offerdy will always be free for shoppers — we earn a small affiliate commission when you buy, at no extra cost to you, ever.",
-  seoTitle: 'About Offerdy — How We Verify Every Coupon',
-  seoDescription: 'Offerdy was built because expired coupon codes are frustrating. Every promo code and discount code on Offerdy is verified before going live — free for shoppers worldwide.',
+  promiseBody: "If a code on {site} doesn't work, we want to know immediately. Every deal listed is one we'd use ourselves. {site} will always be free for shoppers — we earn a small affiliate commission when you buy, at no extra cost to you, ever.",
+  seoTitle: 'About {site} — How We Verify Every Coupon',
+  seoDescription: '{site} was built because expired coupon codes are frustrating. Every promo code and discount code on {site} is verified before going live — free for shoppers worldwide.',
   showStory: true,
   showStats: true,
   showCoverage: true,

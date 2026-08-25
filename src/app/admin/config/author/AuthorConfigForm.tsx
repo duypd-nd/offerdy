@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { saveConfigDoc } from '../actions'
 
-export default function AuthorConfigForm({ initial }: { initial: Record<string, unknown> }) {
+export default function AuthorConfigForm({ initial, siteName }: { initial: Record<string, unknown>; siteName: string }) {
   const [defaultName, setDefaultName] = useState(String(initial.defaultName ?? ''))
   const [role, setRole] = useState(String(initial.role ?? ''))
   const [bio, setBio] = useState(String(initial.bio ?? ''))
@@ -41,7 +41,7 @@ export default function AuthorConfigForm({ initial }: { initial: Record<string, 
       <div className="cfg-section">
         <div className="cfg-section-title">Thông tin tác giả</div>
         <div className="cfg-row">
-          <label className="cfg-label">Tên tác giả mặc định<input className="cfg-input" value={defaultName} onChange={e => setDefaultName(e.target.value)} placeholder="Offerdy Editorial" /></label>
+          <label className="cfg-label">Tên tác giả mặc định<input className="cfg-input" value={defaultName} onChange={e => setDefaultName(e.target.value)} placeholder={`${siteName} Editorial`} /></label>
           <label className="cfg-label">Chức danh<input className="cfg-input" value={role} onChange={e => setRole(e.target.value)} placeholder="Editor, Content Writer" /></label>
         </div>
         <label className="cfg-label">Giới thiệu ngắn

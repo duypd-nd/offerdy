@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { getSiteName } from '@/sanity/queries'
 import { writeClient } from '@/sanity/writeClient'
 import { uploadImageFromUrl } from '@/lib/safeFetch'
 import { scrapeProductPage, type ScrapedProduct } from '@/lib/ai/scrapeProductPage'
@@ -110,7 +111,7 @@ export async function generateReviewDraft(input: {
       price: scraped.price,
       currency: scraped.currency,
       imageCount: selectedImageUrls.length,
-    })
+    }, await getSiteName())
 
     const uploaded = await Promise.all(selectedImageUrls.map(u => uploadImageFromUrl(u)))
     const heroIndex = uploaded.findIndex(u => 'url' in u)

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getSiteName } from '@/sanity/queries'
 import Image from 'next/image'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
@@ -134,7 +135,7 @@ export default async function SearchPage({
 }) {
   const { q = '' } = await searchParams
   const query  = q.trim()
-  const results = await searchContent(query)
+  const [results, siteName] = await Promise.all([searchContent(query), getSiteName()])
   const total   = results.length
 
   const grouped = TYPE_ORDER.reduce(
@@ -149,7 +150,7 @@ export default async function SearchPage({
         <div className="page-hero" style={{ paddingBottom: 32 }}>
           <div className="page-hero-eyebrow">Search</div>
           <h1 className="page-hero-title" style={{ fontSize: 28 }}>
-            {query ? `Results for "${query}"` : 'Search Offerdy'}
+            {query ? `Results for "${query}"` : `Search ${siteName}`}
           </h1>
           {query && (
             <p className="page-hero-sub" style={{ marginTop: 6 }}>

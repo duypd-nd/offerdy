@@ -131,7 +131,7 @@ const BADGE_TONE: Record<string, 'amber' | 'red'> = {
   '/admin/link-checker': 'red',
 }
 
-export default function AdminNav({ badges = {}, role }: { badges?: Record<string, number>; role: AdminRole }) {
+export default function AdminNav({ badges = {}, role, siteName }: { badges?: Record<string, number>; role: AdminRole; siteName: string }) {
   const path = usePathname()
 
   // Thanh dieu huong chi hien nhung gi vai nay VAO DUOC — dung chung ham
@@ -175,7 +175,7 @@ export default function AdminNav({ badges = {}, role }: { badges?: Record<string
           </svg>
         </button>
         <Link href="/admin" className="adm-topbar-logo" onClick={closeDrawer}>
-          <Image src="/logo-offerdy-light.png" alt="Offerdy" width={480} height={124} priority />
+          <Image src="/logo-offerdy-light.png" alt={siteName} width={480} height={124} priority />
           <span>Admin</span>
         </Link>
         {/* Huy hieu tong: menu dong lai khong duoc phep giau het viec dang cho */}
@@ -191,7 +191,7 @@ export default function AdminNav({ badges = {}, role }: { badges?: Record<string
             do thanh trang va GIU nguyen mau xanh thuong hieu; xem
             .scratch/make-logo-assets.mjs. Dung `filter: invert()` cua CSS thi
             nhanh hon nhung se bien luon mau xanh thanh hong. */}
-        <Image src="/logo-offerdy-light.png" alt="Offerdy" width={480} height={124} priority />
+        <Image src="/logo-offerdy-light.png" alt={siteName} width={480} height={124} priority />
         <span>Admin</span>
       </Link>
 

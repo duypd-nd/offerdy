@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import { getDealBySlug, getDealCoupon } from '@/sanity/queries'
+import { getSiteName, getDealBySlug, getDealCoupon } from '@/sanity/queries'
 import { DealOgImage, BrandedOgImage } from '@/lib/ogTemplate'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 
@@ -17,13 +17,13 @@ export const contentType = 'image/png'
 // minh thi gia tri do thang, va route opengraph-image bi bo qua hoan toan.
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const deal = await getDealBySlug(slug)
+  const [deal, siteName] = await Promise.all([getDealBySlug(slug), getSiteName()])
 
   // Deal khong ton tai (slug sai / vua bi xoa) — van tra ve anh thuong hieu hop le
   // thay vi de crash, vi bot cua mang xa hoi se fetch URL nay bat ke trang con song.
   if (!deal) {
     return new ImageResponse(
-      <BrandedOgImage title="Offerdy" subtitle="Verified deals, tested before publishing" />,
+      <BrandedOgImage title={siteName} subtitle="Verified deals, tested before publishing" />,
       { ...size }
     )
   }

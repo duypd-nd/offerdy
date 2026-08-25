@@ -231,6 +231,12 @@ export type ArticleProblems = {
 
 export type ArticleGuardContext = {
   storeName: string
+  /**
+   * Ten website that. ⚠️ Truoc 2026-08-25 hang rao nay go cung chu "Offerdy",
+   * nen doi ten website xong la no thoi chan — va `metaTitle` lai bat dau lap
+   * thuong hieu hai lan ("... | <ten> | <ten>") dung nhu 24 trang da tung dinh.
+   */
+  siteName: string
   productCount: number
   /** Ten + mo ta san pham — kho tu vung that cua bai. */
   sourceText: string[]
@@ -339,9 +345,9 @@ export function findUnsafeArticle(a: ArticleContent, ctx: ArticleGuardContext): 
   }
 
   // Ten bai khong den tu day nua (xem chu thich cua `ArticleSchema`), nen chi con
-  // `metaTitle` la thu buoc nay tu viet ra va co the mang chu "Offerdy".
-  if (/offerdy/i.test(a.metaTitle)) {
-    hard.push('metaTitle chứa chữ "Offerdy" — titleTemplate đã nối hậu tố rồi')
+  // `metaTitle` la thu buoc nay tu viet ra va co the mang ten website.
+  if (ctx.siteName && a.metaTitle.toLowerCase().includes(ctx.siteName.toLowerCase())) {
+    hard.push(`metaTitle chứa chữ "${ctx.siteName}" — titleTemplate đã nối hậu tố rồi`)
   }
 
   // Nam: bai de nam sai la bai tu khai minh cu ngay hom dang.

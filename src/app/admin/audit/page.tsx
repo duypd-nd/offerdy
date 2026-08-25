@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
+import { getSiteName } from '@/sanity/queries'
 import AuditTable from '../_components/AuditTable'
 import { requireOwner } from '@/lib/adminSession'
 import { readAuditLog } from '@/lib/adminAudit'
 
-export const metadata: Metadata = { title: 'Nhật ký thao tác — Offerdy Admin' }
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `Nhật ký thao tác — ${await getSiteName()} Admin` }
+}
 export const dynamic = 'force-dynamic'
 
 /**

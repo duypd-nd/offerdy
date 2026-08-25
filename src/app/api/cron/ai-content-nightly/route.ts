@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs'
+import { getSiteName } from '@/sanity/queries'
 import { writeClient } from '@/sanity/writeClient'
 import { verifyCronRequest } from '@/lib/cronAuth'
 import { generateStoreContent, type StoreContentInput } from '@/lib/ai/generateStoreContent'
@@ -128,9 +129,12 @@ export async function GET(request: Request) {
   // Offer truoc store va deal: day la loai ton dong lon nhat va la thu hien ngay
   // tren the offer ma nguoi mua doc. Khi ngan sach chi du mot phan, phan duoc lam
   // nen la phan dang gia nhat.
-  const offerOutcome = await runWithBudget<OfferContentInput>(offers, generateOfferContent, deadline)
-  const storeOutcome = await runWithBudget<StoreContentInput>(stores, generateStoreContent, deadline)
-  const dealOutcome = await runWithBudget<DealContentInput>(deals, generateDealContent, deadline)
+  // Ten website hoi MOT lan cho ca me — cac generator nhan no qua tham so vi
+  // `lib/ai/*` khong duoc import `@/sanity/queries` (xem chu thich trong chung).
+  const siteName = await getSiteName()
+  const offerOutcome = await runWithBudget<OfferContentInput>(offers, o => generateOfferContent(o, siteName), deadline)
+  const storeOutcome = await runWithBudget<StoreContentInput>(stores, st => generateStoreContent(st, siteName), deadline)
+  const dealOutcome = await runWithBudget<DealContentInput>(deals, d => generateDealContent(d, siteName), deadline)
 
   const summary = {
     offers: offerOutcome,

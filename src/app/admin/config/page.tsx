@@ -1,3 +1,5 @@
+import { getSiteName } from '@/sanity/queries'
+
 const CONFIGS = [
   { href: '/admin/config/content', icon: '📋', label: 'Cấu hình nội dung', desc: 'How-to, FAQ mặc định, mô tả offer, số lượng hiển thị' },
   { href: '/admin/config/general', icon: '⚙️', label: 'Cấu hình chung', desc: 'Tên site, slogan, menu điều hướng, footer' },
@@ -8,11 +10,13 @@ const CONFIGS = [
   { href: '/admin/config/social', icon: '🌐', label: 'Mạng xã hội', desc: 'Facebook, Twitter, Instagram, YouTube...' },
 ]
 
-export default function ConfigHubPage() {
+export default async function ConfigHubPage() {
+  const siteName = await getSiteName()
+
   return (
     <div className="adm-dash">
       <h1 className="adm-dash-title">Cấu hình</h1>
-      <p className="adm-dash-sub">Thiết lập toàn bộ cấu hình hoạt động của Offerdy</p>
+      <p className="adm-dash-sub">Thiết lập toàn bộ cấu hình hoạt động của {siteName}</p>
       <div className="adm-dash-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
         {CONFIGS.map(c => (
           <a key={c.href} href={c.href} className="adm-dash-card">

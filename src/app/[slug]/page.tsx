@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getPageBySlug } from '@/sanity/queries'
+import { getPageBySlug, getSiteName } from '@/sanity/queries'
+import { fillSiteName } from '@/lib/siteNameToken'
 
 export const revalidate = 60
 
@@ -14,19 +15,24 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const page = await getPageBySlug(slug)
+  const [page, siteName] = await Promise.all([getPageBySlug(slug), getSiteName()])
   if (!page) return {}
   return {
-    title: page.title,
-    description: page.excerpt ?? undefined,
+    title: fillSiteName(page.title, siteName),
+    description: page.excerpt ? fillSiteName(page.excerpt, siteName) : undefined,
   }
 }
 
 export default async function StaticPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const page = await getPageBySlug(slug)
+  const [raw, siteName] = await Promise.all([getPageBySlug(slug), getSiteName()])
 
-  if (!page) notFound()
+  if (!raw) notFound()
+
+  // Trang tuy chinh soan trong /admin/pages cung dung duoc o `{site}`.
+  const n = (t: string) => fillSiteName(t, siteName)
+  const page = { ...raw, title: n(raw.title), excerpt: raw.excerpt ? n(raw.excerpt) : raw.excerpt,
+    content: raw.content ? n(raw.content) : raw.content }
 
   return (
     <>

@@ -4,27 +4,28 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { getPartnerPage, type PartnerData, type Benefit } from '@/app/admin/partner/actions'
 import { isConfigured } from '@/sanity/client'
-import { getPublishedStoreCount } from '@/sanity/queries'
+import { getSiteName, getPublishedStoreCount } from '@/sanity/queries'
 import { fillStoreCount } from '@/lib/storeCount'
+import { fillSiteName } from '@/lib/siteNameToken'
 
 export const dynamic = 'force-dynamic'
 const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS: Required<PartnerData> = {
-  h1: 'Partner with Offerdy',
+  h1: 'Partner with {site}',
   heroLead: "We work with brands, retailers, and affiliate networks to bring verified deals to shoppers worldwide. Let's grow together.",
   benefitsHeading: 'Why partner with us?',
   benefits: [
     { _key: 'b1', title: 'Engaged deal-seekers', desc: 'Our audience actively searches for coupons — high purchase intent, low bounce rate.' },
     { _key: 'b2', title: 'Verified placements', desc: 'Every deal is tested before going live. Your offers appear alongside trusted, working codes.' },
-    { _key: 'b3', title: 'Global reach', desc: 'Offerdy covers {storeCount} stores internationally. We reach shoppers from dozens of countries.' },
+    { _key: 'b3', title: 'Global reach', desc: '{site} covers {storeCount} stores internationally. We reach shoppers from dozens of countries.' },
     { _key: 'b4', title: 'Performance-based', desc: 'We work on affiliate commission — you pay only for results, not impressions.' },
   ],
   ctaHeading: 'Ready to get started?',
   ctaBody: "Reach out with your store name, affiliate network, and what you're looking for. We'll get back to you within 48 hours.",
   contactEmail: 'partners@offerdy.com',
-  seoTitle: "Partner with Offerdy — List Your Store's Deals",
-  seoDescription: 'Partner with Offerdy to feature your deals in front of an engaged audience of shoppers. Affiliate-based, performance-driven.',
+  seoTitle: "Partner with {site} — List Your Store's Deals",
+  seoDescription: 'Partner with {site} to feature your deals in front of an engaged audience of shoppers. Affiliate-based, performance-driven.',
   indexPage: true,
 }
 
@@ -49,14 +50,14 @@ async function get(): Promise<Required<PartnerData>> {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const d = await get()
-  return { title: d.seoTitle, description: d.seoDescription, alternates: { canonical: `${BASE}/partner` }, robots: d.indexPage ? undefined : { index: false } }
+  const [d, siteName] = await Promise.all([get(), getSiteName()])
+  return { title: fillSiteName(d.seoTitle, siteName), description: fillSiteName(d.seoDescription, siteName), alternates: { canonical: `${BASE}/partner` }, robots: d.indexPage ? undefined : { index: false } }
 }
 
 export default async function PartnerPage() {
   // Cung ly do voi /about: con so lay tu du lieu, khong go tay (src/lib/storeCount.ts).
-  const [d, storeCount] = await Promise.all([get(), getPublishedStoreCount()])
-  const n = (t: string) => fillStoreCount(t, storeCount)
+  const [d, storeCount, siteName] = await Promise.all([get(), getPublishedStoreCount(), getSiteName()])
+  const n = (t: string) => fillSiteName(fillStoreCount(t, storeCount), siteName)
   return (
     <>
       <HeaderWrapper />
@@ -68,16 +69,16 @@ export default async function PartnerPage() {
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
             Partner Program
           </div>
-          <h1 style={{ fontSize: 'clamp(26px,4vw,38px)', fontWeight: 900, color: 'var(--navy)', lineHeight: 1.12, letterSpacing: '-.7px', textWrap: 'balance', marginBottom: 14, maxWidth: 560 }}>{d.h1}</h1>
-          <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.72, maxWidth: 540, marginBottom: 52 }}>{d.heroLead}</p>
+          <h1 style={{ fontSize: 'clamp(26px,4vw,38px)', fontWeight: 900, color: 'var(--navy)', lineHeight: 1.12, letterSpacing: '-.7px', textWrap: 'balance', marginBottom: 14, maxWidth: 560 }}>{n(d.h1)}</h1>
+          <p style={{ fontSize: 16, color: 'var(--muted)', lineHeight: 1.72, maxWidth: 540, marginBottom: 52 }}>{n(d.heroLead)}</p>
 
           {/* Benefits */}
           <section style={{ marginBottom: 52 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-.35px', marginBottom: 22 }}>{d.benefitsHeading}</h2>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-.35px', marginBottom: 22 }}>{n(d.benefitsHeading)}</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 14 }}>
               {(d.benefits as Benefit[]).map(b => (
                 <div key={b._key} style={{ background: 'var(--white)', border: '1.5px solid var(--border)', borderRadius: 12, padding: '22px 24px' }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', marginBottom: 6 }}>{b.title}</h3>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--navy)', marginBottom: 6 }}>{n(b.title)}</h3>
                   <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.62 }}>{n(b.desc)}</p>
                 </div>
               ))}
@@ -86,8 +87,8 @@ export default async function PartnerPage() {
 
           {/* CTA */}
           <div style={{ background: 'var(--navy)', borderRadius: 18, padding: '36px 40px' }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 12 }}>{d.ctaHeading}</h2>
-            <p style={{ fontSize: 15, color: '#7A8BA8', lineHeight: 1.75, marginBottom: 28 }}>{d.ctaBody}</p>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 12 }}>{n(d.ctaHeading)}</h2>
+            <p style={{ fontSize: 15, color: '#7A8BA8', lineHeight: 1.75, marginBottom: 28 }}>{n(d.ctaBody)}</p>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
               <a href={`mailto:${d.contactEmail}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--green)', color: 'var(--navy)', fontSize: 14, fontWeight: 700, padding: '11px 22px', borderRadius: 9, textDecoration: 'none' }}>
                 Email us →

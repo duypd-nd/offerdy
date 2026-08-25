@@ -14,7 +14,7 @@ const SOCIALS = [
   { key: 'telegram', label: 'Telegram', placeholder: 'https://t.me/offerdy' },
 ]
 
-export default function SocialConfigForm({ initial }: { initial: Record<string, unknown> }) {
+export default function SocialConfigForm({ initial, siteName }: { initial: Record<string, unknown>; siteName: string }) {
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(SOCIALS.map(s => [s.key, String(initial[s.key] ?? '')]))
   )
@@ -35,7 +35,7 @@ export default function SocialConfigForm({ initial }: { initial: Record<string, 
       <div className="cfg-header">
         <a href="/admin/config" className="cfg-back">← Cấu hình</a>
         <h1 className="cfg-title">Mạng xã hội</h1>
-        <p className="cfg-subtitle">Liên kết các kênh mạng xã hội của Offerdy</p>
+        <p className="cfg-subtitle">Liên kết các kênh mạng xã hội của {siteName}</p>
       </div>
 
       <div className="cfg-section">

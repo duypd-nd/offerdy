@@ -14,6 +14,11 @@ export type SiteSettings = {
   copyrightText: string
 }
 
+/**
+ * ⚠️ `siteName` o day la GIA TRI ROI VE khi chua cau hinh Sanity hoac o *Ten
+ * website* con trong — day la cho DUY NHAT trong `src/` con go cung ten that,
+ * va no phai the. Moi cho khac doc qua `getSiteName()` hoac o `{site}`.
+ */
 export const defaultSiteSettings: SiteSettings = {
   siteName: 'Offerdy',
   tagline: 'The best deals online. Actually verified.',
@@ -68,5 +73,5 @@ export const defaultSiteSettings: SiteSettings = {
       ],
     },
   ],
-  copyrightText: '© 2026 Offerdy. Real deals, no spam.',
+  copyrightText: '© 2026 {site}. Real deals, no spam.',
 }

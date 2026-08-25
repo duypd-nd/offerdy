@@ -28,7 +28,7 @@ function InfoItem({ icon, label, value, sub }: { icon: React.ReactNode; label: s
   )
 }
 
-export default function ContactPageClient({ data: d }: { data: ContactData }) {
+export default function ContactPageClient({ data: d, siteName }: { data: ContactData; siteName: string }) {
   const [name, setName]       = useState('')
   const [email, setEmail]     = useState('')
   const [subject, setSubject] = useState('')
@@ -49,7 +49,7 @@ export default function ContactPageClient({ data: d }: { data: ContactData }) {
         if (res.ok) { setStatus('sent'); setName(''); setEmail(''); setSubject(''); setMessage('') }
         else setStatus('error')
       } else {
-        window.location.href = `mailto:${d.email}?subject=${encodeURIComponent(subject || 'Message from Offerdy')}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\n${message}`)}`
+        window.location.href = `mailto:${d.email}?subject=${encodeURIComponent(subject || `Message from ${siteName}`)}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\n${message}`)}`
         setStatus('sent')
       }
     } catch {
@@ -155,7 +155,7 @@ export default function ContactPageClient({ data: d }: { data: ContactData }) {
                 { href: '/deals',   label: 'Browse active deals' },
                 { href: '/stores',  label: 'Explore all stores' },
                 { href: '/reviews', label: 'Read store reviews' },
-                { href: '/about',   label: 'About Offerdy' },
+                { href: '/about',   label: `About ${siteName}` },
               ].map(l => (
                 <a key={l.href} href={l.href} style={{ fontSize: 13, color: 'var(--navy)', fontWeight: 500, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                   {l.label}

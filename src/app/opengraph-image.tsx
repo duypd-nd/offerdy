@@ -1,12 +1,15 @@
 import { ImageResponse } from 'next/og'
-import { getConfigSeo } from '@/sanity/queries'
+import { getSiteName, getConfigSeo } from '@/sanity/queries'
 
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
-export const alt = 'Offerdy — Real Deals. Actually Verified.'
+// ⚠️ `alt` PHAI la hang so tinh — Next.js doc no luc build, khong goi ham duoc.
+// Nen o day co y KHONG nhac ten website: mot cau khong ten thi khong bao gio cu,
+// con go cung ten thi doi ten xong la sai. Chu tren chinh anh van lay ten that.
+export const alt = 'Real deals. Actually verified.'
 
 export default async function OgImage() {
-  const seo = await getConfigSeo()
+  const [seo, siteName] = await Promise.all([getConfigSeo(), getSiteName()])
 
   if (seo.defaultOgImageUrl) {
     return new ImageResponse(
@@ -108,7 +111,7 @@ export default async function OgImage() {
               lineHeight: 1,
             }}
           >
-            Offer
+            {siteName.slice(0, Math.max(1, siteName.length - 2))}
           </span>
           <span
             style={{
@@ -120,7 +123,7 @@ export default async function OgImage() {
               lineHeight: 1,
             }}
           >
-            dy
+            {siteName.slice(Math.max(1, siteName.length - 2))}
           </span>
         </div>
 

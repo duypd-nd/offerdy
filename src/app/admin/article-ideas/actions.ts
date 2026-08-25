@@ -1,6 +1,7 @@
 'use server'
 
 import { client as readClient } from '@/sanity/client'
+import { getSiteName } from '@/sanity/queries'
 import { fetchProductCatalog, slugToTitle } from '@/lib/productCatalog'
 import {
   availableTemplates,
@@ -142,6 +143,7 @@ export async function nameScannedIdeas(storeId: string, pasted?: string): Promis
       ideas: scan.offered,
       storeName: scan.storeName,
       year: new Date().getFullYear(),
+      siteName: await getSiteName(),
     })
     return { ok: true, named: result.named, rejected: result.rejected }
   } catch (err) {
@@ -257,6 +259,7 @@ export async function writeArticleDraft(input: {
   // ── Ten bai: van kiem lai du da qua hau kiem o buoc dat ten ──
   const nameCtx = {
     storeName: store.name,
+    siteName: await getSiteName(),
     productTitles: scraped.map(p => p.title),
     year,
     productCount: scraped.length,
@@ -296,6 +299,7 @@ export async function writeArticleDraft(input: {
 
   const problems = findUnsafeArticle(content, {
     storeName: store.name,
+    siteName: nameCtx.siteName,
     productCount: scraped.length,
     sourceText: scraped.flatMap(p => [p.title, p.description ?? '']),
     imageCounts: scraped.map(p => p.images.length),

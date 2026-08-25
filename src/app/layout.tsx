@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import Script from 'next/script'
 import './globals.css'
-import { getConfigSeo, getSiteSettings } from '@/sanity/queries'
+import { getConfigSeo, getSiteName, getSiteSettings } from '@/sanity/queries'
+import { fillSiteName } from '@/lib/siteNameToken'
 
 const jakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -17,15 +18,19 @@ const inter = Inter({
   display: 'swap',
 })
 
-const DEFAULT_TITLE = 'Offerdy — Real Deals. Actually Verified.'
+const DEFAULT_TAGLINE = 'Real Deals. Actually Verified.'
 const DEFAULT_DESCRIPTION = 'Every coupon code tested before it goes live. No expired codes, no checkout disappointments — ever.'
 const DEFAULT_KEYWORDS = ['coupon codes', 'promo codes', 'deals', 'discount codes', 'verified coupons']
 
 export async function generateMetadata(): Promise<Metadata> {
-  const seo = await getConfigSeo()
-  const title = seo.defaultTitle || DEFAULT_TITLE
-  const description = seo.defaultDescription || DEFAULT_DESCRIPTION
-  const titleTemplate = seo.titleTemplate?.includes('%s') ? seo.titleTemplate : '%s — Offerdy'
+  const [seo, siteName] = await Promise.all([getConfigSeo(), getSiteName()])
+  // ⚠️ Ba o nay nam trong `configSEO`, KHONG phai `configGeneral` — va chung deu
+  // co the mang ten thuong hieu. Cho o `{site}` chay qua day de doi ten mot lan
+  // o *Cau hinh chung* la keo theo ca tieu de mac dinh lan mau tieu de.
+  const n = (t: string) => fillSiteName(t, siteName)
+  const title = n(seo.defaultTitle || `${siteName} — ${DEFAULT_TAGLINE}`)
+  const description = n(seo.defaultDescription || DEFAULT_DESCRIPTION)
+  const titleTemplate = seo.titleTemplate?.includes('%s') ? n(seo.titleTemplate) : `%s — ${siteName}`
   const twitterCard = seo.twitterCard === 'summary' ? 'summary' : 'summary_large_image'
 
   return {
@@ -35,7 +40,7 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: seo.keywords?.length ? seo.keywords : DEFAULT_KEYWORDS,
     openGraph: {
       type: 'website',
-      siteName: 'Offerdy',
+      siteName,
       // Thieu og:locale thi Facebook/LinkedIn tu DOAN ngon ngu tu chu trong the xem
       // truoc — doan sai thi hien nham font va nham huong doc. Khai thang ra re hon.
       // Khong khai hreflang o day: hreflang de chi cac BAN NGON NGU KHAC cua cung mot
@@ -62,7 +67,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const settings = await getSiteSettings()
+  const [settings, siteName] = await Promise.all([getSiteSettings(), getSiteName()])
   const sameAs = (settings.socialMedia ?? [])
     .map(s => s.url)
     .filter(url => url && url !== '#' && url.startsWith('http'))
@@ -73,7 +78,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       {
         '@type': 'Organization',
         '@id': 'https://www.offerdy.com/#organization',
-        name: 'Offerdy',
+        name: siteName,
         url: 'https://www.offerdy.com',
         logo: {
           '@type': 'ImageObject',
@@ -87,7 +92,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         '@type': 'WebSite',
         '@id': 'https://www.offerdy.com/#website',
         url: 'https://www.offerdy.com',
-        name: 'Offerdy',
+        name: siteName,
         publisher: { '@id': 'https://www.offerdy.com/#organization' },
         potentialAction: {
           '@type': 'SearchAction',

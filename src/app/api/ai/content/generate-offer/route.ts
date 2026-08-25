@@ -1,4 +1,5 @@
 import { writeClient } from '@/sanity/writeClient'
+import { getSiteName } from '@/sanity/queries'
 import { generateOfferContent, type OfferContentInput } from '@/lib/ai/generateOfferContent'
 
 const OFFER_QUERY = `*[_type == "offer" && _id in $ids] {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     const results = await Promise.all(
       offers.map(async (offer: OfferContentInput) => {
         try {
-          await generateOfferContent(offer)
+          await generateOfferContent(offer, await getSiteName())
           return { id: offer.id, ok: true }
         } catch (err) {
           return { id: offer.id, ok: false, error: String(err) }

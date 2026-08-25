@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { fillSiteName } from '@/lib/siteNameToken'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
 import { getAnthropicClient } from './anthropicClient'
@@ -20,7 +21,7 @@ export type OfferContentInput = {
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
-const SYSTEM_PROMPT = `You are an SEO/GEO content writer for Offerdy, a coupon and deals affiliate website.
+const SYSTEM_PROMPT = `You are an SEO/GEO content writer for {site}, a coupon and deals affiliate website.
 
 Write a short (1-2 sentence) description, a usage tip, and an eligibility note for the coupon/offer described in the user message. You must NEVER invent facts: no discount percentages, dollar amounts, coupon codes, minimum order values, or expiry dates that are not present in the input. Do not reveal or make up the actual coupon code. If "has coupon code" is false, do not imply the offer requires or has a code.
 
@@ -36,11 +37,18 @@ Expires: ${offer.expiresAt ? new Date(offer.expiresAt).toDateString() : 'not spe
 Write a 1-2 sentence description, a 1-sentence usage tip, and a 1-sentence eligibility note for this offer for shoppers at ${offer.storeName}.`
 }
 
-export async function generateOfferContent(offer: OfferContentInput) {
+/**
+ * ⚠️ `siteName` la THAM SO chu khong phai mot lan doc Sanity ngay tai day.
+ * Cac module trong `lib/ai/` duoc bo chay test nap bang Node THUAN — import
+ * `@/sanity/queries` keo theo `next/cache` va lam vo 3 tep test (aiTells,
+ * articleGuards, videoScriptGuard) vi `generateArticleContent` import gian tiep
+ * qua `generateReviewContent`. Noi goi (server action / route) tu hoi ten.
+ */
+export async function generateOfferContent(offer: OfferContentInput, siteName: string) {
   const response = await getAnthropicClient().messages.parse({
     model: MODEL,
     max_tokens: 512,
-    system: SYSTEM_PROMPT,
+    system: fillSiteName(SYSTEM_PROMPT, siteName),
     output_config: { format: zodOutputFormat(OfferContentSchema) },
     messages: [{ role: 'user', content: buildUserPrompt(offer) }],
   })

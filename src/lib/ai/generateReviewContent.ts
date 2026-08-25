@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { fillSiteName } from '@/lib/siteNameToken'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { getAnthropicClient } from './anthropicClient'
 
@@ -45,7 +46,7 @@ export type ReviewContentInput = {
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
-const SYSTEM_PROMPT = `You are an SEO/GEO content writer for Offerdy, a coupon and deals affiliate website, writing an in-depth product review.
+const SYSTEM_PROMPT = `You are an SEO/GEO content writer for {site}, a coupon and deals affiliate website, writing an in-depth product review.
 
 You must NEVER invent facts: no specs, features, warranty/return-policy details, stock levels, or review counts that are not present in the input. Use only the exact product name, description, price and site name given. If the description is thin, keep the review honest and moderately general rather than fabricating detailed specifications.
 
@@ -82,7 +83,7 @@ function isRetryable(err: unknown): boolean {
   return false
 }
 
-async function callAnthropic(input: ReviewContentInput, attempt = 1): Promise<ReviewContent> {
+async function callAnthropic(input: ReviewContentInput, siteName: string, attempt = 1): Promise<ReviewContent> {
   try {
     // ⚠️ **Streaming + tu parse, KHONG dung `messages.parse`.** Cung mot quat mim
     // da no o `generateArticleContent` va `nameArticleIdeas` — chep nguyen cach chua:
@@ -102,7 +103,7 @@ async function callAnthropic(input: ReviewContentInput, attempt = 1): Promise<Re
     const stream = getAnthropicClient().messages.stream({
       model: MODEL,
       max_tokens: 64000,
-      system: SYSTEM_PROMPT,
+      system: fillSiteName(SYSTEM_PROMPT, siteName),
       output_config: { format: zodOutputFormat(ReviewContentSchema) },
       messages: [{ role: 'user', content: buildUserPrompt(input) }],
     })
@@ -123,12 +124,19 @@ async function callAnthropic(input: ReviewContentInput, attempt = 1): Promise<Re
   } catch (err) {
     if (isRetryable(err) && attempt < MAX_ATTEMPTS) {
       await new Promise(r => setTimeout(r, attempt * 1500))
-      return callAnthropic(input, attempt + 1)
+      return callAnthropic(input, siteName, attempt + 1)
     }
     throw err
   }
 }
 
-export async function generateReviewContent(input: ReviewContentInput): Promise<ReviewContent> {
-  return callAnthropic(input)
+/**
+ * ⚠️ `siteName` la THAM SO chu khong phai mot lan doc Sanity ngay tai day.
+ * Cac module trong `lib/ai/` duoc bo chay test nap bang Node THUAN — import
+ * `@/sanity/queries` keo theo `next/cache` va lam vo 3 tep test (aiTells,
+ * articleGuards, videoScriptGuard) vi `generateArticleContent` import gian tiep
+ * qua `generateReviewContent`. Noi goi (server action / route) tu hoi ten.
+ */
+export async function generateReviewContent(input: ReviewContentInput, siteName: string): Promise<ReviewContent> {
+  return callAnthropic(input, siteName)
 }

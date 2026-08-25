@@ -1,5 +1,5 @@
 import { after, NextResponse } from 'next/server'
-import { getDealRefByCode, getDealPreviewByCode } from '@/sanity/queries'
+import { getDealRefByCode, getDealPreviewByCode, getSiteName } from '@/sanity/queries'
 import { parseDealCode } from '@/lib/dealCode'
 import { dealPreviewHtml } from '@/lib/dealPreviewHtml'
 import { detectShortLinkSource, isLikelyBot, isLinkPreviewBot, parseCampaign } from '@/lib/shortLinkSource'
@@ -47,7 +47,7 @@ export async function GET(
   if (deal && parsed !== null && isLinkPreviewBot(ua)) {
     const preview = await getDealPreviewByCode(parsed)
     if (preview) {
-      return new Response(dealPreviewHtml(preview, { target }), {
+      return new Response(dealPreviewHtml(preview, { target, siteName: await getSiteName() }), {
         status: 200,
         headers: { 'Content-Type': 'text/html; charset=utf-8' },
       })

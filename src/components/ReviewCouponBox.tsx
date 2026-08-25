@@ -20,6 +20,7 @@ export default function ReviewCouponBox({
   heading,
   sub,
   note,
+  siteName,
 }: {
   code: string
   link?: string | null
@@ -27,6 +28,11 @@ export default function ReviewCouponBox({
   heading?: string
   sub?: string
   note?: string
+  /**
+   * Ten website, do trang cha truyen xuong. Component nay la 'use client' nen
+   * khong tu hoi Sanity duoc — moi noi goi phai `await getSiteName()` roi day vao.
+   */
+  siteName: string
 }) {
   const [copied, setCopied] = useState(false)
 
@@ -41,10 +47,10 @@ export default function ReviewCouponBox({
     <aside className="rv-coupon" aria-label="Discount code">
       <div className="rv-coupon-head">
         <p className="rv-coupon-eyebrow">
-          {eyebrow ?? <>Exclusive Deal from <span className="rv-coupon-brand">Offerdy</span></>}
+          {eyebrow ?? <>Exclusive Deal from <span className="rv-coupon-brand">{siteName}</span></>}
         </p>
         <h3 className="rv-coupon-heading">{heading ?? 'Save More on Your Order Today'}</h3>
-        <p className="rv-coupon-sub">{sub ?? 'Use this exclusive Offerdy code at checkout for an extra discount.'}</p>
+        <p className="rv-coupon-sub">{sub ?? `Use this exclusive ${siteName} code at checkout for an extra discount.`}</p>
       </div>
       <div className="rv-coupon-row">
         <button type="button" className={`rv-coupon-code${copied ? ' is-copied' : ''}`} onClick={copy} aria-label="Copy coupon code">

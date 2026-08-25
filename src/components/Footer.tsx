@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { getSiteSettings } from '@/sanity/queries'
+import { fillSiteName } from '@/lib/siteNameToken'
 import type { FooterColumn, SocialLink } from '@/data/siteSettings'
 
 function SocialIcon({ platform }: { platform: string }) {
@@ -26,6 +27,9 @@ function SocialIcon({ platform }: { platform: string }) {
 
 export default async function Footer() {
   const settings = await getSiteSettings()
+  // Dong ban quyen soan trong admin dung duoc o `{site}` — doi ten website la doi
+  // luon o day, khong phai nho sua tay dong copyright.
+  const copyright = fillSiteName(settings.copyrightText, settings.siteName)
 
   return (
     <footer>
@@ -74,7 +78,7 @@ export default async function Footer() {
         </div>
 
         <div className="footer-bottom">
-          <div className="footer-copy">{settings.copyrightText}</div>
+          <div className="footer-copy">{copyright}</div>
           <div className="footer-social">
             {settings.socialMedia.map((soc: SocialLink, i: number) => {
               const href = soc.url.startsWith('http') || soc.url.startsWith('/') ? soc.url : `/${soc.url}`

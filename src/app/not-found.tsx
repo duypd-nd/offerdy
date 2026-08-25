@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getSiteName } from '@/sanity/queries'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
@@ -9,7 +10,9 @@ export const metadata: Metadata = {
   robots: { index: false },
 }
 
-export default function NotFound() {
+export default async function NotFound() {
+  const siteName = await getSiteName()
+
   return (
     <>
       <HeaderWrapper />
@@ -31,9 +34,9 @@ export default function NotFound() {
                 width: 28, height: 28, background: 'var(--green)', borderRadius: 7,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontWeight: 900, fontSize: 14, color: 'var(--navy)', letterSpacing: '-.5px', flexShrink: 0,
-              }}>O</div>
+              }}>{siteName.slice(0, 1).toUpperCase()}</div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>Offerdy</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--navy)' }}>{siteName}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>offerdy.com</div>
               </div>
             </div>

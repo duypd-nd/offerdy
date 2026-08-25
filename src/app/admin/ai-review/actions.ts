@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { getSiteName } from '@/sanity/queries'
 import { writeClient } from '@/sanity/writeClient'
 import { generateStoreContent } from '@/lib/ai/generateStoreContent'
 import { generateOfferContent } from '@/lib/ai/generateOfferContent'
@@ -188,7 +189,7 @@ export async function regenerateAiDraft(storeId: string): Promise<{ ok: boolean;
       { id: storeId }
     )
     if (!store) return { ok: false, error: 'Store not found' }
-    await generateStoreContent(store)
+    await generateStoreContent(store, await getSiteName())
     revalidateStore()
     return { ok: true }
   } catch (err) {
@@ -224,7 +225,7 @@ export async function regenerateOfferAiDraft(offerId: string): Promise<{ ok: boo
       { id: offerId }
     )
     if (!offer) return { ok: false, error: 'Offer not found' }
-    await generateOfferContent(offer)
+    await generateOfferContent(offer, await getSiteName())
     revalidateOffer()
     return { ok: true }
   } catch (err) {
@@ -401,7 +402,7 @@ export async function regenerateDealAiDraft(dealId: string): Promise<{ ok: boole
       { id: dealId }
     )
     if (!deal) return { ok: false, error: 'Deal not found' }
-    await generateDealContent(deal)
+    await generateDealContent(deal, await getSiteName())
     revalidateDeal()
     return { ok: true }
   } catch (err) {

@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { fillSiteName } from '@/lib/siteNameToken'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
@@ -6,7 +7,7 @@ import Footer from '@/components/Footer'
 import AffiliateLink from '@/components/AffiliateLink'
 import FaqAccordion from '@/components/FaqAccordion'
 import ShareDeal from '@/components/ShareDeal'
-import { getDealBySlug, getConfigContent, getDealCoupon } from '@/sanity/queries'
+import { getSiteName, getDealBySlug, getConfigContent, getDealCoupon } from '@/sanity/queries'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 import { parsePrice } from '@/lib/dealSchema'
@@ -24,7 +25,7 @@ const BASE = 'https://www.offerdy.com'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const deal = await getDealBySlug(slug)
+  const [deal, siteName] = await Promise.all([getDealBySlug(slug), getSiteName()])
   if (!deal) return {}
   const title = deal.metaTitle || `${deal.title} — ${dealDiscountBadge(deal).main} Off`
   // `store` co the rong (21/21 deal hien tai deu rong du schema danh dau required —
@@ -42,7 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       title,
       description,
       url,
-      siteName: 'Offerdy',
+      siteName,
       type: 'website',
       // KHONG set images o day — de opengraph-image.tsx cung thu muc lo. Set tuong
       // minh se ghi de route do (da kiem chung tren production), khien preview quay
@@ -59,9 +60,10 @@ function fmtDate(d: string) {
 
 export default async function DealDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const [deal, globalContent] = await Promise.all([
+  const [deal, globalContent, siteName] = await Promise.all([
     getDealBySlug(slug),
     getConfigContent(),
+    getSiteName(),
   ])
   if (!deal) notFound()
 
@@ -186,6 +188,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
           {coupon && (
             <div style={{ marginBottom: 28 }}>
               <ReviewCouponBox
+                siteName={siteName}
                 code={coupon.code}
                 link={deal.dealUrl}
                 eyebrow={<>Active code at <span className="rv-coupon-brand">{coupon.storeName}</span></>}
@@ -251,11 +254,11 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
           {(globalContent.articleDisclaimer || globalContent.articleReviewedBy) && (
             <div className="article-disclaimer">
               {globalContent.articleDisclaimer && (
-                <p dangerouslySetInnerHTML={{ __html: globalContent.articleDisclaimer.replace(/\{site\}/g, 'Offerdy').replace(/\{store\}/g, deal.store ? `<span style="color:#16a34a;font-weight:700">${deal.store}</span>` : 'the store') }} />
+                <p dangerouslySetInnerHTML={{ __html: globalContent.articleDisclaimer.replace(/\{site\}/g, siteName).replace(/\{store\}/g, deal.store ? `<span style="color:#16a34a;font-weight:700">${deal.store}</span>` : 'the store') }} />
               )}
               {globalContent.articleReviewedBy && (
                 <p className="article-disclaimer-meta">
-                  {(deal._updatedAt || deal._createdAt) && `Last updated: ${fmtDate(deal._updatedAt ?? deal._createdAt)} · `}{globalContent.articleReviewedBy}
+                  {(deal._updatedAt || deal._createdAt) && `Last updated: ${fmtDate(deal._updatedAt ?? deal._createdAt)} · `}{fillSiteName(globalContent.articleReviewedBy, siteName)}
                 </p>
               )}
             </div>

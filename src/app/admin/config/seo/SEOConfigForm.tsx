@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { saveConfigDoc } from '../actions'
 
-export default function SEOConfigForm({ initial }: { initial: Record<string, unknown> }) {
+export default function SEOConfigForm({ initial, siteName }: { initial: Record<string, unknown>; siteName: string }) {
   const [titleTemplate, setTitleTemplate] = useState(String(initial.titleTemplate ?? ''))
   const [defaultTitle, setDefaultTitle] = useState(String(initial.defaultTitle ?? ''))
   const [defaultDescription, setDefaultDescription] = useState(String(initial.defaultDescription ?? ''))
@@ -48,11 +48,11 @@ export default function SEOConfigForm({ initial }: { initial: Record<string, unk
       <div className="cfg-section">
         <div className="cfg-section-title">Tiêu đề trang</div>
         <label className="cfg-label">Template tiêu đề
-          <span className="cfg-desc">Dùng %s để đặt tên trang. VD: %s | Offerdy</span>
-          <input className="cfg-input" value={titleTemplate} onChange={e => setTitleTemplate(e.target.value)} placeholder="%s | Offerdy — Real Deals. Verified." />
+          <span className="cfg-desc">Dùng %s để đặt tên trang. VD: %s | {siteName}</span>
+          <input className="cfg-input" value={titleTemplate} onChange={e => setTitleTemplate(e.target.value)} placeholder={`%s | ${siteName} — Real Deals. Verified.`} />
         </label>
         <label className="cfg-label">Tiêu đề mặc định (trang chủ)
-          <input className="cfg-input" value={defaultTitle} onChange={e => setDefaultTitle(e.target.value)} placeholder="Offerdy — Real Deals. Verified." />
+          <input className="cfg-input" value={defaultTitle} onChange={e => setDefaultTitle(e.target.value)} placeholder={`${siteName} — Real Deals. Verified.`} />
         </label>
       </div>
 

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { fillSiteName } from '@/lib/siteNameToken'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
 import { getAnthropicClient } from './anthropicClient'
@@ -25,7 +26,7 @@ export type DealContentInput = {
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
-const SYSTEM_PROMPT = `You are an SEO/GEO content writer for Offerdy, a coupon and deals affiliate website.
+const SYSTEM_PROMPT = `You are an SEO/GEO content writer for {site}, a coupon and deals affiliate website.
 
 Write honest, generic marketing copy for the deal described in the user message. You must NEVER invent facts: no product specs, features, brand/store name, or claims not present in the input (title, store, prices, discount). Use only the exact price and discount figures given — never invent a different number. Do not claim a specific stock level, review count, or rating. If the store is not specified, do not invent or guess one — refer to it generically (e.g. "this retailer") or rely on the product title only.
 
@@ -41,11 +42,18 @@ Discount: ${deal.discount}%
 Generate: a 2-4 sentence summary of why this deal is worth buying (based only on the price drop, not invented product features), prosAndCons (3 pros, 2-3 cons — frame honestly, e.g. "limited-time price" as a pro, "availability may vary" as a con), 3-4 FAQ pairs about this specific deal (general, not fabricated specifics like return policy details), an SEO metaTitle (<=60 chars), and a metaDescription (<=160 chars).`
 }
 
-export async function generateDealContent(deal: DealContentInput) {
+/**
+ * ⚠️ `siteName` la THAM SO chu khong phai mot lan doc Sanity ngay tai day.
+ * Cac module trong `lib/ai/` duoc bo chay test nap bang Node THUAN — import
+ * `@/sanity/queries` keo theo `next/cache` va lam vo 3 tep test (aiTells,
+ * articleGuards, videoScriptGuard) vi `generateArticleContent` import gian tiep
+ * qua `generateReviewContent`. Noi goi (server action / route) tu hoi ten.
+ */
+export async function generateDealContent(deal: DealContentInput, siteName: string) {
   const response = await getAnthropicClient().messages.parse({
     model: MODEL,
     max_tokens: 1536,
-    system: SYSTEM_PROMPT,
+    system: fillSiteName(SYSTEM_PROMPT, siteName),
     output_config: { format: zodOutputFormat(DealContentSchema) },
     messages: [{ role: 'user', content: buildUserPrompt(deal) }],
   })

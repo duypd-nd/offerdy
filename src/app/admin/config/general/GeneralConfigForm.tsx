@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { saveConfigDoc } from '../actions'
+import { defaultSiteSettings } from '@/data/siteSettings'
 
 type NavItem = { label: string; url: string }
 type FooterLink = { label: string; url: string }
@@ -58,10 +59,11 @@ export default function GeneralConfigForm({ initial }: { initial: Record<string,
       <div className="cfg-section">
         <div className="cfg-section-title">Thông tin cơ bản</div>
         <div className="cfg-row">
-          <label className="cfg-label">Tên website<input className="cfg-input" value={siteName} onChange={e => setSiteName(e.target.value)} placeholder="Offerdy" /></label>
+          <label className="cfg-label">Tên website<input className="cfg-input" value={siteName} onChange={e => setSiteName(e.target.value)} placeholder={defaultSiteSettings.siteName} /></label>
           <label className="cfg-label">Slogan<input className="cfg-input" value={tagline} onChange={e => setTagline(e.target.value)} placeholder="Real Deals. Verified." /></label>
         </div>
-        <label className="cfg-label">Dòng bản quyền (footer)<input className="cfg-input" value={copyrightText} onChange={e => setCopyrightText(e.target.value)} placeholder="© 2025 Offerdy. All rights reserved." /></label>
+        <label className="cfg-label">Dòng bản quyền (footer)<input className="cfg-input" value={copyrightText} onChange={e => setCopyrightText(e.target.value)} placeholder="© 2026 {site}. All rights reserved." /></label>
+        <div className="cfg-image-note"><strong>{'{site}'}</strong> trong dòng bản quyền, trang giới thiệu, điều khoản… sẽ được thay bằng tên website ở trên khi hiển thị. Ô để trống thì dùng <strong>{defaultSiteSettings.siteName}</strong>.</div>
         <div className="cfg-image-note">Logo và Favicon — upload ảnh qua <strong>Sanity Studio</strong> (không hỗ trợ upload ảnh trực tiếp tại đây).</div>
       </div>
 

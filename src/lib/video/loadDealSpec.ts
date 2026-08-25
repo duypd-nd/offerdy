@@ -1,5 +1,6 @@
 import 'server-only'
 import { writeClient } from '@/sanity/writeClient'
+import { getSiteName } from '@/sanity/queries'
 import { couponForDealUrl, type StoreHostRow } from '@/lib/dealStoreMatch'
 import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
 import { buildSpec, type VideoSpec, type DealNguon } from '@/lib/video/buildSpec'
@@ -130,7 +131,7 @@ export async function loadDealSpec(dealCode: number, tenPhongCach?: TenPhongCach
       suThatDaKiemChung: suThat,
       rating,
       reviewCount,
-    }),
+    }, await getSiteName()),
     judgeImages(ten, images),
   ])
 

@@ -6,6 +6,92 @@
 
 ---
 
+## 🔖 Điểm dừng 2026-08-25
+
+**`main` = `origin/main`**, đã push, cây làm việc sạch. Dev server đang chạy ở `:3000`.
+
+| Phép kiểm | Kết quả |
+|---|---|
+| `npm test` | **568 / 568** (565 + 3 test mới cho hàng rào thương hiệu) |
+| `npx tsc --noEmit` | sạch |
+| `npm run build` | sạch |
+
+⚠️ `npm run lint` vẫn **62 vấn đề có sẵn** — không đo lại hôm nay, xem điểm dừng 24/08.
+
+### Việc hôm nay: ô *Tên website* giờ đổi tên trên toàn bộ trang
+
+Ô đó **đã có sẵn** ở `/admin/config/general` nhưng gần như không đi tới đâu — chỉ header,
+footer và `/links` đọc nó. Đo trước khi sửa: **176 dòng ghi cứng chữ "Offerdy" trong 74
+file**, cộng **68 trường** trong 14 tài liệu cấu hình Sanity.
+
+Cách chữa **không** phải gõ lại tên đúng ở 176 chỗ, mà là **thôi gõ** — đúng khuôn
+`{storeCount}` đã có ở `src/lib/storeCount.ts`. Quy ước `{site}` thật ra **đã tồn tại**
+(`configContent.articleDisclaimer` dùng nó), chỉ có điều chỗ thay thế lại viết cứng
+`'Offerdy'`.
+
+- `getSiteName()` ở `src/sanity/queries.ts` — một nguồn sự thật, hai lớp cache.
+- `fillSiteName()` / ô `{site}` ở `src/lib/siteNameToken.ts`.
+- 92 file code + **55 trường Sanity** đổi sang `{site}`. Bản sao dữ liệu cũ:
+  `.scratch/sao-luu-config-truoc-doi-ten.json`.
+
+### Số đo đầu-cuối (đổi tên thật thành `Dealwise` rồi trả về)
+
+| | |
+|---|---|
+| Trang mang tên mới | **27 / 27** |
+| Trang rò nguyên văn `{site}` | **0** |
+| Độ trễ tên mới lên trang | **0s** (trước khi vá: ~40s, tệ nhất +300s) |
+
+### ⚠️ Bẫy trả giá hôm nay
+
+1. **`lib/ai/*` KHÔNG được import `@/sanity/queries`.** Bộ chạy test nạp chúng bằng Node
+   thuần nên `next/cache` không tồn tại. Và nó vỡ **gián tiếp**: `generateArticleContent`
+   import `PRODUCT_GRADIENTS` từ `generateReviewContent`. Các generator nhận `siteName`
+   qua **tham số**, nơi gọi tự hỏi.
+
+2. **`unstable_cache` bọc ngoài một lần đọc qua CDN = ướp giá trị cũ lại 5 phút.**
+   Bấm Lưu → `revalidatePath` xoá cache → request kế tiếp nạp lại từ CDN Sanity còn lỗi
+   thời → tên cũ đóng băng thêm 300s dù đã lưu đúng. Chữa bằng `freshClient`
+   (`useCdn: false`) trong `src/sanity/client.ts`. Cùng họ với lỗi "lưu xong tải lại thấy
+   như chưa lưu" đã dính hai lần trước đây.
+
+3. **Một nguồn sự thật mà hai đường đọc thì vẫn là hai nguồn.** `getSiteSettings()` đọc
+   `siteName` riêng, nên sau khi đổi tên, `<title>` đã mang tên mới còn footer giữ tên cũ
+   **40 giây**. Nay nó dùng chung `getSiteName()`.
+
+4. **Hàng rào chặn lặp thương hiệu từng ghi cứng `/offerdy/i`** — đổi tên xong là nó thôi
+   chặn, và `metaTitle` lại lặp thương hiệu hai lần đúng như 24 trang đã dính trước đây.
+   Nay đọc `ctx.siteName`; 3 test mới giữ chỗ này.
+
+5. **Văn bản chưa điền ô lọt vào gói RSC.** `/submit-deal` rò `{site}` không phải ở chữ
+   hiển thị mà ở dữ liệu đẩy xuống client component. Trang nào đưa dữ liệu Sanity xuống
+   `'use client'` thì phải điền ô **trước** khi truyền.
+
+6. **Đừng tin dòng chữ "OK" của chính script mình viết.** Bản vá `experienceBio` báo thành
+   công mà không thay gì cả — chỉ vì `print` đặt sau `replace` mà không có `assert`. Lỗi
+   chỉ lộ khi lái trình duyệt đo trang thật.
+
+7. **Lọc "định danh" theo tên miền là lọc sai.** `configCookies.sections[1]` vừa có chữ
+   *Offerdy* (thương hiệu, phải đổi) vừa có *offerdy.com/d/…* (địa chỉ, phải giữ) trong
+   cùng một đoạn. Dấu hiệu đúng là **không có khoảng trắng**.
+
+### Việc còn để lại
+
+- **Nội dung đã lưu vẫn mang tên cứng**: 55/107 mô tả store + 1 bài viết (`post.author`
+  đúng bằng chữ `"Offerdy"`, thấy trên `/blog`). Cùng một script `.scratch/doi-ten-config.mjs`
+  chạy được cho nhóm này, có chạy khan trước — **chưa làm, chờ quyết**.
+- **Lỗi dữ liệu sẵn có**: `configSEO.canonicalUrl` = `https://.offerdy.com/` — **thiếu
+  `www`**. Hiện không hại (code lấy về mà chưa dùng), nhưng nó nằm trong ô tên là
+  *canonical*. Sửa ở `/admin/config/seo`.
+- **6 trang admin config còn lại vẫn đọc bằng `readClient` (`useCdn: true`)** — đúng bẫy
+  "lưu xong tải lại là dấu biến mất". Chỉ `/admin/config/general` đã đổi sang `writeClient`.
+  Mỗi trang một dòng.
+- **Logo là tệp ảnh** (`logo-offerdy.png`, `logo-offerdy-light.png`) — đổi tên không đụng
+  tới nó. Chữ `alt` thì đã đi theo tên.
+- **Tên miền `offerdy.com`** (93 dòng) không phải tên website, cố ý giữ.
+
+---
+
 ## 🔖 Điểm dừng 2026-08-24
 
 **`main` = `origin/main` = `294ae65`**, đã push, cây làm việc sạch.
@@ -62,7 +148,7 @@ Tôi **không bịa được** những câu này, và bịa thì phá hỏng đ�
 
 | Ngày | Việc |
 |---|---|
-| **25/08** | Mở `/admin/reports` xem nhãn `video`. Số đầu tiên cho một kênh ngoài Google — nhưng n=1, đọc như nhiễu. |
+| ~~25/08~~ | ✅ **ĐÃ ĐO**: nhãn `video` = **0**. Không phải chỉ nhãn đó — **chưa từng có** lượt bấm nào mang nhãn chiến dịch. Short link cả đời: 2, đều ngày 25/07. Bài đăng lúc 23/08 15:52; từ đó tới 25/08 **0 lượt bấm** toàn trang. ⚠️ Deal `#1471` có 2 lượt bấm nhưng cả hai rơi vào **21/08** — trước lúc đăng, không liên quan tới video. Và `videoMadeAt` chưa tick cho deal nào. n=1 nên đây là nhiễu, không bác bỏ được kênh video. |
 | **27/08** | Đo lại `0/65` trang nội dung chưa được Google bò, để biết phép cắt sitemap 20/08 có tác dụng không. |
 
 ⚠️ Khi đọc kết quả 27/08, **cân nhắc hai giả thuyết chứ đừng chỉ một**: (a) nút thắt là

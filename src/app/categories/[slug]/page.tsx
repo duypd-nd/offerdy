@@ -4,7 +4,7 @@ import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getCategoryBySlug, getStoresByCategory } from '@/sanity/queries'
+import { getSiteName, getCategoryBySlug, getStoresByCategory } from '@/sanity/queries'
 
 export const revalidate = 60
 
@@ -18,15 +18,16 @@ const BASE = 'https://www.offerdy.com'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const [cat, stores] = await Promise.all([
+  const [cat, stores, siteName] = await Promise.all([
     getCategoryBySlug(slug),
     getStoresByCategory(slug),
+    getSiteName(),
   ])
   if (!cat) return {}
-  // Khong gan " — Offerdy" vao day: titleTemplate trong layout da them duoi thuong hieu,
-  // gan them o day thanh "... — Offerdy | Offerdy". OG title thi khong qua template nen tu gan.
+  // Khong gan ten website vao day: titleTemplate trong layout da them duoi thuong
+  // hieu, gan them o day thanh "... — <ten> | <ten>". OG title khong qua template nen tu gan.
   const title = `${cat.emoji} ${cat.name} Deals & Coupons`
-  const ogTitle = `${title} — Offerdy`
+  const ogTitle = `${title} — ${siteName}`
   const description = cat.description ?? `Browse the best ${cat.name} deals and verified coupon codes.`
   const url = `${BASE}/categories/${slug}`
   return {
@@ -37,7 +38,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     // Tu dao nguoc khi co store dau tien. Sitemap loai URL nay ra trong cung dieu
     // kien (xem getCategorySlugsWithStores trong src/sanity/queries.ts).
     ...(stores.length === 0 && { robots: { index: false, follow: true } }),
-    openGraph: { title: ogTitle, description, url, siteName: 'Offerdy', type: 'website' },
+    openGraph: { title: ogTitle, description, url, siteName, type: 'website' },
     twitter: { card: 'summary', title: ogTitle, description },
   }
 }

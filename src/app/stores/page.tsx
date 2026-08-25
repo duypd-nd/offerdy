@@ -2,21 +2,24 @@ import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import StoresPageContent from '@/components/StoresPageContent'
-import { getStores } from '@/sanity/queries'
+import { getSiteName, getStores } from '@/sanity/queries'
 import AllLinksIndex from '@/components/AllLinksIndex'
 
 export const revalidate = 60
 
-export const metadata: Metadata = {
-  title: 'All Stores — Coupon Codes & Deals by Store',
-  description: 'Find verified coupon codes and deals for hundreds of online stores. Browse by store to see all active offers.',
-  alternates: { canonical: 'https://www.offerdy.com/stores' },
-  openGraph: {
-    title: 'All Stores — Coupon Codes & Deals by Store — Offerdy',
-    description: 'Find verified coupon codes and deals for hundreds of online stores.',
-    url: 'https://www.offerdy.com/stores',
-    type: 'website',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const siteName = await getSiteName()
+  return {
+    title: 'All Stores — Coupon Codes & Deals by Store',
+    description: 'Find verified coupon codes and deals for hundreds of online stores. Browse by store to see all active offers.',
+    alternates: { canonical: 'https://www.offerdy.com/stores' },
+    openGraph: {
+      title: `All Stores — Coupon Codes & Deals by Store — ${siteName}`,
+      description: 'Find verified coupon codes and deals for hundreds of online stores.',
+      url: 'https://www.offerdy.com/stores',
+      type: 'website',
+    },
+  }
 }
 
 export default async function StoresPage() {

@@ -39,13 +39,13 @@ function escapeHtml(s: string): string {
  * query van tra ve dung anh (da kiem chung: 200 image/png) — nen khong phai doan
  * chuoi hash.
  */
-export function dealPreviewHtml(deal: PreviewDeal, opts: { target: string }): string {
+export function dealPreviewHtml(deal: PreviewDeal, opts: { target: string; siteName: string }): string {
   const badge = dealDiscountBadge(deal)
   const discount = `${badge.main}${badge.sub ? ` ${badge.sub}` : ''}`
   const title = `${deal.title} — ${discount}`
   const description = deal.metaDescription
     || deal.summary
-    || `${deal.priceSale}${deal.priceOrig ? `, was ${deal.priceOrig}` : ''} — ${discount} on Offerdy.`
+    || `${deal.priceSale}${deal.priceOrig ? `, was ${deal.priceOrig}` : ''} — ${discount} on ${opts.siteName}.`
   const image = `${BASE}/deals/${deal.slug}/opengraph-image`
   const canonical = `${BASE}/deals/${deal.slug}`
 
@@ -60,7 +60,7 @@ export function dealPreviewHtml(deal: PreviewDeal, opts: { target: string }): st
 <meta name="robots" content="noindex,nofollow">
 <link rel="canonical" href="${escapeHtml(canonical)}">
 <meta property="og:type" content="product">
-<meta property="og:site_name" content="Offerdy">
+<meta property="og:site_name" content="${escapeHtml(opts.siteName)}">
 <meta property="og:title" content="${escapeHtml(title)}">
 <meta property="og:description" content="${escapeHtml(description)}">
 <meta property="og:url" content="${escapeHtml(canonical)}">

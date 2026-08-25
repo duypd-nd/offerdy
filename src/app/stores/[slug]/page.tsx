@@ -1,11 +1,12 @@
 import { notFound } from 'next/navigation'
+import { fillSiteName } from '@/lib/siteNameToken'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import StoreOfferList from '@/components/StoreOfferList'
-import { getStoreBySlug, getOffersByStore, getDealsByStore, getConfigContent, type HowToStep, type FaqItem } from '@/sanity/queries'
+import { getSiteName, getStoreBySlug, getOffersByStore, getDealsByStore, getConfigContent, type HowToStep, type FaqItem } from '@/sanity/queries'
 import FaqAccordion from '@/components/FaqAccordion'
 import AffiliateLink from '@/components/AffiliateLink'
 import CouponAlertForm from './CouponAlertForm'
@@ -49,12 +50,12 @@ type StoreDealRow = {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
-  const store = await getStoreBySlug(slug)
+  const [store, siteName] = await Promise.all([getStoreBySlug(slug), getSiteName()])
   if (!store) return {}
   // titleTemplate trong layout da them duoi thuong hieu, nen `title` khong duoc tu gan
-  // " — Offerdy" nua (se thanh "... — Offerdy | Offerdy"). OG title khong qua template.
+  // " — <ten site>" nua (se thanh "... — <ten> | <ten>"). OG title khong qua template.
   const title = store.metaTitle ?? `${store.name} Deals & Coupons`
-  const ogTitle = store.metaTitle ?? `${store.name} Deals & Coupons — Offerdy`
+  const ogTitle = store.metaTitle ?? `${store.name} Deals & Coupons — ${siteName}`
   const description = store.metaDescription ?? store.shortDescription ?? `Verified deals and coupon codes for ${store.name}.`
   const url = `${BASE}/stores/${slug}`
   return {
@@ -66,7 +67,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       title: ogTitle,
       description,
       url,
-      siteName: 'Offerdy',
+      siteName,
       type: 'website',
       // Khong set images — nhuong cho opengraph-image.tsx (xem chu thich o do)
     },
@@ -100,13 +101,14 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
   const store = await getStoreBySlug(slug)
   if (!store) notFound()
 
-  const [offers, globalContent, storeDeals] = await Promise.all([
+  const [offers, globalContent, storeDeals, siteName] = await Promise.all([
     getOffersByStore(slug),
     getConfigContent(),
     // Deal cua chinh shop nay, khop theo DOMAIN cua `dealUrl` — khong theo chuoi
     // `deal.store` nua. Khop chuoi tung lam 85/175 deal vo hinh; xem
     // `dealBelongsToStore`.
     getDealsByStore(store),
+    getSiteName(),
   ])
 
   const shortDesc = store.shortDescription ?? 'Deals & coupons verified daily — tested before going live.'
@@ -121,7 +123,9 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
   const codeCount = offers.filter(o => o.couponCode).length
   const dealCount = offers.filter(o => !o.couponCode).length
 
-  const fill = (s: string) => s.replace(/\{store\}/g, store.name)
+  // Mot ham lo CA HAI o: `{store}` va `{site}`. FAQ / howTo mac dinh soan
+  // trong /admin/config/content dung duoc ca hai — doi ten website la doi luon.
+  const fill = (s: string) => fillSiteName(s.replace(/\{store\}/g, store.name), siteName)
 
   const howToSteps: HowToStep[] = globalContent.howToSteps?.length ? globalContent.howToSteps : [
     { title: 'Find & Copy Your Coupon Code', description: `Find your {store} coupon on this page. Click "GET CODE" to reveal the code, then click "Copy" — the code is automatically saved to your clipboard.` },
@@ -398,10 +402,10 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
             {(globalContent.articleDisclaimer || globalContent.articleReviewedBy) && (
               <div className="article-disclaimer">
                 {globalContent.articleDisclaimer && (
-                  <p dangerouslySetInnerHTML={{ __html: globalContent.articleDisclaimer.replace(/\{site\}/g, 'Offerdy').replace(/\{store\}/g, `<span style="color:#16a34a;font-weight:700">${store.name}</span>`) }} />
+                  <p dangerouslySetInnerHTML={{ __html: globalContent.articleDisclaimer.replace(/\{site\}/g, siteName).replace(/\{store\}/g, `<span style="color:#16a34a;font-weight:700">${store.name}</span>`) }} />
                 )}
                 {globalContent.articleReviewedBy && (
-                  <p className="article-disclaimer-meta">Reviewed by the {globalContent.articleReviewedBy}.</p>
+                  <p className="article-disclaimer-meta">Reviewed by the {fillSiteName(globalContent.articleReviewedBy, siteName)}.</p>
                 )}
               </div>
             )}

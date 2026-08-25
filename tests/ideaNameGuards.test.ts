@@ -12,6 +12,7 @@ import { findAwkwardTitle, findUnsafeIdea, findUnsafeMetaTitle, META_TITLE_MAX, 
 
 const ctx: IdeaNameContext = {
   storeName: 'Frizzlife',
+  siteName: 'Offerdy',
   productTitles: [
     'Frizzlife PD600-TAM3 600GPD Tankless Reverse Osmosis Water Filter System',
     'Frizzlife PX600 600GPD Tankless Reverse Osmosis Water Filter System',
@@ -151,4 +152,18 @@ test('ma model co chu so khong bi bao', () => {
 test('tieu de ket bang lien tu -> canh bao mem', () => {
   const notes = findAwkwardTitle('Best Electric Scooters at HWWH for', 'HWWH', hwwhSource)
   assert.match(notes.join(' '), /bỏ lửng/)
+})
+
+// ── Hang rao thuong hieu phai DI THEO ten website ────────────────
+// Truoc 2026-08-25 no go cung chu "Offerdy": doi ten trong /admin/config/general
+// xong la hang rao thoi chan, va tieu de lai lap thuong hieu hai lan.
+
+test('doi ten website -> hang rao chan ten MOI', () => {
+  const doiTen: IdeaNameContext = { ...ctx, siteName: 'Dealio' }
+  assert.match(findUnsafeIdea('Best Water Filters at Frizzlife | Dealio', doiTen) ?? '', /Dealio/)
+})
+
+test('doi ten website -> ten CU khong con bi chan', () => {
+  const doiTen: IdeaNameContext = { ...ctx, siteName: 'Dealio' }
+  assert.equal(findUnsafeIdea('Best Frizzlife Water Filters (2026)', doiTen), null)
 })

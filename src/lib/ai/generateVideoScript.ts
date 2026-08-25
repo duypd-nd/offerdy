@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { fillSiteName } from '@/lib/siteNameToken'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { getAnthropicClient } from '@/lib/ai/anthropicClient'
 import { HE_THONG, nguoiDung } from '@/lib/ai/prompts/videoScript'
@@ -63,7 +64,14 @@ function coTheThuLai(err: unknown): boolean {
   return false
 }
 
-export async function generateVideoScript(input: VideoScriptInput, lan = 1): Promise<Beat[]> {
+/**
+ * ⚠️ `siteName` la THAM SO chu khong phai mot lan doc Sanity ngay tai day.
+ * Cac module trong `lib/ai/` duoc bo chay test nap bang Node THUAN — import
+ * `@/sanity/queries` keo theo `next/cache` va lam vo 3 tep test (aiTells,
+ * articleGuards, videoScriptGuard) vi `generateArticleContent` import gian tiep
+ * qua `generateReviewContent`. Noi goi (server action / route) tu hoi ten.
+ */
+export async function generateVideoScript(input: VideoScriptInput, siteName: string, lan = 1): Promise<Beat[]> {
   try {
     // ⚠️ Streaming + tu parse, KHONG dung `messages.parse` — chep nguyen cach chua
     // cua `generateReviewContent.ts`:
@@ -75,7 +83,7 @@ export async function generateVideoScript(input: VideoScriptInput, lan = 1): Pro
     const stream = getAnthropicClient().messages.stream({
       model: MODEL,
       max_tokens: 64000,
-      system: HE_THONG,
+      system: fillSiteName(HE_THONG, siteName),
       output_config: { format: zodOutputFormat(ScriptSchema) },
       messages: [{ role: 'user', content: nguoiDung(input) }],
     })
@@ -94,7 +102,7 @@ export async function generateVideoScript(input: VideoScriptInput, lan = 1): Pro
   } catch (err) {
     if (coTheThuLai(err) && lan < MAX_LAN) {
       await new Promise(r => setTimeout(r, lan * 1500))
-      return generateVideoScript(input, lan + 1)
+      return generateVideoScript(input, siteName, lan + 1)
     }
     throw err
   }

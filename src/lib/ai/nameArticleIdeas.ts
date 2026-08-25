@@ -29,7 +29,8 @@ const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 /**
  * Tran do dai cua `metaTitle`.
  *
- * ⚠️ Con so nay khong tuy tien: `titleTemplate` la `%s | Offerdy` — **10 ky tu** —
+ * ⚠️ Con so nay khong tuy tien: `titleTemplate` la `%s | <ten site>` — voi "Offerdy"
+ * la **10 ky tu** —
  * va Google cat quanh **60**. Du an vua ton mot dot don dep de dua 34 trang vuot 60
  * ky tu ve 0; mot bo dat ten khong biet tran nay se de lai dung cai dong do.
  *
@@ -128,6 +129,8 @@ const CONNECTIVES = new Set([
 
 export type IdeaNameContext = {
   storeName: string
+  /** Ten website that — hang rao chan lap thuong hieu doc tu day, khong go cung. */
+  siteName: string
   /** Ten san pham nguon — kho tu vung DUY NHAT model duoc lay danh tu ra dung. */
   productTitles: string[]
   year: number
@@ -194,8 +197,8 @@ export function findUnsafeIdea(title: string, ctx: IdeaNameContext): string | nu
   const text = title.trim()
   if (!text) return 'tiêu đề rỗng'
 
-  if (/offerdy/i.test(text)) {
-    return 'chứa chữ "Offerdy" — hậu tố thương hiệu do titleTemplate tự thêm, viết vào đây là lặp hai lần'
+  if (ctx.siteName && text.toLowerCase().includes(ctx.siteName.toLowerCase())) {
+    return `chứa chữ "${ctx.siteName}" — hậu tố thương hiệu do titleTemplate tự thêm, viết vào đây là lặp hai lần`
   }
 
   const vocab = buildVocab(ctx)
@@ -296,7 +299,7 @@ export function findUnsafeMetaTitle(metaTitle: string, ctx: IdeaNameContext): st
   // trong khi su that la 30.
   const length = [...metaTitle.trim()].length
   if (length > META_TITLE_MAX) {
-    return `metaTitle dài ${length} ký tự, vượt ${META_TITLE_MAX} (titleTemplate còn nối thêm " | Offerdy")`
+    return `metaTitle dài ${length} ký tự, vượt ${META_TITLE_MAX} (titleTemplate còn nối thêm hậu tố thương hiệu)`
   }
   return null
 }
@@ -360,8 +363,10 @@ export async function nameArticleIdeas(input: {
   ideas: ArticleIdea[]
   storeName: string
   year: number
+  /** Ten website that — hang rao chan lap thuong hieu trong tieu de doc tu day. */
+  siteName: string
 }): Promise<NameResult> {
-  const { ideas, storeName, year } = input
+  const { ideas, storeName, year, siteName } = input
   if (!ideas.length) return { named: [], rejected: [] }
 
   const parsed = await callModel(ideas, storeName, year)
@@ -381,6 +386,7 @@ export async function nameArticleIdeas(input: {
 
     const ctx: IdeaNameContext = {
       storeName,
+      siteName,
       productTitles: idea.products.map(p => p.title),
       year,
       productCount: idea.products.length,

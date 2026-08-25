@@ -3,7 +3,7 @@ import Link from 'next/link'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import CouponCodesContent from './CouponCodesContent'
-import { getCouponOffers } from '@/sanity/queries'
+import { getSiteName, getCouponOffers } from '@/sanity/queries'
 import { couponsItemListJsonLd } from '@/lib/dealSchema'
 
 export const revalidate = 60
@@ -17,8 +17,9 @@ type PageProps = { searchParams: Promise<{ page?: string }> }
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const { page: pageParam } = await searchParams
   const page = Math.max(1, Number(pageParam) || 1)
+  const siteName = await getSiteName()
   const canonical = page > 1 ? `https://www.offerdy.com/coupon-codes?page=${page}` : 'https://www.offerdy.com/coupon-codes'
-  const title = page > 1 ? `Coupon Codes — Page ${page} | Offerdy` : BASE_TITLE
+  const title = page > 1 ? `Coupon Codes — Page ${page} | ${siteName}` : BASE_TITLE
 
   return {
     title,

@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og'
-import { getStoreBySlug, getStoreTopCoupon } from '@/sanity/queries'
+import { getSiteName, getStoreBySlug, getStoreTopCoupon } from '@/sanity/queries'
 import { BrandedOgImage } from '@/lib/ogTemplate'
 
 export const size = { width: 1200, height: 630 }
@@ -13,9 +13,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const [store, coupon] = await Promise.all([
+  const [store, coupon, siteName] = await Promise.all([
     getStoreBySlug(slug),
     getStoreTopCoupon(slug),
+    getSiteName(),
   ])
 
   // Khi co ma coupon: eyebrow bao "Exclusive Code" va subtitle uu tien noi dung
@@ -32,7 +33,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         eyebrow={coupon
           ? 'Exclusive Code'
           : store?.category ? CATEGORY_LABELS[store.category] ?? store.category : 'Coupons & Deals'}
-        title={store ? `${store.name} Coupons & Deals` : 'Offerdy'}
+        title={store ? `${store.name} Coupons & Deals` : siteName}
         subtitle={subtitle}
         logoUrl={store?.imageUrl}
         initials={store?.abbr}

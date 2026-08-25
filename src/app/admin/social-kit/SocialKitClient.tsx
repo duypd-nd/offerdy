@@ -467,7 +467,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                         key={s}
                         onClick={() => { setStyle(s); setCaptionOverride(null) }}
                         title={s === 'deal'
-                          ? '/d/<mã> — vào trang sản phẩm trên Offerdy (có mô tả, pros/cons, FAQ). Đo được cả lượt xem và lượt bấm sang merchant.'
+                          ? '/d/<mã> — vào trang sản phẩm trên site mình (có mô tả, pros/cons, FAQ). Đo được cả lượt xem và lượt bấm sang merchant.'
                           : '/g/<mã> — đi THẲNG ra merchant, bỏ qua trang sản phẩm. Ít bước hơn nên chuyển đổi cao hơn, nhưng khách không đọc được nội dung của mình.'}
                         style={{
                           flex: 1, minHeight: 36, borderRadius: 8, fontSize: 12, fontWeight: 700,

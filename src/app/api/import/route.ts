@@ -1,5 +1,5 @@
 import { writeClient } from '@/sanity/writeClient'
-import { nextDealCode } from '@/sanity/queries'
+import { getSiteName, nextDealCode } from '@/sanity/queries'
 import { revalidatePath } from 'next/cache'
 import { generateStoreContent } from '@/lib/ai/generateStoreContent'
 import { renderAboutHtml, type AboutContent } from '@/lib/ai/aboutTemplate'
@@ -435,7 +435,7 @@ async function importStoresAndOffers(rows: ImportRow[]) {
   const aiResults = await Promise.all(
     capped.map(async (candidate) => {
       try {
-        await generateStoreContent(candidate)
+        await generateStoreContent(candidate, await getSiteName())
         return { storeId: candidate.id, storeName: candidate.name, ok: true }
       } catch {
         return { storeId: candidate.id, storeName: candidate.name, ok: false }

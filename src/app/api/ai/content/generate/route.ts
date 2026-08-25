@@ -1,4 +1,5 @@
 import { writeClient } from '@/sanity/writeClient'
+import { getSiteName } from '@/sanity/queries'
 import { generateStoreContent } from '@/lib/ai/generateStoreContent'
 
 const STORE_QUERY = `*[_type == "store" && _id in $ids] {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     const results = await Promise.all(
       stores.map(async (store: { id: string; name: string }) => {
         try {
-          await generateStoreContent(store)
+          await generateStoreContent(store, await getSiteName())
           return { id: store.id, ok: true }
         } catch (err) {
           return { id: store.id, ok: false, error: String(err) }

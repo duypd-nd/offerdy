@@ -1,11 +1,14 @@
 import fs from 'node:fs'
+import { getSiteName } from '@/sanity/queries'
 import path from 'node:path'
 import type { Metadata } from 'next'
 import { client } from '@/sanity/client'
 import { requireAdmin } from '@/lib/adminSession'
 import VideoStudioClient from './VideoStudioClient'
 
-export const metadata: Metadata = { title: 'Tạo video — Offerdy Admin' }
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: `Tạo video — ${await getSiteName()} Admin` }
+}
 export const dynamic = 'force-dynamic'
 
 /**

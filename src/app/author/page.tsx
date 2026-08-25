@@ -3,26 +3,28 @@ import Link from 'next/link'
 import Image from 'next/image'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getConfigAuthor } from '@/sanity/queries'
+import { getSiteName, getConfigAuthor } from '@/sanity/queries'
+import { fillSiteName } from '@/lib/siteNameToken'
 
 export const revalidate = 60
 
 const BASE = 'https://www.offerdy.com'
 
 const FALLBACK = {
-  defaultName: 'Offerdy Editorial',
+  defaultName: '{site} Editorial',
   role: 'Editor',
-  bio: "Offerdy's editorial team researches and verifies the best deals, coupon codes, and promotions from top brands.",
+  bio: "{site}'s editorial team researches and verifies the best deals, coupon codes, and promotions from top brands.",
   experienceBio: '',
   verificationProcess: '',
   email: 'contact@offerdy.com',
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const a = await getConfigAuthor()
-  const name = a.defaultName || FALLBACK.defaultName
-  const title = `${name} — ${a.role || FALLBACK.role} at Offerdy`
-  const description = a.bio || FALLBACK.bio
+  const [a, siteName] = await Promise.all([getConfigAuthor(), getSiteName()])
+  const n = (t: string) => fillSiteName(t, siteName)
+  const name = n(a.defaultName || FALLBACK.defaultName)
+  const title = `${name} — ${a.role || FALLBACK.role} at ${siteName}`
+  const description = n(a.bio || FALLBACK.bio)
   return {
     title,
     description,
@@ -32,11 +34,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AuthorPage() {
-  const a = await getConfigAuthor()
-  const name = a.defaultName || FALLBACK.defaultName
+  const [a, siteName] = await Promise.all([getConfigAuthor(), getSiteName()])
+  const n = (t: string) => fillSiteName(t, siteName)
+  const name = n(a.defaultName || FALLBACK.defaultName)
   const role = a.role || FALLBACK.role
-  const bio = a.bio || FALLBACK.bio
-  const experienceParas = (a.experienceBio || FALLBACK.experienceBio).split('\n\n').filter(Boolean)
+  const bio = n(a.bio || FALLBACK.bio)
+  const experienceParas = n(a.experienceBio || FALLBACK.experienceBio).split('\n\n').filter(Boolean)
   const verificationProcess = a.verificationProcess || FALLBACK.verificationProcess
   const email = a.email || FALLBACK.email
   const twitterUrl = a.twitterHandle ? `https://x.com/${a.twitterHandle.replace(/^@/, '')}` : undefined
@@ -53,13 +56,13 @@ export default async function AuthorPage() {
         url: `${BASE}/author`,
         email: email ? `mailto:${email}` : undefined,
         sameAs: twitterUrl ? [twitterUrl] : undefined,
-        worksFor: { '@type': 'Organization', name: 'Offerdy', url: BASE },
+        worksFor: { '@type': 'Organization', name: siteName, url: BASE },
       },
       {
         '@type': 'WebPage',
         '@id': `${BASE}/author#webpage`,
         url: `${BASE}/author`,
-        name: `${name} — ${role} at Offerdy`,
+        name: `${name} — ${role} at ${siteName}`,
         description: bio,
       },
     ],
@@ -75,7 +78,7 @@ export default async function AuthorPage() {
           {/* Hero */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--green-dark)', marginBottom: 18 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
-            Who writes Offerdy
+            Who writes {siteName}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 24 }}>
@@ -88,7 +91,7 @@ export default async function AuthorPage() {
             )}
             <div>
               <h1 style={{ fontSize: 'clamp(24px,4.5vw,34px)', fontWeight: 900, color: 'var(--navy)', lineHeight: 1.15, letterSpacing: '-.6px', marginBottom: 4 }}>{name}</h1>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>{role} · Offerdy</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>{role} · {siteName}</div>
             </div>
           </div>
 
@@ -134,7 +137,7 @@ export default async function AuthorPage() {
           {/* CTA */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Link href="/deals" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--navy)', color: '#fff', fontSize: 14, fontWeight: 700, padding: '11px 22px', borderRadius: 9, textDecoration: 'none' }}>Browse Deals</Link>
-            <Link href="/about" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--muted)', fontSize: 14, fontWeight: 600, padding: '11px 22px', borderRadius: 9, border: '1.5px solid var(--border)', textDecoration: 'none' }}>About Offerdy</Link>
+            <Link href="/about" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--muted)', fontSize: 14, fontWeight: 600, padding: '11px 22px', borderRadius: 9, border: '1.5px solid var(--border)', textDecoration: 'none' }}>About {siteName}</Link>
             <Link href="/blog" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'transparent', color: 'var(--muted)', fontSize: 14, fontWeight: 600, padding: '11px 22px', borderRadius: 9, border: '1.5px solid var(--border)', textDecoration: 'none' }}>Read the Blog</Link>
           </div>
 

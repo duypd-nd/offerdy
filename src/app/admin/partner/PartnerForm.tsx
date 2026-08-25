@@ -4,20 +4,20 @@ import { useState, useTransition } from 'react'
 import { savePartnerPage, type PartnerData, type Benefit } from './actions'
 
 const DEFAULTS: Required<PartnerData> = {
-  h1: 'Partner with Offerdy',
+  h1: 'Partner with {site}',
   heroLead: 'We work with brands, retailers, and affiliate networks to bring verified deals to shoppers worldwide. Let\'s grow together.',
   benefitsHeading: 'Why partner with us?',
   benefits: [
     { _key: 'b1', title: 'Engaged deal-seekers', desc: 'Our audience actively searches for coupons and deals — high purchase intent, low bounce rate.' },
     { _key: 'b2', title: 'Verified placements', desc: 'Every deal is tested before going live. Your offers appear alongside trusted, working codes.' },
-    { _key: 'b3', title: 'Global reach', desc: 'Offerdy covers 500+ stores internationally. We reach shoppers from dozens of countries.' },
+    { _key: 'b3', title: 'Global reach', desc: '{site} covers 500+ stores internationally. We reach shoppers from dozens of countries.' },
     { _key: 'b4', title: 'Performance-based', desc: 'We work on affiliate commission — you pay only for results, not impressions.' },
   ],
   ctaHeading: 'Ready to get started?',
   ctaBody: 'Reach out with your store name, affiliate network, and what you\'re looking for. We\'ll get back to you within 48 hours.',
   contactEmail: 'partners@offerdy.com',
-  seoTitle: "Partner with Offerdy — List Your Store's Deals",
-  seoDescription: 'Partner with Offerdy to feature your deals in front of an engaged audience of shoppers. Affiliate-based, performance-driven.',
+  seoTitle: "Partner with {site} — List Your Store's Deals",
+  seoDescription: 'Partner with {site} to feature your deals in front of an engaged audience of shoppers. Affiliate-based, performance-driven.',
   indexPage: true,
 }
 
