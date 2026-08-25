@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { copyText } from '@/lib/copyText'
 import type { Offer } from '@/sanity/queries'
 import { voteOffer } from '@/actions/voteOffer'
 import AffiliateLink from '@/components/AffiliateLink'
@@ -174,9 +175,14 @@ function OfferRow({ offer, defaultDescriptions, index, destinationUrl, storeName
               <button
                 className="sol-copy"
                 onClick={() => {
-                  navigator.clipboard.writeText(offer.couponCode as string)
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 2000)
+                  // ⚠️ Truoc 2026-08-25 cho nay bat `setCopied(true)` NGAY, khong
+                  // cho ket qua — nut bao "✓ Copied" ke ca khi chep that bai.
+                  const code = offer.couponCode as string
+                  void copyText(code).then(ok => {
+                    if (!ok) { window.prompt('Copy code:', code); return }
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  })
                 }}
               >
                 {copied ? '✓ Copied' : 'Copy'}

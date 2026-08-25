@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useSyncExternalStore } from 'react'
+import { copyText } from '@/lib/copyText'
 import type { Offer } from '@/sanity/queries'
 import AffiliateLink from '@/components/AffiliateLink'
 
@@ -130,7 +131,9 @@ function FlashCard({ offer }: { offer: Offer }) {
 
   const copy = () => {
     if (!offer.couponCode) return
-    navigator.clipboard.writeText(offer.couponCode).then(() => {
+    const code = offer.couponCode
+    void copyText(code).then(ok => {
+      if (!ok) { window.prompt('Copy code:', code); return }
       setCopied(true)
       setTimeout(() => setCopied(false), 2200)
     })

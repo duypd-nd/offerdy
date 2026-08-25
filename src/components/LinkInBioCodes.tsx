@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { copyText } from '@/lib/copyText'
 import Link from 'next/link'
 import AffiliateLink from '@/components/AffiliateLink'
 import type { Offer } from '@/sanity/queries'
@@ -43,14 +44,14 @@ export default function LinkInBioCodes({ offers }: { offers: Offer[] }) {
   }
 
   const copy = (code: string) => {
-    navigator.clipboard.writeText(code)
-      .then(() => {
-        setCopied(code)
-        setTimeout(() => setCopied(null), 2000)
-      })
-      // clipboard API can HTTPS/localhost — bao that thay vi im lang de nguoi dung
-      // con biet ma tu chon lay.
-      .catch(() => window.prompt('Copy code:', code))
+    // Cho nay von DA bat loi dung — no la tien le cho 5 nut con lai. Nay di qua
+    // `copyText()` de co them mot buoc du phong (`execCommand`) truoc khi phai
+    // hoi nguoi dung: trong webview Instagram/TikTok, buoc do thuong cuu duoc.
+    void copyText(code).then(ok => {
+      if (!ok) { window.prompt('Copy code:', code); return }
+      setCopied(code)
+      setTimeout(() => setCopied(null), 2000)
+    })
   }
 
   return (

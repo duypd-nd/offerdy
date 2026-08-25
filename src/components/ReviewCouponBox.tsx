@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { copyText } from '@/lib/copyText'
 
 /**
  * Hop hien ma coupon. Dung o hai noi voi hai cach noi KHAC NHAU, va khac biet do
@@ -37,7 +38,8 @@ export default function ReviewCouponBox({
   const [copied, setCopied] = useState(false)
 
   const copy = () => {
-    navigator.clipboard.writeText(code).then(() => {
+    void copyText(code).then(ok => {
+      if (!ok) { window.prompt('Copy code:', code); return }
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })

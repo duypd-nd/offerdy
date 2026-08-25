@@ -12,7 +12,7 @@
 
 | Phép kiểm | Kết quả |
 |---|---|
-| `npm test` | **568 / 568** (565 + 3 test mới cho hàng rào thương hiệu) |
+| `npm test` | **574 / 574** (565 + 3 hàng rào thương hiệu + 6 nút Copy) |
 | `npx tsc --noEmit` | sạch |
 | `npm run build` | sạch |
 
@@ -75,6 +75,53 @@ Cách chữa **không** phải gõ lại tên đúng ở 176 chỗ, mà là **th
    *Offerdy* (thương hiệu, phải đổi) vừa có *offerdy.com/d/…* (địa chỉ, phải giữ) trong
    cùng một đoạn. Dấu hiệu đúng là **không có khoảng trắng**.
 
+### Đọc 7 lỗi Sentry trên thẻ đỏ — 5/7 không phải lỗi trang thật
+
+Thẻ *"Lỗi production chưa xử lý"* ở `/admin` đếm **cả lỗi từ máy này**: `npm run build`
+rồi `npm start` đặt `NODE_ENV=production`, mà Sentry bật đúng theo biến đó
+([`sentry.server.config.ts:14`](sentry.server.config.ts)). Đọc từng issue:
+
+| Lỗi | Thật ra ở đâu | Lần cuối |
+|---|---|---|
+| `An unexpected response…` | **`localhost:3000`**/admin | 20/08 |
+| `Clipboard: Document is not focused` | offerdy.com/coupon-codes — **HeadlessChrome** (script của mình) | 01/08 |
+| `plan_limit_reached` (Sanity) | offerdy.com/links — khách thật | 26/07 |
+| `Cookies can only be modified…` | **`localhost:3399`**/admin/users — **curl** | 20/08 |
+| `<unknown>` | offerdy.com/stores/enzuzo — không mang thông tin gì | 08/08 |
+| `Server Components render` (21 lần) | offerdy.com/admin/ai-review | 26/07 |
+| `TypeError: Invalid URL` | offerdy.com/`[slug]` — **bot "BeeGuru"**, không frame nào của mình | 09/08 |
+
+📌 `plan_limit_reached` và `Server Components render` **cùng một sự cố** — lần cuối đúng
+`26/07 17:06`. Hạn mức Sanity reset 01/08, không tái diễn 30 ngày.
+📌 **Không lỗi nào cho thấy trang đang hỏng.** Cái mới nhất là 20/08 và ở máy này.
+📌 5 issue này nên đánh dấu *resolved* trong Sentry để lần sau thẻ đỏ mới có nghĩa.
+📌 Còn lại: lọc `localhost` khỏi Sentry (`beforeSend`) — **chưa làm**.
+
+### Nút Copy không còn nói dối
+
+⚠️ **Là 5 nút chứ không phải 6** — `LinkInBioCodes` vốn đã bắt lỗi đúng (`grep -A6` cắt
+mất dòng `.catch` ở dòng thứ 8). Chỗ đó là **tiền lệ**, đã dùng lại làm khuôn.
+
+⚠️ Nặng nhất là `StoreOfferList`: gọi `writeText` rồi bật `setCopied(true)` **ngay, không
+chờ kết quả** — nút báo *"✓ Copied"* kể cả khi chép hỏng.
+
+`src/lib/copyText.ts`: clipboard API → `execCommand('copy')` → trả `false` để nơi gọi tự
+hỏi người dùng. Bước `execCommand` là thứ còn chạy trong webview Instagram/TikTok.
+
+Đo trên Chrome thật (headless từ chối clipboard = đúng lỗi Sentry, nên là **tái hiện**):
+
+| `/coupon-codes` | Bản cũ | Bản mới |
+|---|---|---|
+| Lỗi không ai bắt | **2 rejection** | **0** |
+| Khách lấy được mã | **không** | **có** (`prompt`) |
+
+Bộ đo dùng lại được: `.scratch/do-nut-copy.mjs`.
+
+⚠️ **Bẫy khi đo**: `git stash` một danh sách file mà trong đó có file **chưa được theo
+dõi** thì **cả lệnh bị huỷ** — không có gì được cất đi, và phép đo "bản cũ" thật ra đo
+bản mới. Đúng họ *"báo thành công mà vẫn hỏng"*. Cách đúng: chép file ra rồi
+`git checkout --`.
+
 ### Việc còn để lại
 
 - **Nội dung đã lưu vẫn mang tên cứng**: 55/107 mô tả store + 1 bài viết (`post.author`
@@ -89,6 +136,8 @@ Cách chữa **không** phải gõ lại tên đúng ở 176 chỗ, mà là **th
 - **Logo là tệp ảnh** (`logo-offerdy.png`, `logo-offerdy-light.png`) — đổi tên không đụng
   tới nó. Chữ `alt` thì đã đi theo tên.
 - **Tên miền `offerdy.com`** (93 dòng) không phải tên website, cố ý giữ.
+- **Lọc `localhost` khỏi Sentry** để thẻ *Lỗi production* đếm đúng — chưa làm.
+- **5 issue Sentry cũ nên đánh dấu *resolved*** (xem bảng ở trên) — anh bấm nhanh hơn gọi API.
 
 ---
 

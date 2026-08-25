@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { copyText } from '@/lib/copyText'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Offer } from '@/sanity/queries'
@@ -99,7 +100,11 @@ function CouponCard({ offer }: { offer: Offer }) {
         window.open(offer.link, '_blank', 'noopener,noreferrer')
       }
     }
-    navigator.clipboard.writeText(offer.couponCode).then(() => {
+    const code = offer.couponCode
+    void copyText(code).then(ok => {
+      // Chep hong thi PHAI noi ra — xem src/lib/copyText.ts. Im lang la khach bam
+      // xong khong biet minh dang cam ma hay khong.
+      if (!ok) { window.prompt('Copy code:', code); return }
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     })
