@@ -11,7 +11,8 @@
 > 👉 **Mai bắt đầu ở mục [`MAI LÀM TIẾP`](#-mai-làm-tiếp--đọc-mục-này-trước) bên dưới**
 > (cuối phần 26/08) — ở đó có danh sách file chưa commit và thứ tự việc.
 
-Chưa push, **cây làm việc chưa commit**. Dev server ở `:3000` (⚠️ `.next` là bản production
+✅ **`main` = `origin/main` = `7b890f1`, đã push** (5 commit). Cây làm việc sạch.
+Vercel đang dựng — **kiểm production sáng mai** (xem mục *MAI LÀM TIẾP*). Dev server ở `:3000` (⚠️ `.next` là bản production
 do `npm run build` để lại — nếu dev trả 404 lạ thì `rm -rf .next` rồi bật lại).
 
 | Phép kiểm | Kết quả |
@@ -123,7 +124,17 @@ câu đó **còn nguyên**.
 
 ## 📌 MAI LÀM TIẾP — đọc mục này trước
 
-**Cây làm việc CHƯA COMMIT.** 15 file sửa + 2 file mới:
+✅ **Đã commit và push — `main` = `origin/main` = `7b890f1`.** Năm commit:
+
+| Commit | Việc |
+|---|---|
+| `a647502` | `fix(cron)` — daily-report báo lỗi qua Sentry thay vì chết im lặng |
+| `7549034` | `fix(admin)` — thẻ đỏ thôi đếm lỗi từ chính máy này |
+| `df2d2f8` | `feat(seo)` — ô *Canonical URL* điều khiển mọi địa chỉ tuyệt đối |
+| `267c230` | `fix(admin)` — 6 trang config đọc tươi, không qua CDN |
+| `7b890f1` | `docs` — luật 8, chốt skill superpowers, đồng bộ tài liệu |
+
+Các file đã vào:
 
 | Nhóm | File |
 |---|---|
@@ -133,8 +144,15 @@ câu đó **còn nguyên**.
 | Config đọc tươi | 6 trang `src/app/admin/config/*/page.tsx` |
 | Tài liệu | `CLAUDE.md` · `PROJECT_CONTEXT.md` · `TODO.md` |
 
-Đã kiểm: `npm test` **582/582** · `tsc` sạch · `build` sạch. **Chưa deploy** — mọi bản vá
-Sentry/cron chỉ có hiệu lực sau khi push.
+Đã kiểm trước khi push: `npm test` **582/582** · `tsc` sạch · `build` sạch.
+
+⚠️ **Việc kiểm production thì CHƯA làm** — push xong Vercel mới dựng. Sáng mai kiểm hai
+thứ, mỗi thứ một phút:
+- `/admin` — thẻ *Lỗi production*: nếu đêm nay `daily-report` chết vì hết credit thì phải
+  thấy **một issue mới** mang culprit `GET /api/cron/daily-report` (đó là bản vá đang làm
+  đúng việc, không phải trang hỏng).
+- Xem HTML trang chủ production: `og:url` phải vẫn là `https://www.offerdy.com` — nó giờ
+  đi qua ô *Canonical URL* chứ không còn ghi cứng.
 
 **Việc mai, theo thứ tự:**
 
