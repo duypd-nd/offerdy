@@ -4,6 +4,7 @@ import Script from 'next/script'
 import './globals.css'
 import { getConfigSeo, getSiteName, getSiteSettings } from '@/sanity/queries'
 import { fillSiteName } from '@/lib/siteNameToken'
+import { siteBaseUrl } from '@/lib/siteBaseUrl'
 
 const jakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -32,9 +33,15 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = n(seo.defaultDescription || DEFAULT_DESCRIPTION)
   const titleTemplate = seo.titleTemplate?.includes('%s') ? n(seo.titleTemplate) : `%s — ${siteName}`
   const twitterCard = seo.twitterCard === 'summary' ? 'summary' : 'summary_large_image'
+  // O *Canonical URL* o `/admin/config/seo` cuoi cung cung di toi mot cho. Truoc
+  // 26/08 no la mot O CHET: code doc gia tri ve roi khong dung, con goc dia chi
+  // thi ghi cung ngay day — nen suot thoi gian o do mang gia tri sai
+  // `https://.offerdy.com/`, trang van khai canonical dung, va sua o do khong doi
+  // duoc gi. `siteBaseUrl()` loc gia tri hong (xem chu thich trong file do).
+  const base = siteBaseUrl(seo.canonicalUrl)
 
   return {
-    metadataBase: new URL('https://www.offerdy.com'),
+    metadataBase: new URL(base),
     title: { default: title, template: titleTemplate },
     description,
     keywords: seo.keywords?.length ? seo.keywords : DEFAULT_KEYWORDS,
@@ -48,7 +55,7 @@ export async function generateMetadata(): Promise<Metadata> {
       locale: 'en_US',
       title,
       description,
-      url: 'https://www.offerdy.com',
+      url: base,
       // og:image khong khai bao o day - duoc Next.js tu dong lay tu file-convention
       // route opengraph-image.tsx (route nay tu doc configSeo.defaultOgImageUrl)
     },
@@ -67,7 +74,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [settings, siteName] = await Promise.all([getSiteSettings(), getSiteName()])
+  const [settings, siteName, seo] = await Promise.all([getSiteSettings(), getSiteName(), getConfigSeo()])
+  // Cung mot goc dia chi voi `generateMetadata` o tren. Neu de hai noi tu ghi
+  // cung thi doi ten mien se lam du lieu co cau truc tro ve dia chi cu trong khi
+  // the canonical da doi — dung ho loi "mot nguon su that ma hai duong doc" da
+  // tra gia hom 25/08 voi `getSiteSettings()` va ten website.
+  const base = siteBaseUrl(seo.canonicalUrl)
   const sameAs = (settings.socialMedia ?? [])
     .map(s => s.url)
     .filter(url => url && url !== '#' && url.startsWith('http'))
@@ -77,12 +89,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     '@graph': [
       {
         '@type': 'Organization',
-        '@id': 'https://www.offerdy.com/#organization',
+        '@id': `${base}/#organization`,
         name: siteName,
-        url: 'https://www.offerdy.com',
+        url: base,
         logo: {
           '@type': 'ImageObject',
-          url: 'https://www.offerdy.com/icon',
+          url: `${base}/icon`,
           width: 32,
           height: 32,
         },
@@ -90,15 +102,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       },
       {
         '@type': 'WebSite',
-        '@id': 'https://www.offerdy.com/#website',
-        url: 'https://www.offerdy.com',
+        '@id': `${base}/#website`,
+        url: base,
         name: siteName,
-        publisher: { '@id': 'https://www.offerdy.com/#organization' },
+        publisher: { '@id': `${base}/#organization` },
         potentialAction: {
           '@type': 'SearchAction',
           target: {
             '@type': 'EntryPoint',
-            urlTemplate: 'https://www.offerdy.com/search?q={search_term_string}',
+            urlTemplate: `${base}/search?q={search_term_string}`,
           },
           'query-input': 'required name=search_term_string',
         },
