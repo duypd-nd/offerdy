@@ -16,7 +16,7 @@
 
 ## Mục lục
 
-80 mục, nhóm theo chủ đề. **Dùng Ctrl+F với đúng tên mục** — cố ý không đặt link neo vì
+83 mục, nhóm theo chủ đề. **Dùng Ctrl+F với đúng tên mục** — cố ý không đặt link neo vì
 tên mục có backtick và dấu ngoặc, neo rất dễ gãy khi sửa tiêu đề.
 
 **Nền tảng & quy ước**
@@ -28,10 +28,14 @@ Public Pages · Admin Pages · Empty pages are not advertised · Page titles: th
 
 **Sanity & dữ liệu**
 Sanity: two clients, two quotas · `revalidatePath` clears `unstable_cache` ·
+`unstable_cache` survives a server restart ·
 The store count is derived, never typed · ⚠️ One price parser, because there were five ·
 Adding a deal from a pasted URL · "Lấy từ link" fills giá gốc · Scraping a merchant page ·
 Coupon code casing · Product images: the real gallery ·
 ⚠️ CSS sinh từ template rồi lưu vào Sanity là CSS ĐÓNG BĂNG
+
+**AI & sinh noi dung**
+⚠️ Bo dinh tuyen nha cung cap AI (`docs/AI_ROUTER.md`)
 
 **Affiliate & doanh thu**
 Offer deep links · Deal URLs get the shop's ref automatically · Shop coupon on a deal ·
@@ -57,6 +61,7 @@ Sidebar: related, not recent · Batch article writing
 
 **SEO / GEO**
 ⚠️ A validated URL is not a valid hostname ·
+⚠️ `metadataBase` is ignored the moment a page writes an absolute URL ·
 The sitemap is a Route Handler, and Route Handlers are cached ·
 Search: Google ranks pages that no longer exist · Search baseline frozen 2026-08-04 ·
 Search Console · "Has Google seen this page at all?" · The 404 page recovers traffic ·
@@ -101,7 +106,7 @@ Biến môi trường trên Vercel
 - `isConfigured()` guard before every Sanity query. Static demo data (`src/data/*.ts`: Amazon/Nike/etc.) is a **local-dev-only** fallback — used **only** when `!isConfigured()` (no Sanity env). When Sanity IS configured (production), queries return the real result even if empty (`data ?? []` / `null`), and errors return empty too — they must **never** fall back to static demo data, or the live site shows fake brand partnerships (this happened once when store data was cleared; fixed 2026-07-24). If you add a new query fn, follow this pattern: `if (!isConfigured()) return staticX; try { return data ?? [] } catch { return [] }`. See `feedback_real_content_only` principle.
 - All public-facing UI text must be in **English** (international audience)
 - **Images**: use `next/image` (`fill` + `sizes` for card/grid images, explicit `width`/`height` for fixed-size logos/avatars) — `next.config.ts` allows `remotePatterns: hostname:'**'` since admin can paste external image URLs from any domain. One exception: review detail hero image stays a plain `<img>` (`reviews/[slug]/page.tsx`) because it intentionally preserves natural aspect ratio (no crop), unlike the blog hero which uses `fill`+`cover`.
-- **SEO config wiring**: `configSEO` and `configAuthor` (Sanity singletons) are read via `getConfigSeo()` / `getConfigAuthor()` in `src/sanity/queries.ts` and consumed in `layout.tsx` (`generateMetadata`) and blog/review detail pages (author byline + JSON-LD `Person`). Don't add new SEO/author admin fields without also wiring the read side — `configSEO`/`configAuthor` sat unused for a while before this was caught. Note: `configSEO.canonicalUrl` (the admin `/admin/config/seo` text field) **is wired as of 2026-08-26** — it drives `metadataBase`, `og:url`, and every JSON-LD `@id`/`url` in `layout.tsx`, through `siteBaseUrl()` in `src/lib/siteBaseUrl.ts`. It sat dead for months before that; see "⚠️ A validated URL is not a valid hostname" below for why wiring it was not the one-liner it looked like.
+- **SEO config wiring**: `configSEO` and `configAuthor` (Sanity singletons) are read via `getConfigSeo()` / `getConfigAuthor()` in `src/sanity/queries.ts` and consumed in `layout.tsx` (`generateMetadata`) and blog/review detail pages (author byline + JSON-LD `Person`). Don't add new SEO/author admin fields without also wiring the read side — `configSEO`/`configAuthor` sat unused for a while before this was caught. Note: `configSEO.canonicalUrl` (the admin `/admin/config/seo` text field) drives the site's base address. It was wired into `layout.tsx` on 2026-08-26 and reached **only that file** — 22 other files still declared their own `const BASE`. Since 2026-08-27 every SEO surface reads it: `Metadata` fields via relative paths + `metadataBase`, and JSON-LD / `sitemap.ts` / `robots.ts` / `llms.txt` via **`getSiteBase()`** in `src/sanity/queries.ts` (`siteBaseUrl()` in `src/lib/siteBaseUrl.ts` is now only the validator underneath it). Short links are deliberately excluded. It sat dead for months before 08-26; see "⚠️ A validated URL is not a valid hostname" and "⚠️ `metadataBase` is ignored the moment a page writes an absolute URL" below for why wiring it was twice as big as it looked.
 - **Production domain is `https://www.offerdy.com`** — the bare `offerdy.com` 308-redirects to it. Every canonical tag / sitemap URL / JSON-LD `@id` must use the `www.` form. In `layout.tsx` this now comes from `siteBaseUrl(seo.canonicalUrl)` — one variable, used by both `generateMetadata` and `RootLayout`; **other files still hardcode it per-file**, and `NEXT_PUBLIC_SITE_URL` is set on Vercel but read by nothing. Fixed 2026-07-04 after an audit found all URLs pointing to the bare (redirecting) domain — if adding a new page with `generateMetadata`/JSON-LD, copy the `www.` form from an existing page, not the Vercel env var name.
 - **Favicon**: `src/app/icon.tsx` / `apple-icon.tsx` read `configGeneral.favicon` via `getFaviconUrl()`, falling back to a hardcoded navy/green icon if not configured. No static `favicon.ico` (removed — was the unused Next.js default).
 - `/llms.txt` (`src/app/llms.txt/route.ts`) auto-generates a GEO summary (categories, recent reviews/posts) from live Sanity data — update if major content sections change.
@@ -536,6 +541,61 @@ In both post-fix runs a valid cache entry still had minutes of TTL left, so expi
 Offers and coupon codes matter here for a non-obvious reason: `store-hosts` carries each shop's **headline coupon code**, which deal pages render via `getDealCoupon()`. Editing a code without this would leave deal pages advertising the old one for up to 5 minutes — the same class of stale-claim problem the review coupon box already has a rule against.
 
 Creating matters as much as editing: on 2026-08-04 a single new store was the only thing missing before 35 existing deals could attach their ref. All mutating actions across the three files call a revalidate helper — verified by reading each one; the remaining functions in `stores/actions.ts` are read-only or asset uploads that never change published data.
+
+## `metadataBase` is ignored the moment a page writes an absolute URL (2026-08-27)
+
+The bundled Next docs say it plainly, and this one line is the whole trap:
+
+> "If a metadata field provides an absolute URL, `metadataBase` will be ignored."
+> — `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/generate-metadata.md`
+
+On 2026-08-26 the *Canonical URL* admin field was wired into `metadataBase` in `layout.tsx`,
+and that day's note claimed it now drove "every absolute address on the site". Measured the
+next day: `siteBaseUrl` was imported in **exactly one file**, while **22 files** declared
+their own `const BASE = 'https://www.offerdy.com'` and **14** wrote the domain straight into
+`canonical:` / `openGraph.url`. Every one of those silently switched the admin field off —
+on that page only, with a clean build, green tests and a 200 response.
+
+**Two paths, and they do not overlap:**
+
+| Kind | How |
+|---|---|
+| `Metadata` fields (`canonical`, `openGraph.url`) | write a **relative** path (`'/about'`, `` `/deals/${slug}` ``) and let `metadataBase` compose it |
+| JSON-LD, `sitemap.ts`, `robots.ts`, `llms.txt`, share links | Next composes nothing here — call `getSiteBase()` for the real string |
+
+`getSiteBase()` (`src/sanity/queries.ts`) uses **`freshClient`**, not `readClient`. Reading
+the field through the CDN is the same 300s staleness trap the site-name work hit on 08-25 —
+and it bit again here: while `sitemap`/`robots`/`llms.txt` flipped to a new domain instantly,
+`layout.tsx` kept serving the old one because it read via `getConfigSeo()` (CDN). One source
+of truth read through two paths is still two sources.
+
+`tests/metadataBaseGuard.test.ts` scans `src/app` for both mistakes. ⚠️ It also carries a test
+asserting the guard **fires** on a bad line — which is what caught the guard's own first
+regex anchoring at `^\s*canonical:` and therefore missing `alternates: { canonical: '...' }`,
+the most common shape. A guard that only checks "nothing leaked" is green when it is blind.
+
+⚠️ **Short links are deliberately still hardcoded**: `SHORT_LINK_BASE` in `DealAdmin.tsx`,
+`FULL_BASE`/`DISPLAY_BASE` in `socialCaption.ts`, and `social-kit/actions.ts`. They carry no
+SEO weight and `socialCaption.ts` is a pure module with its own tests. Renaming the domain
+would leave QR codes and captions pointing at the old one.
+
+## `unstable_cache` survives a server restart (2026-08-27)
+
+It is written to `.next/cache/fetch-cache`, not held in memory. Restarting `next start` does
+**not** give you a cold cache. Measured while verifying the canonical field: the config value
+was changed back in Sanity, the server restarted, and pages still served the test domain —
+which reads exactly like a broken patch and is not one. `rm -rf .next/cache/fetch-cache`
+separates the two. In production the Save button calls `revalidatePath('/', 'layout')`, so
+operators never see this.
+
+📌 Related ordering trap, same session: a readiness loop that curls the app **before** the new
+config value is written primes the cache with the old one, and the measurement then shows "no
+change" no matter what the code does. Write the value first, start the server second, and wait
+for readiness by grepping the log for `Ready in` rather than by requesting a page.
+
+📌 And `robots.txt` is a **static route with `revalidate 5m`** — a different cache from the
+fetch cache. It lagged ~5 minutes behind every other surface; polled until it flipped rather
+than assumed.
 
 ## The store count is derived, never typed (`src/lib/storeCount.ts`)
 Public copy writes `{storeCount}` and the page substitutes the live count at render. Same convention as `{store}` in a store's `defaultDescription`.

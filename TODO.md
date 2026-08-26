@@ -6,6 +6,301 @@
 
 ---
 
+## 🔖 Điểm dừng 2026-08-27
+
+### ✅ Hai phép kiểm production đã hẹn — cả hai ĐẠT
+
+Production đang chạy `bf2e2ac` (hỏi Sentry releases, không đoán theo "đã push"):
+`created=2026-08-25T17:55:54Z`.
+
+**Ô *Canonical URL*** — HTML trang chủ production: `<link rel="canonical">`, `og:url` và
+`"url"` trong JSON-LD đều là `https://www.offerdy.com`.
+⚠️ Riêng phép đo này **không** chứng minh code mới đang chạy — giá trị đó **giống hệt**
+trước và sau bản vá (luật 8c). Thứ chứng minh là dòng release ở trên.
+
+**Cron `daily-report` báo lỗi thay vì chết im lặng** — đêm 26/08 nó chết vì hết credit
+Anthropic và **đã kêu thật**:
+
+| | Sự kiện test tay 25/08 | Sự kiện đêm 26/08 |
+|---|---|---|
+| Thời điểm | 2026-08-25T15:59 UTC | **2026-08-26T01:11 UTC** (cron `0 1 * * *`) |
+| release | `3003a3f` | **`bf2e2ac`** ← bản vá |
+| environment | `local` | **`production`** |
+| `extra` keys | backup, cron, pruned | **backup, cron, pruned** |
+
+Ba khoá đó khớp đúng `extra: { backup, pruned, cron: 'daily-report' }` ở
+[`route.ts:67`](src/app/api/cron/daily-report/route.ts) — nên chắc chắn nó đến từ
+`captureException` mới.
+
+⚠️ **Chỗ suýt đọc sai:** điểm dừng 26/08 chờ *"một issue MỚI mang culprit
+`GET /api/cron/daily-report`"*. Sentry **gộp vào issue cũ `JAVASCRIPT-NEXTJS-1F`**, và
+culprit trên production hiện ra là `s.generate(node_modules_02uqxih._)` (stack đã rút gọn).
+Nếu chỉ đếm "có issue mới không" thì đã kết luận **sai là bản vá hỏng**. Phải mở sự kiện ra
+đọc `release` + `environment` mới phân biệt được.
+
+### 🎯 Mốc 27/08: `0/65` → **28/65**. Google ĐÃ bò và ĐÃ lập chỉ mục.
+
+Đo bằng URL Inspection API trên **71 URL** lấy thẳng từ sitemap production (6 hub + 42 blog
++ 23 review). Script: `.scratch/` — xem mục *Cách đo lại* bên dưới.
+
+| | 20/08 | **27/08** |
+|---|---|---|
+| Trang nội dung đã được bò | 0 / 65 | **28 / 65** |
+| Trang nội dung trong chỉ mục | 0 / 65 | **28 / 65** |
+| Tổng URL trong chỉ mục (kể hub) | 3 | **34 / 71** |
+| Sitemap | 197 URL | 198 URL · 107 store · 42 blog · 23 review · **0 deal** |
+
+**Bò được là vào chỉ mục luôn — 28/28.** Không có trang nào "đã bò mà bị loại".
+
+### ⚠️ Nhưng chia đôi rất gắt: review **23/23**, blog **5/42**
+
+| Trạng thái | Số bài blog |
+|---|---|
+| `Submitted and indexed` (bò 24/08) | **5** |
+| `Discovered - currently not indexed` | **33** ← Google **biết** URL, **chọn không bò** |
+| `URL is unknown to Google` | **4** |
+
+### ❌ SỬA KẾT LUẬN: **không** phải khuôn blog bị chê chất lượng
+
+> Trong vòng một buổi 27/08 tôi kết luận *"(b) đánh giá chất lượng, ở cấp khuôn bài blog"*
+> rồi **tự bác bỏ bằng phép đo tiếp theo**. Giữ nguyên cả hai ở đây để lần sau đừng đi lại.
+
+5 bài blog được bò là **đúng vị trí #1–#5 trong sitemap, liền một dải**:
+
+```
+# 1 (abs 126)  >>> DA BO <<<  best-baby-zip-swim-rompers-at-babywonders-2026
+# 2 (abs 127)  >>> DA BO <<<  best-kids-cameras-at-bloomingbabies-2026
+# 3 (abs 128)  >>> DA BO <<<  sc15-vs-sc21-vs-sc25-soft-cooler-bags-compared-2026
+# 4 (abs 129)  >>> DA BO <<<  12-volt-car-refrigerator-vs-portable-refrigerator-...
+# 5 (abs 130)  >>> DA BO <<<  12-volt-car-refrigerator-58l-vs-15l-compared-2026
+# 6 (abs 131)                 12-inch-childrens-mountain-bike-vs-24-inch-...
+```
+
+Nếu Google chọn theo chất lượng thì 5 bài "được chọn" rơi trúng 5 vị trí đầu là xác suất
+**1 / 850.668**. Đây là **hàng đợi đang chạy dở** — bò blog mới bắt đầu **24/08**, ba ngày
+trước lúc đo.
+
+📌 **Nên ĐỪNG viết lại 33 bài blog.** Chưa có một bằng chứng nào nói chúng có vấn đề.
+Câu hỏi *"viết thêm bài AI có đào sâu hố không"* hiện **vẫn chưa trả lời được**.
+
+⚠️ Một giả thuyết nữa cũng **tự bác bỏ**: định nói *"`/comparisons` bò từ 07/08 nên blog
+thiệt"*. Nhưng `/reviews` bò từ **28/07** — cũ hơn — mà cả 23 review đều được bò. **Ngày bò
+của trang hub không giải thích được gì.**
+
+📅 **Đo lại 30/08** để biết tốc độ bò (bao nhiêu bài/ngày). Chỉ khi hàng đợi chạy hết mà
+vẫn còn bài bị bỏ thì mới nói được tới chất lượng.
+
+### Hai thứ khác đo ra được trong lúc truy phần trên
+
+**1. `/blog` chỉ phơi 10/42 bài trong HTML máy chủ.**
+[`BlogPageContent.tsx:59`](src/components/BlogPageContent.tsx) — `'use client'` +
+`useState(1)` + `.slice()`. **Đúng họ lỗi của 83 trang store mồ côi** đã sửa 21/08.
+⚠️ Nhưng nói cho công bằng: 42 bài **không** mồ côi — đo cả 12 trang hub thì `/comparisons`
+link đủ **42/42**. Lỗi là thật, **lợi ích SEO là suy đoán**, chưa đo được.
+
+**2. Ô *Canonical URL* hôm qua chưa đi tới đâu như đã tưởng** — xem mục riêng bên dưới.
+
+### ✅ Nối nốt ô *Canonical URL* — nay điều khiển thật, đã đo đầu-cuối
+
+| | Trước (đo 27/08) | Sau |
+|---|---|---|
+| File tự khai `const BASE` dưới `src/app` | **22** | **0** |
+| `canonical:` / `og:url` ghi cứng địa chỉ | **14** | **0** |
+| File nối được vào ô cấu hình | **1** (`layout.tsx`) | **14** |
+| `npm test` | 582 | **587** |
+
+**Cách chữa KHÔNG phải thay 53 chuỗi.** Tài liệu Next trong `node_modules` cho lối gọn hơn:
+
+> *"If a metadata field provides an absolute URL, `metadataBase` will be ignored."*
+> — `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/generate-metadata.md`
+
+Nên chia **hai đường, không lẫn nhau**:
+
+| Loại | Cách |
+|---|---|
+| Trường `Metadata` (`canonical`, `og:url`) | **đường dẫn tương đối** — `'/about'`, `` `/deals/${slug}` `` — để `metadataBase` ghép |
+| JSON-LD · `sitemap.ts` · `robots.ts` · `llms.txt` · link chia sẻ | `await getSiteBase()` — Next không ghép hộ |
+
+`getSiteBase()` ở [`src/sanity/queries.ts`](src/sanity/queries.ts) dùng **`freshClient` + hai lớp
+cache**, đúng khuôn `getSiteName()` — đọc qua CDN ở đây là dính lại bẫy "ướp giá trị cũ 300s"
+của 25/08. Hàm thuần (`dealSchema`, `dealPreviewHtml`) nhận `base` qua **tham số**,
+`ShareDeal` (client) qua **prop** — vì `lib/*` không được import `@/sanity/queries`.
+
+**Số đo đầu-cuối** (`npm start` :3100, đổi ô sang `shop.dealwise-test.example` rồi trả về):
+
+| Trang | Đổi theo ô? |
+|---|---|
+| `/about` — canonical · og:url · JSON-LD của layout · JSON-LD của trang | ✅ cả 4 |
+| `/how-we-test` · `/privacy` — canonical · og:url | ✅ |
+| `/sitemap.xml` · `/llms.txt` | ✅ |
+| `/robots.txt` | ✅ nhưng **trễ tới 5 phút** — nó là trang tĩnh `revalidate 5m` |
+
+### ⚠️ Ba cái bẫy trả giá trong lúc làm — cái thứ hai là lỗi thật
+
+**1. Phép đo tự phá chính nó.** Vòng chờ "server sẵn sàng" gọi `/robots.txt` **trước khi**
+đổi giá trị → `unstable_cache` ướp giá trị cũ 300s → đo ra "không đổi gì". Suýt đọc thành
+"bản vá hỏng". Phải **ghi giá trị TRƯỚC, bật server SAU**, và chờ sẵn sàng bằng **log**
+(`grep "Ready in"`) chứ không gọi trang.
+
+**2. `layout.tsx` đọc ô đó qua ĐƯỜNG KHÁC — lỗi thật, đã sửa.** Nó dùng
+`siteBaseUrl(seo.canonicalUrl)` với `getConfigSeo()` đi qua **CDN Sanity**, còn cả site đọc
+tươi. Kết quả đo được: `sitemap`/`robots`/`llms.txt` đổi tên miền ngay trong khi `canonical`
+và JSON-LD của layout **vẫn giữ tên cũ**. Đúng "một nguồn sự thật mà hai đường đọc" — và trớ
+trêu là chú thích cảnh báo điều đó nằm ngay cạnh dòng gây lỗi. Nay layout cũng dùng
+`getSiteBase()`.
+
+**3. `unstable_cache` SỐNG QUA khởi động lại server.** Nó nằm ở `.next/cache/fetch-cache`,
+không phải trong bộ nhớ. Trả giá trị về rồi restart mà trang vẫn phát giá trị test — không
+phải hỏng, là cache. Muốn đo ngay thì `rm -rf .next/cache/fetch-cache`. (Trên production
+nút **Lưu** gọi `revalidatePath('/', 'layout')` nên không phải chờ.)
+
+### Hàng rào mới: [`tests/metadataBaseGuard.test.ts`](tests/metadataBaseGuard.test.ts) — 5 test
+
+Quét mã nguồn `src/app`, chặn (a) ghi cứng địa chỉ vào `canonical`/`og:url`, (b) khai lại
+`const BASE`, (c) đặt `metadataBase` ở hai nơi.
+
+📌 **Và nó bắt được lỗi của chính nó.** Test *"hàng rào phải KÊU trên dòng xấu"* lộ ra rằng
+mẫu quét đầu tiên neo `^\s*canonical:` nên **không bắt được** dạng phổ biến nhất
+`alternates: { canonical: '...' }` — nó xanh chỉ vì không nhìn thấy gì. Một hàng rào chỉ
+kiểm chiều "không có gì lọt" thì xanh y hệt khi nó mù.
+
+### ⚠️ CỐ Ý CHƯA LÀM — mặt short link vẫn ghi cứng tên miền
+
+Đường SEO đã nối hết. **Đường short link / QR / caption thì chưa**, và đó là lựa chọn có
+chủ ý chứ không phải sót:
+
+| Chỗ | Dùng để |
+|---|---|
+| `src/app/admin/deals/DealAdmin.tsx` — `SHORT_LINK_BASE` | nút Copy link `/d/<mã>` trong admin |
+| `src/lib/socialCaption.ts` — `FULL_BASE`, `DISPLAY_BASE` | caption mạng xã hội, QR, clipboard |
+| `src/app/admin/social-kit/actions.ts` | `shortUrl` cho bộ đăng bài |
+| `src/lib/safeFetch.ts` | chuỗi User-Agent `OfferdyBot`, không phải địa chỉ trang |
+
+Vì sao dừng: chúng **không ảnh hưởng SEO**, đều nằm sau `/admin`, và `socialCaption.ts` là
+hàm thuần đang có test riêng cùng bộ dựng video — đụng vào là mở một mặt trận khác trong
+cùng một lượt. Hàng rào `const BASE` **chỉ quét `src/app` trừ `/admin`**, nên nó không kêu
+oan ở đây.
+
+📌 Hệ quả nếu thật sự đổi tên miền: QR và caption sẽ trỏ về tên miền cũ. **Nhớ mục này.**
+
+### ✅ Bộ định tuyến AI — Claude thôi làm nhà duy nhất
+
+Việc này bắt đầu từ một prompt ChatGPT đề xuất dựng cả "affiliate automation platform".
+**Chỉ lấy §4–§8 + §55–§56 của nó**; phần còn lại bỏ, lý do ghi ở cuối mục.
+
+Chi tiết đầy đủ: [`docs/AI_ROUTER.md`](docs/AI_ROUTER.md). Tóm tắt:
+
+| | |
+|---|---|
+| Thứ tự mặc định | **groq → gemini → openrouter → anthropic** (đo thật, không phải cảm giác) |
+| Generator đã nối | 5 file kiểu `messages.parse` (offer, deal, store, caption, daily-report) |
+| Generator **không** nối | 6 file kiểu `messages.stream` — giữ nguyên Claude, có lý do |
+| `npm test` | **608** (587 + 21 test router) |
+
+**Đo thật qua router** (`npx tsx .scratch/do-router-that.mts`):
+
+```
+1. binh thuong        -> groq/openai/gpt-oss-20b        622ms  ✓
+2. ep hong nha dau    -> gemini/gemini-3.5-flash-lite  1054ms  ✓ (roi xuong dung)
+3. het ngan sach      -> NEM: anthropic(het-ngan-sach)         ✓ (khong lang le goi Claude)
+```
+
+⚠️ **Tính chất quan trọng nhất: chưa có khoá miễn phí thì hành vi y hệt trước 27/08.**
+Nhà không có khoá bị bỏ qua lặng lẽ → rơi thẳng xuống Claude.
+
+### ⚠️ Bốn cái bẫy trong buổi này, hai cái là lỗi thật của tôi
+
+1. **Danh sách model nói một đằng, lệnh gọi nói một nẻo.** `GET /v1beta/models` liệt kê
+   `gemini-2.5-flash*`; `:generateContent` trả **404** cho đúng tên đó.
+2. **Tôi kết luận "model miễn phí hay bịa" từ một phép so sánh không hợp lệ** — đưa
+   OpenRouter prompt rút gọn còn Groq/Gemini prompt thật. Chạy lại cùng đầu vào:
+   **cả 8 model đều không bịa một chữ.** Thứ chặn bịa đặt là **prompt**, không phải model.
+3. **20 test xanh mà cờ cấu hình vô hiệu.** `AI_MODEL_GROQ` truyền vào `generateStructured`
+   không có tác dụng gì — adapter tự đọc `process.env`. Test dùng **nhà giả** nên không hề
+   chạm vào phần đọc cấu hình. Chỉ lần chạy thật mới lộ. Nay test mục 9 dùng nhà **thật**.
+4. **Bản vá tự tạo ra một dòng dữ liệu nói dối**: vẫn ghi `model: MODEL` vào Sanity, tức
+   báo "claude-sonnet-5" kể cả khi Groq viết. Nay ghi `${provider}/${model}` thật.
+
+### 🔴 Việc của user
+
+- [ ] **Xoay lại 6 khoá API** — chúng đã dán thẳng vào khung chat nên coi như đã lộ.
+- [ ] Thêm `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY` (+ bản `_2`) vào **Vercel**.
+      `.env.local` chỉ có tác dụng ở máy này — cron trên production vẫn sẽ chết nếu thiếu.
+- [ ] Nạp credit Anthropic (vẫn cần: 6 generator kiểu streaming chưa có đường lui).
+
+### Vì sao KHÔNG làm phần còn lại của prompt
+
+Prompt giả định Prisma + Supabase/PostgreSQL — dự án dùng **Sanity**, và
+[`docs/adr/0001-khong-dung-supabase.md`](docs/adr/) đã chốt không dùng Supabase. Nó đòi xây
+lại Search Console, GA4, chống bịa đặt, schema markup, cron — **tất cả đã có**. Nó đòi
+adapter **Awin** trong khi dự án chạy **GoAffPro**. Và 8 bảng nó đề xuất, ở Sanity, sẽ nằm
+trong dataset **CÔNG KHAI**.
+
+📌 Lý do lớn nhất: nó tăng tốc **sản xuất nội dung**, trong khi đo sáng nay cho thấy
+**33/42 bài blog đang ở `Discovered – currently not indexed`** — Google biết URL và **chọn
+không bò**. Đổ thêm nội dung vào đúng lúc đó không giúp gì.
+
+### Còn phải làm trước khi coi là xong
+
+- [ ] **Kiểm trên production sau khi deploy**: gọi `/sitemap.xml`, `/robots.txt`, `/llms.txt`
+      và `/about`, cả 4 phải mang `https://www.offerdy.com`. (Giá trị giống hệt trước và sau
+      nên phép kiểm này **không** phân biệt được code mới/cũ — muốn chắc thì đối chiếu
+      Sentry release như sáng 27/08.)
+- [ ] Chưa commit. `npm test` **608** · `tsc` sạch · `build` sạch.
+
+### ⚠️ Không phải phép so sánh sạch — ba biến đổi cùng lúc
+
+Quanh 20–21/08 có **ba** thay đổi, không phải một:
+
+1. Sitemap **hết đóng băng** (`force-dynamic`) — trước đó nó kẹt ở bản build **8 ngày** trước
+2. Cắt **451 deal** khỏi sitemap
+3. Mục lục A–Z cho **83 trang store mồ côi** lần đầu có link nội bộ
+
+Nên **không quy công cho riêng phép cắt deal được**. Nghi can chính thật ra là (1) — một
+sitemap chết 8 ngày thì Google không có gì mới để bò.
+
+📌 **Mốc 03/09 (trả 451 deal về sitemap) — nay trả lời được: ĐỪNG TRẢ VỀ.** Chỉ mục đi từ
+3 lên 34 sau khi cắt. Không có lý do lật lại.
+
+### 📉 Chỉ mục lên, nhưng lưu lượng CHƯA theo
+
+14 ngày (11/08 → 24/08, GSC trễ 2 ngày): **31 lượt hiển thị cấp site · 1 lượt bấm**.
+
+**Lượt bấm đó là thật và là lần đầu trên trang sống**: 21/08,
+`/reviews/the-midgard-premium-sconce-review-copper-steel`, **vị trí 1,0**. Mốc cũ ghi
+*"0 bấm suốt 30 ngày"* — nay không còn là 0.
+
+⚠️ **Ma 404 vẫn còn ăn hiển thị.** 15 trang có hiển thị, trong đó **5 trang vẫn trả 404**
+và ôm **19 / 37 hiển thị cấp-trang** — gồm cả trang nhiều nhất (13 hiển thị):
+
+| Hiển thị | Trạng thái | Trang |
+|---|---|---|
+| 13 | **404** | `/reviews/willwork-jewelry-review-2026-...` |
+| 2 | **404** | `/blog/how-to-save-money` |
+| 2 | **404** | `/blog/daily-saving-habits` |
+| 1 | **404** | `/reviews/flashfish-portable-power-station-review-2026-...` |
+| 1 | **404** | `/reviews/hovsco-e-bike-review-2026-...` |
+
+📌 **Đừng cộng hai bảng GSC với nhau.** Tổng theo ngày là **31**, tổng theo trang là **37** —
+GSC gộp khác nhau ở mỗi chiều. Nói *"19/31"* là sai; phải nói *"19 trên 37 hiển thị
+cấp-trang"*.
+
+### Cách đo lại
+
+Ba script chỉ-đọc, đã chạy thật 27/08, để sẵn ở `.scratch/` (chạy `node .scratch/<tên>`):
+
+| Script | Việc | Ghi chú |
+|---|---|---|
+| `do-moc-2708.mjs` | bò / chỉ mục 71 URL | URL Inspection ~7s/URL ≈ **8 phút**. Lấy URL **từ sitemap**, đừng gõ tay |
+| `do-gsc-2708.mjs` | hiển thị / bấm | `searchAnalytics/query`, chiều `date` **và** `page` |
+| `do-sentry-sang-2708.mjs` | issue Sentry | `environment` là **tham số riêng**, không nhét vào `query=` (luật 8) |
+
+⚠️ Chạy script từ **ngoài** `.scratch/` thì phải import `envkey.mjs` bằng
+**`file:///e:/...`** — Node 24 từ chối `import ... from 'e:/...'` với
+`ERR_UNSUPPORTED_ESM_URL_SCHEME`.
+
+---
+
 ## 🔖 Điểm dừng 2026-08-26
 
 > 👉 **Mai bắt đầu ở mục [`MAI LÀM TIẾP`](#-mai-làm-tiếp--đọc-mục-này-trước) bên dưới**
@@ -451,11 +746,12 @@ Tôi **không bịa được** những câu này, và bịa thì phá hỏng đ�
 | Ngày | Việc |
 |---|---|
 | ~~25/08~~ | ✅ **ĐÃ ĐO**: nhãn `video` = **0**. Không phải chỉ nhãn đó — **chưa từng có** lượt bấm nào mang nhãn chiến dịch. Short link cả đời: 2, đều ngày 25/07. Bài đăng lúc 23/08 15:52; từ đó tới 25/08 **0 lượt bấm** toàn trang. ⚠️ Deal `#1471` có 2 lượt bấm nhưng cả hai rơi vào **21/08** — trước lúc đăng, không liên quan tới video. Và `videoMadeAt` chưa tick cho deal nào. n=1 nên đây là nhiễu, không bác bỏ được kênh video. |
-| **27/08** | Đo lại `0/65` trang nội dung chưa được Google bò, để biết phép cắt sitemap 20/08 có tác dụng không. |
+| ~~27/08~~ | ✅ **ĐÃ ĐO**: `0/65` → **28/65** đã bò **và** đã vào chỉ mục; tổng chỉ mục 3 → 34. Nhưng review **23/23** còn blog **5/42** (33 bài kẹt ở `Discovered – currently not indexed`). Chi tiết ở điểm dừng 27/08 đầu file. |
+| **03/09** | ~~Phán quyết trả 451 deal về sitemap~~ — **trả lời sớm được rồi: ĐỪNG TRẢ VỀ.** Chỉ mục 3 → 34 sau khi cắt. |
 
-⚠️ Khi đọc kết quả 27/08, **cân nhắc hai giả thuyết chứ đừng chỉ một**: (a) nút thắt là
-hạn mức bò, hoặc (b) nút thắt là đánh giá chất lượng — 42 bài đều do AI sinh, trên một tên
-miền affiliate chưa có uy tín. Nếu là (b) thì **viết thêm bài AI là đào sâu thêm hố**.
+⚠️ Hai giả thuyết đặt ra ngày 20/08 — (a) hạn mức bò, (b) đánh giá chất lượng — **kết quả
+27/08 là (a) ở cấp site, (b) ở cấp khuôn bài blog.** Nên câu *"viết thêm bài AI là đào sâu
+thêm hố"* vẫn **đúng với blog**, và **không** đúng với review.
 
 ---
 
@@ -483,7 +779,8 @@ miền affiliate chưa có uy tín. Nếu là (b) thì **viết thêm bài AI l�
 | | |
 |---|---|
 | Tổng lượt bấm, từ đầu tới giờ | **25** |
-| Google 30 ngày | **0 lượt bấm** · 3 URL trong chỉ mục · 0/65 trang được bò |
+| ~~Google 30 ngày~~ | ~~**0 lượt bấm** · 3 URL trong chỉ mục · 0/65 trang được bò~~ ← **đã cũ, xem dòng dưới** |
+| Google 14 ngày (đo 27/08) | **1 lượt bấm** (21/08, review Midgard, vị trí 1,0) · 31 hiển thị · **34** URL trong chỉ mục · **28/65** trang được bò |
 
 ### Thử mã coupon — tài sản riêng, không ai chép được
 
