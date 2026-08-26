@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { getSiteName } from '@/sanity/queries'
+import { getSiteName, getSiteBase } from '@/sanity/queries'
 import { fillSiteName } from '@/lib/siteNameToken'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
@@ -9,7 +9,6 @@ import ContactPageClient from './ContactPageClient'
 
 export const dynamic = 'force-dynamic'
 
-const BASE = 'https://www.offerdy.com'
 
 export type FaqItem = { _key: string; question: string; answer: string }
 
@@ -78,19 +77,23 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: seoTitle,
     description: seoDescription,
-    alternates: { canonical: `${BASE}/contact` },
+    // ⚠️ Duong dan TUONG DOI, co chu y: "If a metadata field provides an absolute
+    // URL, metadataBase will be ignored" (tai lieu Next). Ghi cung dia chi o day
+    // la vo hieu hoa chinh o *Canonical URL* — im lang, tren tung trang.
+    alternates: { canonical: '/contact' },
     robots: d.indexPage ? undefined : { index: false },
     openGraph: {
       title: seoTitle,
       description: seoDescription,
-      url: `${BASE}/contact`,
+      url: '/contact',
       type: 'website',
     },
   }
 }
 
 export default async function ContactPage() {
-  const [raw, siteName] = await Promise.all([getContact(), getSiteName()])
+  // `base`: JSON-LD KHONG duoc `metadataBase` ghep ho — phai lay chuoi that.
+  const [raw, siteName, base] = await Promise.all([getContact(), getSiteName(), getSiteBase()])
   // Dien o `{site}` MOT LAN o day, truoc khi day xuong client component:
   // ContactPageClient la 'use client' nen khong tu hoi Sanity duoc.
   const n = (t: string) => fillSiteName(t, siteName)
@@ -107,12 +110,12 @@ export default async function ContactPage() {
     '@context': 'https://schema.org',
     '@type': 'ContactPage',
     name: d.seoTitle,
-    url: `${BASE}/contact`,
+    url: `${base}/contact`,
     description: d.seoDescription,
     mainEntity: {
       '@type': 'Organization',
       name: siteName,
-      url: BASE,
+      url: base,
       email: d.email,
       ...(d.phone ? { telephone: d.phone } : {}),
     },

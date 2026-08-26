@@ -4,13 +4,12 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import { writeClient } from '@/sanity/writeClient'
 import { isConfigured } from '@/sanity/client'
-import { getPublishedStoreCount, getSiteName } from '@/sanity/queries'
+import { getPublishedStoreCount, getSiteName, getSiteBase } from '@/sanity/queries'
 import { fillStoreCount } from '@/lib/storeCount'
 import { fillSiteName } from '@/lib/siteNameToken'
 
 export const dynamic = 'force-dynamic'
 
-const BASE = 'https://www.offerdy.com'
 
 type Stat     = { _key: string; num: string; label: string }
 type Step     = { _key: string; title: string; desc: string }
@@ -103,12 +102,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: seoTitle,
     description: seoDescription,
-    alternates: { canonical: `${BASE}/about` },
+    // ⚠️ Duong dan TUONG DOI, co chu y. `metadataBase` o layout.tsx doc o
+    // *Canonical URL*; tai lieu Next noi: "If a metadata field provides an
+    // absolute URL, metadataBase will be ignored." Ghi cung o day la vo hieu
+    // hoa chinh o cau hinh do — im lang.
+    alternates: { canonical: '/about' },
     robots: d.indexPage ? undefined : { index: false },
     openGraph: {
       title: seoTitle,
       description: seoDescription,
-      url: `${BASE}/about`,
+      url: '/about',
       type: 'website',
     },
   }
@@ -116,7 +119,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AboutPage() {
   // So store lay TU DU LIEU, khong go tay — xem src/lib/storeCount.ts de biet vi sao.
-  const [d, storeCount, siteName] = await Promise.all([getAbout(), getPublishedStoreCount(), getSiteName()])
+  // `base`: JSON-LD KHONG duoc `metadataBase` ghep ho — Next chi lo cac truong
+  // `Metadata`. O day phai lay chuoi that.
+  const [d, storeCount, siteName, base] = await Promise.all([getAbout(), getPublishedStoreCount(), getSiteName(), getSiteBase()])
   // Mot ham cho CA HAI o: van ban chi viet `{storeCount}` va `{site}`, con so
   // that va ten that duoc dien luc render. Xem lib/storeCount.ts va lib/siteNameToken.ts.
   const n = (t: string) => fillSiteName(fillStoreCount(t, storeCount), siteName)
@@ -126,16 +131,16 @@ export default async function AboutPage() {
     '@graph': [
       {
         '@type': 'Organization',
-        '@id': `${BASE}/#organization`,
+        '@id': `${base}/#organization`,
         name: siteName,
-        url: BASE,
+        url: base,
         foundingDate: d.foundingYear,
         description: n(d.seoDescription),
       },
       {
         '@type': 'WebPage',
-        '@id': `${BASE}/about#webpage`,
-        url: `${BASE}/about`,
+        '@id': `${base}/about#webpage`,
+        url: `${base}/about`,
         name: n(d.seoTitle),
         description: n(d.seoDescription),
       },

@@ -17,12 +17,12 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Comparisons — Side-by-Side Deal Analysis',
     description: 'In-depth comparison guides to help you pick the best store, product, or deal. Unbiased, data-driven analysis.',
-    alternates: { canonical: 'https://www.offerdy.com/comparisons' },
+    alternates: { canonical: '/comparisons' },
     ...(posts.length === 0 && { robots: { index: false, follow: true } }),
     openGraph: {
       title: `Comparisons — Side-by-Side Deal Analysis | ${siteName}`,
       description: 'Unbiased store and product comparisons to help you find the best deal.',
-      url: 'https://www.offerdy.com/comparisons',
+      url: '/comparisons',
       type: 'website',
     },
   }

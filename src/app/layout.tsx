@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Inter } from 'next/font/google'
 import Script from 'next/script'
 import './globals.css'
-import { getConfigSeo, getSiteName, getSiteSettings } from '@/sanity/queries'
+import { getConfigSeo, getSiteName, getSiteSettings, getSiteBase } from '@/sanity/queries'
 import { fillSiteName } from '@/lib/siteNameToken'
-import { siteBaseUrl } from '@/lib/siteBaseUrl'
 
 const jakartaSans = Plus_Jakarta_Sans({
   subsets: ['latin'],
@@ -38,7 +37,11 @@ export async function generateMetadata(): Promise<Metadata> {
   // thi ghi cung ngay day — nen suot thoi gian o do mang gia tri sai
   // `https://.offerdy.com/`, trang van khai canonical dung, va sua o do khong doi
   // duoc gi. `siteBaseUrl()` loc gia tri hong (xem chu thich trong file do).
-  const base = siteBaseUrl(seo.canonicalUrl)
+  // ⚠️ 27/08: doc qua `getSiteBase()` chu KHONG con `siteBaseUrl(seo.canonicalUrl)`.
+  // `getConfigSeo()` di qua CDN Sanity (useCdn: true) nen o day con giu gia tri cu
+  // toi ~60s (do 26/08: CDN mat ~106s) trong khi sitemap/robots/llms.txt da doi
+  // ngay — dung "mot nguon su that ma hai duong doc" ma chu thich o duoi canh bao.
+  const base = await getSiteBase()
 
   return {
     metadataBase: new URL(base),
@@ -79,7 +82,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // cung thi doi ten mien se lam du lieu co cau truc tro ve dia chi cu trong khi
   // the canonical da doi — dung ho loi "mot nguon su that ma hai duong doc" da
   // tra gia hom 25/08 voi `getSiteSettings()` va ten website.
-  const base = siteBaseUrl(seo.canonicalUrl)
+  const base = await getSiteBase()
   const sameAs = (settings.socialMedia ?? [])
     .map(s => s.url)
     .filter(url => url && url !== '#' && url.startsWith('http'))

@@ -11,11 +11,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Flash Sales — Limited-Time Deals',
     description: 'Deals expiring soon — grab them before the clock runs out. Verified flash sales updated in real time.',
-    alternates: { canonical: 'https://www.offerdy.com/flash-sales' },
+    alternates: { canonical: '/flash-sales' },
     openGraph: {
       title: `Flash Sales — Limited-Time Deals | ${siteName}`,
       description: 'Time-sensitive deals with live countdown timers. Never miss a flash sale again.',
-      url: 'https://www.offerdy.com/flash-sales',
+      url: '/flash-sales',
       type: 'website',
     },
   }

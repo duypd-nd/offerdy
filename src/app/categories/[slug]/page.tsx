@@ -14,7 +14,6 @@ export async function generateStaticParams() {
   return []
 }
 
-const BASE = 'https://www.offerdy.com'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -29,7 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = `${cat.emoji} ${cat.name} Deals & Coupons`
   const ogTitle = `${title} — ${siteName}`
   const description = cat.description ?? `Browse the best ${cat.name} deals and verified coupon codes.`
-  const url = `${BASE}/categories/${slug}`
+  const url = `/categories/${slug}`
   return {
     title,
     description,

@@ -1,8 +1,9 @@
 import type { MetadataRoute } from 'next'
+import { getSiteBase } from '@/sanity/queries'
 
-const BASE = 'https://www.offerdy.com'
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const base = await getSiteBase()
   return {
     rules: [
       {
@@ -16,6 +17,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/admin/', '/studio/', '/g/'],
       },
     ],
-    sitemap: `${BASE}/sitemap.xml`,
+    sitemap: `${base}/sitemap.xml`,
   }
 }

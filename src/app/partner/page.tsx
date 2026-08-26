@@ -9,7 +9,6 @@ import { fillStoreCount } from '@/lib/storeCount'
 import { fillSiteName } from '@/lib/siteNameToken'
 
 export const dynamic = 'force-dynamic'
-const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS: Required<PartnerData> = {
   h1: 'Partner with {site}',
@@ -51,7 +50,7 @@ async function get(): Promise<Required<PartnerData>> {
 
 export async function generateMetadata(): Promise<Metadata> {
   const [d, siteName] = await Promise.all([get(), getSiteName()])
-  return { title: fillSiteName(d.seoTitle, siteName), description: fillSiteName(d.seoDescription, siteName), alternates: { canonical: `${BASE}/partner` }, robots: d.indexPage ? undefined : { index: false } }
+  return { title: fillSiteName(d.seoTitle, siteName), description: fillSiteName(d.seoDescription, siteName), alternates: { canonical: '/partner' }, robots: d.indexPage ? undefined : { index: false } }
 }
 
 export default async function PartnerPage() {

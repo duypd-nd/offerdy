@@ -24,13 +24,12 @@ import { fmtDayYearUtc } from '@/lib/offerTrust'
  */
 
 export const dynamic = 'force-dynamic'
-const BASE = 'https://www.offerdy.com'
 
 export const metadata: Metadata = {
   title: 'How We Test Coupon Codes',
   description:
     'We enter every coupon code at the store checkout ourselves and record what happened, with dates. This is the full log — including the codes that failed.',
-  alternates: { canonical: `${BASE}/how-we-test` },
+  alternates: { canonical: '/how-we-test' },
 }
 
 /** 'worked' | 'partial' | 'rejected' -> chu cho nguoi doc + mau. */

@@ -1,7 +1,5 @@
 import { dealDiscountBadge } from './dealDiscountLabel'
 
-const BASE = 'https://www.offerdy.com'
-
 export type PreviewDeal = {
   code: number
   title: string
@@ -39,15 +37,15 @@ function escapeHtml(s: string): string {
  * query van tra ve dung anh (da kiem chung: 200 image/png) — nen khong phai doan
  * chuoi hash.
  */
-export function dealPreviewHtml(deal: PreviewDeal, opts: { target: string; siteName: string }): string {
+export function dealPreviewHtml(deal: PreviewDeal, opts: { target: string; siteName: string; base: string }): string {
   const badge = dealDiscountBadge(deal)
   const discount = `${badge.main}${badge.sub ? ` ${badge.sub}` : ''}`
   const title = `${deal.title} — ${discount}`
   const description = deal.metaDescription
     || deal.summary
     || `${deal.priceSale}${deal.priceOrig ? `, was ${deal.priceOrig}` : ''} — ${discount} on ${opts.siteName}.`
-  const image = `${BASE}/deals/${deal.slug}/opengraph-image`
-  const canonical = `${BASE}/deals/${deal.slug}`
+  const image = `${opts.base}/deals/${deal.slug}/opengraph-image`
+  const canonical = `${opts.base}/deals/${deal.slug}`
 
   return `<!doctype html>
 <html lang="en">

@@ -2,11 +2,6 @@
 
 import { useState } from 'react'
 
-// Ten mien production hardcode giong moi noi khac trong repo (NEXT_PUBLIC_SITE_URL
-// co tren Vercel nhung khong duoc code nao doc — xem PROJECT_CONTEXT). Dang `www.`
-// la dang chinh, offerdy.com tran 308 sang no.
-const BASE = 'https://www.offerdy.com'
-
 /**
  * Chia se san pham. Chia se ra short link /d/<ma> chu khong phai URL slug day:
  * ngan hon nhieu khi dan vao tin nhan, va moi luot chia se cua khach tro thanh mot
@@ -14,13 +9,15 @@ const BASE = 'https://www.offerdy.com'
  *
  * Deal chua co ma thi roi ve URL slug — mat phan do luong, con hon la an nut.
  */
-export default function ShareDeal({ code, slug, title }: {
+export default function ShareDeal({ code, slug, title, base }: {
   code?: number
   slug: string
   title: string
+  // 'use client' nen khong tu hoi Sanity duoc — trang deal (server) truyen xuong.
+  base: string
 }) {
   const [copied, setCopied] = useState(false)
-  const url = code ? `${BASE}/d/${code}` : `${BASE}/deals/${slug}`
+  const url = code ? `${base}/d/${code}` : `${base}/deals/${slug}`
 
   const copy = () => {
     navigator.clipboard.writeText(url)

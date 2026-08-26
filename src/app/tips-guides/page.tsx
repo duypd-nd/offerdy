@@ -11,11 +11,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Tips & Guides — Smart Shopping Advice',
     description: 'Shopping tips, saving strategies, and expert guides to help you get the best deals online every time.',
-    alternates: { canonical: 'https://www.offerdy.com/tips-guides' },
+    alternates: { canonical: '/tips-guides' },
     openGraph: {
       title: `Tips & Guides — Smart Shopping Advice | ${siteName}`,
       description: 'Practical guides on how to save more, stack coupons, and shop smarter.',
-      url: 'https://www.offerdy.com/tips-guides',
+      url: '/tips-guides',
       type: 'website',
     },
   }

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getSiteName, getPostBySlug, getPosts, getConfigContent, getConfigAuthor, getStoreRefForHtml, getStoreTopCoupon } from '@/sanity/queries'
+import { getSiteName, getPostBySlug, getPosts, getConfigContent, getConfigAuthor, getStoreRefForHtml, getStoreTopCoupon, getSiteBase } from '@/sanity/queries'
 import { renderPostTokens, priceNote, type RenderProduct } from '@/lib/postRender'
 import { pickSidebarPosts, type RelatablePost } from '@/lib/relatedPosts'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
@@ -25,7 +25,6 @@ function fmtDate(d: string) {
   catch { return d }
 }
 
-const BASE = 'https://www.offerdy.com'
 
 /** Bai o o ben canh. `getPosts` khong co kieu (GROQ), nen khai ro dung phan can dung. */
 type SidebarPost = RelatablePost & {
@@ -44,7 +43,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // OpenGraph thi nguoc lai — no KHONG di qua titleTemplate nen phai tu mang thuong hieu.
   const title = post.metaTitle ?? post.title
   const description = post.metaDescription ?? post.excerpt ?? `Read ${post.title} on ${siteName}.`
-  const url = `${BASE}/blog/${slug}`
+  const url = `/blog/${slug}`
   return {
     title,
     description,
@@ -68,6 +67,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const base = await getSiteBase()
   const { slug } = await params
   const [post, allPosts, globalConfig, authorConfig, siteName] = await Promise.all([
     getPostBySlug(slug),
@@ -147,18 +147,18 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         '@type': 'Article',
         headline: post.title,
         description: post.excerpt ?? undefined,
-        author: authorName ? { '@type': 'Person', name: authorName, url: `${BASE}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined } : undefined,
+        author: authorName ? { '@type': 'Person', name: authorName, url: `${base}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined } : undefined,
         datePublished: post.date ?? undefined,
         dateModified: post.updatedAt ?? post.date ?? undefined,
-        publisher: { '@type': 'Organization', name: siteName, url: BASE },
-        url: `${BASE}/blog/${slug}`,
+        publisher: { '@type': 'Organization', name: siteName, url: base },
+        url: `${base}/blog/${slug}`,
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: BASE },
-          { '@type': 'ListItem', position: 2, name: 'Blog', item: `${BASE}/blog` },
-          { '@type': 'ListItem', position: 3, name: post.title, item: `${BASE}/blog/${slug}` },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: base },
+          { '@type': 'ListItem', position: 2, name: 'Blog', item: `${base}/blog` },
+          { '@type': 'ListItem', position: 3, name: post.title, item: `${base}/blog/${slug}` },
         ],
       },
       // ⚠️ KHONG phat `Review`/`Product` o day. Loai `post` la mot bai so sanh nhieu

@@ -7,7 +7,7 @@ import Footer from '@/components/Footer'
 import AffiliateLink from '@/components/AffiliateLink'
 import FaqAccordion from '@/components/FaqAccordion'
 import ShareDeal from '@/components/ShareDeal'
-import { getSiteName, getDealBySlug, getConfigContent, getDealCoupon } from '@/sanity/queries'
+import { getSiteName, getDealBySlug, getConfigContent, getDealCoupon, getSiteBase } from '@/sanity/queries'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 import { parsePrice } from '@/lib/dealSchema'
@@ -21,7 +21,6 @@ export async function generateStaticParams() {
   return []
 }
 
-const BASE = 'https://www.offerdy.com'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -34,7 +33,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   // dong hien trong the preview khi dan link len mang xa hoi.
   const description = deal.metaDescription || deal.summary
     || `${deal.title}${deal.store ? ` at ${deal.store}` : ''}: sale price ${deal.priceSale}, was ${deal.priceOrig}.`
-  const url = `${BASE}/deals/${slug}`
+  const url = `/deals/${slug}`
   return {
     title,
     description,
@@ -59,6 +58,7 @@ function fmtDate(d: string) {
 }
 
 export default async function DealDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const base = await getSiteBase()
   const { slug } = await params
   const [deal, globalContent, siteName] = await Promise.all([
     getDealBySlug(slug),
@@ -88,11 +88,11 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
         name: deal.title,
         image: deal.imageUrl ?? undefined,
         brand: deal.store ? { '@type': 'Brand', name: deal.store } : undefined,
-        url: `${BASE}/deals/${slug}`,
+        url: `${base}/deals/${slug}`,
         description: deal.summary ?? undefined,
         offers: {
           '@type': 'Offer',
-          url: `${BASE}/deals/${slug}`,
+          url: `${base}/deals/${slug}`,
           // ⚠️ Ca hai dong nay deu tung sai: `parseFloat` sau khi vut dau phay doc
           // "€199,99" thanh 19999, con `priceCurrency` thi dong dinh USD du chinh
           // chuoi gia mang ky hieu €. Khai lech gia thi rich-result bi loai.
@@ -113,9 +113,9 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: BASE },
-          { '@type': 'ListItem', position: 2, name: 'Deals', item: `${BASE}/deals` },
-          { '@type': 'ListItem', position: 3, name: deal.title, item: `${BASE}/deals/${slug}` },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: base },
+          { '@type': 'ListItem', position: 2, name: 'Deals', item: `${base}/deals` },
+          { '@type': 'ListItem', position: 3, name: deal.title, item: `${base}/deals/${slug}` },
         ],
       },
     ],
@@ -179,7 +179,7 @@ export default async function DealDetailPage({ params }: { params: Promise<{ slu
               <AffiliateLink href={deal.dealUrl ?? '/deals'} storeName={deal.store} dealId={deal.id} className="dd-cta">
                 Get Deal →
               </AffiliateLink>
-              <ShareDeal code={deal.code} slug={slug} title={deal.title} />
+              <ShareDeal code={deal.code} slug={slug} title={deal.title} base={base} />
             </div>
           </div>
 

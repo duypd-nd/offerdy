@@ -7,7 +7,7 @@ import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import FaqAccordion from '@/components/FaqAccordion'
 import ReviewCouponBox from '@/components/ReviewCouponBox'
-import { getSiteName, getReviewBySlug, getReviews, getConfigContent, getConfigAuthor, getStoreRefForUrl, getStoreRefForHtml, getDealCoupon } from '@/sanity/queries'
+import { getSiteName, getReviewBySlug, getReviews, getConfigContent, getConfigAuthor, getStoreRefForUrl, getStoreRefForHtml, getDealCoupon, getSiteBase } from '@/sanity/queries'
 import { reviews as staticReviews } from '@/data/reviews'
 import { productNameOf } from '@/lib/reviewProductName'
 
@@ -19,7 +19,6 @@ export async function generateStaticParams() {
   return []
 }
 
-const BASE = 'https://www.offerdy.com'
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params
@@ -27,7 +26,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!review) return {}
   const title = review.metaTitle ?? review.title
   const description = review.metaDescription ?? review.excerpt ?? `Read our in-depth review of ${review.title}, verified by the ${siteName} team.`
-  const url = `${BASE}/reviews/${slug}`
+  const url = `/reviews/${slug}`
   return {
     title,
     description,
@@ -52,6 +51,7 @@ function fmtDate(d: string) {
 }
 
 export default async function ReviewDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const base = await getSiteBase()
   const { slug } = await params
   const [review, allReviews, globalConfig, authorConfig, siteName] = await Promise.all([
     getReviewBySlug(slug),
@@ -106,7 +106,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
        */
       {
         '@type': 'Product',
-        '@id': `${BASE}/reviews/${slug}#product`,
+        '@id': `${base}/reviews/${slug}#product`,
         // Ten SAN PHAM, khong phai tieu de bai. Khong san pham nao ten ket thuc
         // bang chu "Review" — xem src/lib/reviewProductName.ts
         name: productNameOf(review),
@@ -121,20 +121,20 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
           reviewBody: review.excerpt ?? undefined,
           reviewRating: { '@type': 'Rating', ratingValue: review.stars, bestRating: 5, worstRating: 1 },
           author: authorName
-            ? { '@type': 'Person', name: authorName, url: `${BASE}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined }
-            : { '@type': 'Organization', name: siteName, url: BASE },
+            ? { '@type': 'Person', name: authorName, url: `${base}/author`, sameAs: authorTwitterUrl ? [authorTwitterUrl] : undefined }
+            : { '@type': 'Organization', name: siteName, url: base },
           datePublished: review.date ?? undefined,
           dateModified: review.updatedAt ?? review.date ?? undefined,
-          url: `${BASE}/reviews/${slug}`,
-          publisher: { '@type': 'Organization', name: siteName, url: BASE },
+          url: `${base}/reviews/${slug}`,
+          publisher: { '@type': 'Organization', name: siteName, url: base },
         },
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: BASE },
-          { '@type': 'ListItem', position: 2, name: 'Reviews', item: `${BASE}/reviews` },
-          { '@type': 'ListItem', position: 3, name: review.title, item: `${BASE}/reviews/${slug}` },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: base },
+          { '@type': 'ListItem', position: 2, name: 'Reviews', item: `${base}/reviews` },
+          { '@type': 'ListItem', position: 3, name: review.title, item: `${base}/reviews/${slug}` },
         ],
       },
       ...(review.faq?.length ? [{

@@ -1,8 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { client as readClient } from '@/sanity/client'
-import { getCategorySlugsWithStores } from '@/sanity/queries'
+import { getCategorySlugsWithStores, getSiteBase } from '@/sanity/queries'
 
-const BASE = 'https://www.offerdy.com'
 
 /**
  * ⚠️ KHONG DUOC BO DONG NAY, VA KHONG DUOC DOI NO VE `revalidate`.
@@ -44,6 +43,7 @@ const BASE = 'https://www.offerdy.com'
 export const dynamic = 'force-dynamic'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const base = await getSiteBase()
   let stores: { slug: string; _updatedAt: string }[] = []
   let posts: { slug: string; _updatedAt: string }[] = []
   let reviews: { slug: string; _updatedAt: string }[] = []
@@ -91,70 +91,70 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const now = new Date()
   const statics: MetadataRoute.Sitemap = [
-    { url: BASE,                            lastModified: now, changeFrequency: 'daily',   priority: 1.0 },
-    { url: `${BASE}/stores`,                lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
-    { url: `${BASE}/deals`,                 lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
+    { url: base,                            lastModified: now, changeFrequency: 'daily',   priority: 1.0 },
+    { url: `${base}/stores`,                lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
+    { url: `${base}/deals`,                 lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
     ...(flashSaleCount > 0
-      ? [{ url: `${BASE}/flash-sales`, lastModified: now, changeFrequency: 'hourly' as const, priority: 0.9 }]
+      ? [{ url: `${base}/flash-sales`, lastModified: now, changeFrequency: 'hourly' as const, priority: 0.9 }]
       : []),
-    { url: `${BASE}/coupon-codes`,          lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
-    { url: `${BASE}/reviews`,               lastModified: now, changeFrequency: 'weekly',  priority: 0.8 },
+    { url: `${base}/coupon-codes`,          lastModified: now, changeFrequency: 'daily',   priority: 0.9 },
+    { url: `${base}/reviews`,               lastModified: now, changeFrequency: 'weekly',  priority: 0.8 },
     // `/blog` va `/tips-guides` chi vao sitemap khi con bai de liet ke. Ngay
     // 2026-08-04 da xoa 6 bai chung chung cuoi cung -> ca hai trang deu rong, va
     // nop mot trang rong cho Google la dung thu vua sua cho /flash-sales.
     ...(posts.length > 0
-      ? [{ url: `${BASE}/blog`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
+      ? [{ url: `${base}/blog`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
       : []),
     ...(comparisonCount > 0
-      ? [{ url: `${BASE}/comparisons`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
+      ? [{ url: `${base}/comparisons`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
       : []),
     ...(tipsGuidesCount > 0
-      ? [{ url: `${BASE}/tips-guides`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
+      ? [{ url: `${base}/tips-guides`, lastModified: now, changeFrequency: 'weekly' as const, priority: 0.7 }]
       : []),
-    { url: `${BASE}/categories`,            lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
+    { url: `${base}/categories`,            lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
     // Uu tien 0.6 chu khong phai 0.3 nhu cac trang thong tin khac: day la trang
     // duy nhat tren site chua thong tin TRUC TIEP khong noi nao khac co, va no
     // link toi 67 trang store (giup ca chuyen link noi bo).
-    { url: `${BASE}/how-we-test`,           lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
-    { url: `${BASE}/about`,                 lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${BASE}/author`,                lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${BASE}/contact`,               lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${BASE}/submit-deal`,           lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
-    { url: `${BASE}/partner`,               lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
-    { url: `${BASE}/terms`,                 lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
-    { url: `${BASE}/privacy`,               lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
-    { url: `${BASE}/cookies`,               lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
-    { url: `${BASE}/affiliate-disclosure`,  lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${base}/how-we-test`,           lastModified: now, changeFrequency: 'weekly',  priority: 0.6 },
+    { url: `${base}/about`,                 lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${base}/author`,                lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${base}/contact`,               lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${base}/submit-deal`,           lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${base}/partner`,               lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${base}/terms`,                 lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${base}/privacy`,               lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${base}/cookies`,               lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+    { url: `${base}/affiliate-disclosure`,  lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
   ]
 
   return [
     ...statics,
     ...stores.filter(s => s.slug).map(s => ({
-      url: `${BASE}/stores/${s.slug}`,
+      url: `${base}/stores/${s.slug}`,
       lastModified: s._updatedAt,
       changeFrequency: 'weekly' as const,
       priority: 0.8,
     })),
     ...posts.filter(p => p.slug).map(p => ({
-      url: `${BASE}/blog/${p.slug}`,
+      url: `${base}/blog/${p.slug}`,
       lastModified: p._updatedAt,
       changeFrequency: 'monthly' as const,
       priority: 0.6,
     })),
     ...reviews.filter(r => r.slug).map(r => ({
-      url: `${BASE}/reviews/${r.slug}`,
+      url: `${base}/reviews/${r.slug}`,
       lastModified: r._updatedAt,
       changeFrequency: 'monthly' as const,
       priority: 0.6,
     })),
     ...pages.filter(p => p.slug).map(p => ({
-      url: `${BASE}/${p.slug}`,
+      url: `${base}/${p.slug}`,
       lastModified: p._updatedAt,
       changeFrequency: 'monthly' as const,
       priority: 0.5,
     })),
     ...categories.filter(c => c.slug && categoriesWithStores.has(c.slug)).map(c => ({
-      url: `${BASE}/categories/${c.slug}`,
+      url: `${base}/categories/${c.slug}`,
       lastModified: c._updatedAt,
       changeFrequency: 'weekly' as const,
       priority: 0.7,

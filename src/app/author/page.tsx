@@ -3,12 +3,11 @@ import Link from 'next/link'
 import Image from 'next/image'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
-import { getSiteName, getConfigAuthor } from '@/sanity/queries'
+import { getSiteName, getConfigAuthor, getSiteBase } from '@/sanity/queries'
 import { fillSiteName } from '@/lib/siteNameToken'
 
 export const revalidate = 60
 
-const BASE = 'https://www.offerdy.com'
 
 const FALLBACK = {
   defaultName: '{site} Editorial',
@@ -28,12 +27,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
-    alternates: { canonical: `${BASE}/author` },
-    openGraph: { title, description, url: `${BASE}/author`, type: 'profile' },
+    // ⚠️ Duong dan TUONG DOI, co chu y: "If a metadata field provides an absolute
+    // URL, metadataBase will be ignored" (tai lieu Next). Ghi cung dia chi o day
+    // la vo hieu hoa chinh o *Canonical URL* — im lang, tren tung trang.
+    alternates: { canonical: '/author' },
+    openGraph: { title, description, url: '/author', type: 'profile' },
   }
 }
 
 export default async function AuthorPage() {
+  const base = await getSiteBase()
   const [a, siteName] = await Promise.all([getConfigAuthor(), getSiteName()])
   const n = (t: string) => fillSiteName(t, siteName)
   const name = n(a.defaultName || FALLBACK.defaultName)
@@ -49,19 +52,19 @@ export default async function AuthorPage() {
     '@graph': [
       {
         '@type': 'Person',
-        '@id': `${BASE}/author#person`,
+        '@id': `${base}/author#person`,
         name,
         jobTitle: role,
         description: bio,
-        url: `${BASE}/author`,
+        url: `${base}/author`,
         email: email ? `mailto:${email}` : undefined,
         sameAs: twitterUrl ? [twitterUrl] : undefined,
-        worksFor: { '@type': 'Organization', name: siteName, url: BASE },
+        worksFor: { '@type': 'Organization', name: siteName, url: base },
       },
       {
         '@type': 'WebPage',
-        '@id': `${BASE}/author#webpage`,
-        url: `${BASE}/author`,
+        '@id': `${base}/author#webpage`,
+        url: `${base}/author`,
         name: `${name} — ${role} at ${siteName}`,
         description: bio,
       },

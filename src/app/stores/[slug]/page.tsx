@@ -6,7 +6,7 @@ import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import StoreOfferList from '@/components/StoreOfferList'
-import { getSiteName, getStoreBySlug, getOffersByStore, getDealsByStore, getConfigContent, type HowToStep, type FaqItem } from '@/sanity/queries'
+import { getSiteName, getStoreBySlug, getOffersByStore, getDealsByStore, getConfigContent, type HowToStep, type FaqItem, getSiteBase } from '@/sanity/queries'
 import FaqAccordion from '@/components/FaqAccordion'
 import AffiliateLink from '@/components/AffiliateLink'
 import CouponAlertForm from './CouponAlertForm'
@@ -36,7 +36,6 @@ const FALLBACK_ABOUT: Record<string, string> = {
   'best-buy': 'Best Buy is a leading North American electronics retailer, specializing in electronics, technology, and home appliances.',
 }
 
-const BASE = 'https://www.offerdy.com'
 
 /** Deal cua store, chi cac field khoi "Deals at {store}" dung toi. */
 type StoreDealRow = {
@@ -57,7 +56,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = store.metaTitle ?? `${store.name} Deals & Coupons`
   const ogTitle = store.metaTitle ?? `${store.name} Deals & Coupons — ${siteName}`
   const description = store.metaDescription ?? store.shortDescription ?? `Verified deals and coupon codes for ${store.name}.`
-  const url = `${BASE}/stores/${slug}`
+  const url = `/stores/${slug}`
   return {
     title,
     description,
@@ -97,6 +96,7 @@ function ShieldIcon() {
 }
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const base = await getSiteBase()
   const { slug } = await params
   const store = await getStoreBySlug(slug)
   if (!store) notFound()
@@ -172,9 +172,9 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ sl
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: BASE },
-          { '@type': 'ListItem', position: 2, name: 'Stores', item: `${BASE}/stores` },
-          { '@type': 'ListItem', position: 3, name: store.name, item: `${BASE}/stores/${slug}` },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: base },
+          { '@type': 'ListItem', position: 2, name: 'Stores', item: `${base}/stores` },
+          { '@type': 'ListItem', position: 3, name: store.name, item: `${base}/stores/${slug}` },
         ],
       },
     ],

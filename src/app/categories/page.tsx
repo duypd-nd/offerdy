@@ -11,11 +11,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Shop by Category',
     description: 'Browse verified deals and coupon codes by category — tech, fashion, home, beauty and more.',
-    alternates: { canonical: 'https://www.offerdy.com/categories' },
+    alternates: { canonical: '/categories' },
     openGraph: {
       title: `Shop by Category — ${siteName}`,
       description: 'Browse verified deals and coupon codes by category.',
-      url: 'https://www.offerdy.com/categories',
+      url: '/categories',
       type: 'website',
     },
     twitter: { card: 'summary', title: `Shop by Category — ${siteName}` },

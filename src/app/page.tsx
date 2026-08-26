@@ -11,10 +11,12 @@ import { getDeals, getStores, getCategories, getReviews, getExpiringDeals, getCo
 
 export const revalidate = 60
 
-const BASE = 'https://www.offerdy.com'
 
 export const metadata: Metadata = {
-  alternates: { canonical: BASE },
+  // ⚠️ Duong dan TUONG DOI: "If a metadata field provides an absolute URL,
+  // metadataBase will be ignored" (tai lieu Next). Ghi cung o day la vo hieu
+  // hoa chinh o *Canonical URL*.
+  alternates: { canonical: '/' },
 }
 
 export default async function Home() {

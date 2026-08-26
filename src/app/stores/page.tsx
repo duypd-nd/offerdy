@@ -12,11 +12,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'All Stores — Coupon Codes & Deals by Store',
     description: 'Find verified coupon codes and deals for hundreds of online stores. Browse by store to see all active offers.',
-    alternates: { canonical: 'https://www.offerdy.com/stores' },
+    alternates: { canonical: '/stores' },
     openGraph: {
       title: `All Stores — Coupon Codes & Deals by Store — ${siteName}`,
       description: 'Find verified coupon codes and deals for hundreds of online stores.',
-      url: 'https://www.offerdy.com/stores',
+      url: '/stores',
       type: 'website',
     },
   }

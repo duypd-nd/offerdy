@@ -20,6 +20,7 @@ import { cache } from 'react'
 //     ngay, cho 60s se tuong la hong.
 import { client as readClient, freshClient, isConfigured } from './client'
 import { writeClient } from './writeClient'
+import { siteBaseUrl, SITE_URL_MAC_DINH } from '@/lib/siteBaseUrl'
 import { deals as staticDeals, expiringDeals as staticExpiring } from '@/data/deals'
 import { stores as staticStores } from '@/data/stores'
 import { categories as staticCategories } from '@/data/categories'
@@ -118,6 +119,48 @@ export const getSiteName = cache(async (): Promise<string> => {
     const name = (await getCachedSiteName())?.trim()
     return name || defaultSiteSettings.siteName
   } catch { return defaultSiteSettings.siteName }
+})
+
+/**
+ * Dia chi goc cua site — o *Canonical URL* trong /admin/config/seo.
+ *
+ * ⚠️ VI SAO CO HAM NAY, khi 26/08 da co `siteBaseUrl()` roi.
+ *
+ * Ban va 26/08 noi o do vao `metadataBase` o `layout.tsx` — va DUNG MOT CHO DO.
+ * Do lai 27/08: `siteBaseUrl` duoc import o **dung 1 file**, trong khi **22 file**
+ * tu khai `const BASE = 'https://www.offerdy.com'` (16 la trang cong khai), cong
+ * 7 `canonical:` va 7 `url:` ghi thang dia chi. Tai lieu Next noi ro vi sao dieu
+ * do lam `metadataBase` thanh vo nghia:
+ *
+ *   "If a metadata field provides an absolute URL, metadataBase will be ignored."
+ *   (node_modules/next/dist/docs/.../generate-metadata.md)
+ *
+ * Nen truoc ban va nay, doi o *Canonical URL* chi doi duoc trang chu; canonical
+ * cua moi trang con giu nguyen ten mien cu — im lang. Cung ho loi "o chet" ma
+ * chinh ngay 26/08 di sua.
+ *
+ * Hai duong dung, khong lan nhau:
+ *   - Truong `Metadata` (canonical, og:url) -> viet DUONG DAN TUONG DOI, de
+ *     `metadataBase` ghep. Khong goi ham nay.
+ *   - JSON-LD, sitemap, robots, llms.txt, link chia se -> Next khong ghep ho,
+ *     phai goi ham nay lay chuoi that.
+ *
+ * ⚠️ `freshClient` chu khong phai `readClient`: `getConfigSeo()` doc qua CDN, boc
+ * them `unstable_cache` ben ngoai mot lan doc CDN la uop gia tri cu lai 5 phut
+ * (bay da tra gia ngay 25/08 voi o *Ten website*). Hai lop cache giong het
+ * `getSiteName()` o tren, va vi cung ly do.
+ */
+const getCachedCanonicalUrl = unstable_cache(
+  async () => freshClient.fetch<string | null>(`*[_type == "configSEO"][0].canonicalUrl`),
+  ['site-canonical-url'],
+  { revalidate: 300 }
+)
+
+export const getSiteBase = cache(async (): Promise<string> => {
+  if (!isConfigured()) return SITE_URL_MAC_DINH
+  try {
+    return siteBaseUrl(await getCachedCanonicalUrl())
+  } catch { return SITE_URL_MAC_DINH }
 })
 
 export async function getSiteSettings() {

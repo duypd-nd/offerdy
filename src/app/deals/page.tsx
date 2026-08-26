@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import HeaderWrapper from '@/components/HeaderWrapper'
 import Footer from '@/components/Footer'
 import DealsPageContent from '@/components/DealsPageContent'
-import { getSiteName, getAllDeals } from '@/sanity/queries'
+import { getSiteName, getAllDeals, getSiteBase } from '@/sanity/queries'
 import type { Deal } from '@/data/deals'
 import { dealsItemListJsonLd } from '@/lib/dealSchema'
 import { parsePriceAmount } from '@/lib/priceAmount'
@@ -21,7 +21,7 @@ function buildCanonical(page: number, category?: string) {
   if (category) qs.set('category', category)
   if (page > 1) qs.set('page', String(page))
   const q = qs.toString()
-  return `https://www.offerdy.com/deals${q ? `?${q}` : ''}`
+  return `/deals${q ? `?${q}` : ''}`
 }
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
@@ -95,7 +95,7 @@ export default async function DealsPage({ searchParams }: PageProps) {
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const page = Math.min(Math.max(1, Number(pageParam) || 1), totalPages)
   const deals = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-  const jsonLd = dealsItemListJsonLd(filtered)
+  const jsonLd = dealsItemListJsonLd(filtered, await getSiteBase())
 
   return (
     <>

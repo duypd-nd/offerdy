@@ -8,7 +8,6 @@ import { getLegalPage, type LegalData } from '@/app/admin/_legal/actions'
 import { isConfigured } from '@/sanity/client'
 
 export const dynamic = 'force-dynamic'
-const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS = {
   h1: 'Terms of Use', lastUpdated: '2026-06-28', intro: '',
@@ -24,7 +23,7 @@ async function get(): Promise<Required<LegalData>> {
 
 export async function generateMetadata(): Promise<Metadata> {
   const [d, siteName] = await Promise.all([get(), getSiteName()])
-  return { title: fillSiteName(d.seoTitle, siteName), description: fillSiteName(d.seoDescription, siteName), alternates: { canonical: `${BASE}/terms` }, robots: d.indexPage ? undefined : { index: false } }
+  return { title: fillSiteName(d.seoTitle, siteName), description: fillSiteName(d.seoDescription, siteName), alternates: { canonical: '/terms' }, robots: d.indexPage ? undefined : { index: false } }
 }
 
 export default async function TermsPage() {

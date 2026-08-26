@@ -8,7 +8,6 @@ import { isConfigured } from '@/sanity/client'
 import SubmitDealClient from './SubmitDealClient'
 
 export const dynamic = 'force-dynamic'
-const BASE = 'https://www.offerdy.com'
 
 const DEFAULTS: Required<SubmitDealData> = {
   h1: 'Submit a Deal',
@@ -54,7 +53,7 @@ async function get(): Promise<Required<SubmitDealData>> {
 
 export async function generateMetadata(): Promise<Metadata> {
   const [d, siteName] = await Promise.all([get(), getSiteName()])
-  return { title: fillSiteName(d.seoTitle, siteName), description: fillSiteName(d.seoDescription, siteName), alternates: { canonical: `${BASE}/submit-deal` }, robots: d.indexPage ? undefined : { index: false } }
+  return { title: fillSiteName(d.seoTitle, siteName), description: fillSiteName(d.seoDescription, siteName), alternates: { canonical: '/submit-deal' }, robots: d.indexPage ? undefined : { index: false } }
 }
 
 export default async function SubmitDealPage() {

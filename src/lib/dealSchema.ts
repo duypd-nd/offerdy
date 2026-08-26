@@ -24,9 +24,7 @@ type SchemaDeal = {
   slug?: string
 }
 
-const BASE = 'https://www.offerdy.com'
-
-export function dealsItemListJsonLd(deals: SchemaDeal[], limit = 100) {
+export function dealsItemListJsonLd(deals: SchemaDeal[], base: string, limit = 100) {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -40,10 +38,10 @@ export function dealsItemListJsonLd(deals: SchemaDeal[], limit = 100) {
           name: deal.title,
           image: deal.imageUrl,
           brand: deal.store ? { '@type': 'Brand', name: deal.store } : undefined,
-          url: deal.dealUrl ?? `${BASE}/deals`,
+          url: deal.dealUrl ?? `${base}/deals`,
           offers: {
             '@type': 'Offer',
-            url: deal.dealUrl ?? `${BASE}/deals`,
+            url: deal.dealUrl ?? `${base}/deals`,
             priceCurrency: sale?.currency ?? 'USD',
             price: sale?.amount,
             availability: 'https://schema.org/InStock',
@@ -65,7 +63,7 @@ type SchemaCoupon = {
   store: { name: string; slug: string }
 }
 
-export function couponsItemListJsonLd(offers: SchemaCoupon[], limit = 100) {
+export function couponsItemListJsonLd(offers: SchemaCoupon[], base: string, limit = 100) {
   return {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -77,7 +75,7 @@ export function couponsItemListJsonLd(offers: SchemaCoupon[], limit = 100) {
         name: offer.title,
         description: offer.description || offer.offerText,
         url: offer.link,
-        seller: { '@type': 'Organization', name: offer.store.name, url: `${BASE}/stores/${offer.store.slug}` },
+        seller: { '@type': 'Organization', name: offer.store.name, url: `${base}/stores/${offer.store.slug}` },
         validThrough: offer.expiresAt,
         availability: 'https://schema.org/InStock',
         ...(offer.couponCode ? { additionalProperty: { '@type': 'PropertyValue', name: 'couponCode', value: offer.couponCode } } : {}),

@@ -12,11 +12,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'Product Reviews — Honest, Tested & Verified',
     description: 'In-depth product reviews written by real buyers. No sponsored content, no bias — just honest assessments to help you shop smarter.',
-    alternates: { canonical: 'https://www.offerdy.com/reviews' },
+    alternates: { canonical: '/reviews' },
     openGraph: {
       title: `Product Reviews — Honest, Tested & Verified — ${siteName}`,
       description: 'In-depth product reviews written by real buyers. No sponsored content, no bias.',
-      url: 'https://www.offerdy.com/reviews',
+      url: '/reviews',
       type: 'website',
     },
   }
