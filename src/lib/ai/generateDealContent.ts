@@ -1,8 +1,7 @@
 import { z } from 'zod'
+import { generateStructured } from '@/lib/ai/router'
 import { fillSiteName } from '@/lib/siteNameToken'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
-import { getAnthropicClient } from './anthropicClient'
 
 const DealContentSchema = z.object({
   summary: z.string().describe('2-4 sentences explaining why this deal is worth buying — value proposition, not a spec sheet'),
@@ -24,7 +23,6 @@ export type DealContentInput = {
   discount: number
 }
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
 const SYSTEM_PROMPT = `You are an SEO/GEO content writer for {site}, a coupon and deals affiliate website.
 
@@ -50,24 +48,21 @@ Generate: a 2-4 sentence summary of why this deal is worth buying (based only on
  * qua `generateReviewContent`. Noi goi (server action / route) tu hoi ten.
  */
 export async function generateDealContent(deal: DealContentInput, siteName: string) {
-  const response = await getAnthropicClient().messages.parse({
-    model: MODEL,
-    max_tokens: 1536,
+  // ⚠️ Di qua router (27/08) chu khong goi thang Anthropic nua. Khong co
+  // khoa mien phi nao thi router roi thang xuong Claude — hanh vi y het truoc do.
+  const { data: parsed, provider, model } = await generateStructured({
+    task: 'deal-content',
+    schema: DealContentSchema,
     system: fillSiteName(SYSTEM_PROMPT, siteName),
-    output_config: { format: zodOutputFormat(DealContentSchema) },
-    messages: [{ role: 'user', content: buildUserPrompt(deal) }],
+    prompt: buildUserPrompt(deal),
+    maxTokens: 1536,
   })
-
-  const parsed = response.parsed_output
-  if (!parsed) {
-    throw new Error(`AI content generation failed for deal ${deal.id}: no parsed output (stop_reason=${response.stop_reason})`)
-  }
 
   await writeClient.patch(deal.id).set({
     aiDraft: {
       ...parsed,
       generatedAt: new Date().toISOString(),
-      model: MODEL,
+      model: `${provider}/${model}`,
     },
     aiReviewStatus: 'pending',
   }).commit()

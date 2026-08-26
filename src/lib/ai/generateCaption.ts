@@ -1,10 +1,8 @@
 import { z } from 'zod'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
-import { getAnthropicClient } from './anthropicClient'
+import { generateStructured } from '@/lib/ai/router'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 import { shortLink, type LinkStyle } from '@/lib/socialCaption'
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
 // ── Goc tiep can ──────────────────────────────────────────────
 // Moi goc la mot cach mo dau khac han, khong phai mot "muc do giat gan" khac nhau.
@@ -328,18 +326,15 @@ export async function generateCaptions(input: {
 }): Promise<{ variants: CaptionVariant[]; rejected: string[] }> {
   const { deal, angle, count, persona, platform, provenCaptions } = input
 
-  const response = await getAnthropicClient().messages.parse({
-    model: MODEL,
-    max_tokens: 2048,
+  // ⚠️ Di qua router (27/08) chu khong goi thang Anthropic nua. Khong co
+  // khoa mien phi nao thi router roi thang xuong Claude — hanh vi y het truoc do.
+  const { data: parsed, provider, model } = await generateStructured({
+    task: 'caption',
+    schema: CaptionSchema,
     system: SYSTEM_PROMPT,
-    output_config: { format: zodOutputFormat(CaptionSchema) },
-    messages: [{ role: 'user', content: buildUserPrompt(deal, angle, count, persona, platform, provenCaptions) }],
+    prompt: buildUserPrompt(deal, angle, count, persona, platform, provenCaptions),
+    maxTokens: 2048,
   })
-
-  const parsed = response.parsed_output
-  if (!parsed) {
-    throw new Error(`Không sinh được caption (stop_reason=${response.stop_reason})`)
-  }
 
   // Loai bien the vi pham thay vi sua no: mot caption da tu bia ra con so thi cac
   // cau con lai cung khong con dang tin.

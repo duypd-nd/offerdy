@@ -1,9 +1,8 @@
 import { z } from 'zod'
+import { generateStructured } from '@/lib/ai/router'
 import { fillSiteName } from '@/lib/siteNameToken'
 import { getSiteName } from '@/sanity/queries'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
-import { getAnthropicClient } from './anthropicClient'
 import { getMerchantHealthData, getSeoAuditData, getClickAnalyticsSummary, getConfigSeo } from '@/sanity/queries'
 import { computeStoreHealth } from '@/lib/merchantHealth'
 import { getRecentSentryIssues } from '@/lib/sentryApi'
@@ -14,7 +13,6 @@ const DailyReportSchema = z.object({
   recommendations: z.array(z.string()).min(3).max(5).describe('Prioritized, concrete action items based strictly on the data given — most important first'),
 })
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 export const DAILY_REPORT_ID = 'dailyReport-singleton'
 
 const SYSTEM_PROMPT = `You are an operations analyst for {site}, a coupon and deals affiliate website. You write a short daily internal report for the team based on real platform metrics.
@@ -140,18 +138,15 @@ export async function generateDailyReport(triggeredBy: 'cron' | 'admin' = 'cron'
     topShortLinkDeals: clickAnalytics.topShortLinkDeals,
   }
 
-  const response = await getAnthropicClient().messages.parse({
-    model: MODEL,
-    max_tokens: 1024,
+  // ⚠️ Di qua router (27/08) chu khong goi thang Anthropic nua. Khong co
+  // khoa mien phi nao thi router roi thang xuong Claude — hanh vi y het truoc do.
+  const { data: parsed, provider, model } = await generateStructured({
+    task: 'daily-report',
+    schema: DailyReportSchema,
     system: fillSiteName(SYSTEM_PROMPT, await getSiteName()),
-    output_config: { format: zodOutputFormat(DailyReportSchema) },
-    messages: [{ role: 'user', content: buildUserPrompt(input) }],
+    prompt: buildUserPrompt(input),
+    maxTokens: 1024,
   })
-
-  const parsed = response.parsed_output
-  if (!parsed) {
-    throw new Error(`Daily report generation failed: no parsed output (stop_reason=${response.stop_reason})`)
-  }
 
   await writeClient.createOrReplace({
     _id: DAILY_REPORT_ID,
@@ -172,7 +167,7 @@ export async function generateDailyReport(triggeredBy: 'cron' | 'admin' = 'cron'
     zeroClickStoreCount: clickAnalytics.zeroClickStoreCount,
     shortLinkThirtyDay: clickAnalytics.shortLinkThirtyDay,
     dealMerchantAllTime: clickAnalytics.dealMerchantAllTime,
-    model: MODEL,
+    model: `${provider}/${model}`,
   })
 
   return parsed

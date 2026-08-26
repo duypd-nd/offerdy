@@ -1,8 +1,7 @@
 import { z } from 'zod'
+import { generateStructured } from '@/lib/ai/router'
 import { fillSiteName } from '@/lib/siteNameToken'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
-import { getAnthropicClient } from './anthropicClient'
 
 const AboutCardSchema = z.object({
   icon: z.string().describe('A single emoji representing this card'),
@@ -41,7 +40,6 @@ export type StoreContentInput = {
   description?: string
 }
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
 const SYSTEM_PROMPT = `You are an SEO/GEO content writer for {site}, a coupon and deals affiliate website.
 
@@ -72,24 +70,21 @@ For the FAQ: write between 5 and 8 pairs — as many as you can support with gen
  * qua `generateReviewContent`. Noi goi (server action / route) tu hoi ten.
  */
 export async function generateStoreContent(store: StoreContentInput, siteName: string) {
-  const response = await getAnthropicClient().messages.parse({
-    model: MODEL,
-    max_tokens: 2560,
+  // ⚠️ Di qua router (27/08) chu khong goi thang Anthropic nua. Khong co
+  // khoa mien phi nao thi router roi thang xuong Claude — hanh vi y het truoc do.
+  const { data: parsed, provider, model } = await generateStructured({
+    task: 'store-content',
+    schema: StoreContentSchema,
     system: fillSiteName(SYSTEM_PROMPT, siteName),
-    output_config: { format: zodOutputFormat(StoreContentSchema) },
-    messages: [{ role: 'user', content: buildUserPrompt(store) }],
+    prompt: buildUserPrompt(store),
+    maxTokens: 2560,
   })
-
-  const parsed = response.parsed_output
-  if (!parsed) {
-    throw new Error(`AI content generation failed for store ${store.id}: no parsed output (stop_reason=${response.stop_reason})`)
-  }
 
   await writeClient.patch(store.id).set({
     aiDraft: {
       ...parsed,
       generatedAt: new Date().toISOString(),
-      model: MODEL,
+      model: `${provider}/${model}`,
     },
     aiReviewStatus: 'pending',
   }).commit()

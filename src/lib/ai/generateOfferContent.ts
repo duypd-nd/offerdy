@@ -1,8 +1,7 @@
 import { z } from 'zod'
+import { generateStructured } from '@/lib/ai/router'
 import { fillSiteName } from '@/lib/siteNameToken'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { writeClient } from '@/sanity/writeClient'
-import { getAnthropicClient } from './anthropicClient'
 
 const OfferContentSchema = z.object({
   description: z.string().describe('1-2 sentences shown inline under the offer on the store page'),
@@ -19,7 +18,6 @@ export type OfferContentInput = {
   expiresAt?: string
 }
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
 const SYSTEM_PROMPT = `You are an SEO/GEO content writer for {site}, a coupon and deals affiliate website.
 
@@ -45,18 +43,15 @@ Write a 1-2 sentence description, a 1-sentence usage tip, and a 1-sentence eligi
  * qua `generateReviewContent`. Noi goi (server action / route) tu hoi ten.
  */
 export async function generateOfferContent(offer: OfferContentInput, siteName: string) {
-  const response = await getAnthropicClient().messages.parse({
-    model: MODEL,
-    max_tokens: 512,
+  // ⚠️ Di qua router (27/08) chu khong goi thang Anthropic nua. Khong co
+  // khoa mien phi nao thi router roi thang xuong Claude — hanh vi y het truoc do.
+  const { data: parsed, provider, model } = await generateStructured({
+    task: 'offer-content',
+    schema: OfferContentSchema,
     system: fillSiteName(SYSTEM_PROMPT, siteName),
-    output_config: { format: zodOutputFormat(OfferContentSchema) },
-    messages: [{ role: 'user', content: buildUserPrompt(offer) }],
+    prompt: buildUserPrompt(offer),
+    maxTokens: 512,
   })
-
-  const parsed = response.parsed_output
-  if (!parsed) {
-    throw new Error(`AI content generation failed for offer ${offer.id}: no parsed output (stop_reason=${response.stop_reason})`)
-  }
 
   await writeClient.patch(offer.id).set({
     aiDraft: {
@@ -64,7 +59,7 @@ export async function generateOfferContent(offer: OfferContentInput, siteName: s
       usageTips: parsed.usageTips,
       eligibilityNotes: parsed.eligibilityNotes,
       generatedAt: new Date().toISOString(),
-      model: MODEL,
+      model: `${provider}/${model}`,
     },
     aiReviewStatus: 'pending',
   }).commit()
