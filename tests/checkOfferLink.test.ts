@@ -42,6 +42,45 @@ test('javascript: bi tu choi va khong bao gio bi ghi thanh broken', async () => 
   assert.equal(r.indeterminate, true)
 })
 
+/**
+ * ⚠️ 403 KHONG phai "trang da chet" — do that 28/08 tren 8 offer mang nhan broken:
+ * 5 offer Apollo Moda tra 403 Cloudflare cho `fetch()`, 2 offer WoWGadgets99 tra
+ * 200 voi trang san pham that, va chi 1 offer (Urtopia) chet mem that. 7/8 la bao
+ * dong gia, va bao cao AI van dem chung vao "5 lien ket hong" de nguoi van hanh
+ * di sua mot thu khong hong.
+ *
+ * Cung ho voi Cycleaddons 26/07: mot phep do KHONG KET LUAN DUOC bi ghi thanh mot
+ * ket luan.
+ */
+test('⚠️ 401/403/429 la chan truy cap, khong ket luan duoc — KHONG phai broken', async () => {
+  const fetchThat = globalThis.fetch
+  try {
+    for (const ma of [401, 403, 429]) {
+      globalThis.fetch = (async () => new Response(null, { status: ma })) as typeof globalThis.fetch
+      const r = await checkUrl('https://apollomoda.com/products/mens-aloha-green')
+      assert.equal(r.ok, false, `${ma} van la that bai`)
+      assert.equal(r.indeterminate, true, `${ma} phai la indeterminate, khong duoc ghi de linkStatus`)
+      assert.equal(r.status, ma, 'van phai giu ma de nguoi van hanh doc duoc')
+    }
+  } finally {
+    globalThis.fetch = fetchThat
+  }
+})
+
+test('404/410/500 van la BROKEN — vong chan moi khong duoc noi rong ra ca ho nay', async () => {
+  const fetchThat = globalThis.fetch
+  try {
+    for (const ma of [404, 410, 500]) {
+      globalThis.fetch = (async () => new Response(null, { status: ma })) as typeof globalThis.fetch
+      const r = await checkUrl('https://newurtopia.de/products/da-bi-go')
+      assert.equal(r.ok, false)
+      assert.notEqual(r.indeterminate, true, `${ma} PHAI ket luan duoc la hong`)
+    }
+  } finally {
+    globalThis.fetch = fetchThat
+  }
+})
+
 test('BROKEN_LINK_GROQ doi offer PHAI co url — ca defined() lan != ""', () => {
   assert.match(BROKEN_LINK_GROQ, /linkStatus == "broken"/)
   // ⚠️ Ca HAI menh de, va day khong phai chi tiet vun vat: trong GROQ

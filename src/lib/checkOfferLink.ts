@@ -111,6 +111,31 @@ export function landedOnRoot(originalUrl: string, finalUrl?: string): boolean {
 export const BROKEN_LINK_GROQ =
   'linkStatus == "broken" && defined(coalesce(productUrl, link)) && coalesce(productUrl, link) != ""'
 
+/**
+ * ⚠️ 2026-08-28 — MA CHAN TRUY CAP KHONG PHAI MA "TRANG DA CHET".
+ *
+ * `401`, `403`, `429` noi ve QUYEN CUA NGUOI GOI, khong noi trang co ton tai hay
+ * khong. Mot bo chong bot tra 403 cho `fetch()` trong khi khach that mo bang
+ * trinh duyet van vao binh thuong — va luat cu ("status >= 400 la broken") doc
+ * thang cai do thanh "link hong".
+ *
+ * Do that 2026-08-28 tren 8 offer mang nhan `broken`:
+ *
+ *   Apollo Moda (5 offer)  301 -> www. roi **403 Cloudflare** "Attention Required"
+ *   WoWGadgets99 (2 offer) **200**, trang san pham that, 248KB, dung title
+ *   Urtopia EU (1 offer)   301 -> newurtopia.de/ (trang goc) = chet mem THAT
+ *
+ * Tuc 7/8 la bao dong gia, va bao cao AI moi sang van dem chung vao "5 lien ket
+ * hong" de nguoi van hanh di sua. Cung dung ho voi Cycleaddons 26/07: mot phep
+ * do khong ket luan duoc bi ghi thanh mot ket luan.
+ *
+ * Vong chan nay CO TINH RONG hon vong `landedOnRoot` ngay tren: no khong doi dau
+ * hieu Cloudflare (`cf-ray`), vi Cloudflare dung truoc **ca nhung site tra 403
+ * that**, nen dau hieu do khong phan biet duoc gi. Thu phan biet duoc la chinh
+ * ma trang thai: 403 = "khong cho ban vao", khong phai 404 = "khong co o day".
+ */
+const MA_CHAN_TRUY_CAP = new Set([401, 403, 429])
+
 // 15s chu khong phai 8s: link affiliate di qua mot chang chuyen huong cua mang
 // affiliate nen cham hon han link thuong. 8s bat dung vao vung nhieu shop that.
 const TIMEOUT_MS = 15_000
@@ -132,6 +157,18 @@ export async function checkUrl(url: string): Promise<LinkCheckResult> {
     let res = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: controller.signal })
     if (res.status === 405 || res.status === 501) {
       res = await fetch(url, { method: 'GET', redirect: 'follow', signal: controller.signal })
+    }
+    if (MA_CHAN_TRUY_CAP.has(res.status)) {
+      // Ghi kem "Cloudflare" khi thay dau vet, chi de nguoi doc log hieu ngay —
+      // KHONG dung no lam dieu kien, xem chu thich o `MA_CHAN_TRUY_CAP`.
+      const dauVet = res.headers.get('cf-ray') ? ' (Cloudflare)' : ''
+      return {
+        ok: false,
+        indeterminate: true,
+        status: res.status,
+        finalUrl: res.url,
+        error: `Bị chặn truy cập: HTTP ${res.status}${dauVet} — không kết luận được link sống hay chết`,
+      }
     }
     // `res.url` la URL cuoi sau khi di het chuoi chuyen huong (redirect:
     // 'follow'). Noi goi can no de nhan ra "chet mem" — xem `landedOnRoot`.

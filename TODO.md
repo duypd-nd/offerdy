@@ -10,6 +10,50 @@
 
 ---
 
+## 🔖 Điểm dừng 2026-08-28
+
+✅ **Việc chặn lớn nhất đã gỡ: khoá AI miễn phí chạy thật trên production.** Báo cáo hằng
+ngày sinh lúc `2026-08-27T17:57:03Z` bằng `groq/openai/gpt-oss-20b` sau 4 ngày chết.
+
+| Phép kiểm | Kết quả |
+|---|---|
+| `npm test` | **612 / 612** |
+| `npx tsc --noEmit` | sạch |
+| `npm run build` | sạch |
+
+| Commit | Việc |
+|---|---|
+| `eef9651` | `fix(ai)` — hàng rào thời hạn từng tồn tại mà **không chặn gì** (72,6s trong khi trần là 30s) |
+| `199e184` | `feat(ai)` — `nameArticleIdeas` đi qua router (việc thứ 6) |
+| `6d9a7d5` | `docs` — bẫy Vercel env, bảng đo router, "5 link hỏng" chỉ 1 hỏng thật |
+| *(commit này)* | `fix(links)` — 401/403/429 là chặn truy cập, không kết luận được |
+
+### 📌 MAI LÀM TIẾP — 29/08/2026
+
+1. **Dọn 5 nhãn `broken` sai của Apollo Moda.** Script đã viết và đã chạy khô:
+   `node .scratch/don-nhan-broken-sai.mjs` (in ra, không ghi) → `--ghi` để ghi thật.
+   Phải dọn tay: sau bản vá, 403 cho `indeterminate` nên **không ghi đè** — nhãn cũ nằm
+   nguyên, không tự lành. 2 offer WoWGadgets99 thì tự lành thành `ok` sau cron đêm.
+2. **Sửa 1 link hỏng thật**: offer *Urtopia Bundle Carbon 1 Pro + Carbon Fusion* (€4.798) —
+   sản phẩm đã bị gỡ, `301` về trang chủ. Đổi link hoặc ẩn offer. **Cần user quyết.**
+3. **Phân phối, không xây thêm.** Số đo 28/08: **0 click hôm nay · 9 trong 7 ngày · 21 trong
+   30 ngày · 56 click cả đời · 95/107 store chưa từng có click**. Short-link: **2 lượt mở cả
+   đời, lần cuối 25/07** — cơ chế đếm không hỏng (nó đã ghi được 2 lượt), nghĩa là 30 ngày
+   qua **không có gì được đăng**. Đăng thật 3–5 bài qua short link là việc duy nhất đổi được
+   con số 21.
+4. **30/08**: mốc đo đã hẹn — `/blog` được bò chưa, `28/65` có nhích không.
+
+### Còn treo — user quyết
+
+- **`AI_TASK_PROVIDER_article_names`**: để mặc định thì `article-names` rơi xuống Gemini lite
+  và mất ~6/8 tên mỗi lần quét (hậu kiểm loại). Đặt `=anthropic` thì giữ chất lượng — việc
+  này chạy tay, ít lần, và tên bài quyết định SEO. Bảng đo đầy đủ ở `docs/AI_ROUTER.md`.
+- **Xoay 6 khoá API đã lộ** (dán thẳng vào khung chat 27/08).
+- **`.gitignore` cho `.scratch/`** — `git status` hôm nay in **218 file untracked**, có
+  `cookies.txt` và `envkey.mjs`, trên một repo **công khai**.
+
+---
+
 ## 🔖 Điểm dừng 2026-08-27
 
 > 👉 **Mai bắt đầu ở mục [`MAI LÀM TIẾP`](#-mai-làm-tiếp--28082026) ngay bên dưới.**
@@ -112,10 +156,14 @@ Gọi thử từng cái bằng `curl` kèm UA trình duyệt:
 **Việc thật sự cần làm chỉ có 1**: offer *Urtopia Bundle Carbon 1 Pro + Carbon Fusion*
 (€4.798) — sản phẩm đã bị gỡ, đổi link hoặc ẩn offer.
 
-**Việc user kiểm 5 giây:** mở `https://www.apollomoda.com/products/mens-aloha-green` bằng
-trình duyệt thường. Vào được ⇒ cả 5 link Apollo là báo động giả của Cloudflare, và bộ kiểm
-link nên coi **403 kèm dấu hiệu Cloudflare** là *không kết luận được* thay vì `broken` —
-đúng cách nó đã xử lý timeout (xem đầu `checkOfferLink.ts`).
+🔧 **ĐÃ VÁ 28/08**: `401/403/429` nay cho `indeterminate` thay vì `broken`
+([checkOfferLink.ts](src/lib/checkOfferLink.ts)). Vòng chặn **cố tình rộng hơn** `landedOnRoot`
+— nó **không** đòi dấu hiệu Cloudflare, vì Cloudflare đứng trước cả những site trả 403 thật
+nên dấu hiệu đó không phân biệt được gì. Thứ phân biệt được là chính mã trạng thái:
+**403 = "không cho bạn vào", khác hẳn 404 = "không có ở đây"**.
+
+Hai test mới, và đã kiểm là có đo thật: gỡ bản vá ra thì đỏ 1. Test thứ hai giữ cho vòng
+chặn không nới rộng ra cả họ 4xx/5xx — `404/410/500` **vẫn phải** kết luận được là hỏng.
 
 ⚠️ Nếu tin thẳng báo cáo AI thì đã đi sửa "5 link hỏng" — trong khi 5 cái đó chính là 5
 cái **không** hỏng, còn cái hỏng thật lại nằm ngoài con số ấy.
