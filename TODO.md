@@ -15,7 +15,7 @@
 > 👉 **Mai bắt đầu ở mục [`MAI LÀM TIẾP`](#-mai-làm-tiếp--28082026) ngay bên dưới.**
 > Phần còn lại của mục 27/08 là số đo và bẫy — đọc khi cần, không cần đọc trước.
 
-✅ **`main` = `origin/main` = `d5beeb6`, đã push** (3 commit). Cây làm việc sạch.
+✅ **`main` = `origin/main` = `4ca4efa`, đã push** (3 commit + 1 commit docs). Cây làm việc sạch.
 Không có server nào đang chạy. Vercel đang dựng — **kiểm production sáng mai**.
 
 | Phép kiểm | Kết quả |
@@ -50,17 +50,41 @@ Không có server nào đang chạy. Vercel đang dựng — **kiểm production
    viết, review, kịch bản video) **chưa có đường lui** — xem `docs/AI_ROUTER.md` để biết vì
    sao cố ý không nối chúng.
 
-### ✅ Kiểm production sau khi Vercel dựng xong — 2 phút
+### ✅ Kiểm production — ĐÃ CHẠY 27/08, 2/3 ĐẠT
 
-| Kiểm gì | Đạt là thế nào |
+| Kiểm gì | Kết quả |
 |---|---|
-| `/sitemap.xml` · `/robots.txt` · `/llms.txt` · `/about` | cả 4 mang `https://www.offerdy.com` |
-| Sentry releases | có bản mới `d5beeb6` |
-| Thẻ *Lỗi production* ở `/admin` | nếu đã thêm khoá Vercel thì **không** còn issue credit mới |
+| `/sitemap.xml` · `/robots.txt` · `/llms.txt` · `/about` | ✅ 198 + 1 + 36 + 26 địa chỉ, **tất cả** là `https://www.offerdy.com`, 0 host lạ |
+| Sentry releases | ✅ production đang chạy **`4ca4efa`** (`created=2026-08-26T19:11:54Z`) — đã gồm `f7de865` và `d5beeb6` |
+| Thẻ *Lỗi production* | ❌ còn lỗi — nhưng là lỗi **khác trước**, xem ngay dưới |
 
-⚠️ **Giá trị canonical giống hệt trước và sau bản vá, nên riêng nó KHÔNG chứng minh được
-code mới đang chạy** (luật 8c). Thứ chứng minh là dòng release Sentry — cách hỏi ghi trong
-`.scratch/do-release.mjs`.
+**Cron đêm 27/08 (01:40 UTC) vẫn chết, thông điệp đã đổi:**
+
+```
+KhongCoNhaNaoError: Moi nha cung cap AI deu hong: anthropic(auth)   (2x, environment=production)
+```
+
+Đây không phải tin xấu thuần tuý — `KhongCoNhaNaoError` là class **chỉ tồn tại trong `a3c6116`**,
+nên nó chứng minh bộ định tuyến mới đang chạy thật trên production (đêm 26/08 lỗi là hết credit
+Anthropic). Danh sách chỉ có **một** tên ⇒ Groq/Gemini/OpenRouter đều
+`isAvailable() === false` ⇒ **khoá chưa thêm vào Vercel** (đúng việc 🔴 số 2 ở trên).
+
+Script đo: `.scratch/do-release-2708b.mjs` (Sentry releases) · `.scratch/do-sentry-sang-2708.mjs` (issue).
+
+### 🔧 Đã vá cùng ngày — điểm mù trong chính thông điệp lỗi đó
+
+Nhà thiếu khoá bị bỏ qua **lặng lẽ** — bỏ qua thì đúng, nhưng **báo cáo** lặng lẽ thì không:
+thông điệp chỉ nêu `anthropic(auth)` nên đọc y hệt như site chỉ có một nhà cung cấp; phải mở
+[`index.ts:108`](src/lib/ai/router/index.ts) ra đọc mới biết. Nay nó ghi cả nhà bị bỏ qua:
+
+```
+Moi nha cung cap AI deu hong: groq(thieu-khoa), gemini(thieu-khoa), openrouter(thieu-khoa), anthropic(auth)
+```
+
+- `tenBienKhoa()` mới trong `registry.ts` trả **TÊN biến môi trường**, không phải giá trị khoá
+  (`khoaCuaNha()` trả giá trị — **đừng bao giờ đẩy nó vào log/Sentry**).
+- Test mới đã kiểm là **có đo thật**: bỏ bản vá ra thì đỏ 1, lắp vào thì xanh (luật 8c).
+- `npm test` **609/609** · `npx tsc --noEmit` sạch · `npm run build` sạch. **Chưa commit.**
 
 ### Câu hỏi đang mở — user quyết
 
