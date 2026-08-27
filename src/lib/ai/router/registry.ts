@@ -85,6 +85,15 @@ export function modelCuaNha(p: ProviderName, env: EnvLike = process.env): string
 }
 
 /**
+ * Thoi han cho MOT lan goi mot nha, tinh ca luc doc than tra ve.
+ * `AI_TIMEOUT_MS` chu yeu de test do duoc hang rao nay ma khong phai cho 30 giay.
+ */
+export function docTimeoutMs(env: EnvLike = process.env): number {
+  const n = Number(env.AI_TIMEOUT_MS)
+  return Number.isFinite(n) && n > 0 ? n : 30_000
+}
+
+/**
  * TEN cac bien moi truong cho khoa cua mot nha — **khong phai gia tri**.
  * Dung de bao "thieu khoa nao" ma khong lo ro khoa ra log/Sentry.
  */

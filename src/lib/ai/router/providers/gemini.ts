@@ -1,7 +1,7 @@
 import type { z } from 'zod'
 import { AIProviderError, type AIProvider, type AIRequest, type AIResult, type EnvLike } from '../types'
 import { schemaChoGemini } from '../jsonSchema'
-import { cauHinhNha } from '../registry'
+import { cauHinhNha, docTimeoutMs } from '../registry'
 
 /**
  * Gemini — hinh rieng, khong phai OpenAI-compatible.
@@ -17,7 +17,6 @@ import { cauHinhNha } from '../registry'
  * cho model co thinking — thinking an vao chung mot ngan sach.
  */
 
-const TIMEOUT_MS = 30_000
 
 export function taoNhaGemini(env: EnvLike = process.env): AIProvider {
   return {
@@ -32,7 +31,7 @@ export function taoNhaGemini(env: EnvLike = process.env): AIProvider {
       let loiCuoi: AIProviderError | undefined
       for (const key of keys) {
         try {
-          return await goiMot(key, model, req)
+          return await goiMot(key, model, req, env)
         } catch (e) {
           const err = e instanceof AIProviderError ? e : new AIProviderError('retryable', 'gemini', String(e))
           loiCuoi = err
@@ -48,12 +47,17 @@ async function goiMot<T extends z.ZodType>(
   key: string,
   model: string,
   req: AIRequest<T>,
+  env: EnvLike,
 ): Promise<AIResult<z.infer<T>>> {
   const t0 = Date.now()
   const ac = new AbortController()
-  const hetGio = setTimeout(() => ac.abort(), TIMEOUT_MS)
+  // Cung ly do voi `openaiCompat.ts`: dong ho phai song den khi doc xong than.
+  // O day loi chua kip lo ra vi Gemini khong tra header som nhu API sinh chu
+  // dang stream — nhung do la may, khong phai thiet ke.
+  const hetGio = setTimeout(() => ac.abort(), docTimeoutMs(env))
 
   let res: Response
+  let raw: string
   try {
     res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
@@ -72,13 +76,13 @@ async function goiMot<T extends z.ZodType>(
         }),
       },
     )
+    raw = await res.text()
   } catch (e) {
     throw new AIProviderError('retryable', 'gemini', `mang/timeout: ${String(e)}`)
   } finally {
     clearTimeout(hetGio)
   }
 
-  const raw = await res.text()
   if (!res.ok) {
     const loai = res.status === 401 || res.status === 403 ? 'auth' : 'retryable'
     throw new AIProviderError(loai, 'gemini', `HTTP ${res.status}: ${raw.slice(0, 200)}`, res.status)

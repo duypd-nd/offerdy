@@ -1,7 +1,7 @@
 import type { z } from 'zod'
 import { AIProviderError, type AIProvider, type AIRequest, type AIResult, type EnvLike, type ProviderName } from '../types'
 import { schemaChoOpenAI } from '../jsonSchema'
-import { cauHinhNha } from '../registry'
+import { cauHinhNha, docTimeoutMs } from '../registry'
 
 /**
  * Groq va OpenRouter dung CHUNG mot hinh (OpenAI chat completions), nen chung
@@ -27,8 +27,6 @@ const NHA: Record<'groq' | 'openrouter', CauHinhOAI> = {
   },
 }
 
-const TIMEOUT_MS = 30_000
-
 export function taoNhaOpenAI(ten: 'groq' | 'openrouter', env: EnvLike = process.env): AIProvider {
   const cfg = NHA[ten]
   return {
@@ -45,7 +43,7 @@ export function taoNhaOpenAI(ten: 'groq' | 'openrouter', env: EnvLike = process.
       // la mot nguon han muc that su khac, khong phai ban sao du phong.
       for (const key of keys) {
         try {
-          return await goiMot(cfg, key, model, req)
+          return await goiMot(cfg, key, model, req, env)
         } catch (e) {
           const err = e instanceof AIProviderError ? e : new AIProviderError('retryable', cfg.name, String(e))
           loiCuoi = err
@@ -63,12 +61,26 @@ async function goiMot<T extends z.ZodType>(
   key: string,
   model: string,
   req: AIRequest<T>,
+  env: EnvLike,
 ): Promise<AIResult<z.infer<T>>> {
   const t0 = Date.now()
   const ac = new AbortController()
-  const hetGio = setTimeout(() => ac.abort(), TIMEOUT_MS)
+  const hetGio = setTimeout(() => ac.abort(), docTimeoutMs(env))
 
+  /**
+   * ⚠️ `clearTimeout` phai nam SAU khi doc xong than, khong phai ngay sau `fetch`.
+   *
+   * Do that 28/08 tren OpenRouter, viec `article-names`: mot lan goi chay **72,6
+   * giay** trong khi thoi han la 30 — vi API sinh chu tra HEADER gan nhu ngay lap
+   * tuc roi moi sinh noi dung. Dong ho bi don ngay sau `fetch()` nen doan lau nhat
+   * cua ca lan goi **khong co hang rao nao**. Hang rao ton tai, log khong bao gi,
+   * va no khong chan gi ca -- dung ho loi dat nhat cua du an nay.
+   *
+   * Hau qua that: `maxDuration = 60` -> Vercel giet function truoc, va thu nhin
+   * thay chi la mot cron chet khong ro ly do.
+   */
   let res: Response
+  let raw: string
   try {
     res = await fetch(cfg.url, {
       method: 'POST',
@@ -91,13 +103,13 @@ async function goiMot<T extends z.ZodType>(
         },
       }),
     })
+    raw = await res.text()
   } catch (e) {
     throw new AIProviderError('retryable', cfg.name, `mang/timeout: ${String(e)}`)
   } finally {
     clearTimeout(hetGio)
   }
 
-  const raw = await res.text()
   if (!res.ok) {
     // 401/403 la khoa hong -> thu khoa khac cung nha. 429/5xx -> tam thoi.
     const loai = res.status === 401 || res.status === 403 ? 'auth' : 'retryable'

@@ -170,6 +170,57 @@ test('⚠️ nha bi bo qua vi thieu khoa van phai co ten trong thong diep loi', 
   )
 })
 
+/**
+ * ⚠️ Hang rao thoi han tung TON TAI ma KHONG CHAN GI — dung ho loi dat nhat cua
+ * du an: bao thanh cong ma van hong.
+ *
+ * `clearTimeout` nam ngay sau `fetch()`, tuc dong ho bi don khi HEADER ve. API
+ * sinh chu tra header gan nhu tuc thi roi moi sinh noi dung, nen doan lau nhat
+ * cua ca lan goi khong con hang rao nao. Do that 28/08 tren OpenRouter (viec
+ * `article-names`): mot lan goi chay **72,6 giay** trong khi thoi han la 30.
+ *
+ * Test nay bat CHINH hinh do: server tra header ngay, than den muon.
+ */
+test('⚠️ thoi han phai phu ca luc DOC THAN, khong chi luc ket noi', async () => {
+  imLang(); xoaHetCauDao(); datLaiNganSach()
+  const fetchThat = globalThis.fetch
+  let daHuy = false
+
+  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const signal = init?.signal
+    const than = new ReadableStream<Uint8Array>({
+      start(c) {
+        signal?.addEventListener('abort', () => { daHuy = true; c.error(new Error('aborted')) })
+        // Than den MUON. Neu hang rao hong that thi no van den, va luc do
+        // `assert.rejects` se that bai vi lan goi **thanh cong** — test do duoc
+        // ca hai phia, khong phai mot phep do treo vo han.
+        const t = setTimeout(() => {
+          c.enqueue(new TextEncoder().encode(
+            JSON.stringify({ choices: [{ message: { content: '{"description":"den muon"}' } }] }),
+          ))
+          c.close()
+        }, 3000)
+        ;(t as unknown as { unref?: () => void }).unref?.()
+      },
+    })
+    return new Response(than, { status: 200, headers: { 'content-type': 'application/json' } })
+  }) as typeof globalThis.fetch
+
+  try {
+    const env: EnvLike = { GROQ_API_KEY: 'khoa-gia', AI_TIMEOUT_MS: '80' }
+    const t0 = Date.now()
+    await assert.rejects(
+      () => generateStructured(req, env, { groq: e => taoNhaOpenAI('groq', e) }),
+      (e: unknown) => e instanceof KhongCoNhaNaoError,
+    )
+    // Phai dut o quanh 80ms, khong phai cho tron 3 giay.
+    assert.ok(Date.now() - t0 < 2000, `mat ${Date.now() - t0}ms — dong ho khong cat duoc luc doc than`)
+  } finally {
+    globalThis.fetch = fetchThat
+  }
+  assert.ok(daHuy, 'fetch phai bi dong ho huy, khong phai tu ket thuc')
+})
+
 // ── 4. Phan loai loi ──────────────────────────────────────────────
 test('`fatal` DUNG HAN, khong doi nha — doi nha khong chua duoc loi cua chinh minh', async () => {
   imLang(); xoaHetCauDao(); datLaiNganSach()
