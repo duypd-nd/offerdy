@@ -15,12 +15,68 @@ Error 400: "Your credit balance is too low to access the Anthropic API."
 Cron `daily-report` chết vì hết credit. Năm generator loại "việc ngắn" đều gọi thẳng
 Anthropic, nên không có đường lui nào.
 
+## Việc nào đã đi qua router
+
+| Việc | File | Ghi chú |
+|---|---|---|
+| `store-content` · `offer-content` · `deal-content` | `generateStoreContent/Offer/Deal.ts` | cron đêm |
+| `caption` | `generateCaption.ts` | |
+| `daily-report` | `generateDailyReport.ts` | ✅ đã chạy thật bằng `groq/openai/gpt-oss-20b` 27/08 |
+| `article-names` | `nameArticleIdeas.ts` | **nối 28/08** — xem mục ngay dưới |
+
+## `article-names` — nối 28/08, và ba thứ phép đo lật ngược
+
+Đo thật trên IBIZ Jewel (250 sản phẩm quét từ Shopify, 8 ý tưởng qua cổng kiểm),
+cùng đầu vào, **chỉ đổi nhà**:
+
+| Nhà | Model | Thời gian | Đặt được / hậu kiểm loại |
+|---|---|---|---|
+| groq | openai/gpt-oss-20b | 506ms | ❌ **HTTP 413** — TPM 8000 < 16.303 token của một lần gọi |
+| gemini | gemini-3.5-flash-lite | 5.337ms | 2 / **6 bị loại** |
+| gemini | gemini-3.6-flash | ❌ **hết 30s × 2 khoá** | — |
+| openrouter | nemotron-3-super-120b | **72.625ms** | **8 / 0** |
+
+1. **Groq không dùng được cho việc này.** Không phải vì model dở — vì *prompt dài*.
+   Đặt tên gửi cả danh mục sản phẩm đi, 16.303 token, vượt hạn mức 8.000 token/phút
+   của free tier. Router chuyển nhà đúng như thiết kế, nên **không ai thấy gì cả**;
+   chỉ có dòng log mới nói ra.
+2. **"0 bị loại" không có nghĩa là tên hay.** Nemotron qua hết hậu kiểm nhưng đẻ ra
+   `Round Cut Stud Earrings V1 vs V2 vs V3 vs V4` — `V1/V2/V3` là hậu tố kỹ thuật
+   trong slug. Hậu kiểm cho qua vì mọi từ **truy ngược được** về tên sản phẩm nguồn;
+   nó chưa bao giờ là thước đo hay/dở. Còn Gemini bị loại 6/8 vì dùng những từ tự
+   nhiên hơn — *collection*, *styles*, *comparing* — mà không truy ngược được.
+   **Hàng rào này được hiệu chỉnh cho Claude**; đổi nhà thì trượt theo kiểu khác.
+3. **72,6 giây** trong khi thời hạn khai báo là 30 — xem mục ngay dưới.
+
+## ⚠️ Hàng rào thời hạn từng tồn tại mà không chặn gì
+
+`clearTimeout` nằm ngay sau `fetch()`, tức đồng hồ bị dọn khi **header** về. API sinh
+chữ trả header gần như tức thì rồi mới sinh nội dung, nên **đoạn lâu nhất của cả lần
+gọi không có hàng rào nào**. Gemini che mất lỗi này vì nó không trả header sớm.
+
+Hậu quả thật: `maxDuration = 60` → Vercel giết function trước, và thứ nhìn thấy chỉ là
+một cron chết không rõ lý do.
+
+Sửa 28/08: đồng hồ sống tới khi đọc xong thân. Test `⚠️ thoi han phai phu ca luc DOC
+THAN` bắt đúng hình đó — gỡ bản vá ra thì nó mất 3.014ms và **thành công**, lắp vào thì
+91ms và ném lỗi. `AI_TIMEOUT_MS` có để test đo được mà không phải chờ 30 giây.
+
 ## Nó KHÔNG làm gì
 
 ⚠️ Router chỉ phục vụ **một kiểu gọi**: sinh một object đúng schema
-(`generateStructured`). Nó **không** đụng tới `generateArticleContent`,
-`generateReviewContent`, `generateVideoScript`, `judgeImages` — 6 file đó dùng
-`messages.stream` + `finalMessage()`, và lý do đã trả giá:
+(`generateStructured`). Sau khi nối `article-names` (28/08) còn **đúng 5 file** gọi
+thẳng Anthropic, chia hai nhóm:
+
+- **Streaming thuần** — `generateArticleContent`, `generateReviewContent`,
+  `generateVideoScript`. Dùng `messages.stream` + `finalMessage()`, lý do đã trả giá
+  ở ngay dưới.
+- **Có ảnh thật** — `judgeImages`, `judgeTransitions` gửi ảnh base64. Router chưa có
+  đường ảnh; nối được nhưng phải viết phần gửi ảnh riêng cho từng nhà.
+
+📌 `generateArticleContent` **không** gửi ảnh cho model — `[IMAGE:n]` chỉ là ô chèn
+dạng chữ. Nó thuộc nhóm streaming, đừng xếp nhầm sang nhóm ảnh.
+
+Vì sao ba file streaming không nối được:
 
 1. `max_tokens` chặn **thinking + chữ cộng lại**. Đo thật: 3/3 lần chạy ở 12000 trả về
    12.000 token thinking và **không một chữ nào**.
@@ -67,6 +123,7 @@ rồi so hai lần chạy.
 | `AI_PROVIDER_ORDER` | không | vd `gemini,groq,anthropic`. Tên rác bị bỏ qua, không làm sập |
 | `AI_MODEL_GROQ` / `_GEMINI` / `_OPENROUTER` / `_ANTHROPIC` | không | đè model mặc định |
 | `AI_TASK_PROVIDER_daily_report` | không | ép một việc dùng đúng một nhà, **không** rơi xuống nhà khác |
+| `AI_TIMEOUT_MS` | không | mặc định **30.000**. Thời hạn một lần gọi một nhà, tính cả lúc đọc thân |
 | `AI_PAID_MAX_CALLS` | không | mặc định **25**. Số lần gọi nhà trả phí tối đa **trong một vòng chạy**. `0` = cấm hẳn |
 
 📌 **Khoá thứ hai (`_2`) không phải bản sao dự phòng** — free tier tính hạn mức theo từng

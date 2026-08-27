@@ -134,6 +134,12 @@ thứ lộ ra sự thật; bảng số nói ngược lại.
 - **`.adm-main{overflow-x:hidden}` xén phần tràn IM LẶNG** — không thanh cuộn, không dấu hiệu.
 - **Deep link "chết mềm"**: trả 200 nhưng đẩy về trang chủ shop.
 - **Server cũ vẫn trả lời** sau khi tưởng đã giết (xem phần trên).
+- **Biến môi trường thêm vào Vercel KHÔNG vào deployment đang chạy** — dashboard hiện đủ
+  giá trị, ô Production đã tick, mà `process.env` trên production vẫn `undefined` cho tới
+  lần **build kế tiếp**. Đo 27/08: thêm 6 khoá AI xong bấm *Tạo lại ngay* vẫn ra
+  `anthropic(auth)` y hệt lúc chưa thêm; push một commit để Vercel dựng lại thì cùng nút đó
+  chạy được ngay, bằng `groq/openai/gpt-oss-20b`. **Đừng đọc lần thử thất bại đó thành
+  "khoá sai"** — hai khả năng đó nhìn giống hệt nhau.
 
 📌 Và: **so hai lần chạy mà đầu vào do AI sinh lại mỗi lần thì không phải phép so sánh.**
 Giữ nguyên đầu vào, chỉ đổi đúng một biến.

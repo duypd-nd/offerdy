@@ -34,29 +34,40 @@ Không có server nào đang chạy. Vercel đang dựng — **kiểm production
 
 ## 📌 MAI LÀM TIẾP — 28/08/2026
 
-### 🔴 Ba việc chỉ user làm được — chặn phần còn lại
+### 🔴 Ba việc chỉ user làm được — việc 2 ĐÃ XONG 27/08 tối
 
 1. **XOAY LẠI 6 KHOÁ API.** Chúng đã dán thẳng vào khung chat ngày 27/08 nên coi như **đã
    lộ**: 2 khoá Gemini, 2 Groq, 2 OpenRouter. Đều là free tier nên thiệt hại giới hạn ở hạn
    mức, nhưng đừng để vậy. Lần sau dán thẳng vào `.env.local` rồi bảo *"đã có khoá"*.
 
-2. **THÊM KHOÁ VÀO VERCEL.** `.env.local` **chỉ có tác dụng ở máy này**. Chưa thêm thì cron
-   production **vẫn chết y như đêm 26/08** — bộ định tuyến không cứu được, vì trên đó nó
-   không thấy nhà miễn phí nào cả:
-   `GROQ_API_KEY`, `GROQ_API_KEY_2`, `GEMINI_API_KEY`, `GEMINI_API_KEY_2`,
-   `OPENROUTER_API_KEY`, `OPENROUTER_API_KEY_2`.
+2. ✅ **THÊM KHOÁ VÀO VERCEL — XONG 27/08 tối, ĐÃ ĐO TRÊN PRODUCTION.**
 
-3. **Nạp credit Anthropic** rồi xoay khoá đó. Vẫn cần: 6 generator kiểu streaming (bài
+   ```
+   generatedAt = 2026-08-27T17:57:03Z   (trước đó đứng im từ 23/08 — chết 4 ngày)
+   nha/model   = groq/openai/gpt-oss-20b
+   triggeredBy = admin
+   ```
+
+   Router rơi đúng xuống nhà miễn phí đầu tiên và **không đụng Anthropic**, nên credit
+   rỗng không còn chặn được nữa. Đó là toàn bộ mục đích của `a3c6116`.
+
+   ⚠️ **Bẫy đã trả giá:** thêm biến vào Vercel **không** áp dụng cho deployment đang
+   chạy — bấm *Tạo lại ngay* ngay sau khi thêm khoá vẫn ra `anthropic(auth)` y hệt. Phải
+   có một lần **build mới** (push `644c8f1` lúc 17:52 là thứ mở đường). Đừng đọc lần thử
+   thất bại đó thành "khoá sai".
+
+3. **Nạp credit Anthropic** rồi xoay khoá đó. **Không còn gấp** — báo cáo hằng ngày đã
+   chạy bằng Groq (xem ô ngay trên). Vẫn cần: 6 generator kiểu streaming (bài
    viết, review, kịch bản video) **chưa có đường lui** — xem `docs/AI_ROUTER.md` để biết vì
    sao cố ý không nối chúng.
 
-### ✅ Kiểm production — ĐÃ CHẠY 27/08, 2/3 ĐẠT
+### ✅ Kiểm production — ĐÃ CHẠY 27/08, cuối ngày ĐẠT CẢ 3
 
 | Kiểm gì | Kết quả |
 |---|---|
 | `/sitemap.xml` · `/robots.txt` · `/llms.txt` · `/about` | ✅ 198 + 1 + 36 + 26 địa chỉ, **tất cả** là `https://www.offerdy.com`, 0 host lạ |
-| Sentry releases | ✅ production đang chạy **`4ca4efa`** (`created=2026-08-26T19:11:54Z`) — đã gồm `f7de865` và `d5beeb6` |
-| Thẻ *Lỗi production* | ❌ còn lỗi — nhưng là lỗi **khác trước**, xem ngay dưới |
+| Sentry releases | ✅ production nay chạy **`644c8f1`** (`created=2026-08-27T17:52:55Z`); lúc đo đầu ngày là `4ca4efa` |
+| Thẻ *Lỗi production* | ✅ **đã hết** — báo cáo AI sinh được lúc 17:57 bằng `groq/openai/gpt-oss-20b`. Chi tiết ở việc 🔴 số 2 |
 
 **Cron đêm 27/08 (01:40 UTC) vẫn chết, thông điệp đã đổi:**
 
@@ -85,6 +96,29 @@ Moi nha cung cap AI deu hong: groq(thieu-khoa), gemini(thieu-khoa), openrouter(t
   (`khoaCuaNha()` trả giá trị — **đừng bao giờ đẩy nó vào log/Sentry**).
 - Test mới đã kiểm là **có đo thật**: bỏ bản vá ra thì đỏ 1, lắp vào thì xanh (luật 8c).
 - `npm test` **609/609** · `npx tsc --noEmit` sạch · `npm run build` sạch. **Chưa commit.**
+
+### 🔗 "5 link hỏng" — đo 28/08: chỉ **1** hỏng thật, 7 là báo động giả
+
+Con số trong báo cáo AI là `linkChecked - linkOk`; bộ lọc thật của dự án
+(`checkOfferLink.ts:112`) cho **10** offer `linkStatus == "broken"`, 8 trong đó có URL.
+Gọi thử từng cái bằng `curl` kèm UA trình duyệt:
+
+| Shop | Số | Kết quả đo | Kết luận |
+|---|---|---|---|
+| Apollo Moda | 5 | 301 → `www.` rồi **403 Cloudflare** *"Attention Required"* | ⚠️ **chặn bot**, chưa chứng minh được là chết |
+| WoWGadgets99 | 2 | **200**, trang sản phẩm thật (248KB, đúng title) | ✅ báo động giả — link sống |
+| Urtopia EU | 1 | 301 → `newurtopia.de/` (**trang chủ**) | ❌ **chết mềm thật** — sản phẩm không còn |
+
+**Việc thật sự cần làm chỉ có 1**: offer *Urtopia Bundle Carbon 1 Pro + Carbon Fusion*
+(€4.798) — sản phẩm đã bị gỡ, đổi link hoặc ẩn offer.
+
+**Việc user kiểm 5 giây:** mở `https://www.apollomoda.com/products/mens-aloha-green` bằng
+trình duyệt thường. Vào được ⇒ cả 5 link Apollo là báo động giả của Cloudflare, và bộ kiểm
+link nên coi **403 kèm dấu hiệu Cloudflare** là *không kết luận được* thay vì `broken` —
+đúng cách nó đã xử lý timeout (xem đầu `checkOfferLink.ts`).
+
+⚠️ Nếu tin thẳng báo cáo AI thì đã đi sửa "5 link hỏng" — trong khi 5 cái đó chính là 5
+cái **không** hỏng, còn cái hỏng thật lại nằm ngoài con số ấy.
 
 ### Câu hỏi đang mở — user quyết
 
