@@ -32,6 +32,7 @@ export type AITask =
   | 'store-content'
   | 'caption'
   | 'daily-report'
+  | 'article-names'
 
 /** Nha cung cap. Ten nay cung la khoa dung trong bien moi truong. */
 export type ProviderName = 'gemini' | 'groq' | 'openrouter' | 'anthropic'

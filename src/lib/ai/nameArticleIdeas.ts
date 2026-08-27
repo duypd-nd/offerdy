@@ -19,12 +19,9 @@
  * mot vua dat gap N lan vua de ra N tieu de na na nhau.
  */
 import { z } from 'zod'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
-import { getAnthropicClient } from './anthropicClient'
+import { generateStructured } from './router'
 import { tokenize } from '@/lib/productMatch'
 import type { ArticleIdea } from '@/lib/articleIdeas'
-
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5'
 
 /**
  * Tran do dai cua `metaTitle`.
@@ -313,50 +310,42 @@ export type NameResult = {
   rejected: { key: string; reason: string }[]
 }
 
-const MAX_ATTEMPTS = 3
-
-function isRetryable(err: unknown): boolean {
-  if (err && typeof err === 'object' && 'status' in err) {
-    const status = (err as { status?: number }).status
-    if (status && [429, 500, 502, 503, 529].includes(status)) return true
-  }
-  if (err instanceof Error && err.message.includes('Failed to parse structured output')) return true
-  return false
-}
-
+/**
+ * ⚠️ Di qua BO DINH TUYEN (28/08), khong goi thang Anthropic nua.
+ *
+ * Day la viec dat ten: mot object dung schema, khong streaming, khong anh — dung
+ * khuon `generateStructured`, giong het 5 generator da chuyen truoc do. Ba file
+ * con lai (`generateArticleContent`, `generateReviewContent`, `generateVideoScript`)
+ * thi KHONG chuyen duoc, va do la co y — xem `docs/AI_ROUTER.md`.
+ *
+ * Hai hang rao cu bo di, va thu thay the chung:
+ *
+ * 1. `stop_reason === 'max_tokens'` -> nay la `invalid-output` o TUNG nha (than
+ *    khong phai JSON / thieu content / sai schema), va router **doi nha** thay vi
+ *    nem loi. Manh hon ban cu: ban cu chi biet ket luan "bi cat", khong lam gi tiep.
+ * 2. Vong thu lai 3 lan cho 429/5xx -> nay router chuyen nha ngay khi gap
+ *    `retryable`. Thu lai CUNG mot nha dang 429 la cach chua kem hon doi nha.
+ *
+ * `maxTokens: 12000` GIU NGUYEN, khong phai vi dau ra dai (12 y tuong x tieu de +
+ * metaTitle chua toi 1000 token) ma vi Anthropic — nha cuoi cung — bat adaptive
+ * thinking mac dinh, va `max_tokens` chan **thinking + chu cong lai**. Do that tren
+ * Frizzlife (2026-08-05): 4096 chay 35 giay roi tra ve `stop_reason: max_tokens` va
+ * khong mot ten nao dung duoc. Uoc luong theo do dai dau ra la sai phuong phap.
+ */
 async function callModel(
   ideas: ArticleIdea[],
   storeName: string,
-  year: number,
-  attempt = 1
+  year: number
 ): Promise<z.infer<typeof NamesSchema>> {
-  try {
-    const response = await getAnthropicClient().messages.parse({
-      model: MODEL,
-      // ⚠️ Dat ten la dau ra NGAN — 12 y tuong x (tieu de + metaTitle) chua toi 1000
-      // token — nen 4096 trong nhu du gap boi. KHONG du: Sonnet 5 bat adaptive
-      // thinking mac dinh khi khong khai `thinking`, va `max_tokens` chan **thinking
-      // + chu cong lai**. Do that tren Frizzlife (12 y tuong, 2026-08-05): 4096 chay
-      // 35 giay roi tra ve `stop_reason: max_tokens` va khong mot ten nao dung duoc.
-      // Uoc luong theo do dai dau ra la sai phuong phap o day.
-      max_tokens: 12000,
-      system: SYSTEM_PROMPT,
-      output_config: { format: zodOutputFormat(NamesSchema) },
-      messages: [{ role: 'user', content: buildUserPrompt(ideas, storeName, year) }],
-    })
-    if (response.stop_reason === 'max_tokens') {
-      throw new Error('Bị cắt giữa chừng (stop_reason=max_tokens)')
-    }
-    const parsed = response.parsed_output
-    if (!parsed) throw new Error(`Không đặt được tên (stop_reason=${response.stop_reason})`)
-    return parsed
-  } catch (err) {
-    if (isRetryable(err) && attempt < MAX_ATTEMPTS) {
-      await new Promise(r => setTimeout(r, attempt * 1500))
-      return callModel(ideas, storeName, year, attempt + 1)
-    }
-    throw err
-  }
+  const { data } = await generateStructured({
+    task: 'article-names',
+    schema: NamesSchema,
+    system: SYSTEM_PROMPT,
+    prompt: buildUserPrompt(ideas, storeName, year),
+    maxTokens: 12000,
+    metadata: { store: storeName, soYTuong: ideas.length },
+  })
+  return data
 }
 
 export async function nameArticleIdeas(input: {
