@@ -84,6 +84,14 @@ export function modelCuaNha(p: ProviderName, env: EnvLike = process.env): string
   return env[khoa]?.trim() || MODEL_MAC_DINH[p]
 }
 
+/**
+ * TEN cac bien moi truong cho khoa cua mot nha — **khong phai gia tri**.
+ * Dung de bao "thieu khoa nao" ma khong lo ro khoa ra log/Sentry.
+ */
+export function tenBienKhoa(p: ProviderName): string[] {
+  return [...KHOA_ENV[p]]
+}
+
 /** Moi khoa API con dung duoc cua mot nha, theo thu tu. Rong = nha do khong ton tai. */
 export function khoaCuaNha(p: ProviderName, env: EnvLike = process.env): string[] {
   return KHOA_ENV[p].map(k => env[k]?.trim()).filter((v): v is string => Boolean(v))

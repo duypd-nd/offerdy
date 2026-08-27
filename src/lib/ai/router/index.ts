@@ -7,7 +7,7 @@ import {
   type ProviderName,
   type EnvLike,
 } from './types'
-import { nhaEpChoViec, thuTuNha } from './registry'
+import { nhaEpChoViec, tenBienKhoa, thuTuNha } from './registry'
 import { dangNghi, ghiHong, ghiThanhCong } from './breaker'
 import { conNganSach, docNganSachTuEnv, ghiDaGoiTraPhi, laTraPhi } from './budget'
 import { taoNhaOpenAI } from './providers/openaiCompat'
@@ -105,7 +105,15 @@ export async function generateStructured<T extends z.ZodType>(
     const tao = kho[ten]
     if (!tao) continue
     const nha = tao(env)
-    if (!nha.isAvailable()) continue
+    // ⚠️ Nha thieu khoa van phai duoc GHI LAI, du no bi bo qua lang le. Do that
+    // sang 27/08 tren production: cron chet voi thong diep `anthropic(auth)` —
+    // dung MOT ten — nen no trong y het nhu site chi co mot nha cung cap, trong
+    // khi su that la ba nha mien phi bi bo qua vi Vercel chua co khoa. Phai mo
+    // code ra doc moi biet. Bo qua lang le thi dung; **bao cao** lang le thi khong.
+    if (!nha.isAvailable()) {
+      chiTiet.push({ provider: ten, loai: 'thieu-khoa', loi: `chua co ${tenBienKhoa(ten).join(' hoac ')}` })
+      continue
+    }
 
     if (dangNghi(ten)) {
       chiTiet.push({ provider: ten, loai: 'cau-dao', loi: 'dang nghi sau nhieu lan hong' })

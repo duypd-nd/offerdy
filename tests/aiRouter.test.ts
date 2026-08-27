@@ -137,6 +137,39 @@ test('khong co nha nao ca -> nem loi noi ro la thieu khoa, khong nem loi mo ho',
   })
 })
 
+/**
+ * ⚠️ Do that tren production sang 27/08: cron chet voi thong diep
+ * `Moi nha cung cap AI deu hong: anthropic(auth)` — dung MOT ten. Ba nha mien
+ * phi bi bo qua lang le vi Vercel chua co khoa, va thong diep khong he nhac
+ * den chung, nen no doc y het nhu "site chi co mot nha cung cap". Phai mo code
+ * ra doc `isAvailable()` moi biet. Thong diep phai tu no phan biet duoc
+ * THIEU KHOA voi KHOA HONG.
+ */
+test('⚠️ nha bi bo qua vi thieu khoa van phai co ten trong thong diep loi', async () => {
+  imLang(); xoaHetCauDao(); datLaiNganSach()
+  await assert.rejects(
+    () => generateStructured(req, ENV_SACH, {
+      groq: nhaGia({ name: 'groq', coKhoa: false, ket: 'ok' }),
+      gemini: nhaGia({ name: 'gemini', coKhoa: false, ket: 'ok' }),
+      openrouter: nhaGia({ name: 'openrouter', coKhoa: false, ket: 'ok' }),
+      anthropic: nhaGia({ name: 'anthropic', ket: 'auth' }),
+    }),
+    (e: unknown) => {
+      if (!(e instanceof KhongCoNhaNaoError)) return false
+      const loaiCua = (p: ProviderName) => e.chiTiet.find(x => x.provider === p)?.loai
+      for (const ten of ['groq', 'gemini', 'openrouter'] as const) {
+        assert.equal(loaiCua(ten), 'thieu-khoa', `${ten}: ${JSON.stringify(e.chiTiet)}`)
+      }
+      // Phan biet duoc hai the loai: thieu khoa != khoa hong.
+      assert.equal(loaiCua('anthropic'), 'auth')
+      assert.match(e.message, /groq\(thieu-khoa\)/)
+      // Ten BIEN moi truong thi duoc noi; GIA TRI khoa thi khong bao gio.
+      assert.match(e.chiTiet.find(x => x.provider === 'groq')!.loi, /GROQ_API_KEY/)
+      return true
+    },
+  )
+})
+
 // ── 4. Phan loai loi ──────────────────────────────────────────────
 test('`fatal` DUNG HAN, khong doi nha — doi nha khong chua duoc loi cua chinh minh', async () => {
   imLang(); xoaHetCauDao(); datLaiNganSach()

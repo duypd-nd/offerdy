@@ -8,7 +8,7 @@ export default function RegenerateButton({ stale }: { stale: boolean }) {
   const [error, setError] = useState('')
 
   const run = () => {
-    if (!confirm('Tạo lại báo cáo AI ngay? Mỗi lần bấm là một lượt gọi Anthropic có tính phí.')) return
+    if (!confirm('Tạo lại báo cáo AI ngay? Bộ định tuyến thử Groq/Gemini/OpenRouter (miễn phí) trước, chỉ rơi xuống Anthropic — có tính phí — khi cả ba hỏng.')) return
     setError('')
     startTransition(async () => {
       const res = await regenerateDailyReport()
