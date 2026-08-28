@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import ArticleLinkTracker from '@/components/ArticleLinkTracker'
 import { fillSiteName } from '@/lib/siteNameToken'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -218,6 +219,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ s
               }
             </div>
 
+            <ArticleLinkTracker />
             <div className="article-body">
               <p style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)', marginBottom: 28, lineHeight: 1.7 }}>
                 {review.excerpt}

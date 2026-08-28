@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import ArticleLinkTracker from '@/components/ArticleLinkTracker'
 import { fillSiteName } from '@/lib/siteNameToken'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -278,6 +279,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               </div>
             )}
 
+            <ArticleLinkTracker />
             <div className="article-body">
               {articleHtml && articleHtml.length > 100 ? (
                 <div dangerouslySetInnerHTML={{ __html: articleHtml }} />

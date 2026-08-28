@@ -2,6 +2,7 @@
 
 import { writeClient } from '@/sanity/writeClient'
 import { readAttribution } from '@/lib/attribution'
+import { hostKey } from '@/lib/dealStoreMatch'
 
 // Nguon lay tu cookie do /d/ hoac /g/ dat (xem src/lib/attribution.ts). Nho no,
 // mot click affiliate biet duoc no bat dau tu bai dang nao — neu khong thi chi
@@ -83,4 +84,55 @@ export async function trackDealClick(dealId: string): Promise<void> {
       ...attribution,
     }),
   ])
+}
+
+/**
+ * Click tren mot link mua hang NAM TRONG THAN BAI viet (blog / review).
+ *
+ * 🚨 VI SAO CAN, va vi sao no khong ton tai suot tu dau:
+ *
+ * Than bai duoc render bang `dangerouslySetInnerHTML` (blog/[slug]/page.tsx), va
+ * cac nut mua la the `<a>` HTML THO do `postRender.ts` sinh ra — khong phai
+ * component `AffiliateLink`. Khong co `onClick` nghia la KHONG co gi duoc dem:
+ * khong tai lieu `click`, khong `dataLayer`, khong chuyen doi Google Ads.
+ *
+ * Do that 28/08/2026: vao dung URL quang cao (cookie gan nguon dat DUNG:
+ * `google-ads|ads-fridge-58l`), bam mot trong hai link affiliate cua bai — so
+ * tai lieu `click` mang nhan do van la **0**.
+ *
+ * Hau qua khong chi la "thieu so lieu": `/admin/ads` se thay chi phi tang ma 0
+ * luot bam, roi phan quyet **"Nen dung"** theo nhanh Poisson. Phan quyet do SAI,
+ * vi luot bam co the dang xay ra ma khong ai dem. May tu tin noi mot dieu no
+ * khong biet — dung thu ca `chua-du-so-lieu` duoc dung de tranh.
+ *
+ * ⚠️ Khong co `offerId`/`dealId` de truyen: link trong than bai chi co URL
+ * merchant. Suy ra store theo DOMAIN — cung nguyen tac `dealStoreMatch.ts`.
+ * Khong khop store nao thi VAN ghi ban ghi click (nhan `?s=` moi la thu
+ * `/admin/ads` can), chi la thieu tham chieu store.
+ */
+export async function trackArticleLinkClick(url: string): Promise<void> {
+  const target = hostKey(url)
+  if (!target) return
+
+  const attribution = await attributionFields()
+
+  // Chi lay hai field can de khop host. Truy van gon vi ham nay chay tren duong
+  // bam cua khach — cham o day la mat don hang.
+  let storeId: string | null = null
+  try {
+    const stores = await writeClient.fetch<{ id: string; website?: string; affiliateLink?: string }[]>(
+      `*[_type == "store" && (defined(website) || defined(affiliateLink))]{ "id": _id, website, affiliateLink }`,
+      {}, { cache: 'no-store' }
+    )
+    storeId = stores.find(s => hostKey(s.website) === target || hostKey(s.affiliateLink) === target)?.id ?? null
+  } catch { /* khong khop duoc store thi van ghi click — dung im lang o day */ }
+
+  await writeClient.create({
+    _type: 'click',
+    kind: 'affiliate',
+    // Ghi ca host de doi chieu duoc khi khong khop store nao.
+    articleHost: target,
+    ...(storeId ? { store: { _type: 'reference', _ref: storeId, _weak: true } } : {}),
+    ...attribution,
+  })
 }
