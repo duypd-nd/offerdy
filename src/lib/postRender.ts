@@ -35,6 +35,48 @@ function esc(s: string): string {
   return s.replace(/[&<>"']/g, c => ESCAPES[c])
 }
 
+const ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”',
+  mdash: '—', ndash: '–',
+}
+
+/**
+ * Giai thuc the HTML MOT LAN, truoc khi `esc()` ma hoa lai.
+ *
+ * 🚨 VI SAO CAN: bo cao tieu de san pham luu nguyen van HTML cua shop, nen trong
+ * Sanity co san `&#39;` va `&amp;`. `esc()` ma hoa them mot lan nua -> trang hien
+ * ra chuoi tho:
+ *
+ *     &#39;Monkey Business Only&#39; Oversized Graphic Tee
+ *
+ * Do 28/08/2026: 5 ten san pham trong 2 bai dinh loi nay. It, nhung no nam o
+ * DAU BANG SO SANH va tren the san pham — tuc dung cho nguoi doc nhin dau tien.
+ *
+ * ⚠️ Giai roi ma hoa lai VAN AN TOAN: `&lt;script&gt;` -> `<script>` -> `&lt;script&gt;`,
+ * ra dung chuoi chu nhu cu. Va quet MOT LUOT trai sang phai nen `&amp;lt;` chi khop
+ * `&amp;` roi di tiep — cho ra `&lt;` chu khong phai `<`. Giai hai lan moi la lo hong.
+ *
+ * ⚠️ Chi dung cho CHU do bo cao lay ve (ten san pham, o bang). KHONG dung cho URL:
+ * ben do `esc()` mot minh la du va dung.
+ */
+function decodeEntities(input: string): string {
+  return input.replace(/&(#\d+|#[xX][0-9a-fA-F]+|[a-zA-Z]+);/g, (whole, body: string) => {
+    if (body[0] === '#') {
+      const code = body[1] === 'x' || body[1] === 'X'
+        ? parseInt(body.slice(2), 16)
+        : parseInt(body.slice(1), 10)
+      return Number.isFinite(code) && code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole
+    }
+    return ENTITIES[body.toLowerCase()] ?? whole
+  })
+}
+
+/** Chu do bo cao lay ve: giai thuc the roi moi ma hoa. Xem `decodeEntities`. */
+function escText(s: string): string {
+  return esc(decodeEntities(s))
+}
+
 /** `298.75` + `USD` -> `$298.75`. Khong biet ky hieu thi ghi ma tien te. */
 const SYMBOLS: Record<string, string> = { USD: '$', EUR: '€', GBP: '£', VND: '₫' }
 export function formatPrice(price?: string, currency?: string): string | null {
@@ -108,7 +150,7 @@ export function cappedImageUrl(url: string, width = 700): string {
 function productLink(p: RenderProduct, label: string, className: string): string {
   // Tham so tiep thi KHONG gan o day — `getStoreRefForHtml` chay sau va gan cho moi
   // <a> trong than bai. Gan hai noi la co hai cho de lech.
-  return `<a class="${className}" href="${esc(p.url)}" target="_blank" rel="nofollow sponsored noopener">${esc(label)}</a>`
+  return `<a class="${className}" href="${esc(p.url)}" target="_blank" rel="nofollow sponsored noopener">${escText(label)}</a>`
 }
 
 /**
@@ -126,14 +168,14 @@ function renderProductCard(p: RenderProduct, storeName?: string): string {
   const price = formatPrice(p.priceAtWriting, p.currency)
   const media = p.imageUrl
     ? `<div class="article-card-media">` +
-      `<img src="${esc(cappedImageUrl(p.imageUrl))}" alt="${esc(p.title)}" loading="lazy" />` +
+      `<img src="${esc(cappedImageUrl(p.imageUrl))}" alt="${escText(p.title)}" loading="lazy" />` +
       `</div>`
     : ''
   return (
     `<div class="article-card">` +
     media +
     `<div class="article-card-body">` +
-    `<span class="article-card-name">${esc(p.title)}</span>` +
+    `<span class="article-card-name">${escText(p.title)}</span>` +
     (price ? `<span class="article-card-price">${esc(price)}</span>` : '') +
     // Nhan ngan: ten mon hang da nam ngay tren nut roi. Nhan cu ("Check <ca cai ten
     // dai> at <shop>") lam nut dai bang ca dong van va bo cuc vo ra.
@@ -206,11 +248,11 @@ function liftTrailingCtas(html: string): string {
 function renderTable(rows: { label: string; values: string[] }[], products: RenderProduct[]): string {
   if (!rows.length) return ''
   const head = products
-    .map((p, i) => `<th scope="col"><span class="cmp-idx">${i + 1}</span>${esc(p.title)}</th>`)
+    .map((p, i) => `<th scope="col"><span class="cmp-idx">${i + 1}</span>${escText(p.title)}</th>`)
     .join('')
   const body = rows
-    .map(r => `<tr><th scope="row">${esc(r.label)}</th>${
-      r.values.map((v, i) => `<td data-idx="${i + 1}">${esc(v)}</td>`).join('')
+    .map(r => `<tr><th scope="row">${escText(r.label)}</th>${
+      r.values.map((v, i) => `<td data-idx="${i + 1}">${escText(v)}</td>`).join('')
     }</tr>`)
     .join('')
   // Dung dung kieu bang da dung o `globals.css` (`.article-table-wrap`), khong nhoi
@@ -300,7 +342,7 @@ export function renderPostTokens(html: string, opts: RenderOptions): string {
     const n = Number(i)
     const p = products[n - 1]
     if (!p) return ''
-    return esc(mod === 'short' ? shortNames()[n - 1] : p.title)
+    return escText(mod === 'short' ? shortNames()[n - 1] : p.title)
   })
 
   /**

@@ -254,6 +254,44 @@ test('⚠️ bảng NHIỀU cột không được chia đều — 12 sản phẩ
   assert.match(raBa, /class="cmp-table cmp-fit"/)
 })
 
+test('🚨 thực thể HTML trong tên sản phẩm KHÔNG được mã hoá hai lần', () => {
+  // Bộ cào lưu nguyên văn HTML của shop nên trong Sanity có sẵn `&#39;` và `&amp;`.
+  // `esc()` mã hoá thêm lần nữa -> trang hiện ra chuỗi thô:
+  //     &#39;Monkey Business Only&#39; Oversized Graphic Tee
+  // Đo 28/08/2026: 5 tên sản phẩm trong 2 bài dính, và chúng nằm ở ĐẦU BẢNG SO SÁNH
+  // cùng trên thẻ sản phẩm — chỗ người đọc nhìn đầu tiên.
+  const bandTitle = [{
+    url: 'https://apollomoda.com/p/1',
+    title: '&#39;Monkey Business Only&#39; Tee &amp; Shorts',
+  }]
+  const out = renderPostTokens('[TABLE]<p>[CTA:1]</p>', {
+    products: bandTitle,
+    comparisonRows: [{ label: 'Fit', values: ['Loose &amp; oversized'] }],
+    storeName: 'Apollo Moda',
+  })
+  // Trang phải hiện dấu nháy thật, không phải chuỗi "&#39;"
+  assert.ok(!out.includes('&amp;#39;'), 'tên sản phẩm bị mã hoá hai lần: ' + out.slice(0, 200))
+  assert.ok(!out.includes('&amp;amp;'), 'dấu & bị mã hoá hai lần')
+  assert.match(out, /&#39;Monkey Business Only&#39; Tee &amp; Shorts/)
+  assert.match(out, /Loose &amp; oversized/)
+})
+
+test('⚠️ giải thực thể rồi mã hoá lại vẫn AN TOÀN — không mở lỗ hổng XSS', () => {
+  // Giải một lần rồi `esc()` cho ra đúng chuỗi chữ ban đầu; giải HAI lần mới là lỗ hổng.
+  // ⚠️ `[CTA:1]` chứ không phải `[IMAGE:1]`: sản phẩm không có ảnh thì token IMAGE
+  // biến mất hẳn, và bài kiểm sẽ soi một chuỗi rỗng — xanh mà không đo gì cả.
+  const doc = [{ url: 'https://x.com/1', title: '&lt;script&gt;alert(1)&lt;/script&gt;' }]
+  const out = renderPostTokens('<p>[CTA:1]</p>', { products: doc, storeName: 'X' })
+  assert.ok(!out.includes('<script'), 'thẻ script lọt ra HTML thật: ' + out)
+  assert.ok(out.includes('&lt;script&gt;'), 'phải giữ nguyên dạng chữ')
+
+  // `&amp;lt;` là chuỗi CHỮ "&lt;" — quét một lượt chỉ khớp `&amp;` rồi đi tiếp.
+  const literal = [{ url: 'https://x.com/2', title: '&amp;lt;b&amp;gt;' }]
+  const out2 = renderPostTokens('<p>[CTA:1]</p>', { products: literal, storeName: 'X' })
+  assert.ok(!out2.includes('<b>'), 'giải hai lần — đây là lỗ hổng')
+  assert.match(out2, /&amp;lt;b&amp;gt;/)
+})
+
 test('khong co bang thi [TABLE] bien mat', () => {
   const out = renderPostTokens('<p>x</p>[TABLE]', { products })
   assert.ok(!out.includes('[TABLE]'))
