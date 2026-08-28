@@ -13,10 +13,16 @@ export type PlannerStore = {
   commissionRate: number | null
   /** So nguoi van hanh go tay — luon thang so uoc luong. */
   avgOrderValue: number | null
-  /** Uoc luong tu gia deal cua chinh shop nay. */
+  /** Uoc luong tu gia deal cua chinh shop nay — CO THE KHONG PHAI USD. */
   estimatedAov: number | null
   /** Bao nhieu deal da dung de uoc luong — 1-2 mau thi khong dang tin. */
   estimatedFrom: number
+  /** Ky hieu tien te cua `estimatedAov`. */
+  estimatedSymbol: string | null
+  /** Deal bi bo qua vi khac tien te voi nhom dong nhat. */
+  estimatedSkipped: number
+  /** Chi `true` khi uoc luong la USD — xem `estimateDungDuocLamUSD`. */
+  estimatedUsable: boolean
   cookieWindowDays: number | null
   allowsPaidTraffic: string
 }
@@ -91,7 +97,11 @@ export default function AdPlannerClient({ stores }: { stores: PlannerStore[] }) 
   const rows = stores
     .map(s => {
       const m = merged(s)
-      const aov = m.avgOrderValue ?? s.estimatedAov
+      // ⚠️ CHI lay so uoc luong khi no la USD. Truoc 28/08 dong nay lay bua, nen
+      // don TB ₹1.257 cua WoWGadgets99 di thang vao `breakEven()` nhu the la
+      // $1.257 — sai 83 lan va de ra ket luan nguoc han. So nguoi van hanh go
+      // tay (`avgOrderValue`) luon thang, va no luon duoc hieu la USD.
+      const aov = m.avgOrderValue ?? (s.estimatedUsable ? s.estimatedAov : null)
       const be = breakEven({ commissionRate: m.commissionRate, avgOrderValue: aov, cpc: cpcNum })
       return { s, m, be, plan: be ? dailyPlan(budgetNum, cpcNum, be.earningsPerOrder) : null }
     })
@@ -222,13 +232,24 @@ export default function AdPlannerClient({ stores }: { stores: PlannerStore[] }) 
                       <input
                         type="number" step="1" min="0" style={{ ...box, width: 84 }}
                         value={m.avgOrderValue ?? ''}
-                        placeholder={s.estimatedAov != null ? s.estimatedAov.toFixed(0) : '—'}
+                        placeholder={s.estimatedUsable && s.estimatedAov != null ? s.estimatedAov.toFixed(0) : '—'}
                         onChange={e => setField(s.id, 'avgOrderValue', numOrNull(e.target.value))}
                       />
-                      {usingEstimate && (
+                      {usingEstimate && s.estimatedUsable && (
                         // Trung binh tren 1-2 deal khong dang tin — phai noi ro so mau.
                         <div style={{ fontSize: 10, color: s.estimatedFrom < 3 ? '#b45309' : '#94a3b8' }}>
                           ước lượng · {s.estimatedFrom} deal
+                          {s.estimatedSkipped > 0 && ` · bỏ ${s.estimatedSkipped} khác tiền`}
+                        </div>
+                      )}
+                      {/* ⚠️ Uoc luong KHONG phai USD thi VAN HIEN, nhung kem ky hieu that
+                          va khong duoc dua vao phep tinh. Giau di thi nguoi van hanh
+                          tuong shop nay khong co du lieu gia; hien tran thi lai dung
+                          vao dung cai bay ₹1.257 -> $1.257. */}
+                      {usingEstimate && !s.estimatedUsable && s.estimatedAov != null && (
+                        <div style={{ fontSize: 10, color: '#b45309', lineHeight: 1.4 }}>
+                          ≈ {s.estimatedSymbol}{s.estimatedAov.toFixed(0)} · <b>không phải USD</b><br />
+                          quy đổi rồi gõ tay
                         </div>
                       )}
                     </td>

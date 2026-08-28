@@ -1,3 +1,5 @@
+import { parsePriceAmount, priceSymbol } from './priceAmount'
+
 /**
  * "Bo ra bao nhieu tien quang cao thi co cua lai" — tinh TRUOC khi tieu dong nao.
  *
@@ -6,15 +8,24 @@
  * `/admin/reports`), nen KHONG the tinh loi nhuan thuc te. Nhung cau hoi
  * *"de co lai thi dieu gi phai dung"* thi tra loi duoc — va no du de loai bot.
  *
- * Do tren du lieu that 2026-08-10, cung CPC $0,50 va gia su hoa hong 10%:
- *   WoWGadgets99 (don TB $1257) -> can 0,4% khach mua  → co cua
- *   Dowinx        (don TB $150) -> can 3,3%            → kha thi
- *   Cloud Cushion (don TB $48)  -> can 10,5%           → gan nhu khong the
- *   Hunny Life    (don TB $40)  -> can 12,6%           → khong nen chay
- * Ba shop cuoi bi loai ma khong ton mot dong nao.
+ * Do lai 2026-08-28 (DA TACH THEO TIEN TE), cung CPC $0,50 va gia su hoa hong 10%:
+ *   BodegaCooler  (don TB   $520) -> can 0,96% khach mua → co cua
+ *   Dowinx        (don TB   €150) -> can ~3,1%           → kha thi
+ *   Cloud Cushion (don TB    $48) -> can 10,5%           → gan nhu khong the
+ *   Hunny Life    (don TB    $40) -> can 12,6%           → khong nen chay
+ *   WoWGadgets99  (don TB ₹1.257 ≈ $15) -> can ~33%      → KHONG THE
+ *
+ * 🚨 BANG CU (10/08) GHI SAI VA DA SONG 18 NGAY: no ghi "WoWGadgets99 don TB
+ * $1257 -> can 0,4% -> co cua", trong khi ₹1.257 chi la ~$15. Shop duoc khen
+ * nhat hoa ra la shop te nhat trong ca nhom. Nguyen nhan o
+ * `estimateAvgOrderValue()` — xem chu thich rieng cua ham do.
  *
  * ⚠️ Moi con so o day la DIEU KIEN CAN, khong phai du bao. No khong noi anh se
  * ban duoc bao nhieu; no noi anh phai ban duoc bao nhieu de khong lo.
+ *
+ * ⚠️ Va tat ca deu gia dinh `avgOrderValue` DA LA USD. Ham `breakEven()` khong
+ * co cach nao biet don vi cua con so nguoi ta dua vao — do la dung cho ma loi
+ * tren chui qua. Dung `estimateDungDuocLamUSD()` truoc khi dua so uoc luong vao.
  */
 
 /** Nguong danh gia — dat theo tim ty le chuyen doi thuc te cua traffic coupon. */
@@ -41,22 +52,42 @@ export type BreakEvenResult = {
 }
 
 /**
- * `null` khi thieu du lieu — KHONG tra ve 0 hay mot con so mac dinh. Mot bang
- * ke hoach quang cao hien "0%" cho shop chua khai hoa hong se duoc doc thanh
- * "shop nay hoa von de nhat", tuc dung nguoc han su that.
+ * USD kiem duoc moi don. Tach ra thanh ham rieng vi `adPerformance.ts` can dung
+ * CHINH con so nay de quy doi mot luot bam sang merchant ra tien — hai noi tinh
+ * lay moi noi mot kieu la tao mot cho lech, va cho lech o day khien mot chien
+ * dich dang lo bi doc thanh dang lai.
+ *
+ * `null` khi thieu du lieu, KHONG phai 0 — cung ly do da ghi o `breakEven()`.
  */
-export function breakEven({ commissionRate, avgOrderValue, cpc }: BreakEvenInput): BreakEvenResult | null {
-  if (!Number.isFinite(cpc as number) || cpc <= 0) return null
+export function earningsPerOrder(
+  commissionRate?: number | null,
+  avgOrderValue?: number | null
+): number | null {
   if (commissionRate == null || avgOrderValue == null) return null
   if (!Number.isFinite(commissionRate) || !Number.isFinite(avgOrderValue)) return null
   if (commissionRate <= 0 || avgOrderValue <= 0) return null
 
-  const earningsPerOrder = avgOrderValue * (commissionRate / 100)
-  if (earningsPerOrder <= 0) return null
+  const value = avgOrderValue * (commissionRate / 100)
+  return value > 0 ? value : null
+}
 
-  const breakEvenConversion = cpc / earningsPerOrder
+/**
+ * `null` khi thieu du lieu — KHONG tra ve 0 hay mot con so mac dinh. Mot bang
+ * ke hoach quang cao hien "0%" cho shop chua khai hoa hong se duoc doc thanh
+ * "shop nay hoa von de nhat", tuc dung nguoc han su that.
+ *
+ * ⚠️ `avgOrderValue` PHAI LA USD. Ham nay khong the tu kiem tra — mot con so
+ * tran khong mang theo don vi. Do dung la cho ₹1.257 chui qua suot 18 ngay.
+ */
+export function breakEven({ commissionRate, avgOrderValue, cpc }: BreakEvenInput): BreakEvenResult | null {
+  if (!Number.isFinite(cpc as number) || cpc <= 0) return null
+
+  const earnings = earningsPerOrder(commissionRate, avgOrderValue)
+  if (earnings == null) return null
+
+  const breakEvenConversion = cpc / earnings
   return {
-    earningsPerOrder,
+    earningsPerOrder: earnings,
     breakEvenConversion,
     verdict:
       breakEvenConversion <= GOOD_MAX ? 'good'
@@ -97,9 +128,76 @@ export function dailyPlan(budget: number, cpc: number, earningsPerOrder: number)
  * ⚠️ Tra ve ca `count` chu khong chi so tien: trung binh tren 1-2 deal khong dang
  * tin, va giao dien phai noi ro dieu do thay vi in ra mot con so trong nhu chac
  * chan. `null` khi khong co gia nao.
+ *
+ * 🚨 NHAN CHUOI GIA, KHONG NHAN SO — sua 2026-08-28, va day la mot loi da chay
+ * suot 18 ngay:
+ *
+ * Ban cu nhan `number[]` nen KHONG BIET TIEN TE. `parsePriceAmount()` doc dung
+ * dau thap phan nhung tra ve SO THO — no khong quy doi tien. Trung binh cong so
+ * tho cua mot shop ban bang rupee roi dua vao `breakEven()` (von coi tham so la
+ * USD) cho ra:
+ *
+ *     wowgadgets99.com   ₹1.257  ->  doc thanh $1.257   (that ra ~$15, sai 83 lan)
+ *
+ * Va no de ra ket luan nguoc han: "WoWGadgets99 chi can 0,4% khach mua -> co cua"
+ * trong khi su that la ~33% -> khong the. Shop bi khen nhat hoa ra la shop te
+ * nhat. Con so do da nam trong `TODO.md`, trong chu thich file nay va trong
+ * `tests/adPlanner.test.ts` suot 18 ngay ma khong ai nghi ngo, vi mot con so
+ * "$1.257" trong hoan toan hop ly.
+ *
+ * Nen ham nay nay tu doc chuoi bang `parsePriceAmount` + `priceSymbol` — MOT bo
+ * doc gia duy nhat cho ca site, dung luat da ghi o `priceAmount.ts`.
+ *
+ * Gap NHIEU tien te thi lay nhom DONG NHAT va bao bao nhieu deal bi bo qua, thay
+ * vi tron chung lai. Tron la cach sinh ra dung con so vo nghia o tren.
  */
-export function estimateAvgOrderValue(prices: (number | null)[]): { avg: number; count: number } | null {
-  const valid = prices.filter((p): p is number => p != null && Number.isFinite(p) && p > 0)
-  if (valid.length === 0) return null
-  return { avg: valid.reduce((a, b) => a + b, 0) / valid.length, count: valid.length }
+export type AovEstimate = {
+  avg: number
+  /** So deal DA DUNG de tinh — chi tinh nhom cung mot tien te. */
+  count: number
+  /** Ky hieu tien te cua con so `avg`. **KHONG mac dinh la USD.** */
+  symbol: string
+  /** So deal bi bo qua vi thuoc tien te khac. > 0 la dau hieu du lieu shop lon xon. */
+  skipped: number
+}
+
+export function estimateAvgOrderValue(priceStrings: (string | null | undefined)[]): AovEstimate | null {
+  // Gom theo ky hieu tien te truoc, roi moi lay trung binh TRONG tung nhom.
+  const nhom = new Map<string, number[]>()
+  for (const raw of priceStrings) {
+    const amount = parsePriceAmount(raw ?? undefined)
+    if (amount == null || !Number.isFinite(amount) || amount <= 0) continue
+    const sym = priceSymbol(raw ?? undefined)
+    const list = nhom.get(sym)
+    if (list) list.push(amount)
+    else nhom.set(sym, [amount])
+  }
+  if (nhom.size === 0) return null
+
+  let symbol = ''
+  let best: number[] = []
+  let tong = 0
+  for (const [sym, list] of nhom) {
+    tong += list.length
+    if (list.length > best.length) { best = list; symbol = sym }
+  }
+
+  return {
+    avg: best.reduce((a, b) => a + b, 0) / best.length,
+    count: best.length,
+    symbol,
+    skipped: tong - best.length,
+  }
+}
+
+/**
+ * Con so uoc luong nay co dung duoc lam `avgOrderValue` (USD) cho `breakEven()` khong?
+ *
+ * Chi `$` moi dung thang duoc. `€`/`£` xap xi USD nhung van lech 5-20%, va `₹`/`₫`
+ * lech HANG CHUC LAN — mot con so lech 83 lan khong phai sai so, no la mot ket
+ * luan nguoc. Tien te khac thi nguoi van hanh phai tu quy doi va go vao o
+ * `avgOrderValue`; so that luon thang so uoc luong.
+ */
+export function estimateDungDuocLamUSD(est: AovEstimate | null): boolean {
+  return est != null && est.symbol === '$'
 }

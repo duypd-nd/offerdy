@@ -8,7 +8,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { breakEven, dailyPlan, estimateAvgOrderValue } from '@/lib/adPlanner'
+import {
+  breakEven, dailyPlan, estimateAvgOrderValue, estimateDungDuocLamUSD,
+} from '@/lib/adPlanner'
 
 // ── Bốn ca dưới dùng giá trị đơn TB đo được trên production 2026-08-10 ──
 test('⚠️ cùng CPC, cùng % hoa hồng — bốn shop thật ra bốn kết luận khác hẳn', () => {
@@ -79,19 +81,20 @@ test('tham số vô nghĩa -> null', () => {
 
 // ── Ước lượng giá trị đơn từ giá deal ─────────────────────────────
 test('ước lượng giá trị đơn, và trả về CẢ số mẫu', () => {
-  const r = estimateAvgOrderValue([10, 20, 30])!
+  const r = estimateAvgOrderValue(['$10', '$20', '$30'])!
   assert.equal(r.avg, 20)
   assert.equal(r.count, 3)
+  assert.equal(r.symbol, '$')
 })
 
 test('⚠️ trung bình trên 1 mẫu vẫn trả về, nhưng count phải lộ ra để giao diện cảnh báo', () => {
-  const r = estimateAvgOrderValue([99])!
+  const r = estimateAvgOrderValue(['$99'])!
   assert.equal(r.avg, 99)
   assert.equal(r.count, 1)
 })
 
 test('bỏ giá đọc không được, không để null kéo trung bình xuống', () => {
-  const r = estimateAvgOrderValue([100, null, 200, null])!
+  const r = estimateAvgOrderValue(['$100', null, '$200', undefined])!
   assert.equal(r.avg, 150)
   assert.equal(r.count, 2)
 })
@@ -99,5 +102,61 @@ test('bỏ giá đọc không được, không để null kéo trung bình xuố
 test('không có giá nào -> null', () => {
   assert.equal(estimateAvgOrderValue([]), null)
   assert.equal(estimateAvgOrderValue([null, null]), null)
-  assert.equal(estimateAvgOrderValue([0, -5]), null)
+  // Chuỗi không có chữ số nào, và giá 0 — cả hai đều không phải giá trị đơn.
+  assert.equal(estimateAvgOrderValue(['$0', 'Free', 'N/A', '']), null)
+})
+
+test('giá không kèm ký hiệu được coi là USD — mặc định của priceSymbol', () => {
+  // Dữ liệu cũ có deal lưu giá trần không ký hiệu. Coi là USD là mặc định đã
+  // ghi trong `priceSymbol()`; ghi lại ở đây để nếu ai đổi mặc định thì test đỏ,
+  // vì đổi nó sẽ âm thầm làm mọi ước lượng cũ ngừng dùng được cho breakEven.
+  const r = estimateAvgOrderValue(['1200', '800'])!
+  assert.equal(r.symbol, '$')
+  assert.equal(r.avg, 1000)
+  assert.equal(estimateDungDuocLamUSD(r), true)
+})
+
+// ── Lỗi tiền tệ đã sống 18 ngày (10/08 → 28/08) ───────────────────
+test('🚨 KHÔNG trộn hai tiền tệ vào một phép trung bình', () => {
+  // Đây chính là lỗi đã xảy ra: giá rupee và giá đô cộng chung, chia đều, rồi
+  // kết quả được `breakEven()` hiểu là USD.
+  const r = estimateAvgOrderValue(['₹999', '₹4999', '₹1299', '$50'])!
+  assert.equal(r.symbol, '₹')     // nhóm đông nhất thắng
+  assert.equal(r.count, 3)        // chỉ 3 giá rupee được tính
+  assert.equal(r.skipped, 1)      // $50 bị bỏ ra, và phải NÓI RA là đã bỏ
+  assert.ok(Math.abs(r.avg - (999 + 4999 + 1299) / 3) < 1e-9)
+})
+
+test('🚨 ước lượng KHÔNG phải USD thì không được dùng cho breakEven', () => {
+  const rupee = estimateAvgOrderValue(['₹999', '₹1499'])
+  assert.equal(estimateDungDuocLamUSD(rupee), false)
+
+  const dola = estimateAvgOrderValue(['$500', '$540'])
+  assert.equal(estimateDungDuocLamUSD(dola), true)
+
+  // Cả euro cũng bị chặn: €/$ lệch 5–20%, chưa đủ để coi là một.
+  assert.equal(estimateDungDuocLamUSD(estimateAvgOrderValue(['€199,99'])), false)
+  assert.equal(estimateDungDuocLamUSD(null), false)
+})
+
+test('🚨 ca thật của WoWGadgets99 — con số từng đẻ ra kết luận ngược', () => {
+  // Giá thật đo 28/08 trên wowgadgets99.com. Bản cũ nhận number[] nên mất ký
+  // hiệu ₹, ra ~1257 và `breakEven()` đọc thành $1257 -> "cần 0,4% khách mua,
+  // có cửa". Sự thật ₹1257 ≈ $15 -> cần ~33% -> không thể.
+  const est = estimateAvgOrderValue(['₹999', '₹649', '₹1299', '₹799', '₹599'])!
+  assert.equal(est.symbol, '₹')
+  assert.equal(estimateDungDuocLamUSD(est), false, 'ước lượng rupee KHÔNG được coi là USD')
+
+  // Và để thấy rõ hậu quả nếu vẫn nhét vào: cùng con số, hai kết luận trái ngược.
+  const neuDocNhamLaUSD = breakEven({ commissionRate: 10, avgOrderValue: est.avg, cpc: 0.5 })!
+  const quyDoiDung = breakEven({ commissionRate: 10, avgOrderValue: est.avg / 83, cpc: 0.5 })!
+  assert.equal(neuDocNhamLaUSD.verdict, 'good')      // ← kết luận SAI đã sống 18 ngày
+  assert.equal(quyDoiDung.verdict, 'hopeless')       // ← sự thật
+})
+
+test('giá châu Âu dùng dấu phẩy thập phân vẫn đọc đúng', () => {
+  // €199,99 phải là 199.99 chứ không phải 19999 — luật ở priceAmount.ts.
+  const r = estimateAvgOrderValue(['€199,99', '€99,99'])!
+  assert.ok(Math.abs(r.avg - 149.99) < 1e-9, `ra ${r.avg}`)
+  assert.equal(r.symbol, '€')
 })

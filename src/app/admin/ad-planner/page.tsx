@@ -2,7 +2,7 @@ import { client as readClient } from '@/sanity/client'
 import { writeClient } from '@/sanity/writeClient'
 import { dealBelongsToStore } from '@/lib/dealStoreMatch'
 import { parsePriceAmount } from '@/lib/priceAmount'
-import { estimateAvgOrderValue } from '@/lib/adPlanner'
+import { estimateAvgOrderValue, estimateDungDuocLamUSD } from '@/lib/adPlanner'
 import AdPlannerClient, { type PlannerStore } from './AdPlannerClient'
 
 export const dynamic = 'force-dynamic'
@@ -49,9 +49,12 @@ export default async function AdPlannerPage() {
   ]).catch(() => [[], []] as const)
 
   const rows: PlannerStore[] = (stores ?? []).map(s => {
+    // ⚠️ Truyen CHUOI gia, khong phai so da boc — `estimateAvgOrderValue` phai
+    // nhin thay ky hieu tien te thi moi khong tron ₹ voi $. Ban cu boc so o day
+    // roi truyen `number[]` chinh la cho lam mat don vi.
     const prices = (deals ?? [])
       .filter(d => dealBelongsToStore(d, s))
-      .map(d => parsePriceAmount(d.priceSale))
+      .map(d => d.priceSale)
     const est = estimateAvgOrderValue(prices)
     return {
       id: s.id,
@@ -61,6 +64,10 @@ export default async function AdPlannerPage() {
       avgOrderValue: s.avgOrderValue ?? null,
       estimatedAov: est?.avg ?? null,
       estimatedFrom: est?.count ?? 0,
+      estimatedSymbol: est?.symbol ?? null,
+      estimatedSkipped: est?.skipped ?? 0,
+      // Chi khi ky hieu la `$` thi con so uoc luong moi duoc dua vao `breakEven()`.
+      estimatedUsable: estimateDungDuocLamUSD(est ?? null),
       cookieWindowDays: s.cookieWindowDays ?? null,
       allowsPaidTraffic: s.allowsPaidTraffic ?? 'unknown',
     }
