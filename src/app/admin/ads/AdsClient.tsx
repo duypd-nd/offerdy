@@ -106,8 +106,9 @@ export default function AdsClient({ rows, giaDinh }: { rows: CampaignRow[]; giaD
       {/* Cau nay phai o ngay dau trang va khong duoc bo di: no la khac biet giua
           mot cong cu dung duoc va mot cong cu noi doi. */}
       <p style={{ color: '#64748b', margin: '0 0 16px', lineHeight: 1.6 }}>
-        Trang này <b>không điều khiển Google</b> — bật/tắt và trần ngân sách phải đặt bên
-        Google Ads (Script / Automated Rules) để cron chết thì trần vẫn giữ. Và nó{' '}
+        Trang này <b>không điều khiển Google</b> — mọi nút ở đây chỉ đổi <i>ghi chép</i>
+        trong Offerdy. Bật/tắt và trần ngân sách phải đặt bên Google Ads (Script /
+        Automated Rules) để cron chết thì trần vẫn giữ. Và nó{' '}
         <b>không biết lợi nhuận</b>: đơn hàng thật nằm bên GoAffPro. Thứ đo được là{' '}
         <b>chi phí cho mỗi lượt bấm sang merchant</b>.
       </p>
@@ -247,25 +248,35 @@ export default function AdsClient({ rows, giaDinh }: { rows: CampaignRow[]; giaD
                         {kq?.reason ?? 'Chưa đặt giả định nên chưa tính được ngưỡng hoà vốn.'}
                       </div>
                     </td>
+                    {/* ⚠️ NUT O DAY CHI GHI SO, KHONG BAT/TAT GOOGLE.
+                        Ban dau cho la hai nut `▶️` / `⏸️` tron — nhin y het mot
+                        cai dieu khien chien dich, va cau canh bao o dau trang
+                        khong cuu duoc: bam vao thay trang thai doi la nguoi ta
+                        tin chien dich da chay. Nhan bang CHU, kem link mo thang
+                        Google Ads — cho bat/tat THAT. */}
                     <td style={{ ...td, whiteSpace: 'nowrap' }}>
                       <button className="oa-btn" onClick={() => setSpendFor(spendFor === r.id ? null : r.id)}>
                         + Chi phí
                       </button>
-                      {r.status !== 'active' ? (
+                      <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button
                           className="oa-btn"
                           disabled={busy === r.id}
-                          onClick={() => chay(r.id, () => doiTrangThai(r.id, 'active'))}
-                          style={{ marginLeft: 6 }}
-                        >▶️</button>
-                      ) : (
-                        <button
+                          title="Chỉ đổi ghi chép trong Offerdy — không bật/tắt Google"
+                          onClick={() => chay(r.id, () => doiTrangThai(r.id, r.status === 'active' ? 'paused' : 'active'))}
+                        >
+                          {busy === r.id
+                            ? 'Đang lưu…'
+                            : r.status === 'active' ? 'Đánh dấu đã dừng' : 'Đánh dấu đang chạy'}
+                        </button>
+                        <a
                           className="oa-btn"
-                          disabled={busy === r.id}
-                          onClick={() => chay(r.id, () => doiTrangThai(r.id, 'paused'))}
-                          style={{ marginLeft: 6 }}
-                        >⏸️</button>
-                      )}
+                          href="https://ads.google.com/aw/campaigns"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Nơi bật/tắt thật"
+                        >Mở Google Ads ↗</a>
+                      </div>
                     </td>
                   </tr>
                 )
