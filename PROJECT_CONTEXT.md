@@ -16,7 +16,7 @@
 
 ## Mục lục
 
-83 mục, nhóm theo chủ đề. **Dùng Ctrl+F với đúng tên mục** — cố ý không đặt link neo vì
+92 mục (trừ mục lục là 91), nhóm theo chủ đề. **Dùng Ctrl+F với đúng tên mục** — cố ý không đặt link neo vì
 tên mục có backtick và dấu ngoặc, neo rất dễ gãy khi sửa tiêu đề.
 
 **Nền tảng & quy ước**
@@ -27,6 +27,7 @@ Static Fallback Data
 Public Pages · Admin Pages · Empty pages are not advertised · Page titles: the brand suffix
 
 **Sanity & dữ liệu**
+New Sanity document types are invisible to token-less reads ·
 Sanity: two clients, two quotas · `revalidatePath` clears `unstable_cache` ·
 `unstable_cache` survives a server restart ·
 The store count is derived, never typed · ⚠️ One price parser, because there were five ·
@@ -42,7 +43,9 @@ Offer deep links · Deal URLs get the shop's ref automatically · Shop coupon on
 Reviews auto-attach the affiliate ref · Reviews: affiliate ref resolved at render ·
 Deal ↔ store cross-links · Short link straight to merchant (`/g/`) ·
 Short-link tracking (`/d/`) · Attribution (`ofd_src` cookie) · Link previews ·
-`/links` ordering · Paid-ads break-even
+`/links` ordering · Paid-ads break-even ·
+Attribution now covers every landing page · Measuring the attribution chain: three lies ·
+Prices carry a currency · /admin/ads — what it deliberately does not do
 
 **Niềm tin: thử mã coupon** ← tài sản riêng, không ai chép được
 Coupon tests: the one thing competitors cannot copy ·
@@ -71,6 +74,8 @@ International readers: the browser translates, we add no languages
 Video studio · Downloading the video's images · Social kit · AI caption writer
 
 **Giao diện, ảnh, điện thoại**
+Comparison tables: the second product was invisible on a phone ·
+Scraped product titles arrive HTML-encoded ·
 Admin on a phone ⚠️ *(có HAI mục cùng tên — một ở phần video, một ở cuối; cả hai đều đúng,
 chưa gộp)* · Images: resized by Sanity's CDN · Images: cap them at the Sanity CDN
 
@@ -1471,3 +1476,197 @@ Ba quyết định về tính trung thực, đừng đảo ngược:
 and verified before it goes live. Updated daily."* Thực tế 71/98, thử ngày 03/08 và 05/08.
 Chính `src/lib/offerTrust.ts` đã chốt ranh giới này rồi — gọi kết quả của cron là
 "code tested" là hứa một việc chưa bao giờ làm. Câu quảng cáo kia phạm đúng vào đó.
+
+---
+
+## Attribution now covers every landing page, not just short links (2026-08-28)
+
+Before this date the attribution cookie was set **only** by `/d/[code]` and `/g/[code]`.
+Anything that landed a visitor on `/blog/...` or `/stores/...` — an ad, a social post, a
+search result — produced merchant clicks with **no source at all**. Measured that day: 56
+`click` documents, 6 with a source.
+
+The chain now is: `?s=<tag>` or a Google click-id → `src/proxy.ts` sets the cookie →
+`trackClick.ts` reads it → `/admin/ads` counts by campaign.
+
+**⚠️ Next 16 renamed middleware to proxy, and this repo already had `src/proxy.ts`.**
+Adding `src/middleware.ts` is a hard build failure: *"Both middleware file and proxy file
+are detected"*. Next allows exactly **one** proxy file per project, so the attribution
+branch had to be merged into the admin auth gate. Break logic into modules and import them —
+that is what the Next docs themselves recommend
+(`node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md`).
+
+**⚠️ Order inside `proxy.ts` is a security matter.** `DUONG_DAN_CAN_GAC` must mirror
+`config.matcher` exactly; editing one and forgetting the other opens a hole. The attribution
+branch only ever handles paths that are *not* guarded, and `/admin?s=…` was tested to prove a
+query string cannot walk past the gate.
+
+**⚠️ The cookie is only set when the URL carries `?s=` or a click-id.** Not for frugality:
+setting it on every view makes static pages return a `Set-Cookie`, and a cached HTML response
+carrying one can hand person A's campaign cookie to person B. Ordinary traffic keeps
+`s-maxage=60`; only campaign landings become `private, no-store`.
+
+**⚠️ `google` and `google-ads` share the same referer.** Only the click-id (`gclid`,
+`gbraid`, `wbraid`) separates paid from organic. Without that split, ad money and free search
+traffic are counted as one thing.
+
+### Article body links were never counted at all
+
+The bigger hole, found the same day: article bodies render through
+`dangerouslySetInnerHTML`, and the buy buttons are **raw anchor tags** emitted by
+`postRender.ts` — not the `AffiliateLink` component. No click handler means no `click`
+document, no `dataLayer`, no Google Ads conversion. That covered **229 buttons across 41 of
+42 blog posts**, plus **2 more on every one of the 23 review pages** (`a.article-cta` and the
+`.rv-coupon` box), both outside `.article-body`.
+
+`src/components/ArticleLinkTracker.tsx` fixes it with one delegated listener on `document`.
+It renders `null` and wraps nothing: `.article-body` carries 18 CSS rules, and inserting a
+wrapper risks breaking 42 working articles for no gain. The allowed regions are an **explicit
+list** (`VUNG_MUA`) rather than "any sponsored link on the page" — if an `AffiliateLink`
+component ever lands on an article page, a blanket rule would fire both handlers and
+double-count silently.
+
+📌 Any click number from before 2026-08-28 excludes article bodies and **is not comparable**
+to later numbers.
+
+---
+
+## Measuring the attribution chain: three ways the measurement lies (2026-08-28)
+
+All three cost a round of debugging on the day the chain was built.
+
+**1. Headless Chrome blocks itself.** `isLikelyBot()` matches `headlesschrome`, and Chrome's
+default headless UA contains exactly that string — so the proxy correctly refuses to set the
+cookie, every CDP-driven measurement returns 0, and it looks **identical to broken code**.
+Every CDP script touching attribution must call `Network.setUserAgentOverride` with a real UA
+first.
+
+**2. `next dev` silently changes port.** When 3000 is busy Next does **not** fail with
+`EADDRINUSE` — it prints `Port 3000 is in use by process N` and moves to 3001. Scripts still
+calling 3000 then measure an **old server**. Grepping only for `EADDRINUSE` is not enough;
+also grep for `Port 3000 is in use` and for `Local:.*localhost:3000`.
+
+**3. Editing Sanity does not change the page for ~60s.** `/blog/[slug]` has
+`revalidate = 60` on top of the Sanity CDN. Measuring right after a write shows the old
+content and reads exactly like "the write did not land".
+
+---
+
+## New Sanity document types are invisible to token-less reads (2026-08-28)
+
+`src/sanity/client.ts` says the `production` dataset is public and readable without a token.
+**That is not true for newly added document types.** Same `api.sanity.io` endpoint, the only
+difference being the `Authorization` header:
+
+| type | no token | with token |
+|---|---|---|
+| `adCampaign` | **0** | 2 |
+| `adSpendEntry` | **0** | 2 |
+| `click` · `captionLog` · `store` | 57 · 3 · 107 | identical |
+
+And it returns an **empty array rather than an error**, so the page renders "0 campaigns" —
+indistinguishable from having created none. It cost a full debugging round: the document was
+created, `curl` confirmed HTTP 200 and `operation: "update"`, and the page stayed empty.
+
+**Rule: a page reading a newly added schema type must use `writeClient`, not `client`.** The
+same applies to throwaway scripts in `.scratch/` — one that checks "did the delete work?"
+without a token reports 0 whether or not anything was deleted.
+
+---
+
+## Prices carry a currency; `parsePriceAmount` does not (2026-08-28)
+
+`parsePriceAmount()` reads decimal separators correctly but returns a **bare number**. It
+does not convert currencies. `estimateAvgOrderValue()` used to average those bare numbers,
+and `breakEven()` treats its input as USD. Result: `wowgadgets99.com` at ₹1,257 was read as
+$1,257 — really about $15, off by 83×.
+
+That produced the exact opposite conclusion — *"WoWGadgets99 only needs 0.4% of visitors to
+buy → viable"* when the truth is ~33% → impossible. The claim lived in `TODO.md`, in this
+file, and **pinned in `tests/adPlanner.test.ts`** for 18 days, because "$1,257" looks
+perfectly reasonable.
+
+`estimateAvgOrderValue()` now takes **price strings**, groups by currency symbol and averages
+only within the largest group. `estimateDungDuocLamUSD()` gates what may reach `breakEven()`
+— `€` is blocked too, since 5–20% drift is still a wrong answer.
+
+📌 The genuinely viable store is **bodegacooler.com**: $520 average order across 41 deals,
+about 1% conversion needed at $0.50 CPC.
+
+---
+
+## Comparison tables: the second product was invisible on a phone (2026-08-28)
+
+A three-column table (label + 2 products) measured **1289px inside a 342px viewport**, so the
+second product sat entirely off-screen. A *comparison* table showing one product loses its
+whole reason to exist — and ad traffic is mostly mobile. Desktop was no better: 2693px inside
+an 800px column, because `.article-body thead th{white-space:nowrap}` forced a 189-character
+product title onto one line.
+
+Products are now **numbered**; full titles appear once in the header, each value cell carries
+only its number (`data-idx`). Below 720px the table stops being a table and each attribute
+becomes a card holding both values.
+
+**⚠️ Do not reach for the `|short` product form here.** On the two real titles
+`shortProductNames()` returns `61QT(58L` (unbalanced bracket) and `Car`. Truncating from the
+left is useless too — the two titles share their first 37 characters, so every cut yields two
+identical labels.
+
+**⚠️ CSS specificity, and it cost a round:** `.article-body table` is `(0,1,1)`, higher than a
+bare class `(0,1,0)`, so `.cmp-table{min-width:0}` never beat `min-width:520px`. Media queries
+add no specificity. The stacked layout appeared correctly while every card stayed 520px wide
+and text was clipped on both sides. Write `.article-body .cmp-table`.
+
+**⚠️ `table-layout:fixed` only suits few columns.** On the 12-product article it left each
+column ~61px with text breaking one letter per line — worse than horizontal scrolling. The
+`cmp-fit` class is only emitted for 3 products or fewer.
+
+---
+
+## Scraped product titles arrive HTML-encoded (2026-08-28)
+
+The scraper stores the shop's raw HTML, so Sanity holds `&#39;` and `&amp;` inside product
+titles. `esc()` then encodes them a second time and the reader sees
+`&#39;Monkey Business Only&#39;` — at the top of a comparison table and on product cards, the
+first thing anyone looks at.
+
+`postRender.ts` now uses `escText()` (decode once, then escape) for scraped **text**; URLs
+still use plain `esc()`. Decoding then re-escaping is safe — an escaped script tag comes back
+out escaped — and the single left-to-right pass means `&amp;lt;` yields `&lt;`, not a real
+tag. **Decoding twice would be the vulnerability**, and there are tests holding that line.
+
+Fixed at render rather than in the data: the scraper will keep producing entities, so
+repairing the five affected records would not stop the next one.
+
+---
+
+## `/admin/ads` — what it deliberately does not do (2026-08-28)
+
+1. **It does not control Google.** The daily cap and the kill switch live in a Google Ads
+   Script running on Google's servers, so a dead cron cannot remove the cap. A button here
+   that Google does not obey would be false safety — the project's most expensive failure
+   family. The buttons read *"Đánh dấu đang chạy"*, never a bare play icon, and sit beside a
+   link that opens Google Ads.
+2. **It never prints a profit figure.** Orders are recorded at GoAffPro and the site cannot
+   see them. What it measures is **cost per merchant click**.
+3. **It does not bid automatically.** The profit signal is typed in by hand and lags by days.
+
+`chua-du-so-lieu` is the **default verdict and the correct answer** below 25 merchant clicks.
+Two deliberate asymmetries: an obvious loss stops immediately without waiting for the sample,
+and spending 3× the threshold with zero clicks also stops (Poisson λ=3, P(0) ≈ 5%). Stopping
+early costs an opportunity; scaling early costs money.
+
+**⚠️ Store economics have to reach the campaign.** A campaign pointing at a blog post has no
+`destinationStore`, so a commission rate typed against the store never arrived. And the $520
+average order is **estimated at render time** in `/admin/ad-planner`, never stored — so
+reading `destinationStore->avgOrderValue` found `null` as well. `/admin/ads` now infers the
+store from the **domain of the article's product URLs** and estimates the order value with the
+very same `estimateAvgOrderValue()`, and the UI says where the number came from:
+*"ngưỡng $1.14 theo Bodegacooler (đơn TB ước lượng)"*.
+
+**⚠️ A VND Google Ads account changes three things.** `getStatsFor().getCost()` returns the
+**account currency**, so a cap written as `5` meaning "five dollars" is read as five đồng and
+pauses everything on the first run, silently. The max-CPC field is đồng too — `0.15` means
+0.15 đồng, zero impressions, and it looks exactly like "the market is too expensive". And the
+cap is not a copy of the daily budget: Google may spend up to 2× on any one day, so set it
+around 2.5×.
