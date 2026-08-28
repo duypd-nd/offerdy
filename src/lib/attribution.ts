@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import type { ShortLinkSource } from './shortLinkSource'
+import { ATTRIBUTION_COOKIE, parseAttribution } from './attributionCookie'
 
 /**
  * Gan nguon cho click affiliate xay ra SAU khi khach vao tu short link.
@@ -10,52 +10,30 @@ import type { ShortLinkSource } from './shortLinkSource'
  * Khong noi hai buoc lai thi chi biet "Instagram cho bao nhieu luot XEM", khong
  * bao gio biet "Instagram cho bao nhieu luot BAM sang merchant".
  *
- * Cach noi: /d/ va /g/ dat mot cookie first-party ghi nguon; cac ham track click
- * doc lai cookie do va luu vao ban ghi click. Khong dung localStorage vi server
- * action can doc duoc gia tri nay.
+ * Cach noi: cookie first-party ghi nguon; cac ham track click doc lai cookie do
+ * va luu vao ban ghi click. Khong dung localStorage vi server action can doc
+ * duoc gia tri nay.
+ *
+ * BA cho dat cookie do, khong con hai:
+ *   - `/d/[code]` va `/g/[code]` — short link, biet ca `entryCode`
+ *   - `src/middleware.ts` — MOI trang dich khac (blog, review, store) khi URL
+ *     mang `?s=` hoac click-id cua Google Ads. Khong co no thi quang cao dan
+ *     thang vao /blog/... se khong gan duoc nguon cho cu bam sang merchant.
+ *
+ * ⚠️ Phan thuan (ten cookie, doc/ghi chuoi, tuy chon cookie) nam o
+ * `attributionCookie.ts` vi middleware KHONG dung duoc `next/headers`. File nay
+ * xuat lai toan bo — dung nhap tu day trong middleware.
  */
-export const ATTRIBUTION_COOKIE = 'ofd_src'
-
-// 7 ngay: du cho "thay tren Instagram toi nay, mai mo lai mua", nhung khong dai
-// den muc gan mot don hang thang sau cho mot bai dang da cu.
-const MAX_AGE_SECONDS = 7 * 24 * 60 * 60
-
-export type Attribution = {
-  source: ShortLinkSource
-  campaign?: string
-  /** Ma san pham cua short link dua khach vao — de biet bai dang nao mo dau. */
-  entryCode?: number
-}
-
-// Dinh dang phang "source|campaign|code" thay vi JSON: gia tri nay di qua header
-// Cookie, JSON phai encode/decode lam chuoi dai va de vo hon.
-export function serializeAttribution(a: Attribution): string {
-  return [a.source, a.campaign ?? '', a.entryCode ?? ''].join('|')
-}
-
-function parseAttribution(raw: string): Attribution | null {
-  const [source, campaign, code] = raw.split('|')
-  if (!source) return null
-  const entryCode = code ? Number(code) : undefined
-  return {
-    source: source as ShortLinkSource,
-    campaign: campaign || undefined,
-    entryCode: Number.isSafeInteger(entryCode) ? entryCode : undefined,
-  }
-}
-
-export const attributionCookieOptions = {
-  maxAge: MAX_AGE_SECONDS,
-  httpOnly: true,
-  // Lax (khong phai Strict): khach den TU mot site khac (Instagram), Strict se
-  // khong gui cookie o dieu huong dau tien va lam mat luon phep gan nguon.
-  sameSite: 'lax' as const,
-  secure: process.env.NODE_ENV === 'production',
-  path: '/',
-}
+export {
+  ATTRIBUTION_COOKIE,
+  attributionCookieOptions,
+  parseAttribution,
+  serializeAttribution,
+  type Attribution,
+} from './attributionCookie'
 
 /** Doc cookie gan nguon. Dung trong server action / route handler. */
-export async function readAttribution(): Promise<Attribution | null> {
+export async function readAttribution() {
   try {
     const raw = (await cookies()).get(ATTRIBUTION_COOKIE)?.value
     return raw ? parseAttribution(raw) : null

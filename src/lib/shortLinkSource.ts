@@ -12,13 +12,38 @@
 export type ShortLinkSource =
   | 'instagram' | 'tiktok' | 'facebook' | 'threads' | 'pinterest' | 'youtube'
   | 'twitter' | 'linkedin' | 'reddit' | 'telegram' | 'snapchat' | 'zalo'
-  | 'google' | 'internal' | 'direct' | 'other'
+  | 'google' | 'google-ads' | 'internal' | 'direct' | 'other'
 
 export const SOURCE_LABEL: Record<ShortLinkSource, string> = {
   instagram: 'Instagram', tiktok: 'TikTok', facebook: 'Facebook', threads: 'Threads',
   pinterest: 'Pinterest', youtube: 'YouTube', twitter: 'X (Twitter)', linkedin: 'LinkedIn',
   reddit: 'Reddit', telegram: 'Telegram', snapchat: 'Snapchat', zalo: 'Zalo',
-  google: 'Google', internal: 'Trong site', direct: 'Gõ tay / trực tiếp', other: 'Khác',
+  google: 'Google (tự nhiên)', 'google-ads': 'Google Ads (trả tiền)',
+  internal: 'Trong site', direct: 'Gõ tay / trực tiếp', other: 'Khác',
+}
+
+/**
+ * Click-id do CHINH Google Ads gan vao URL dich.
+ *
+ * ⚠️ VI SAO PHAI TACH `google-ads` KHOI `google`: referer cua ca hai deu la
+ * `google.com`, nen neu chi doc referer thi tien quang cao va luot tim kiem mien
+ * phi bi gop lam mot — va moi phep do hieu qua quang cao thanh vo nghia. Su co
+ * mat cua click-id la BANG CHUNG TRUC TIEP: Google chi gan no cho luot bam co
+ * tra tien.
+ *
+ * Ba tham so vi Google dung ca ba: `gclid` la ban goc, `gbraid`/`wbraid` la ban
+ * giu rieng tu (iOS / khi khong co cookie). Thieu hai cai sau thi mot phan luu
+ * luong tra tien se bi doc nham thanh tim kiem tu nhien.
+ *
+ * ⚠️ Han che da biet, cho tuong lai: neu ai do CHEP nguyen URL con gclid roi dan
+ * len Instagram thi luot bam do se bi ghi la `google-ads`. Google Analytics cung
+ * co dung diem mu nay. Luu luong o muc nay thi khong dang chua; neu sau nay thay
+ * so `google-ads` cao bat thuong ma chi tieu khong doi, day la cho can soi.
+ */
+const PAID_CLICK_IDS = ['gclid', 'gbraid', 'wbraid'] as const
+
+export function hasGoogleAdsClickId(params: URLSearchParams): boolean {
+  return PAID_CLICK_IDS.some(k => !!params.get(k))
 }
 
 // Token in-app webview. `Barcelona` la ten noi bo cua app Threads, `musical_ly`/
@@ -56,12 +81,19 @@ const REFERER_SOURCES: [RegExp, ShortLinkSource][] = [
  *   TRONG SITE. Bat buoc phai so voi host that chu khong chi voi `offerdy.com`
  *   hardcode: tren localhost / domain preview cua Vercel, referer noi bo se roi
  *   vao 'other' va lam mat phep gan nguon tu cookie (bug da gap khi test).
+ * @param paidClickId URL co click-id cua Google Ads khong (xem
+ *   `hasGoogleAdsClickId`). Uu tien CAO NHAT, tren ca UA in-app: click-id do
+ *   chinh Google gan cho luot bam co tra tien, con UA chi noi ve trinh duyet.
+ *   Mot quang cao mo trong webview Instagram van la tien quang cao.
  */
 export function detectShortLinkSource(
   userAgent: string | null,
   referer: string | null,
-  selfHost?: string | null
+  selfHost?: string | null,
+  paidClickId?: boolean
 ): ShortLinkSource {
+  if (paidClickId) return 'google-ads'
+
   const ua = userAgent ?? ''
   for (const [re, source] of UA_SOURCES) if (re.test(ua)) return source
 
