@@ -56,6 +56,18 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
   const [qr, setQr] = useState<{ url: string; svg: string } | null>(null)
   const [toast, setToast] = useState('')
   const [angle, setAngle] = useState<CaptionAngle>('price')
+  /**
+   * Bao nhieu ban caption moi lan bam.
+   *
+   * ⚠️ KHONG phai "moi ban mot luot goi model". `generateCaptions()` goi
+   * `generateStructured()` DUNG MOT LAN bat ke count — so ban di vao prompt. Nen
+   * phan tiet kiem la TOKEN DAU RA, con phan dau vao (system prompt + vi du caption
+   * da ra click) khong doi. Giam tu 3 xuong 1 khong cat chi phi xuong mot phan ba.
+   *
+   * Van dang de chon: khi da quen giong cua shop thi mot ban la du, va hai ban kia
+   * chi de vut di.
+   */
+  const [soBan, setSoBan] = useState(3)
   const [platform, setPlatform] = useState<CaptionPlatform>('instagram')
   const [aiCaptions, setAiCaptions] = useState<GeneratedCaption[]>([])
   const [aiRejected, setAiRejected] = useState<string[]>([])
@@ -126,7 +138,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
     setAiError(''); setAiRejected([]); setAiCaptions([])
     startAi(async () => {
       const res = await generateCaptionsForDeal({
-        code: deal.code, angle, platform, count: 3, style, campaign,
+        code: deal.code, angle, platform, count: soBan, style, campaign,
       })
       if (!res.ok) { setAiError(res.error); return }
       setAiCaptions(res.captions)
@@ -614,9 +626,28 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                       ))}
                     </div>
                   </div>
-                  <button className="oa-btn oa-btn-green" onClick={runAi} disabled={aiPending || !deal} style={{ flexShrink: 0 }}>
-                    {aiPending ? 'Đang viết…' : '✨ Viết 3 bản'}
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                    {/* Dat ngay canh nut de nguoi van hanh thay lua chon truoc khi
+                        bam, khong phai di tim trong mot trang cai dat nao khac. */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#6B7694' }}>
+                      Số bản
+                      <select
+                        value={soBan}
+                        onChange={e => setSoBan(Number(e.target.value))}
+                        disabled={aiPending}
+                        title="Ít bản hơn = ít token đầu ra hơn. Vẫn là một lượt gọi AI."
+                        style={{ minHeight: 32, padding: '0 6px', borderRadius: 7, fontSize: 12,
+                                 fontWeight: 700, border: '1.5px solid #E4EAF2', background: '#fff', color: '#374151' }}
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                      </select>
+                    </label>
+                    <button className="oa-btn oa-btn-green" onClick={runAi} disabled={aiPending || !deal}>
+                      {aiPending ? 'Đang viết…' : `✨ Viết ${soBan} bản`}
+                    </button>
+                  </div>
                 </div>
 
                 {aiError && (
