@@ -46,9 +46,21 @@ next-env.d.ts
 .vercel
 .env*
 
-# Bao cao sinh tu dong (npm run triage:dead). Cac file .md trong .scratch/ la
-# issue tracker cua du an nen VAN duoc theo doi — chi bo qua ban ket xuat.
-.scratch/*.json
+# --- .scratch/ ---------------------------------------------------------
+# Thu muc nhap. Do 28/08/2026: 228 file chua theo doi, 34 MB — anh chup man
+# hinh, mp4, tts-cache, log, va cookies.txt chua cookie phien DA KY cua 3 tai
+# khoan admin thu. Repo nay CONG KHAI, nen mot lan `git add .` la lo that.
+#
+# Luat: bo qua tat ca, TRU file .md nam TRONG THU MUC CON — do dung la quy uoc
+# issue tracker cua du an (.scratch/<feature-slug>/spec.md, xem
+# docs/agents/issue-tracker.md). File .md nam ngay duoi .scratch/ la ghi chu
+# nhap (trong do co ban sao 346 KB cua docs/NHAT_KY.md) nen KHONG theo doi.
+#
+# ⚠️ Dong `!.scratch/**/` la BAT BUOC, dung xoa: git khong mo lai duoc mot file
+# neu thu muc cha cua no dang bi loai.
+.scratch/**
+!.scratch/**/
+!.scratch/*/**/*.md
 
 # Ban sao luu kho tai khoan quan tri (npm run vault:backup).
 # ⚠️ Moi file .enc o day co gia tri ngang toan bo quyen quan tri: no chua
