@@ -33,11 +33,34 @@ import { trackArticleLinkClick } from '@/actions/trackClick'
  * huong xay ra binh thuong — link co `target="_blank"` nen trang nay van song,
  * request khong bi huy giua chung.
  */
+/**
+ * Nut mua tren trang bai viet nam o BA cho, khong phai mot.
+ *
+ * Do 28/08 sau khi da sua lan dau: `.article-body` moi chi phu 229 nut trong 41
+ * bai blog. Trang review con HAI nut nua NAM NGOAI than bai va cung chua tung
+ * duoc dem:
+ *   - `a.article-cta`  — nut "Check the best price" (reviews/[slug]/page.tsx:207)
+ *   - `.rv-coupon`     — nut trong hop ma giam gia (ReviewCouponBox.tsx:63)
+ * Ca 23 trang review deu co ca hai.
+ *
+ * ⚠️ Danh sach TUONG MINH chu khong nhan bua moi `a[rel~=sponsored]` tren trang:
+ * neu sau nay mot component dung `AffiliateLink` duoc dat vao trang bai viet thi
+ * ca hai handler cung ban va luot bam bi dem HAI LAN — mot loi lam so lieu phong
+ * len ma khong co dau hieu gi. Do 28/08: hien khong component nao nhu vay
+ * (DealsGrid/OfferCard/StoreOfferList deu khong xuat hien o day), nhung danh sach
+ * tuong minh giu cho no dung ke ca khi dieu do doi.
+ */
+const VUNG_MUA = '.article-body, .rv-coupon'
+
+function trongVungBaiViet(a: HTMLAnchorElement): boolean {
+  return !!a.closest(VUNG_MUA) || a.classList.contains('article-cta')
+}
+
 export default function ArticleLinkTracker() {
   useEffect(() => {
     function onClick(e: MouseEvent) {
       const a = (e.target as HTMLElement | null)?.closest?.('a')
-      if (!a || !a.closest('.article-body')) return
+      if (!a || !trongVungBaiViet(a)) return
 
       // `rel` thuong la "nofollow sponsored noopener" nen phai tach theo khoang
       // trang. Dung `includes('sponsored')` tren ca chuoi se khop ca mot rel bia
