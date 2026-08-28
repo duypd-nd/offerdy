@@ -1,4 +1,6 @@
 import { writeClient } from '@/sanity/writeClient'
+import { dealBelongsToStore, hostKey } from '@/lib/dealStoreMatch'
+import { estimateAvgOrderValue, estimateDungDuocLamUSD } from '@/lib/adPlanner'
 import AdsClient, { type CampaignRow, type GiaDinh } from './AdsClient'
 
 export const dynamic = 'force-dynamic'
@@ -50,7 +52,12 @@ const CAMPAIGN_QUERY = `*[_type == "adCampaign"] | order(status asc, name asc) {
   "storeCommissionRate": destinationStore->commissionRate,
   "storeAvgOrderValue": destinationStore->avgOrderValue,
   "postTitle": destinationPost->title,
-  "reviewTitle": destinationReview->title
+  "reviewTitle": destinationReview->title,
+  // URL san pham trong bai — de suy ra store lay so kinh te khi chien dich tro toi
+  // mot BAI VIET chu khong phai mot store. Xem kinhTeTuBaiViet() ben duoi.
+  // (khong dat backtick trong chu thich nay: no nam GIUA mot template literal va
+  //  se dong chuoi giua chung — luat 6 cua du an, da mac 5 lan)
+  "urlSanPham": coalesce(destinationPost->articleProducts[].url, destinationReview->articleProducts[].url)
 }`
 
 // Chi tieu gom theo chien dich. Gom o GROQ chu khong keo ca ban ghi ve roi cong
@@ -76,16 +83,69 @@ const MERCHANT_CLICK_QUERY = `*[_type == "click" && defined(campaign)] { campaig
 
 const CONFIG_QUERY = `*[_type == "configAds"][0] { estimatedOrderRate, fallbackEarningsPerOrder, tyGiaVndPerUsd }`
 
+/**
+ * ⚠️ Store de lay SO KINH TE cho chien dich tro toi mot BAI VIET.
+ *
+ * Lo hong da gap 28/08: user khai `commissionRate: 11` cho Bodegacooler, nhung
+ * chien dich tro toi mot bai BLOG nen `destinationStore` la null — con so do khong
+ * chay toi dau ca, va trang van dung so mac dinh. Bai viet thi ro rang la viet ve
+ * san pham cua mot shop cu the.
+ *
+ * Suy ra theo DOMAIN cua URL san pham trong bai — cung nguyen tac `dealStoreMatch.ts`
+ * ("suy ra duoc thi dung suy ra"), va cung cach `trackArticleLinkClick` tim store.
+ * Bai co san pham cua nhieu shop thi lay shop DONG NHAT.
+ *
+ * `destinationStore` khai tay van THANG: no la lua chon co y cua nguoi van hanh.
+ */
+const STORE_KINH_TE_QUERY = `*[_type == "store" && (defined(website) || defined(affiliateLink))]{
+  "slug": slug.current, name, website, affiliateLink, commissionRate, avgOrderValue, allowsPaidTraffic
+}`
+
+/**
+ * ⚠️ Gia tri don TB phai UOC LUONG duoc, y het `/admin/ad-planner`.
+ *
+ * Lo hong da gap 28/08: user khai `commissionRate: 11` cho Bodegacooler va de
+ * `avgOrderValue` trong — vi o ad-planner con so $520 hien san duoi dang GOI Y,
+ * duoc uoc luong LUC RENDER tu 41 deal cua shop chu khong luu vao store. Trang nay
+ * doc thang `destinationStore->avgOrderValue` nen thay `null`, va moi phan quyet
+ * dung lai o "chua du so lieu" du da co du hai nua thong tin.
+ *
+ * Dung lai dung `estimateAvgOrderValue` + `estimateDungDuocLamUSD` — khong viet
+ * phep uoc luong thu hai. Ban thu hai la cho de lech, va cho lech o day la mot
+ * nguong hoa von sai.
+ */
+const DEAL_GIA_QUERY = `*[_type == "deal"]{ store, dealUrl, priceSale }`
+
+type StoreKinhTe = {
+  slug?: string; name: string; website?: string; affiliateLink?: string
+  commissionRate?: number; avgOrderValue?: number; allowsPaidTraffic?: string
+}
+
+function kinhTeTuBaiViet(urls: string[] | undefined, stores: readonly StoreKinhTe[]): StoreKinhTe | null {
+  if (!urls?.length) return null
+  const dem = new Map<string, number>()
+  for (const u of urls) {
+    const h = hostKey(u)
+    if (h) dem.set(h, (dem.get(h) ?? 0) + 1)
+  }
+  let host: string | null = null, nhieuNhat = 0
+  for (const [h, n] of dem) if (n > nhieuNhat) { host = h; nhieuNhat = n }
+  if (!host) return null
+  return stores.find(s => hostKey(s.website) === host || hostKey(s.affiliateLink) === host) ?? null
+}
+
 type SpendRaw = { tag?: string; cost?: number; adClicks?: number; impressions?: number; date?: string }
 type ClickRaw = { campaign?: string; source?: string }
 
 export default async function AdsPage() {
-  const [campaigns, spend, clicks, cfg] = await Promise.all([
+  const [campaigns, spend, clicks, cfg, storesKinhTe, deals] = await Promise.all([
     readClient.fetch<Record<string, never>[]>(CAMPAIGN_QUERY),
     readClient.fetch<SpendRaw[]>(SPEND_QUERY),
     readClient.fetch<ClickRaw[]>(MERCHANT_CLICK_QUERY),
     readClient.fetch<{ estimatedOrderRate?: number; fallbackEarningsPerOrder?: number; tyGiaVndPerUsd?: number } | null>(CONFIG_QUERY),
-  ]).catch(() => [[], [], [], null] as const)
+    readClient.fetch<StoreKinhTe[]>(STORE_KINH_TE_QUERY),
+    readClient.fetch<{ store?: string; dealUrl?: string; priceSale?: string }[]>(DEAL_GIA_QUERY),
+  ]).catch(() => [[], [], [], null, [], []] as const)
 
   const spendByTag = new Map<string, { cost: number; adClicks: number; impressions: number; days: number }>()
   for (const s of spend ?? []) {
@@ -114,6 +174,23 @@ export default async function AdsPage() {
     const tag = (c.campaignTag as string) ?? ''
     const sp = spendByTag.get(tag)
     const cl = clicksByTag.get(tag)
+    const suyRa = kinhTeTuBaiViet(c.urlSanPham as string[] | undefined, storesKinhTe ?? [])
+
+    // So khai tay THANG. Khong co thi uoc luong tu chinh gia deal cua shop do —
+    // va CHI dung khi uoc luong ra USD (₹1257 doc thanh $1257 la loi da song 18
+    // ngay, xem `estimateDungDuocLamUSD`).
+    const storeCho = (c.storeName as string) ?? suyRa?.name ?? null
+    let aovUocLuong: number | null = null
+    if (storeCho) {
+      const s = (storesKinhTe ?? []).find(x => x.name === storeCho)
+      if (s) {
+        const est = estimateAvgOrderValue(
+          (deals ?? []).filter(d => dealBelongsToStore(d, { name: s.name, website: s.website, affiliateLink: s.affiliateLink }))
+            .map(d => d.priceSale)
+        )
+        if (estimateDungDuocLamUSD(est)) aovUocLuong = est!.avg
+      }
+    }
     return {
       id: c.id as string,
       name: (c.name as string) ?? '(chưa đặt tên)',
@@ -125,9 +202,12 @@ export default async function AdsPage() {
       dailyBudget: (c.dailyBudget as number) ?? null,
       maxDailyBudget: (c.maxDailyBudget as number) ?? null,
       note: (c.note as string) ?? null,
-      storeAllowsPaidTraffic: (c.storeAllowsPaidTraffic as string) ?? null,
-      storeCommissionRate: (c.storeCommissionRate as number) ?? null,
-      storeAvgOrderValue: (c.storeAvgOrderValue as number) ?? null,
+      // So khai tay o chinh chien dich THANG; khong co thi suy tu bai viet.
+      storeAllowsPaidTraffic: (c.storeAllowsPaidTraffic as string) ?? suyRa?.allowsPaidTraffic ?? null,
+      storeCommissionRate: (c.storeCommissionRate as number) ?? suyRa?.commissionRate ?? null,
+      storeAvgOrderValue: (c.storeAvgOrderValue as number) ?? suyRa?.avgOrderValue ?? aovUocLuong,
+      aovLaUocLuong: (c.storeAvgOrderValue as number) == null && suyRa?.avgOrderValue == null && aovUocLuong != null,
+      storeKinhTeTuBai: c.destinationStore == null && suyRa != null ? suyRa.name : null,
       cost: sp?.cost ?? 0,
       adClicks: sp?.adClicks ?? 0,
       impressions: sp?.impressions ?? 0,

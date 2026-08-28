@@ -19,6 +19,10 @@ export type CampaignRow = {
   maxDailyBudget: number | null
   note: string | null
   storeAllowsPaidTraffic: string | null
+  /** Ten store SUY RA tu san pham trong bai (null neu khai tay o chien dich). */
+  storeKinhTeTuBai: string | null
+  /** Gia tri don TB la UOC LUONG tu gia deal, khong phai so nguoi van hanh go. */
+  aovLaUocLuong: boolean
   storeCommissionRate: number | null
   storeAvgOrderValue: number | null
   cost: number
@@ -237,6 +241,9 @@ export default function AdsClient({ rows, giaDinh }: { rows: CampaignRow[]; giaD
                       {gt && (
                         <div style={{ color: '#64748b', fontSize: 11 }}>
                           ngưỡng {usd(gt.value)}{gt.tuStore ? '' : '*'}
+                          {gt.tuStore && r.storeKinhTeTuBai && (
+                            <><br />theo {r.storeKinhTeTuBai}{r.aovLaUocLuong ? ' (đơn TB ước lượng)' : ''}</>
+                          )}
                         </div>
                       )}
                     </td>
@@ -245,7 +252,9 @@ export default function AdsClient({ rows, giaDinh }: { rows: CampaignRow[]; giaD
                         {v.text}
                       </span>
                       <div style={{ color: '#64748b', fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
-                        {kq?.reason ?? 'Chưa đặt giả định nên chưa tính được ngưỡng hoà vốn.'}
+                        {kq?.reason ?? (rateNum == null
+                          ? 'Chưa điền "% khách bấm sang merchant sẽ mua" ở đầu trang.'
+                          : 'Chưa biết hoa hồng mỗi đơn cho chiến dịch này — khai "% hoa hồng" cho store ở /admin/ad-planner, hoặc điền ô mặc định ở đầu trang.')}
                       </div>
                     </td>
                     {/* ⚠️ NUT O DAY CHI GHI SO, KHONG BAT/TAT GOOGLE.
