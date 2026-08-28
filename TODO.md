@@ -28,15 +28,292 @@ ngày sinh lúc `2026-08-27T17:57:03Z` bằng `groq/openai/gpt-oss-20b` sau 4 ng
 | `6d9a7d5` | `docs` — bẫy Vercel env, bảng đo router, "5 link hỏng" chỉ 1 hỏng thật |
 | *(commit này)* | `fix(links)` — 401/403/429 là chặn truy cập, không kết luận được |
 
+### 🎯 Giai đoạn 1 của trang quảng cáo — ĐÃ XONG 28/08: bịt lỗ hổng gắn nguồn
+
+Kế hoạch đầy đủ ở `~/.claude/plans/l-n-t-ng-t-o-polished-panda.md` — **đọc trước, đừng
+thiết kế lại.** Đã chốt với user: chỉ đề xuất (không tự động đấu thầu) · trần ngân sách
+đặt bằng Google Ads Script phía Google · đích là Blog + Review + Store · doanh thu dùng
+**lượt bấm sang merchant** làm đích thay thế (doanh thu thật nằm bên GoAffPro, không lấy
+được).
+
+**Vấn đề đã giải:** cookie gắn nguồn trước đây **chỉ** được đặt ở `/d/` và `/g/`. Quảng cáo
+dẫn thẳng vào `/blog/...` thì cú bấm sang merchant sau đó không mang nguồn nào — tiền chạy
+mà không quy được về chiến dịch. Đo được: **56 bản ghi `click`, chỉ 5 có nguồn.**
+
+| File | Việc |
+|---|---|
+| `src/lib/attributionCookie.ts` (mới) | phần **thuần** của phép gắn nguồn, tách khỏi `attribution.ts` |
+| `src/lib/proxyAttribution.ts` (mới) | đặt cookie cho mọi trang đích |
+| `src/lib/shortLinkSource.ts` | thêm nguồn `google-ads` + `hasGoogleAdsClickId()` |
+| `src/proxy.ts` | gộp nhánh gắn nguồn vào cổng gác admin |
+| `tests/adAttribution.test.ts` (mới) | 8 assertion, **612 → 620** |
+
+⚠️ **BẪY LỚN NHẤT — Next 16 đổi `middleware` thành `proxy`, và repo ĐÃ CÓ `src/proxy.ts`.**
+Tôi viết `src/middleware.ts` theo trí nhớ và build gãy cứng: *"Both middleware file and proxy
+file are detected"*. Next chỉ cho **MỘT** file proxy cả dự án, nên phải **gộp** logic gắn
+nguồn vào chính cổng gác đăng nhập admin. Tài liệu ở
+`node_modules/next/dist/docs/01-app/01-getting-started/16-proxy.md` — đúng lệnh `AGENTS.md`
+là đọc trước khi viết, tôi đã bỏ qua và trả giá một vòng.
+
+⚠️ **Thứ tự trong `proxy.ts` là vấn đề an ninh.** `DUONG_DAN_CAN_GAC` phải khớp y nguyên
+`config.matcher`; sửa một bên mà quên bên kia là mở lỗ hổng. Đã kiểm đòn `/admin?s=ads-thu`
+để thử đi vòng qua cổng gác — vẫn 307 về `/admin/login`.
+
+⚠️ **Chỉ đặt cookie khi URL mang `?s=` hoặc click-id.** Không phải để tiết kiệm: đặt cookie
+trên mọi lượt xem sẽ làm trang tĩnh trả về `Set-Cookie`, và một bản HTML đã cache kèm
+`Set-Cookie` có thể phát nhầm cookie người này cho người khác. Đo trên `next start`: lượt
+truy cập thường vẫn giữ `s-maxage=60`, chỉ lượt có tín hiệu mới thành `private, no-store`.
+
+📌 **`google` và `google-ads` có CÙNG referer** — chỉ click-id (`gclid`/`gbraid`/`wbraid`)
+tách được. Không tách thì tiền quảng cáo và lượt tìm kiếm miễn phí bị gộp làm một.
+
+**Đã kiểm trên `next start` (không phải dev):**
+
+| Phép kiểm | Kết quả |
+|---|---|
+| `?s=ads-thu&gclid=X` + referer Google | `google-ads\|ads-thu` ✅ |
+| cùng referer, **bỏ** gclid | `google\|ads-thu` ✅ tách đúng |
+| không tín hiệu gì | không đặt cookie, giữ `s-maxage=60` ✅ |
+| `/d/1212?s=ig-thu` (đường cũ) | `instagram\|ig-thu\|1212` ✅ còn `entryCode` |
+| `/admin`, `/admin?s=ads-thu` | 307 → `/admin/login` ✅ cổng gác nguyên vẹn |
+| `/api/import` | 401 JSON ✅ |
+| **Luật 8c** — gỡ bản vá, build lại, đo lại | cookie **biến mất**; lắp vào thì có ✅ |
+
+⚠️ Trong lúc làm phép 8c đã dính đúng bẫy `AGENTS.md`: `taskkill` chạy nhưng **server cũ vẫn
+sống**, log báo `EADDRINUSE`. Nếu không kiểm log trước khi đo thì đã đo nhầm bản cũ và kết
+luận ngược. Trên Windows dùng `Stop-Process` của PowerShell, đừng dùng `taskkill //PID` qua
+Git Bash — cú pháp bị nuốt.
+
+**Chưa commit.** Còn Giai đoạn 2 (schema `adCampaign`/`adSpendEntry` + trang `/admin/ads`)
+và Giai đoạn 3 (`src/lib/adPerformance.ts` + bộ đề xuất).
+
+### 🎯 Giai đoạn 2 + 3 của trang quảng cáo — ĐÃ XONG 28/08
+
+| File | Việc |
+|---|---|
+| `sanity/schemaTypes/adCampaign.ts` (mới) | chiến dịch: nhãn `?s=`, loại trang đích, ngân sách, trần |
+| `sanity/schemaTypes/adSpendEntry.ts` (mới) | chi tiêu **một ngày một chiến dịch**, nhập tay từ Google Ads |
+| `sanity/schemaTypes/configAds.ts` | thêm 2 ô **giả định** (tỉ lệ đơn ước tính, hoa hồng mặc định/đơn) |
+| `src/lib/adPerformance.ts` (mới) | bộ đề xuất `tang`/`giu`/`dung`/`chua-du-so-lieu` + hàng rào PPC |
+| `src/lib/adPlanner.ts` | tách `earningsPerOrder()` ra để hai bên dùng chung một nguồn |
+| `src/app/admin/ads/` (mới) | trang + server action |
+| `tests/adPerformance.test.ts` (mới) | 12 assertion, **620 → 632** |
+
+**Ba điều trang này CỐ Ý không làm** — đừng "sửa" thành có:
+
+1. **Không điều khiển Google.** Trần ngân sách và lệnh tắt phải đặt bằng Google Ads Script
+   phía Google để cron chết thì trần vẫn giữ. Một cái nút ở admin mà Google không nghe là
+   cảm giác an toàn giả.
+2. **Không in số lợi nhuận.** Đơn hàng thật nằm bên GoAffPro. Thứ đo được là **chi phí mỗi
+   lượt bấm sang merchant**. In ra "lãi" là bịa (luật 2).
+3. **Không tự động tăng/giảm.** User đã chọn "chỉ đề xuất".
+
+📌 **`chua-du-so-lieu` là phán quyết MẶC ĐỊNH và đó là câu trả lời ĐÚNG.** Ngưỡng 25 lượt
+bấm sang merchant; với nền 21 lượt/30 ngày thì phần lớn chiến dịch sẽ nằm ở đây khá lâu.
+Hai ngoại lệ bất đối xứng có chủ đích: **lỗ rõ thì dừng ngay** không chờ đủ mẫu, và **tiêu
+gấp 3 ngưỡng mà 0 lượt bấm cũng dừng** (Poisson λ=3, P(0 lượt) ≈ 5%). Cho phép dừng sớm
+(sai thì mất cơ hội), không cho phép tăng sớm (sai thì mất tiền).
+
+### 🚨 BẪY MỚI, ĐẮT, SẼ CẮN LẠI — loại tài liệu MỚI vô hình với truy vấn không token
+
+Chú thích trong [`src/sanity/client.ts`](src/sanity/client.ts) viết *"dataset production là
+PUBLIC, đọc được không cần token"*. **Điều đó KHÔNG đúng với loại tài liệu mới.** Đo 28/08,
+cùng endpoint `api.sanity.io`, chỉ khác header `Authorization`:
+
+| Loại | Không token | Có token |
+|---|---|---|
+| `adCampaign` | **0** | **2** ⚠️ |
+| `adSpendEntry` | **0** | **2** ⚠️ |
+| `click` | 57 | 57 |
+| `captionLog` | 3 | 3 |
+| `store` | 107 | 107 |
+
+Và nó trả về **mảng rỗng chứ không ném lỗi** — trang hiện "0 chiến dịch" y hệt như khi chưa
+tạo cái nào. Mất một vòng đo mới tìm ra: tạo tài liệu xong, `curl` xác nhận HTTP 200 +
+`operation: "update"`, mà trang vẫn trống.
+
+**Luật rút ra: thêm một loại schema mới thì đường đọc phải dùng `writeClient` (có token),
+đừng dùng `client`.** `/admin/ads` nay dùng `writeClient` để đọc, như `/admin/ad-planner`.
+
+⚠️ **Kèm theo đó: mọi script `.scratch/` truy vấn không token sẽ "thấy 0" cho hai loại này**
+— kể cả script kiểm-đã-xoá-chưa. Đó là một phép đo không phân biệt được "đã xoá" với "không
+nhìn thấy". Dùng `.scratch/soi-public-read.mjs` để so hai bên.
+
+### ✅ Đã kiểm bằng Chrome thật (không chỉ test)
+
+Tạo 2 chiến dịch thử + 2 ngày chi tiêu, đo, rồi **xoá sạch** (đã xác nhận bằng truy vấn có
+token). Cố ý **không** tạo tài liệu `click` giả — chúng sẽ làm bẩn 57 bản ghi click thật và
+không phân biệt lại được.
+
+| Phép kiểm | Kết quả |
+|---|---|
+| Bố cục 390px | 390/390, 0 xén im lặng, 26 khối cuộn có chủ đích ✅ |
+| Phán quyết Poisson | $12,40 tiêu / 0 lượt / ngưỡng $0,24 → **"Nên dừng"** kèm lý do ✅ |
+| Hàng rào PPC — store chưa khai | bấm ▶️ → server từ chối, Sanity vẫn `draft` ✅ |
+| Hàng rào PPC — chiều ngược lại | blog bấm ▶️ → `active` ✅ **phân biệt được, không chặn bừa** |
+| `npm test` · `tsc` · `build` | **632/632** · sạch · sạch ✅ |
+
+⚠️ Hai lần suýt kết luận sai trong lúc đo, cả hai đều là bẫy đã ghi sẵn:
+`node do-admin-mobile.mjs /admin/ads` **thiếu `MSYS_NO_PATHCONV=1`** nên đo nhầm trang 404
+(rộng 980px = bề rộng mặc định của trang không có viewport meta), và script kiểm hàng rào
+in nhãn cứng "HANG RAO THUNG" trong khi kết quả thật là đúng.
+
+**Còn lại cho user** — hướng dẫn đầy đủ đã viết ở
+[`docs/03-workflows/WORKFLOW_GOOGLE_ADS.md`](docs/03-workflows/WORKFLOW_GOOGLE_ADS.md),
+script chặn ngân sách ở
+[`docs/03-workflows/google-ads-tran-ngan-sach.js`](docs/03-workflows/google-ads-tran-ngan-sach.js).
+⚠️ Script mới chỉ kiểm được **cú pháp** (`node --check`); các lệnh `AdsApp.*` đối chiếu tài
+liệu chính thức 28/08 nhưng **chưa chạy thật lần nào** — bắt buộc bấm *Preview* trước *Run*.
+
+**Chưa commit.**
+
+### 💳 Google Ads đã chạy thật — 28/08, và ba việc code còn nợ
+
+Tài khoản **610-787-1439** (`tkpro1.2026@gmail.com`), **tiền tệ VNĐ**, múi giờ GMT+7.
+Chiến dịch đầu: Search → bài blog *12-Volt Car Refrigerator 58L vs 15L*, nhãn
+`?s=ads-fridge-58l`, ngân sách **61.561đ/ngày**, CPC trần **4.000đ** (~$0,15),
+Hoa Kỳ · Tiếng Anh · **không** Display, **không** Search Partners.
+
+⚠️ **Tài khoản tính bằng VNĐ, không phải USD** — kéo theo ba hệ quả:
+1. Script chặn ngân sách đã sửa: `TRAN_MOI_NGAY_VND = 150000` (≈2,5× ngân sách ngày;
+   Google được tiêu tới 2× ngân sách trong một ngày lẻ nên đặt bằng ngân sách sẽ tắt oan).
+   **`getStatsFor().getCost()` trả tiền theo đơn vị TÀI KHOẢN, không phải USD** — ghi `5`
+   định là "5 đô" thì script hiểu 5 đồng và tắt sạch ngay lần chạy đầu, **không báo lỗi**.
+2. Ô giá thầu trần cũng bằng đồng: điền `0.15` = 0,15 đồng = 0 hiển thị, nhìn y hệt
+   "thị trường quá đắt". Đã bắt kịp trước khi chạy.
+3. `/admin/ads` tính bằng USD → mỗi ngày phải quy đổi tay. Tỉ giá 28/08 ≈ **26.200đ/$1**.
+
+**BA VIỆC CODE — ĐÃ XONG CẢ BA, 28/08:**
+
+1. ✅ **XONG — sửa lỗi trộn tiền tệ trong `adPlanner.ts`.** `estimateAvgOrderValue()` nay
+   **nhận chuỗi giá thay vì số**, tự đọc bằng `parsePriceAmount` + `priceSymbol`, gom theo
+   tiền tệ rồi chỉ lấy trung bình **trong nhóm đông nhất**, trả thêm `symbol` và `skipped`.
+   Thêm `estimateDungDuocLamUSD()` — chỉ `$` mới được đưa vào `breakEven()`; `€` cũng bị
+   chặn (lệch 5–20%). Giao diện `/admin/ad-planner` hiện ước lượng kèm ký hiệu thật và
+   dòng *"không phải USD — quy đổi rồi gõ tay"*.
+   **Kiểm trên dữ liệu production thật:** WoWGadgets99 (₹) → *"KHÔNG tính"* thay vì `good`
+   giả; Bodegacooler ($520) → *cần 1,0% → good*; Cloud Cushion vẫn đúng 10,5% như số cũ
+   (không hồi quy shop USD). Test thêm 5 ca, **632 → 637**.
+   *(mô tả lỗi cũ:)* `estimateAvgOrderValue()` lấy trung
+   bình số thô từ `parsePriceAmount()`, mà hàm đó **không quy đổi tiền tệ**. Đo lại 28/08
+   tách theo ký hiệu: **wowgadgets99.com = ₹1.257 ≈ $15**, không phải $1.257 — sai **83
+   lần**. Kết luận *"WoWGadgets99 cần 0,4% khách mua → có cửa"* đang nằm trong `TODO.md`,
+   trong chú thích `adPlanner.ts` và **đóng đinh trong `tests/adPlanner.test.ts`** là
+   **SAI**; nó là shop tệ nhất chứ không phải tốt nhất. Shop thật sự đáng chạy là
+   **bodegacooler.com ($520/đơn, 41 deal, USD)** — cần ~1% khách mua.
+2. ✅ **XONG — ô tỉ giá ở `/admin/ads`.** Chọn đơn vị `đ`/`$` ngay trong form nhập chi phí;
+   **quy đổi ở SERVER** (client là thứ sửa được). Bản ghi lưu cả `costNhapVao`, `donViNhap`
+   và `tyGia` — ba tháng sau nhìn lại `$0,47` vẫn biết nó từ bao nhiêu đồng, tỉ giá nào.
+   **Kiểm bằng Chrome thật:** gõ `61561đ` @ 26.200 → Sanity lưu `cost: 2.3496564…` ✅
+3. ✅ **XONG — và KHÔNG CẦN VIẾT DÒNG NÀO.** Đọc code trước khi viết đã tránh được cả một
+   tính năng thừa: `AffiliateLink.tsx` **đã** đẩy `dataLayer.push({event:'affiliate_click'})`
+   và GTM (`GTM-K3N8W8B8`) **đã** nằm sẵn trong `layout.tsx`. Kiểm bằng Chrome thật trên
+   `/stores/bodegacooler`: sự kiện bắn đúng, kèm `affiliate_url` + `store_name`.
+   Việc còn lại là **cấu hình trong GTM**, đã ghi thành Bước 5b của
+   `docs/03-workflows/WORKFLOW_GOOGLE_ADS.md` (ID `AW-18414886120`, trigger Custom Event
+   `affiliate_click`, **để trống ô Giá trị** — site không biết đơn hàng đáng bao nhiêu).
+   ⚠️ Kỳ vọng đúng mức: thuật toán cần ~15–30 chuyển đổi/tháng, site đang 21 lượt/30 ngày —
+   giá trị 1–2 tháng đầu là **báo cáo**, chưa phải tối ưu.
+
+⚠️ **BẪY MỚI ĐÃ SUÝT LÀM SAI PHÉP ĐO:** `npm run dev` khi cổng 3000 bận thì Next **không**
+báo `EADDRINUSE` — nó lặng lẽ nhảy sang **3001** và ghi `Port 3000 is in use by process N`.
+Mọi script đo vẫn gọi 3000 và đo **server cũ**. Vòng kiểm chỉ grep `EADDRINUSE` là **không
+đủ**; phải grep thêm `"Port 3000 is in use"` **và** `"Local:.*localhost:3000"`.
+
+### 🚨 LỖ HỔNG LỚN NHẤT PHÁT HIỆN 28/08 — link trong bài blog KHÔNG được đếm
+
+Phát hiện **sau khi chiến dịch Google Ads đã bật**, trong lúc kiểm chuỗi đo đầu-cuối.
+
+**Vấn đề:** thân bài blog/review render bằng `dangerouslySetInnerHTML`, và nút mua là thẻ
+`<a>` **HTML thô** do [`postRender.ts:111`](src/lib/postRender.ts) sinh ra — **không phải**
+component `AffiliateLink`. Không `onClick` nghĩa là không gì được đếm: không tài liệu
+`click`, không `dataLayer`, không chuyển đổi Google Ads.
+
+**Vì sao nó tệ hơn "thiếu số liệu":** `/admin/ads` sẽ thấy chi phí tăng mà 0 lượt bấm, rồi
+phán quyết **"Nên dừng"** theo nhánh Poisson. Phán quyết đó **sai** — lượt bấm có thể đang
+xảy ra mà không ai đếm. Máy tự tin nói một điều nó không biết, đúng thứ `chưa-đủ-số-liệu`
+được dựng để tránh, mà bị chọc thủng từ hướng khác.
+
+**Đã sửa:**
+
+| File | Việc |
+|---|---|
+| `src/components/ArticleLinkTracker.tsx` (mới) | nghe click **uỷ quyền** ở `document`, lọc bằng `closest('.article-body')` |
+| `src/actions/trackClick.ts` | thêm `trackArticleLinkClick(url)` — suy store theo **domain** (`hostKey`), ghi `articleHost` |
+| `blog/[slug]/page.tsx` · `reviews/[slug]/page.tsx` | gắn `<ArticleLinkTracker />` |
+
+📌 **Component `return null`, không bọc quanh gì cả.** `.article-body` có **18 quy tắc CSS**;
+chèn thêm một `<div>` là rủi ro vỡ bố cục 42 bài đang chạy tốt để đổi lấy không gì. Nghe ở
+`document` cho cùng kết quả mà không đụng một byte DOM.
+
+📌 Dùng **đúng tên sự kiện** `affiliate_click` như `AffiliateLink.tsx` — hai đường khác nhau
+nhưng một sự kiện, để **một** trigger GTM phủ được cả hai.
+
+📌 **Không `preventDefault`**: người ta bấm để đi mua hàng, giữ lại cho một lượt ghi Sanity
+(~350ms) là trực tiếp làm mất đơn.
+
+### ⚠️ VÀ MỘT BẪY ĐO LƯỜNG MỚI — Chrome headless TỰ BỊ CHẶN
+
+Sau khi sửa xong, phép đo **vẫn ra 0**, và suýt nữa tôi đi sửa tiếp một đoạn code không hỏng.
+
+Nguyên nhân: `isLikelyBot()` chặn UA chứa `headlesschrome`, mà Chrome headless **tự khai
+đúng chuỗi đó**. Proxy thấy "bot" nên cố tình không đặt cookie gắn nguồn — **hành vi đúng của
+code**, nhưng nó làm mọi phép đo lái bằng CDP ra 0 và **trông y hệt như code hỏng**.
+
+🔧 **Luật: mọi script CDP đo phần gắn nguồn PHẢI ghi đè UA:**
+```js
+await send('Network.setUserAgentOverride', { userAgent: '...Chrome/140.0.0.0 Safari/537.36' })
+```
+Đã vá 4 script trong `.scratch/`. Cách nhận ra: cookie `ofd_src` không xuất hiện trong
+`Network.getCookies` dù `curl` (có UA thật) thấy header `Set-Cookie`.
+
+**Đã kiểm chứng, cả hai chiều (luật 8c):**
+
+| Phép kiểm | Kết quả |
+|---|---|
+| Vào URL quảng cáo, bấm link trong bài | `click` có `source: "google-ads"`, `campaign: "ads-fridge-58l"` ✅ |
+| Gỡ `<ArticleLinkTracker />` ra, đo lại | **không ghi bản ghi nào** ✅ phép đo phân biệt được |
+| Lắp lại | ghi được ✅ |
+| `npm test` · `tsc` · `build` | **637/637** · sạch · sạch ✅ |
+
+🧹 Đã xoá **5 bản ghi `click` do chính phép kiểm tạo** — chúng mang nhãn thật `ads-fridge-58l`
+nên để lại sẽ cộng vào số của chiến dịch. `count(click)` về lại **57**, nhãn chiến dịch về **0**.
+
+### 📌 Trạng thái Google Ads cuối ngày 28/08
+
+- Tài khoản `610-787-1439`, chiến dịch đã tạo, **user đã tạm dừng** chờ deploy bản vá này
+- Script trần ngân sách **đã cài, đã chạy, đã đặt lịch hằng giờ**; nhãn `OFFERDY_TAT_TU_DONG`
+  đã tạo trong tài khoản
+- Bản ghi `adCampaign.ads-fridge-58l` đã tạo trong Sanity (ngân sách $2,35 · trần $5,73),
+  `configAds.tyGiaVndPerUsd = 26200`
+- ⚠️ **CHƯA kiểm được đơn vị tiền của script** — chi tiêu hôm nay là 0, mà `0 >= 150000` sai
+  ở cả hai cách hiểu đơn vị nên phép đo **không phân biệt được** (luật 8c). Sau ngày chạy đầu
+  tiên: mở Nhật ký script, so con số với chi tiêu Google báo cùng ngày. Ra `~61000d` là đúng;
+  ra `~2.35` thì `getCost()` trả USD và phải đổi trần thành `6`.
+- **PHẢI DEPLOY trước khi bật lại chiến dịch** — không thì vẫn không đếm được gì.
+
 ### 📌 MAI LÀM TIẾP — 29/08/2026
 
-1. **Dọn 5 nhãn `broken` sai của Apollo Moda.** Script đã viết và đã chạy khô:
-   `node .scratch/don-nhan-broken-sai.mjs` (in ra, không ghi) → `--ghi` để ghi thật.
-   Phải dọn tay: sau bản vá, 403 cho `indeterminate` nên **không ghi đè** — nhãn cũ nằm
-   nguyên, không tự lành. 2 offer WoWGadgets99 thì tự lành thành `ok` sau cron đêm.
-2. **Sửa 1 link hỏng thật**: offer *Urtopia Bundle Carbon 1 Pro + Carbon Fusion* (€4.798) —
-   sản phẩm đã bị gỡ, `301` về trang chủ. Đổi link hoặc ẩn offer. **Cần user quyết.**
-3. **Phân phối, không xây thêm.** Số đo 28/08: **0 click hôm nay · 9 trong 7 ngày · 21 trong
+1. ✅ **XONG 28/08 — đã dọn 5 nhãn `broken` sai của Apollo Moda.**
+   `node .scratch/don-nhan-broken-sai.mjs --ghi`. Đo bằng chính `BROKEN_LINK_GROQ`
+   (chép từ `checkOfferLink.ts:112`): **8 → 3**. Ba cái còn lại đều đúng:
+   2 WoWGadgets99 (trả 200, sẽ tự lành thành `ok` sau cron đêm) và 1 Urtopia đã ẩn.
+   📌 Kiểm trước khi ghi: script dùng `unset: ['linkStatus']` chứ không đặt `"unchecked"`.
+   An toàn vì `linkStatus == "broken"` không khớp `null`, và chỗ đếm duy nhất có nguy cơ
+   (`linkStatus != "unchecked"` ở `queries.ts:1097`) **đã kèm `defined()`** — đúng bẫy
+   GROQ `null != ""` mà dự án đã trả giá.
+2. ✅ **XONG 28/08 — đã ẩn offer Urtopia** (`jL1U8dTGKJX6KazVlT1Def`, €4.798). User chọn ẩn
+   thay vì đổi link. `active: true → false`, đọc lại qua `api.sanity.io` (**không** qua CDN)
+   để xác nhận chứ không tin mã thoát. Store Urtopia EU còn 4 offer, cả 4 `linkStatus=ok`.
+   Script: `.scratch/an-offer-urtopia.mjs`.
+   📌 Offer **vẫn nằm trong cron kiểm link đêm** (`active == true || linkStatus == "broken"`),
+   nên nếu Urtopia bán lại bundle thì nhãn tự lành — chỉ cần bật `active` lại.
+   ⚠️ Vấp lại luật 8b ngay lần đầu: gõ bộ lọc theo trí nhớ (`Bundle Carbon 1 Pro`) trong khi
+   tiêu đề thật là *"Bundle **with** Carbon 1 Pro **and** Carbon Fusion"* → khớp **0**. Lọc
+   theo URL (chuỗi duy nhất, chép nguyên văn từ dữ liệu) mới đúng.
+3. **Phân phối, không xây thêm.** 📌 Giai đoạn 1 ở trên đã làm mọi trang đích gắn được
+   nguồn, nên 3–5 bài Instagram sắp đăng **đo được thay vì mù** — thêm `?s=<nhãn>` vào link
+   là xong. Số đo 28/08: **0 click hôm nay · 9 trong 7 ngày · 21 trong
    30 ngày · 56 click cả đời · 95/107 store chưa từng có click**. Short-link: **2 lượt mở cả
    đời, lần cuối 25/07** — cơ chế đếm không hỏng (nó đã ghi được 2 lượt), nghĩa là 30 ngày
    qua **không có gì được đăng**. Đăng thật 3–5 bài qua short link là việc duy nhất đổi được
@@ -49,8 +326,18 @@ ngày sinh lúc `2026-08-27T17:57:03Z` bằng `groq/openai/gpt-oss-20b` sau 4 ng
   và mất ~6/8 tên mỗi lần quét (hậu kiểm loại). Đặt `=anthropic` thì giữ chất lượng — việc
   này chạy tay, ít lần, và tên bài quyết định SEO. Bảng đo đầy đủ ở `docs/AI_ROUTER.md`.
 - **Xoay 6 khoá API đã lộ** (dán thẳng vào khung chat 27/08).
-- **`.gitignore` cho `.scratch/`** — `git status` hôm nay in **218 file untracked**, có
-  `cookies.txt` và `envkey.mjs`, trên một repo **công khai**.
+- ✅ **`.gitignore` cho `.scratch/` — XONG 28/08.** `git status`: **228 → 2** (chỉ còn
+  đúng hai file tôi vừa sửa). Luật: bỏ qua tất cả, **trừ** `.md` nằm trong thư mục con —
+  đó là quy ước issue tracker (`docs/agents/issue-tracker.md`); `.md` nằm ngay dưới
+  `.scratch/` là ghi chú nháp (có bản sao 346 KB của `NHAT_KY.md`) nên không theo dõi.
+  ⚠️ Dòng `!.scratch/**/` là **bắt buộc**: git không mở lại được một file nếu thư mục cha
+  của nó đang bị loại. Đã kiểm bằng `git check-ignore` trên 8 đường dẫn thật, đạt cả 8.
+  📌 **Đo lại nỗi lo "lộ trên repo công khai": nhẹ hơn ghi ở đây.** Chưa file `.scratch`
+  nào từng bị commit ngoài `clean-store-scripts.mjs` (đã soi: 0 khớp mẫu bí mật).
+  `envkey.mjs` **không chứa khoá** — nó chỉ đọc `.env.local`. Thứ duy nhất đáng che là
+  `cookies.txt` (cookie phiên đã ký của 3 tài khoản thử). Rủi ro là *"một lần `git add .`
+  là lộ"*, không phải *"đang lộ"*. `.gitignore` **không gỡ file đã commit** — nếu sau này
+  lỡ commit thì phải `git rm --cached`.
 
 ---
 
