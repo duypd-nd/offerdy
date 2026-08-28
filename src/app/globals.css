@@ -937,6 +937,64 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
    `.article-table-wrap` cho bang tu cuon ngang tren dien thoai; khong co no thi bang
    4 cot day ca trang ra va pha vo bo cuc. */
 .article-table-wrap{overflow-x:auto;margin:24px 0;-webkit-overflow-scrolling:touch}
+
+/* Bang so sanh tren DIEN THOAI — xep chong thay vi cuon ngang.
+   🚨 Do 28/08/2026 tren 390px: bang ba cot (nhan + 2 san pham) rong hon man hinh nen
+   cot san pham THU HAI nam hoan toan ngoai khung. Mot bang *so sanh* chi hien duoc
+   MOT san pham. `overflow-x:auto` cuu duoc ve ky thuat nhung khong co dau hieu nao
+   bao phai cuon — khach den tu quang cao khong bao gio biet co cot thu hai.
+   Va luu luong quang cao chu yeu la dien thoai.
+
+   Cach chua: duoi 720px thi bo dang bang. Tieu de san pham hien MOT LAN o dau (danh
+   so 1,2), roi moi thuoc tinh la mot the rieng chua ca hai gia tri, moi gia tri deo
+   dung con so cua san pham do. Khong phu thuoc phep rut gon ten — `shortProductNames`
+   tra ve "61QT(58L" va "Car" cho hai tieu de nay, va cat tu ben trai thi vo dung vi
+   chung dung chung 37 ky tu dau. */
+.cmp-idx{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+  margin-right:8px;border-radius:50%;background:#0f172a;color:#fff;font-size:12px;font-weight:700;
+  flex-shrink:0;vertical-align:middle}
+
+/* Bang so sanh tren man hinh RONG.
+   ⚠️ `.article-body thead th` dat `white-space:nowrap`, hop ly cho bang thuong nhung
+   voi tieu de san pham cua shop (189 va 163 ky tu o bai dang chay quang cao) thi moi
+   cot thanh mot dong dai — do 28/08: bang rong **2693px** trong cot bai rong 800px,
+   nen ngay ca tren may tinh cung phai cuon ngang moi thay san pham thu hai.
+   `table-layout:fixed` chia deu ba cot; tieu de xuong dong trong o cua no.
+
+   ⚠️ CHI ap cho `.cmp-fit` (<=3 san pham). Bat cho bai 12 san pham lam moi cot con
+   ~61px va chu vo tung chu cai mot dong — te hon han ban cuon ngang. Bang nhieu cot
+   thi `white-space:normal` da du giup, con lai cu de no cuon. */
+.article-body .cmp-fit{table-layout:fixed}
+.article-body .cmp-table thead th{white-space:normal;vertical-align:bottom}
+@media(max-width:720px){
+  .article-body .article-table-wrap{overflow-x:visible}
+  /* ⚠️ PHAI viet `.article-body .cmp-table` chu khong phai `.cmp-table` tran:
+     `.article-body table` co do uu tien (0,1,1) — cao hon mot class don (0,1,0) — nen
+     `.cmp-table{min-width:0}` KHONG thang duoc. Media query khong cong do uu tien.
+     Da mat mot vong do: bo cuc xep chong hien ra dung nhung moi the van rong 520px.
+
+     ⚠️ HAI DONG DUOI LA BAT BUOC, dung xoa:
+     `.article-body table` dat `min-width:520px` (de bang thuc su van doc duoc khi
+     cuon ngang). Khi da bo dang bang thi con so do lam moi the rong 520px tren man
+     hinh 390px — chu bi cat CA HAI DAU va ca trang bi day lech ngang. Va
+     `white-space:nowrap` o thead th lam tieu de san pham thanh mot dong dai vo tan. */
+  .article-body .cmp-table{min-width:0}
+  .article-body .cmp-table thead th{white-space:normal}
+  .article-body .cmp-table,.article-body .cmp-table thead,.article-body .cmp-table tbody,.article-body .cmp-table tr,.article-body .cmp-table th,.article-body .cmp-table td{display:block;width:auto;max-width:100%}
+  /* O goc trai trong cua hang tieu de — khong con y nghia khi da bo dang bang. */
+  .article-body .cmp-table thead th:first-child{display:none}
+  .article-body .cmp-table thead th{border:0;padding:8px 0;font-size:13px;font-weight:600;line-height:1.45;text-align:left}
+  .article-body .cmp-table thead{padding-bottom:6px;margin-bottom:14px;border-bottom:2px solid #e2e8f0}
+  .article-body .cmp-table tbody tr{border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin-bottom:12px;background:#fff}
+  .article-body .cmp-table tbody th[scope="row"]{padding:0 0 8px;border:0;font-size:12px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.04em;color:#64748b;text-align:left}
+  .article-body .cmp-table tbody td{position:relative;border:0;padding:6px 0 6px 28px;font-size:14px;line-height:1.5}
+  .article-body .cmp-table tbody td+td{border-top:1px dashed #e5e7eb;margin-top:2px}
+  /* Con so nay la thu noi gia tri voi san pham — bo no di la bang mat nghia. */
+  .article-body .cmp-table tbody td::before{content:attr(data-idx);position:absolute;left:0;top:7px;
+    display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+    border-radius:50%;background:#f1f5f9;color:#334155;font-size:11px;font-weight:700}
+}
 .article-body table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
 .article-body thead th{text-align:left;font-weight:700;color:var(--text);background:var(--bg);border-bottom:1.5px solid var(--border);padding:10px 12px;white-space:nowrap}
 .article-body tbody td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}

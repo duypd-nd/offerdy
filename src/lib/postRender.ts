@@ -183,16 +183,44 @@ function liftTrailingCtas(html: string): string {
   })
 }
 
+/**
+ * Bang so sanh. Danh SO thu tu cho tung san pham, va so do di theo tung o gia tri.
+ *
+ * 🚨 VI SAO CAN DANH SO — do that 28/08/2026 tren dien thoai 390px:
+ * bang ba cot (nhan + 2 san pham) rong hon man hinh, nen cot san pham THU HAI nam
+ * hoan toan ngoai khung. Mot bang *so sanh* chi hien duoc MOT san pham, tuc mat han
+ * ly do ton tai cua bai. `overflow-x:auto` co cuu duoc ve mat ky thuat, nhung khong
+ * co dau hieu nao bao phai cuon — khach den tu quang cao khong bao gio biet.
+ *
+ * ⚠️ Va KHONG the dung ten rut gon lam nhan cot. Thu `shortProductNames()` tren
+ * dung hai tieu de that cua bai dang chay quang cao:
+ *     "BODEGACOOLER 12 Volt Car Refrigerator, 61QT(58L)..." -> "61QT(58L"  (hong ngoac)
+ *     "BODEGACOOLER 12 Volt Car Refrigerator, 16 Quart..."  -> "Car"       (vo nghia)
+ * Module do da tu ghi truoc rui ro nay ("tieu de nhoi thong so"). Va cat bot tu ben
+ * TRAI cung vo dung: hai tieu de dung chung 37 ky tu dau, nen moi ban cat deu ra hai
+ * nhan GIONG HET nhau.
+ *
+ * Nen: tieu de day du hien MOT LAN o dau bang (kem so thu tu), roi moi o gia tri chi
+ * mang con so. Khong phu thuoc vao phep rut gon nao ca.
+ */
 function renderTable(rows: { label: string; values: string[] }[], products: RenderProduct[]): string {
   if (!rows.length) return ''
-  const head = products.map(p => `<th scope="col">${esc(p.title)}</th>`).join('')
+  const head = products
+    .map((p, i) => `<th scope="col"><span class="cmp-idx">${i + 1}</span>${esc(p.title)}</th>`)
+    .join('')
   const body = rows
-    .map(r => `<tr><th scope="row">${esc(r.label)}</th>${r.values.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`)
+    .map(r => `<tr><th scope="row">${esc(r.label)}</th>${
+      r.values.map((v, i) => `<td data-idx="${i + 1}">${esc(v)}</td>`).join('')
+    }</tr>`)
     .join('')
   // Dung dung kieu bang da dung o `globals.css` (`.article-table-wrap`), khong nhoi
   // mot khoi <style> vao tung bai — 6 bai blog cu moi bai mang mot khoi CSS rieng,
   // sua mot lan la phai sua sau cho.
-  return `<div class="article-table-wrap"><table><thead><tr><th scope="col"></th>${head}</tr></thead><tbody>${body}</tbody></table></div>`
+  // ⚠️ `cmp-fit` (chia deu cot, vua khung) CHI cho bang it cot. Do 28/08: bat no cho
+  // bai 12 san pham lam moi cot con ~61px va chu vo tung chu cai mot dong. Bang nhieu
+  // cot thi de no rong va cuon ngang — do la dang dung cua no.
+  const cls = products.length <= 3 ? 'cmp-table cmp-fit' : 'cmp-table'
+  return `<div class="article-table-wrap"><table class="${cls}"><thead><tr><th scope="col"></th>${head}</tr></thead><tbody>${body}</tbody></table></div>`
 }
 
 /** Dong "gia tai thoi diem viet" — bat buoc khi co hien gia. */

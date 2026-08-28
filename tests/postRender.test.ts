@@ -207,9 +207,51 @@ test('[TABLE] dung kieu bang chung cua globals.css', () => {
   })
   assert.match(out, /class="article-table-wrap"/)
   assert.match(out, /<th scope="row">Flow rate<\/th>/)
-  assert.match(out, /<td>400 GPD<\/td><td>600 GPD<\/td>/)
+  assert.match(out, /<td data-idx="1">400 GPD<\/td><td data-idx="2">600 GPD<\/td>/)
   // Khong nhoi <style> vao tung bai.
   assert.ok(!out.includes('<style'))
+})
+
+test('🚨 mỗi ô giá trị phải đeo số của sản phẩm — nếu không, điện thoại mất cột thứ hai', () => {
+  // Đo 28/08/2026 trên 390px: bảng ba cột rộng hơn màn hình nên cột sản phẩm thứ
+  // hai nằm hoàn toàn ngoài khung. Bố cục xếp chồng ở globals.css dựng lại quan hệ
+  // "giá trị này của sản phẩm nào" HOÀN TOÀN dựa vào `data-idx` + `.cmp-idx`.
+  // Bỏ một trong hai là bảng so sánh trên điện thoại mất nghĩa mà không báo lỗi gì.
+  const out = renderPostTokens('[TABLE]', {
+    products,
+    comparisonRows: [
+      { label: 'Flow rate', values: ['400 GPD', '600 GPD'] },
+      { label: 'Tank', values: ['None', 'None'] },
+    ],
+  })
+  assert.match(out, /class="cmp-table cmp-fit"/, 'thiếu class thì CSS xếp chồng không bắt được')
+  // Đầu bảng: tiêu đề đầy đủ hiện MỘT LẦN, kèm số.
+  assert.match(out, /<th scope="col"><span class="cmp-idx">1<\/span>/)
+  assert.match(out, /<th scope="col"><span class="cmp-idx">2<\/span>/)
+  // Mọi ô giá trị đều mang số — đếm để không sót hàng nào.
+  assert.equal((out.match(/data-idx="1"/g) ?? []).length, 2)
+  assert.equal((out.match(/data-idx="2"/g) ?? []).length, 2)
+  assert.equal((out.match(/<td(?![^>]*data-idx)/g) ?? []).length, 0, 'có ô giá trị không đeo số')
+})
+
+test('⚠️ bảng NHIỀU cột không được chia đều — 12 sản phẩm thành 61px mỗi cột', () => {
+  // Đo 28/08: bật `table-layout:fixed` cho bài 12 sản phẩm làm chữ vỡ từng chữ cái
+  // một dòng. Tệ hơn hẳn bản cuộn ngang. Ngưỡng là 3.
+  const nhieu = Array.from({ length: 12 }, (_, i) => ({ url: `https://x.com/${i}`, title: `P${i}` }))
+  const raNhieu = renderPostTokens('[TABLE]', {
+    products: nhieu,
+    comparisonRows: [{ label: 'Weight', values: nhieu.map(() => '310GSM') }],
+  })
+  assert.match(raNhieu, /class="cmp-table"/)
+  assert.ok(!raNhieu.includes('cmp-fit'), '12 sản phẩm mà vẫn chia đều cột')
+
+  // Đúng 3 sản phẩm vẫn ở trong ngưỡng.
+  const ba = nhieu.slice(0, 3)
+  const raBa = renderPostTokens('[TABLE]', {
+    products: ba,
+    comparisonRows: [{ label: 'Weight', values: ba.map(() => '310GSM') }],
+  })
+  assert.match(raBa, /class="cmp-table cmp-fit"/)
 })
 
 test('khong co bang thi [TABLE] bien mat', () => {
