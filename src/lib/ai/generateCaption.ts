@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { docUuDaiMa } from '@/lib/video/couponOffer'
 import { generateStructured } from '@/lib/ai/router'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 import { shortLink, type LinkStyle } from '@/lib/socialCaption'
@@ -155,6 +156,14 @@ export type CaptionDealInput = {
    * `{coupon}` bi tu choi han o findUnsafeText.
    */
   couponCode?: string
+  /**
+   * `offerText` cua offer mang ma do — vi du "5% Off".
+   *
+   * ⚠️ Thieu truong nay thi `{coupon}` no ra MA TRAN va caption khong noi duoc ma
+   * giam bao nhieu; nguoi doc thay mot ma la khong biet co dang go hay khong. Da
+   * bi bo sot dung nhu vay o `social-kit/actions.ts` cho toi 28/08/2026.
+   */
+  couponOfferText?: string
 }
 
 export type Persona = {
@@ -223,7 +232,8 @@ ${deal.couponCode
   ? `Shop coupon: this shop has a working discount code, and the caption MUST contain the token {coupon} exactly once.
   Writing ABOUT a code without including {coupon} is worthless — "there's also a code at checkout" tells the reader a code exists while withholding it, which is worse than saying nothing. Give them the token.
   {coupon} and {code} are DIFFERENT things and both belong in the caption: {code} is the product number they search in the bio link to find this listing; {coupon} is the discount code they type at checkout. Never describe {coupon} as something to search with, and never call {code} a discount.
-  It is a STORE-WIDE code, so do NOT claim it applies to this product, do NOT say how much it saves, and do NOT add it on top of the discount figure ("{discount} plus another 15%" is a claim you cannot make). "code {coupon} at checkout" is right; "use {coupon} for an extra 20% off this bike" is not.`
+  The token {coupon} already expands to the code AND its discount, e.g. "OFFERDY (5% off)" — so never write a saving figure next to it yourself, and never restate it. Just "code {coupon} at checkout".
+  It is a STORE-WIDE code, so do NOT claim it applies to this product and do NOT add it on top of the discount figure ("{discount} plus another 15%" is a claim you cannot make). "code {coupon} at checkout" is right; "use {coupon} for an extra 20% off this bike" is not.`
   : 'Shop coupon: none is known for this shop. NEVER write {coupon} — there is nothing to substitute and the caption would ship with a literal placeholder in it.'}
 
 ANGLE — ${a.label}
@@ -278,6 +288,34 @@ export function findUnsafeText(
 }
 
 /** Thay cho trong bang gia tri that tu database. */
+/**
+ * `{coupon}` no ra thanh gi.
+ *
+ * 🚨 VI SAO KHONG PHAI MA TRAN: caption viet "use OFFERDY at checkout" khong noi
+ * duoc ma giam bao nhieu, nen nguoi doc khong biet co dang go hay khong. Nhung
+ * muc giam KHONG duoc de model viet — no la con so, va mot con so do model nghi
+ * ra tren trang ban hang la thu khong ai phat hien duoc bang mat.
+ *
+ * Cung ky luat da ap cho gia (`hasPrice: boolean`): model chon DUNG DANG NAO,
+ * code quyet dinh NOI DUNG. O day model dat cho `{coupon}`, code dien
+ * "OFFERDY (5% off)" tu `offerText` that qua `docUuDaiMa()`.
+ *
+ * ⚠️ Doc khong ra muc giam thi chi hien ma, KHONG bia mot con so nao —
+ * `docUuDaiMa` da chan san tren 95% (du lieu that cao nhat la 25%, mot chuoi
+ * "150% Off" do loi nhap lieu ma lot len caption la loi hua khong ai giu duoc).
+ *
+ * ⚠️ Va no van KHONG hua ma ap duoc cho san pham nay. Day la ma cua CA SHOP,
+ * nhieu shop loai tru hang dang giam gia. Prompt cam model viet "extra 5% off
+ * this bike"; cho nay chi noi ma DO la ma giam 5%, khong noi no cong them vao
+ * muc giam cua mon hang.
+ */
+function nhanMaGiam(deal: CaptionDealInput): string {
+  const ma = deal.couponCode?.trim()
+  if (!ma) return ''
+  const uuDai = docUuDaiMa(deal.couponOfferText)
+  return uuDai ? `${ma} (${uuDai.hienThi.replace(/ OFF$/, ' off')})` : ma
+}
+
 export function fillPlaceholders(
   text: string,
   deal: CaptionDealInput,
@@ -292,7 +330,7 @@ export function fillPlaceholders(
     .replaceAll('{code}', `#${deal.code}`)
     // Neu khong co ma thi findUnsafeText da loai variant nay tu truoc; nhanh nay
     // chi la phong ho cuoi, va thay bang chuoi rong con hon de lo "{coupon}".
-    .replaceAll('{coupon}', deal.couponCode ?? '')
+    .replaceAll('{coupon}', nhanMaGiam(deal))
     .replaceAll('{link}', shortLink(deal.code, deal.slug, opts.style, opts.campaign))
 
   // Don cho dinh nhau. Prompt da dan ky nhung model van co xu huong viet "${price}"

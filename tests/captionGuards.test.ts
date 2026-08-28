@@ -65,6 +65,31 @@ test('{coupon} va {code} la HAI thu khac nhau khi dien', () => {
   )
 })
 
+test('🚨 {coupon} phải mang theo MỨC GIẢM, không chỉ mã trần', () => {
+  // Caption viết "use OFFERDY at checkout" không nói được mã giảm bao nhiêu, nên
+  // người đọc không biết có đáng gõ hay không. Mức giảm do CODE chèn từ `offerText`
+  // thật — không bao giờ để model viết một con số ra.
+  // Bỏ sót đúng chỗ này ở social-kit/actions.ts cho tới 28/08/2026: nó chỉ chép
+  // `coupon?.code` mà quên `coupon?.offerText`.
+  const co = { ...deal, couponCode: 'OFFERDY', couponOfferText: '5% Off' }
+  assert.equal(
+    fillPlaceholders('code {coupon} at checkout', co, { style: 'deal' }),
+    'code OFFERDY (5% off) at checkout'
+  )
+
+  // Số tiền cố định cũng đọc được, không riêng phần trăm.
+  const tien = { ...deal, couponCode: 'SAVE10', couponOfferText: '$10 Off' }
+  assert.match(fillPlaceholders('{coupon}', tien, { style: 'deal' }), /SAVE10 \(\$10 off\)/)
+})
+
+test('⚠️ đọc không ra mức giảm -> chỉ hiện mã, KHÔNG bịa số', () => {
+  // `offerText` mơ hồ, hoặc trống, hoặc một con số vô lý do lỗi nhập liệu.
+  for (const text of [undefined, '', 'Exclusive offer', 'Free shipping', '150% Off']) {
+    const out = fillPlaceholders('{coupon}', { ...deal, couponCode: 'OFFERDY', couponOfferText: text }, { style: 'deal' })
+    assert.equal(out, 'OFFERDY', `offerText ${JSON.stringify(text)} phải cho ra mã trần, ra: ${out}`)
+  }
+})
+
 test('khong co ma -> {coupon} thanh chuoi rong, khong lo dau ngoac', () => {
   const out = fillPlaceholders('code {coupon} here', { ...deal, couponCode: undefined }, { style: 'deal' })
   assert.equal(out.includes('{coupon}'), false)

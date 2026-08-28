@@ -61,6 +61,11 @@ export async function generateCaptionsForDeal(input: {
     // Model chi duoc dat cho trong {coupon}; ma khong bao gio do model viet ra.
     const coupon = await getDealCoupon(deal.dealUrl)
     deal.couponCode = coupon?.code
+    // ⚠️ Phai truyen CA `offerText`, khong chi ma. Thieu no thi `{coupon}` no ra
+    // moi ma tran va caption khong noi duoc ma giam bao nhieu — nguoi doc thay mot
+    // ma la khong biet co dang go hay khong. Muc giam do CODE chen tu du lieu that,
+    // khong bao gio do model viet.
+    deal.couponOfferText = coupon?.offerText
 
     const proven = await fetchProvenCaptions(input.platform)
     const { variants, rejected } = await generateCaptions({
@@ -146,7 +151,9 @@ export async function generateWeekPlan(input: {
         // Ma coupon cua tung shop — khac nhau theo deal, nen phai lay trong vong
         // lap chu khong mot lan ben ngoai. getDealCoupon dung cache 5 phut nen
         // 7 lan goi khong thanh 7 lan hoi Sanity.
-        deal.couponCode = (await getDealCoupon(deal.dealUrl))?.code
+        const ma = await getDealCoupon(deal.dealUrl)
+        deal.couponCode = ma?.code
+        deal.couponOfferText = ma?.offerText
         const { variants } = await generateCaptions({
           deal, angle, count: 1, persona: persona ?? {}, platform: input.platform,
           provenCaptions: proven,
