@@ -1150,6 +1150,22 @@ footer{background:var(--navy);border-top:1px solid rgba(255,255,255,.06);padding
   .adm-two-col,.adm-health-grid{grid-template-columns:1fr}
 }
 
+/* /admin/ads — o gia dinh va o nhap chi tieu.
+   ⚠️ Bo cuc dat o DAY chu khong phai style={{display:'grid'}}: inline style tu vo
+   hieu hoa moi media query, va 6 loi giao dien dien thoai trong hai ngay (23-24/08)
+   deu la no. Dung minmax(0,1fr) chu khong phai 1fr — 1fr khong co san khong cho
+   phep con co lai, nen mot chuoi dai lam tran ca hang. */
+.ads-gd-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:12px;align-items:end}
+.ads-ct-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:12px;align-items:end}
+.ads-gd-grid>*,.ads-ct-grid>*{min-width:0}
+@media(max-width:900px){
+  .ads-gd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ads-ct-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .ads-ct-grid,.ads-gd-grid{grid-template-columns:minmax(0,1fr)}
+}
+
 /* the "viec can lam" tren dashboard */
 .adm-task-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
 .adm-task{display:block;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 16px;text-decoration:none;transition:border-color .12s,box-shadow .12s,transform .12s}

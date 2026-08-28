@@ -33,6 +33,7 @@ const NAV: NavGroup[] = [
       { href: '/admin/video',        label: 'Tạo video',      icon: '🎬' },
       { href: '/admin/reports',      label: 'Báo cáo Click',  icon: '📊' },
       { href: '/admin/ad-planner',   label: 'Tính quảng cáo', icon: '🧮' },
+      { href: '/admin/ads',          label: 'Chạy quảng cáo', icon: '📣' },
       { href: '/admin/merchant-health', label: 'Merchant Health', icon: '❤️' },
       { href: '/admin/search-console', label: 'Search Console', icon: '🔦' },
       { href: '/admin/seo-audit',    label: 'SEO Audit',      icon: '🔎' },

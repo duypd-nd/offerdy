@@ -20,6 +20,10 @@ import { configPersonaType } from './configPersona'
 import { dailyReportType } from './dailyReport'
 import { captionLogType } from './captionLog'
 
+// Van hanh quang cao tra tien
+import { adCampaignType } from './adCampaign'
+import { adSpendEntryType } from './adSpendEntry'
+
 // Du lieu do nguoi dung cong khai tao ra
 import { couponAlertType } from './couponAlert'
 
@@ -31,6 +35,8 @@ export const schemaTypes = [
   configSEOType, configContentType, configAdsType, configPersonaType,
   // AI-generated
   dailyReportType, captionLogType,
+  // Quang cao tra tien
+  adCampaignType, adSpendEntryType,
   // Do nguoi dung cong khai tao
   couponAlertType,
 ]
