@@ -77,7 +77,10 @@ export default function ArticleLinkTracker() {
       window.dataLayer = window.dataLayer || []
       window.dataLayer.push({ event: 'affiliate_click', affiliate_url: href, from: 'article_body' })
 
-      trackArticleLinkClick(href).catch(() => {})
+      // Gui ca duong dan bai: server loc lai (`duongDanBaiSach`) vi day la gia
+      // tri do client dat. Khong co no thi bao cao biet "co luot bam tu than bai"
+      // nhung khong biet bai nao trong 65 bai.
+      trackArticleLinkClick(href, window.location.pathname).catch(() => {})
     }
 
     // `capture: true` de bat duoc ca khi mot handler khac goi stopPropagation.

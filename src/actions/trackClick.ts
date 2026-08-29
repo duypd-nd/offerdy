@@ -110,7 +110,24 @@ export async function trackDealClick(dealId: string): Promise<void> {
  * Khong khop store nao thi VAN ghi ban ghi click (nhan `?s=` moi la thu
  * `/admin/ads` can), chi la thieu tham chieu store.
  */
-export async function trackArticleLinkClick(url: string): Promise<void> {
+/**
+ * ⚠️ Chi nhan duong dan cua BAI VIET, va gioi han chat.
+ *
+ * Gia tri nay do CLIENT gui len (`location.pathname`) nen phai coi la khong tin
+ * duoc: chan do dai, va chi nhan hai tien to that su la bai viet. Khong loc thi
+ * mot chuoi bat ky di thang vao Sanity va vao bao cao.
+ *
+ * Luu CHUOI chu khong phai reference: giai duong dan ra tai lieu can them mot
+ * luot hoi Sanity (~350ms) NGAY TREN DUONG BAM cua khach — do tre o do truc tiep
+ * lam mat don. Bao cao giai ten bai luc doc, luc do cham cung khong ai mat gi.
+ */
+function duongDanBaiSach(raw?: string): string | undefined {
+  const p = String(raw ?? '').trim()
+  if (!p || p.length > 200) return undefined
+  return /^\/(blog|reviews)\/[A-Za-z0-9._~\-\/]+$/.test(p) ? p : undefined
+}
+
+export async function trackArticleLinkClick(url: string, articlePath?: string): Promise<void> {
   const target = hostKey(url)
   if (!target) return
 
@@ -132,6 +149,11 @@ export async function trackArticleLinkClick(url: string): Promise<void> {
     kind: 'affiliate',
     // Ghi ca host de doi chieu duoc khi khong khop store nao.
     articleHost: target,
+    // 🚨 BAI NAO ra luot bam — cau hoi dang gia nhat cua ca he do luong. Ban va
+    // 28/08 dem duoc luot bam tu than bai nhung KHONG ghi bai nao, nen voi 65 bai
+    // ta biet "co nguoi bam tu mot bai nao do" ma khong biet bai nao. Ma do dung
+    // la thu quyet dinh viet tiep kieu gi.
+    ...(duongDanBaiSach(articlePath) ? { articlePath: duongDanBaiSach(articlePath) } : {}),
     ...(storeId ? { store: { _type: 'reference', _ref: storeId, _weak: true } } : {}),
     ...attribution,
   })

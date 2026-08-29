@@ -78,7 +78,7 @@ export default async function ReportsPage() {
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
-  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, sentryIssues, healthData, dailyReport, deepLinkStats, traffic, queue] = await Promise.all([
+  const [offers, stores, recentClicks, allTimeClicks, shortLinkClicks, dealsWithShortLink, attributedClicks, articleClicks, sentryIssues, healthData, dailyReport, deepLinkStats, traffic, queue] = await Promise.all([
     readClient.fetch<OfferClickRow[]>(
       `*[_type == "offer" && clicks > 0] {
         _id, title, clicks, couponCode, verified, expiresAt,
@@ -116,6 +116,19 @@ export default async function ReportsPage() {
       `*[_type == "click" && kind != "shortlink" && defined(source) && _createdAt >= $thirtyDaysAgo] {
         _createdAt, source, campaign
       }`,
+      { thirtyDaysAgo }
+    ),
+    // 🚨 BAI NAO ra luot bam sang merchant.
+    //
+    // Truoc 28/08/2026 khong co ban ghi nao o day: than bai render bang
+    // `dangerouslySetInnerHTML` va nut mua la the <a> tho, khong co gi dem ca
+    // (~275 nut trong 65 bai). Nen con so o day BAT DAU TU 28/08, khong so sanh
+    // duoc voi bat ky moc click nao cu hon.
+    //
+    // Giai ten bai LUC DOC chu khong luc click: `articlePath` luu dang chuoi de
+    // duong bam cua khach khong phai cho them mot luot hoi Sanity.
+    readClient.fetch<{ articlePath: string }[]>(
+      `*[_type == "click" && defined(articlePath) && _createdAt >= $thirtyDaysAgo]{ articlePath }`,
       { thirtyDaysAgo }
     ),
     getRecentSentryIssues(10),
@@ -249,6 +262,36 @@ export default async function ReportsPage() {
 
   const topShortLinks = dealsWithShortLink.slice(0, 20)
   const dealMerchantAllTime = dealsWithShortLink.reduce((sum, d) => sum + d.dealClicks, 0)
+
+  // ── Bai nao ra luot bam sang merchant (30 ngay) ──
+  //
+  // 🚨 Con so o day BAT DAU TU 28/08/2026. Truoc do than bai khong dem mot cu bam
+  // nao (~275 nut trong 65 bai la the <a> tho, khong co handler), nen dung so sanh
+  // muc nay voi bat ky moc click nao cu hon — no do mot thu khac han.
+  const demTheoBai = new Map<string, number>()
+  for (const c of articleClicks ?? []) {
+    if (!c.articlePath) continue
+    demTheoBai.set(c.articlePath, (demTheoBai.get(c.articlePath) ?? 0) + 1)
+  }
+  // Giai ten bai LUC DOC — `articlePath` luu dang chuoi de duong bam cua khach
+  // khong phai cho them mot luot hoi Sanity.
+  const slugs = [...demTheoBai.keys()].map(p => p.split('/').filter(Boolean).at(-1) ?? '')
+  const tenBai = slugs.length
+    ? await readClient.fetch<{ slug: string; title: string; loai: string }[]>(
+        `*[_type in ["post", "review"] && slug.current in $slugs]{
+          "slug": slug.current, title, "loai": _type
+        }`,
+        { slugs }
+      ).catch(() => [])
+    : []
+  const tenTheoSlug = new Map((tenBai ?? []).map(b => [b.slug, b]))
+  const bangBaiViet = [...demTheoBai.entries()]
+    .map(([duongDan, luot]) => {
+      const slug = duongDan.split('/').filter(Boolean).at(-1) ?? ''
+      const b = tenTheoSlug.get(slug)
+      return { duongDan, luot, title: b?.title ?? duongDan, loai: b?.loai ?? '' }
+    })
+    .sort((a, b) => b.luot - a.luot)
 
   // ── Chuyen doi theo nguon (30 ngay) ──
   // Cot XEM = mo short link, cot BAM = click affiliate cua khach den tu nguon do
@@ -587,6 +630,60 @@ export default async function ReportsPage() {
           </div>
         </div>
       )}
+
+
+      {/* ── Bài nào ra lượt bấm sang merchant ──────────────────────────
+          🚨 Bảng này KHÔNG tồn tại trước 28/08/2026, và không phải vì chưa ai
+          làm: thân bài render bằng `dangerouslySetInnerHTML` nên ~275 nút mua
+          trong 65 bài là thẻ <a> thô, không có gì đếm cả. Nghĩa là mọi con số
+          click cũ đều loại trừ nội dung chính của site.
+
+          Đây là câu hỏi quyết định việc viết tiếp: trong 65 bài, bài nào thật sự
+          đưa người đọc sang merchant. */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', fontSize: 13, fontWeight: 700, color: '#374151' }}>
+            📝 Bài viết ra lượt bấm sang merchant (30 ngày)
+          </div>
+          {bangBaiViet.length === 0 ? (
+            <div style={{ padding: '14px 16px', fontSize: 12.5, color: '#94a3b8', lineHeight: 1.7 }}>
+              Chưa có lượt nào. <strong>Đây là số đo mới, bắt đầu từ 28/08/2026</strong> — trước
+              đó nút mua trong thân bài không được đếm, nên số 0 ở đây nghĩa là
+              &ldquo;chưa ai bấm kể từ hôm đó&rdquo;, không phải &ldquo;bài không bao giờ ra click&rdquo;.
+            </div>
+          ) : (
+            <>
+              <div style={{ padding: '12px 16px 4px', fontSize: 12, color: '#94a3b8', lineHeight: 1.7 }}>
+                Đếm nút mua <strong>nằm trong thân bài</strong>. Số bắt đầu từ 28/08/2026 —
+                đừng so với mốc click cũ, chúng đo hai thứ khác nhau.
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '.04em' }}>Bài viết</th>
+                    <th style={{ padding: '8px 16px', fontSize: 11, fontWeight: 700, color: '#94a3b8', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '.04em' }}>Bấm merchant</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bangBaiViet.map(b => (
+                    <tr key={b.duongDan} style={{ borderTop: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '9px 16px', fontSize: 13, color: '#1e293b' }}>
+                        <a href={b.duongDan} target="_blank" rel="noopener noreferrer" style={{ color: '#1e293b', textDecoration: 'none', fontWeight: 500 }}>
+                          {b.title}
+                        </a>
+                        <div style={{ fontSize: 11, color: '#cbd5e1' }}>
+                          {b.loai === 'review' ? 'Review' : b.loai === 'post' ? 'Blog' : 'Không tìm thấy bài'} · {b.duongDan}
+                        </div>
+                      </td>
+                      <td style={{ padding: '9px 16px', fontSize: 13, fontWeight: 700, color: '#16a34a', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{b.luot}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* ── Lỗi production (Sentry) — ưu tiên cao nhất, cần xử lý ngay ── */}
       {sentryIssues.length > 0 && (
