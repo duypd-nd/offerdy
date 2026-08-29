@@ -1769,7 +1769,13 @@ a.cc-store-nm:hover{color:var(--green-dark)}
 .lda-dodai{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 10px;font-size:12px;color:#64748b}
 .lda-dodai label{display:flex;align-items:center;gap:5px}
 .lda-dodai input{width:62px;font-size:13px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b;font-variant-numeric:tabular-nums}
-.lda-dodai b{color:#1e293b;font-variant-numeric:tabular-nums}
+.lda-dodai b{color:#1e293b;font-variant-numeric:tabular-nums;min-width:0}
+/* ⚠️ Ô chọn kiểu mở đầu có nhãn dài ("Ai nên mua / ai đừng — hàng giá cao").
+   Không kẹp thì trên máy 360px nó rộng hơn khung, và `.adm-main{overflow-x:hidden}`
+   XÉN IM LẶNG — không thanh cuộn, không dấu hiệu gì. `min-width:0` là bắt buộc:
+   phần tử flex mặc định không co xuống dưới nội dung của nó. */
+.lda-dodai select{font-size:12px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b;max-width:100%;min-width:0}
+.lda-dodai label{min-width:0}
 .lda-nut{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}
 .lda-giong{display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b}
 .lda-giong select{font-size:12px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b;max-width:100%}

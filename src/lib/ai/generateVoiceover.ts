@@ -43,8 +43,8 @@ import { docGiaLen, docMaLen, docPhanTramLen } from '@/lib/tts/docSoLen'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
 import {
   NHIP, THOI_LUONG_MAC_DINH,
-  demChu, giayUocTinh, kepThoiLuong, khungTheoThoiLuong, nganSachChu,
-  type KhungNhip, type NhipId,
+  chonGocHook, demChu, giayUocTinh, kepThoiLuong, khungTheoThoiLuong, nganSachChu,
+  type GocHookId, type KhungNhip, type NhipId,
 } from '@/lib/tts/nhipVideo'
 
 // Cho phép nơi gọi lấy cả phần thuần từ một cửa. Bản thân định nghĩa nằm ở
@@ -86,7 +86,9 @@ function prompt(
   const lanHai = nhac?.length
     ? `\n\nYOUR PREVIOUS ATTEMPT WAS REJECTED. Rewrite ALL four beats, and fix these:
 ${nhac.map(b => `- ${b.nhip}: ${b.ly}`).join('\n')}
-The most common cause is writing a figure instead of a placeholder. If a price belongs in a line, the line must contain {price} or {was} — the literal characters, braces included. Writing "$29.95" or "31%" is always wrong, even when the figure looks right.`
+The most common cause is writing a figure instead of a placeholder. If a price belongs in a line, the line must contain {price} or {was} — the literal characters, braces included. Writing "$29.95" or "31%" is always wrong, even when the figure looks right.
+The second cause is the hook opening on the price when its brief asked for something else. If that is what you were told above, rewrite the hook to do exactly what its brief says and leave every placeholder out of it.
+The third cause is a hook that is just the product name read aloud. The product name belongs in the PRODUCT beat and nowhere else.`
     : ''
 
   return `You are writing the spoken voiceover for a vertical short-form video (TikTok / Reels) about one product. A young American audience is watching with the sound on.
@@ -115,6 +117,8 @@ They are not the same text. On-screen is what the eye catches in half a second; 
 
 HARD RULES
 - Never write a figure yourself — not a price, not a percentage, not a count. Use the placeholders. Code substitutes the real values from the database.
+- The HOOK brief above is one of nine possible openings and it was chosen for you. Follow it exactly. Unless it names {price} or {was} itself, the hook must contain no price, no percentage and no placeholder at all — opening on the price is the default you must not fall back to.
+- The hook must be about THIS product. A line that would work just as well for a different product in the same category is a failed hook, however catchy it reads.
 - The word budget is the hard part. Count the words in docLen. Over budget means the voice runs past the cut and the video is wrong.
 - Plain spoken English. Contractions are good. No em dashes, no "elevate", no "game-changer", no "let's dive in".
 - Say nothing about shipping, stock, returns, warranty, or how long the price lasts. You do not know any of it.${lanHai}`
@@ -148,6 +152,44 @@ export function soatNhip(n: NhipViet, coCoupon: boolean): string[] {
   // thiệu sản phẩm thì người nghe chưa có lý do gì để nhớ nó.
   if (n.id !== 'cta' && /\{coupon\}/.test(n.docLen + n.hienTrenMan)) {
     loi.push('{coupon} chỉ được đặt ở nhịp CTA')
+  }
+  return loi
+}
+
+/**
+ * Nhịp HOOK có bám đúng góc được giao không — hàng rào **MỀM**.
+ *
+ * ⚠️ Cố ý tách khỏi `soatNhip`, và cố ý không cùng độ cứng. Bịa số là nói sai
+ * sự thật nên phải chặn cứng. Còn mở đầu bằng giá trong khi được giao góc khác
+ * chỉ là *lạc đề*: câu vẫn đúng, chỉ không phải thứ người vận hành vừa bấm nút
+ * để đổi. Vứt cả nhịp HOOK vì lạc đề là lặp lại đúng lỗi đã trả giá ngày 29/08
+ * (mất câu quan trọng nhất của video để đổi lấy một hàng rào).
+ *
+ * Nên nó chỉ có sức nặng ở **lượt đầu**: trượt thì hỏi lại kèm lý do; lượt hai
+ * viết gì cũng nhận. Xem `nhan()` bên dưới.
+ */
+export function soatGocHook(n: NhipViet, goc: GocHookId, tieuDe = ''): string[] {
+  if (n.id !== 'hook') return []
+  const loi: string[] = []
+
+  // Hai góc này ĐƯỢC giao nhiệm vụ nói số — chính brief của chúng đặt chỗ trống.
+  if (goc !== 'price' && goc !== 'compare' && /\{(price|was|discount)\}/.test(`${n.docLen} ${n.hienTrenMan}`)) {
+    loi.push(`góc "${goc}" mà hook vẫn mở bằng giá`)
+  }
+
+  // ⚠️ Hook = tên sản phẩm. Đo thật 29/08 trên deal #1471: **4 trên 9 góc** trả
+  // về đúng cái tên ("EverTote Expandable Mama Tote Bag") làm lời đọc. Prompt đã
+  // dặn, nhưng prompt thì phớt lờ được — và một câu mở là tên sản phẩm thì
+  // người lướt không có lý do nào để dừng lại.
+  //
+  // Phép so là "nằm gọn trong nhau" chứ không phải đếm chữ trùng: hook hay và
+  // đúng vẫn mượn vài chữ của tên hàng ("that tiny mama bag"), chỉ có bản chép
+  // nguyên tên mới nằm gọn.
+  const gon = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
+  const t = gon(tieuDe)
+  const d = gon(n.docLen)
+  if (t && d && (t.includes(d) || d.includes(t))) {
+    loi.push('hook chỉ là tên sản phẩm')
   }
   return loi
 }
@@ -248,6 +290,8 @@ export type KetQuaLoiDoc = {
   boQua: LoiTuChoi[]
   /** Độ dài video người dùng khai, sau khi kẹp vào khoảng cho phép. */
   tongGiay: number
+  /** Góc mở đầu đã dùng — giao diện in ra để người vận hành biết mình vừa được gì. */
+  goc: GocHookId
   provider: string
   model: string
 }
@@ -261,9 +305,15 @@ export async function generateVoiceover(
   // vào việc hôm đó mô hình có ngẫu nhiên bịa số hay không. Một phép kiểm như
   // vậy xanh hay đỏ đều không nói lên điều gì.
   kho?: Parameters<typeof generateStructured>[2],
+  // Góc mở đầu. Nơi gọi (server action) chọn để còn TRÁNH được góc vừa dùng cho
+  // chính deal này; không truyền thì chọn ngẫu nhiên ngay tại đây, vì một nơi
+  // gọi quên truyền không được phép làm cả tính năng rơi về một góc duy nhất —
+  // đó đúng là trạng thái vừa phải sửa.
+  gocVao?: GocHookId,
 ): Promise<KetQuaLoiDoc> {
   const tongGiay = Math.round(kepThoiLuong(tongGiayVao))
-  const khung = khungTheoThoiLuong(tongGiay)
+  const goc = gocVao ?? chonGocHook(deal)
+  const khung = khungTheoThoiLuong(tongGiay, goc)
   const coCoupon = !!deal.couponCode
 
   const goi = (nhac?: LoiTuChoi[]) => generateStructured({
@@ -280,13 +330,15 @@ export async function generateVoiceover(
   const dat = new Map<NhipId, KetQuaLoiDoc['nhip'][number]>()
   let boQua: LoiTuChoi[] = []
 
-  const nhan = (data: z.infer<typeof Schema>) => {
+  // `conMem` = còn được phép từ chối vì lỗi MỀM (lạc góc). Lượt hai thì hết
+  // quyền đó: nhận bản viết ra chứ không để nhịp HOOK trống.
+  const nhan = (data: z.infer<typeof Schema>, conMem: boolean) => {
     const truot: LoiTuChoi[] = []
     for (const dn of khung) {
       if (dat.has(dn.id)) continue
       const viet = data.nhip.find(n => n.id === dn.id)
       if (!viet) { truot.push({ nhip: dn.id, ly: 'mô hình không viết nhịp này' }); continue }
-      const loi = soatNhip(viet, coCoupon)
+      const loi = [...soatNhip(viet, coCoupon), ...(conMem ? soatGocHook(viet, goc, deal.title) : [])]
       if (loi.length) { truot.push({ nhip: dn.id, ly: loi.join(' · ') }); continue }
       // ⚠️ Đếm chữ trên bản ĐÃ ĐIỀN, không phải bản còn chỗ trống. `{price}` là
       // một chữ trên giấy nhưng đọc lên là "eighty-nine ninety-five" — ba chữ.
@@ -308,7 +360,7 @@ export async function generateVoiceover(
   }
 
   const r = await goi()
-  boQua = nhan(r.data)
+  boQua = nhan(r.data, true)
 
   // ── HỎI LẠI MỘT LẦN ──────────────────────────────────────────
   //
@@ -325,9 +377,9 @@ export async function generateVoiceover(
   let r2: Awaited<ReturnType<typeof goi>> | null = null
   if (boQua.length > 0) {
     r2 = await goi(boQua)
-    boQua = nhan(r2.data)
+    boQua = nhan(r2.data, false)
   }
 
   const nhip = khung.map(k => dat.get(k.id)).filter((n): n is NonNullable<typeof n> => !!n)
-  return { nhip, boQua, tongGiay, provider: (r2 ?? r).provider, model: (r2 ?? r).model }
+  return { nhip, boQua, tongGiay, goc, provider: (r2 ?? r).provider, model: (r2 ?? r).model }
 }

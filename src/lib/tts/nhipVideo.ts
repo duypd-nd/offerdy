@@ -23,6 +23,142 @@ export function giayUocTinh(soChu: number): number {
   return soChu <= 0 ? 0 : GIAY_MO_DAU + GIAY_MOI_CHU * soChu
 }
 
+// ── GÓC MỞ ĐẦU ────────────────────────────────────────────────
+//
+// ⚠️ Bản trước ghi CỨNG một hướng vào brief nhịp HOOK: "Lead with the single
+// most surprising concrete fact. That is usually the price". Hậu quả đo được
+// ngày 29/08: người vận hành bấm **Viết lại lời ba lần cho cùng một deal, cả ba
+// lần câu đầu đều là giá** ("Just $89.95"). Đó không phải mô hình bướng — prompt
+// chỉ cho nó đúng một hướng thì viết lại bao nhiêu lần cũng ra một thứ.
+//
+// Nên góc mở đầu tách hẳn thành danh sách, và **code chọn góc, không phải mô
+// hình**. Để mô hình tự chọn thì nó lại rơi về hướng dễ nhất — cùng cái bẫy vừa
+// thoát ra, chỉ khác chỗ đặt.
+//
+// 📌 Danh sách này là bản mở rộng của `CAPTION_ANGLES` trong `generateCaption.ts`
+// (price / problem / whofor / compare / question) — cùng từ vựng, cùng cách đặt
+// tên, để hai nơi còn so được với nhau. Video thêm bốn góc mà caption chữ không
+// có: cảnh dùng thật, sai lầm hay mắc, thứ đang thay thế, và chặn nghi ngờ.
+//
+// ⚠️ Mỗi brief phải CẤM được cái chung chung. Một câu mở kiểu "Tired of clutter?"
+// đặt vào 400 deal nào cũng vừa, tức nó không nói gì về sản phẩm này. Vì vậy
+// brief nào cũng buộc gọi tên đúng vật và đúng cảnh dùng.
+
+// ⚠️ Câu cuối là bản SỬA sau một phép đo. Bản đầu viết "Name the concrete object
+// or the concrete situation", và chạy thật 9 góc trên deal #1471 thì **4 góc trả
+// về đúng cái tên sản phẩm** làm lời đọc ("EverTote Expandable Mama Tote Bag").
+// Mô hình đọc "name the object" thành "đọc tên sản phẩm lên". Nói cụ thể mà
+// không nói tên là hai việc khác nhau, và phải viết ra cả hai vế.
+const HOOK_CHUNG = 'Under two seconds. No greeting, no "check this out", no adjective piled in front. The PRODUCT beat is where the product gets named, so the hook must never be the product name and must never read like a product title. Be specific about the situation instead: if this line could be swapped onto a different product in the same category, it has failed.'
+
+export const GOC_HOOK = [
+  {
+    id: 'price',
+    nhan: 'Giá sốc',
+    hop: 'khi mức giảm lớn',
+    // ⚠️ Đây là câu MỜI GỌI bịa số: mô hình được bảo mở đầu bằng một con số mà
+    // nó lại không được cho biết con số đó. Chạy thật 29/08 trên production, nó
+    // viết "$2…" vào `hienTrenMan` và cả nhịp HOOK bị loại. Nên phải chỉ đúng
+    // chỗ trống ngay trong câu bảo nó nói giá.
+    brief: 'Lead with the number and nothing in front of it. The price is written {price} — exactly those characters, never a digit, never a currency symbol. Then one short clause naming what that number buys.',
+  },
+  {
+    id: 'problem',
+    nhan: 'Giải quyết vấn đề',
+    hop: 'đồ công năng',
+    brief: 'Open on one specific physical annoyance this exact kind of product answers — the thing that goes wrong, in the moment it goes wrong. Do not name the product. Do not mention price in this beat.',
+  },
+  {
+    id: 'whofor',
+    nhan: 'Ai nên mua / ai đừng',
+    hop: 'hàng giá cao',
+    brief: 'Say who should skip this before saying who it suits. The exclusion must be genuine and specific to this product, and must follow from what the title actually states. Do not mention price in this beat.',
+  },
+  {
+    id: 'question',
+    nhan: 'Câu hỏi thật',
+    hop: 'mọi loại',
+    brief: 'Ask one question the target viewer would genuinely answer yes to, about their own situation, not about the product. Not rhetorical filler. Do not mention price in this beat.',
+  },
+  {
+    id: 'usecase',
+    nhan: 'Cảnh dùng thật',
+    hop: 'đồ mang theo người',
+    brief: 'Drop the viewer into one concrete moment where this product is being used: where they are, what is in their hands, what time of day. One scene, not a list. Do not name the product. Do not mention price in this beat.',
+  },
+  {
+    id: 'mistake',
+    nhan: 'Sai lầm hay mắc',
+    hop: 'đồ mua theo thói quen',
+    brief: 'Name the thing people habitually get wrong when buying or using this kind of product. State it as an observation, never as a study, a statistic, or what "most people" do — you have no data for any of that. Do not mention price in this beat.',
+  },
+  {
+    id: 'replace',
+    nhan: 'Thay thứ đang dùng',
+    hop: 'đồ thay đồ cũ',
+    brief: 'Point at the older, clumsier thing the viewer uses right now for this job, and what is irritating about it. Never name a competing brand and never claim this product beats it. Do not mention price in this beat.',
+  },
+  {
+    id: 'objection',
+    nhan: 'Chặn nghi ngờ',
+    hop: 'loại hay bị chê',
+    brief: 'Say out loud the doubt a sceptical viewer already has about this kind of product, in their own words, before answering it. Do not promise the doubt is unfounded — answer only with what the title supports. Do not mention price in this beat.',
+  },
+  {
+    id: 'compare',
+    nhan: 'Hai con số',
+    hop: 'cần có giá gốc',
+    // ⚠️ Chỉ so hai con số CÓ THẬT trong tay: giá gốc và giá hiện tại. Bản
+    // caption từng bảo "đặt giá cạnh mặt bằng của loại hàng này" và mô hình liền
+    // phán về giá thị trường — thứ nó không có dữ liệu để nói.
+    brief: 'Put the two known numbers next to each other: {was} then {price}, those exact characters. Say nothing about what the category "usually" costs, what other shops charge, or any competing product.',
+  },
+] as const
+
+export type GocHookId = typeof GOC_HOOK[number]['id']
+
+/**
+ * Góc nào DÙNG ĐƯỢC cho deal này — lọc theo dữ liệu thật đang có.
+ *
+ * Chỉ hai góc có điều kiện, và cả hai đều là điều kiện về **số liệu có tồn tại
+ * hay không**: `compare` cần giá gốc (không có thì lấy đâu ra hai con số),
+ * `price` cần giá bán. Bảy góc còn lại chỉ cần cái tên sản phẩm nên deal nào
+ * cũng dùng được — đó chính là thứ làm cho nút *Viết lại lời* có nghĩa.
+ */
+export function gocKhaDung(deal: { priceSale?: string | null; priceOrig?: string | null }): GocHookId[] {
+  return GOC_HOOK
+    .filter(g => (g.id === 'compare' ? !!deal.priceOrig : g.id === 'price' ? !!deal.priceSale : true))
+    .map(g => g.id)
+}
+
+/**
+ * Chọn góc mở đầu, tránh những góc vừa dùng cho chính deal này.
+ *
+ * ⚠️ `tranh` mới là thứ chữa đúng cái người vận hành gặp: bấm *Viết lại lời* mà
+ * vẫn ra kiểu mở đầu y hệt thì nút đó vô dụng. Ngẫu nhiên thuần KHÔNG đủ — chín
+ * góc thì hai lần liên tiếp vẫn trùng nhau khoảng 11% số lần.
+ *
+ * Hết góc để tránh thì quay vòng lại từ đầu chứ không trả rỗng: người dùng bấm
+ * đến lần thứ mười vẫn phải có lời đọc.
+ */
+export function chonGocHook(
+  deal: { priceSale?: string | null; priceOrig?: string | null },
+  tranh: readonly string[] = [],
+  rand: () => number = Math.random,
+): GocHookId {
+  const duoc = gocKhaDung(deal)
+  const con = duoc.filter(g => !tranh.includes(g))
+  const tu = con.length ? con : duoc
+  // ⚠️ Kẹp chỉ số: `rand()` trả đúng 1 (hoặc một cài đặt trong test trả 1) thì
+  // `tu[tu.length]` là `undefined` và cả nhịp HOOK mất brief mà không ai báo.
+  return tu[Math.min(tu.length - 1, Math.floor(rand() * tu.length))]
+}
+
+/** Nhãn tiếng Việt của một góc, cho giao diện admin. */
+export function nhanGoc(goc: string): string {
+  return GOC_HOOK.find(g => g.id === goc)?.nhan ?? goc
+}
+
 export const NHIP = [
   {
     id: 'hook',
@@ -30,11 +166,12 @@ export const NHIP = [
     // ⚠️ Không ghi cứng số chữ vào đây — ngân sách in ra từ `nganSachChu()` ngay
     // bên dưới trong prompt. Hai con số ở hai chỗ là chắc chắn lệch nhau, và bản
     // trước đã lệch đúng như vậy (brief nói 5, ngân sách tính ra 4).
-    // ⚠️ "usually the price" là câu MỜI GỌI bịa số: mô hình muốn mở đầu bằng
-    // một con số mà nó lại không được cho biết con số đó. Chạy thật 29/08 trên
-    // production, nó viết "$2…" vào `hienTrenMan` và cả nhịp HOOK bị loại.
-    // Nên phải chỉ đúng chỗ trống ngay trong câu mời gọi ấy.
-    brief: 'Lead with the single most surprising concrete fact. That is usually the price — and the price is written {price}, exactly those characters. Never a digit, never a currency symbol. No greeting, no "check this out", no adjective before it.',
+    // ⚠️ Brief THẬT của nhịp này do GÓC quyết định — xem `GOC_HOOK` ở trên và
+    // tham số `goc` của `khungTheoThoiLuong`. Chuỗi dưới đây chỉ là đường lùi
+    // khi không ai truyền góc vào, và nó cố tình KHÔNG nhắc tới giá: chính câu
+    // "usually the price" của bản trước đã khoá cứng mọi lần viết lại vào một
+    // hướng duy nhất.
+    brief: `${HOOK_CHUNG} Lead with the single most surprising concrete thing about this product.`,
   },
   {
     id: 'problem',
@@ -120,8 +257,19 @@ export function kepThoiLuong(tongGiay: number): number {
   return Math.min(THOI_LUONG_TOI_DA, Math.max(THOI_LUONG_TOI_THIEU, tongGiay))
 }
 
-export function khungTheoThoiLuong(tongGiay: number): KhungNhip[] {
+/**
+ * Bốn khung thời gian + brief của từng nhịp.
+ *
+ * `goc` chỉ thay brief của nhịp HOOK. Cố ý gói vào đây chứ không nối chuỗi ở
+ * `generateVoiceover`: prompt dựng từ đúng mảng này, nên nhét góc ở chỗ khác là
+ * mở ra khả năng brief và ngân sách chữ nói hai chuyện khác nhau — đúng cái
+ * bẫy đã ghi trong `NHIP`.
+ */
+export function khungTheoThoiLuong(tongGiay: number, goc?: GocHookId): KhungNhip[] {
   const T = kepThoiLuong(tongGiay)
+  const briefHook = goc && GOC_HOOK.find(g => g.id === goc)
+    ? `${HOOK_CHUNG} ${GOC_HOOK.find(g => g.id === goc)!.brief}`
+    : undefined
   const hook = Math.min(TRAN_HOOK, T * TI_LE_HOOK)
   const cta = Math.min(TRAN_CTA, T * TI_LE_CTA)
   const con = T - hook - cta
@@ -136,7 +284,7 @@ export function khungTheoThoiLuong(tongGiay: number): KhungNhip[] {
   return NHIP.map(n => {
     const g = giay[n.id]
     const k: KhungNhip = {
-      id: n.id, vai: n.vai, brief: n.brief,
+      id: n.id, vai: n.vai, brief: n.id === 'hook' && briefHook ? briefHook : n.brief,
       batDau: moc, giay: g,
       nhan: `${fmtGiay(moc).replace('s', '')}–${fmtGiay(moc + g)}`,
     }

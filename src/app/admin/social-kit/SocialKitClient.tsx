@@ -14,7 +14,8 @@ import { ghepPcm, pcmTuWav, rateTuWav, wavTuPcm } from '@/lib/tts/pcmWav'
 // import bộ định tuyến AI, và một component 'use client' import nó là kéo cả
 // bộ đó xuống trình duyệt.
 import {
-  THOI_LUONG_MAC_DINH, THOI_LUONG_TOI_DA, THOI_LUONG_TOI_THIEU, canhBaoThoiLuong, fmtGiay,
+  GOC_HOOK, THOI_LUONG_MAC_DINH, THOI_LUONG_TOI_DA, THOI_LUONG_TOI_THIEU,
+  canhBaoThoiLuong, fmtGiay, nhanGoc, type GocHookId,
 } from '@/lib/tts/nhipVideo'
 import type { KetQuaLoiDoc } from '@/lib/ai/generateVoiceover'
 
@@ -137,6 +138,14 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
   const [loiDocLoi, setLoiDocLoi] = useState('')
   const [dangDoc, setDangDoc] = useState('')
   const [loiPending, startLoi] = useTransition()
+  // Kiểu mở đầu. `'auto'` để máy xoay vòng là mặc định — người vận hành muốn
+  // "khác lần trước", chứ hiếm khi muốn đúng một góc cụ thể.
+  const [gocChon, setGocChon] = useState<GocHookId | 'auto'>('auto')
+  // ⚠️ Những góc ĐÃ dùng cho từng deal trong phiên này. Không có nó thì bấm
+  // *Viết lại lời* vẫn bốc ngẫu nhiên và trùng lại góc cũ khoảng 1/9 số lần —
+  // đúng cái cảm giác "viết lại mà y hệt" đã phải sửa. Nhớ theo deal, vì đổi
+  // sang sản phẩm khác thì góc cũ lại dùng được ngay.
+  const [gocDaDung, setGocDaDung] = useState<Record<number, GocHookId[]>>({})
 
   const tongGiay = phut * 60 + giay
   const canhBaoDoDai = canhBaoThoiLuong(tongGiay)
@@ -342,9 +351,12 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
   const vietLoi = (code: number) => {
     setLoiDocLoi('')
     startLoi(async () => {
-      const r = await vietLoiDoc(code, tongGiay)
+      const r = await vietLoiDoc(code, tongGiay, gocChon, gocDaDung[code] ?? [])
       if (!r.ok) { setLoiDocLoi(r.error); return }
       setLoiTheoMa(cu => ({ ...cu, [code]: r.ket }))
+      // Ghi lại góc VỪA DÙNG chứ không phải góc vừa chọn: chọn "auto" thì góc
+      // thật do máy chủ quyết, và chỉ nó mới đáng để tránh ở lần sau.
+      setGocDaDung(cu => ({ ...cu, [code]: [...(cu[code] ?? []), r.ket.goc] }))
       // Lời mới thì tiếng cũ không còn đúng nữa — bỏ đi, đừng để người dùng tải
       // về một tệp đọc bản nháp trước.
       setTiengTheoMa(cu => { const m = { ...cu }; delete m[code]; return m })
@@ -784,7 +796,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                   <b>Lời đọc video</b>
                   <span>
                     {loiTheoMa[deal.code]
-                      ? `${loiTheoMa[deal.code].nhip.length} nhịp · ${loiTheoMa[deal.code].provider}/${loiTheoMa[deal.code].model}`
+                      ? `${loiTheoMa[deal.code].nhip.length} nhịp · mở kiểu “${nhanGoc(loiTheoMa[deal.code].goc)}” · ${loiTheoMa[deal.code].provider}/${loiTheoMa[deal.code].model}`
                       : 'chưa có — bấm nút bên dưới'}
                   </span>
                 </div>
@@ -807,6 +819,24 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                   <b>= {tongGiay}s</b>
                 </div>
                 {canhBaoDoDai && <p className="lda-cho">{canhBaoDoDai}</p>}
+
+                {/* Kiểu mở đầu. Đặt cạnh nút viết vì nó chỉ đổi đúng nhịp HOOK
+                    — ba nhịp sau không phụ thuộc vào nó. */}
+                <div className="lda-dodai">
+                  <span>Mở đầu kiểu</span>
+                  <label>
+                    <select value={gocChon} onChange={e => setGocChon(e.target.value as GocHookId | 'auto')}
+                      disabled={loiPending}>
+                      <option value="auto">Tự xoay vòng (khác lần trước)</option>
+                      {GOC_HOOK.map(g => (
+                        <option key={g.id} value={g.id}>{g.nhan} — {g.hop}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {(gocDaDung[deal.code]?.length ?? 0) > 1 && (
+                    <b>đã thử: {gocDaDung[deal.code].map(nhanGoc).join(', ')}</b>
+                  )}
+                </div>
 
                 <div className="lda-nut">
                   <button className="oa-btn oa-btn-green" disabled={loiPending || !!dangDoc}

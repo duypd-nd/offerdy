@@ -7,6 +7,7 @@ import {
   type CaptionAngle, type CaptionPlatform, type CaptionDealInput, type Persona,
 } from '@/lib/ai/generateCaption'
 import { generateVoiceover, type KetQuaLoiDoc } from '@/lib/ai/generateVoiceover'
+import { chonGocHook, gocKhaDung, type GocHookId } from '@/lib/tts/nhipVideo'
 import type { LinkStyle } from '@/lib/socialCaption'
 import { getDealCoupon } from '@/sanity/queries'
 import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
@@ -108,7 +109,15 @@ export async function generateCaptionsForDeal(input: {
  * DOC LEN mot ma cua shop khac, tuc bao nguoi xem go mot ma khong bao gio ap
  * duoc. Da co tien le dung nhu vay ghi o dau trang nay.
  */
-export async function vietLoiDoc(code: number, tongGiay?: number): Promise<
+export async function vietLoiDoc(
+  code: number,
+  tongGiay?: number,
+  // Góc mở đầu. `'auto'` (hoặc bỏ trống) = code tự xoay vòng, tránh những góc
+  // đã dùng cho chính deal này trong phiên — đó là thứ làm nút *Viết lại lời*
+  // ra một câu mở khác chứ không ra cùng một câu giá lần thứ ba.
+  goc?: GocHookId | 'auto',
+  daDung: readonly string[] = [],
+): Promise<
   { ok: true; ket: KetQuaLoiDoc } | { ok: false; error: string }
 > {
   try {
@@ -130,7 +139,18 @@ export async function vietLoiDoc(code: number, tongGiay?: number): Promise<
     // cho mọi thứ gửi lên được, và `generateVoiceover` tự kẹp lần nữa — hai lớp
     // vì một `tongGiay` khổng lồ sẽ đẻ ra ngân sách chữ khổng lồ và một prompt
     // vô nghĩa, tiêu hạn mức AI cho không.
-    const ket = await generateVoiceover(deal, Number.isFinite(tongGiay) ? tongGiay : undefined)
+    // ⚠️ Góc gửi lên từ trình duyệt phải ĐỐI CHIẾU với danh sách góc dùng được
+    // cho chính deal này, không nhận thẳng. Một `goc` lạ lọt vào thì
+    // `khungTheoThoiLuong` không tìm thấy brief và nhịp HOOK âm thầm rơi về
+    // brief đường lùi — không lỗi, không dấu hiệu, chỉ là lời đọc nhạt đi.
+    const duoc = gocKhaDung(deal)
+    const gocDung = goc && goc !== 'auto' && duoc.includes(goc)
+      ? goc
+      : chonGocHook(deal, daDung)
+
+    const ket = await generateVoiceover(
+      deal, Number.isFinite(tongGiay) ? tongGiay : undefined, undefined, undefined, gocDung,
+    )
     if (ket.nhip.length === 0) {
       return {
         ok: false,

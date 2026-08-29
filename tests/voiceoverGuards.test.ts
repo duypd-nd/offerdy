@@ -20,8 +20,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  GIAY_MO_DAU, NHIP, canhBaoThoiLuong, demChu, dienCho, giayUocTinh,
-  generateVoiceover, khungTheoThoiLuong, nganSachChu, soatNhip,
+  GIAY_MO_DAU, GOC_HOOK, NHIP, canhBaoThoiLuong, chonGocHook, demChu, dienCho, giayUocTinh,
+  generateVoiceover, gocKhaDung, khungTheoThoiLuong, nganSachChu, soatGocHook, soatNhip,
 } from '@/lib/ai/generateVoiceover'
 import { docGiaLen, docMaLen, docPhanTramLen, soNguyenThanhChu } from '@/lib/tts/docSoLen'
 import type { CaptionDealInput } from '@/lib/ai/generateCaption'
@@ -352,7 +352,7 @@ test('⚠️ nhịp bịa số được HỎI LẠI, không bị vứt luôn', a
   // Lần đầu HOOK viết "$29.95" -> loại. Lần hai viết {price} -> qua.
   const kho = { groq: nhaLanLuot([BON_NHIP('$29.95'), BON_NHIP('{price}')], dem) }
   const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
-    kho as unknown as Parameters<typeof generateVoiceover>[3])
+    kho as unknown as Parameters<typeof generateVoiceover>[3], 'price')
 
   assert.equal(dem.n, 2, 'phải gọi đúng hai lần: một lần đầu, một lần hỏi lại')
   assert.equal(ket.nhip.length, 4, 'đủ bốn nhịp sau khi hỏi lại')
@@ -366,7 +366,7 @@ test('⚠️ chỉ hỏi lại MỘT lần — hai lần cùng bịa thì phải
   const dem = { n: 0 }
   const kho = { groq: nhaLanLuot([BON_NHIP('$29.95')], dem) }
   const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
-    kho as unknown as Parameters<typeof generateVoiceover>[3])
+    kho as unknown as Parameters<typeof generateVoiceover>[3], 'price')
 
   assert.equal(dem.n, 2, 'không được gọi quá hai lần')
   assert.equal(ket.nhip.length, 3, 'ba nhịp kia vẫn giữ được')
@@ -378,7 +378,7 @@ test('không nhịp nào trượt thì KHÔNG hỏi lại — đừng tiêu mộ
   const dem = { n: 0 }
   const kho = { groq: nhaLanLuot([BON_NHIP('{price}')], dem) }
   const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
-    kho as unknown as Parameters<typeof generateVoiceover>[3])
+    kho as unknown as Parameters<typeof generateVoiceover>[3], 'price')
 
   assert.equal(dem.n, 1)
   assert.equal(ket.nhip.length, 4)
@@ -392,7 +392,141 @@ test('nhịp đã ĐẠT ở lần đầu được giữ nguyên, lượt hỏi 
   lanHai.nhip[1].docLen = 'DOI HET ROI'
   const kho = { groq: nhaLanLuot([BON_NHIP('$29.95'), lanHai], dem) }
   const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
-    kho as unknown as Parameters<typeof generateVoiceover>[3])
+    kho as unknown as Parameters<typeof generateVoiceover>[3], 'price')
 
   assert.equal(ket.nhip.find(n => n.id === 'problem')!.docLen, 'Normal bags are too small')
+})
+
+// ── GÓC MỞ ĐẦU ────────────────────────────────────────────────
+//
+// ⚠️ Bốn phép kiểm ở trên đều truyền thẳng góc `'price'`. KHÔNG phải cho tiện:
+// chúng kiểm chuyện bịa số, và fixture của chúng để `{price}` ở nhịp HOOK. Bỏ
+// trống góc thì máy bốc ngẫu nhiên, tám lần trên chín sẽ rơi vào một góc cấm
+// nói giá, và bốn phép kiểm đó thành **lúc xanh lúc đỏ vì một lý do chẳng liên
+// quan gì tới thứ chúng canh**.
+
+test('⚠️ chỉ hai góc được phép nói giá — bảy góc kia mà mời gọi số là lặp lại đúng lỗi vừa sửa', () => {
+  // Lỗi 29/08: brief nhịp HOOK ghi cứng "That is usually the price", nên viết
+  // lại ba lần vẫn ra ba câu mở bằng giá. Phép kiểm này chốt để không ai vô
+  // tình nhét lại một chỗ trống giá vào góc khác.
+  for (const g of GOC_HOOK) {
+    const coCho = /\{(price|was|discount)\}/.test(g.brief)
+    if (g.id === 'price' || g.id === 'compare') {
+      assert.ok(coCho, `góc ${g.id} phải chỉ rõ chỗ trống, kẻo mô hình tự gõ số`)
+    } else {
+      assert.ok(!coCho, `góc ${g.id} không được mời gọi nói giá: ${g.brief}`)
+    }
+    assert.ok(/Do not mention price|{price}/.test(g.brief), `góc ${g.id} phải nói rõ lập trường về giá`)
+  }
+})
+
+test('mỗi góc là một hướng KHÁC nhau, không phải một cách nói khác của cùng một hướng', () => {
+  assert.ok(GOC_HOOK.length >= 8, `chỉ ${GOC_HOOK.length} góc thì viết lại vài lần là hết hướng`)
+  assert.equal(new Set(GOC_HOOK.map(g => g.id)).size, GOC_HOOK.length, 'id trùng')
+  assert.equal(new Set(GOC_HOOK.map(g => g.brief)).size, GOC_HOOK.length, 'brief trùng')
+  assert.equal(new Set(GOC_HOOK.map(g => g.nhan)).size, GOC_HOOK.length, 'nhãn trùng')
+})
+
+test('góc "hai con số" bị loại khi deal KHÔNG có giá gốc', () => {
+  // Không có giá gốc thì lấy đâu ra hai con số để đặt cạnh nhau. Đây là điều
+  // kiện về dữ liệu có thật hay không, không phải về gu.
+  const khongGiaGoc: CaptionDealInput = { ...DEAL, priceOrig: undefined }
+  assert.ok(gocKhaDung(DEAL).includes('compare'))
+  assert.ok(!gocKhaDung(khongGiaGoc).includes('compare'))
+  assert.ok(gocKhaDung(khongGiaGoc).length >= 7, 'bảy góc kia vẫn phải dùng được')
+})
+
+test('⚠️ chonGocHook TRÁNH góc vừa dùng — đó mới là thứ làm nút "Viết lại lời" có nghĩa', () => {
+  // Bốc ngẫu nhiên thuần thì chín góc vẫn trùng lại ~11% số lần, và người vận
+  // hành thấy đúng cái họ vừa bấm để thoát ra.
+  const tranh = gocKhaDung(DEAL).filter(g => g !== 'usecase')
+  assert.equal(chonGocHook(DEAL, tranh), 'usecase', 'còn đúng một góc thì phải ra góc đó')
+
+  // Xoay đủ một vòng: mỗi lần chọn xong lại thêm vào danh sách tránh.
+  const daDung: string[] = []
+  for (let i = 0; i < gocKhaDung(DEAL).length; i++) {
+    const g = chonGocHook(DEAL, daDung)
+    assert.ok(!daDung.includes(g), `lặp lại góc ${g} khi vẫn còn góc chưa dùng`)
+    daDung.push(g)
+  }
+})
+
+test('tránh HẾT góc thì quay vòng lại, không trả về rỗng', () => {
+  // Người dùng bấm tới lần thứ mười vẫn phải có lời đọc.
+  const het = chonGocHook(DEAL, gocKhaDung(DEAL))
+  assert.ok(gocKhaDung(DEAL).includes(het), `trả về ${het}`)
+  // Và biên của rand: `rand() === 1` cho chỉ số bằng độ dài mảng -> undefined,
+  // rồi cả nhịp HOOK mất brief mà không ai báo.
+  assert.ok(gocKhaDung(DEAL).includes(chonGocHook(DEAL, [], () => 1)))
+})
+
+test('góc được giao đi thẳng vào brief nhịp HOOK của prompt', () => {
+  const goc = GOC_HOOK.find(g => g.id === 'whofor')!
+  const hook = khungTheoThoiLuong(15, 'whofor').find(k => k.id === 'hook')!
+  assert.ok(hook.brief.includes(goc.brief), 'brief của góc phải nằm trong brief nhịp')
+  assert.ok(!/\{price\}/.test(hook.brief), 'góc này không được nhắc giá')
+  // Ba nhịp còn lại KHÔNG đổi theo góc.
+  assert.deepEqual(
+    khungTheoThoiLuong(15, 'whofor').filter(k => k.id !== 'hook').map(k => k.brief),
+    khungTheoThoiLuong(15, 'problem').filter(k => k.id !== 'hook').map(k => k.brief),
+  )
+})
+
+test('đường lùi khi không truyền góc cũng KHÔNG ép mở đầu bằng giá', () => {
+  const hook = khungTheoThoiLuong(15).find(k => k.id === 'hook')!
+  assert.ok(!/\{price\}/.test(hook.brief), hook.brief)
+})
+
+test('soatGocHook chỉ bắt hook lạc góc, không đụng nhịp khác', () => {
+  const hookGia = { id: 'hook' as const, hienTrenMan: 'Just {price}', docLen: 'Just {price}' }
+  assert.equal(soatGocHook(hookGia, 'price').length, 0, 'góc price thì nói giá là ĐÚNG việc')
+  assert.equal(soatGocHook(hookGia, 'compare').length, 0)
+  assert.equal(soatGocHook(hookGia, 'problem').length, 1)
+  // Nhịp PRODUCT vẫn phải nói giá dù góc là gì — chỗ trống nằm ở brief của nó.
+  const sp = { id: 'product' as const, hienTrenMan: 'The tote', docLen: 'Now {price}' }
+  assert.equal(soatGocHook(sp, 'problem').length, 0)
+})
+
+test('⚠️ hook CHỈ LÀ TÊN SẢN PHẨM bị bắt — đo thật 4/9 góc trả về đúng cái tên', () => {
+  // Đo 29/08 trên deal #1471: bản đầu của HOOK_CHUNG viết "Name the concrete
+  // object", và bốn góc đọc nó thành "đọc tên sản phẩm lên".
+  const ten = 'EverTote Expandable Mama Tote Bag'
+  const chepTen = { id: 'hook' as const, hienTrenMan: 'EverTote', docLen: ten }
+  assert.equal(soatGocHook(chepTen, 'problem', ten).length, 1)
+  // Kể cả khi khác dấu câu và chữ hoa — đó là cùng một câu đọc lên.
+  const lech = { id: 'hook' as const, hienTrenMan: 'x', docLen: 'evertote expandable mama tote bag.' }
+  assert.equal(soatGocHook(lech, 'usecase', ten).length, 1)
+
+  // Nhưng hook đúng vẫn được mượn vài chữ của tên hàng — nếu không thì hàng rào
+  // này chặn luôn cả những câu mở hay nhất.
+  for (const hay of ['That tiny mama bag never fits', 'Packing snacks into a tote every morning']) {
+    assert.equal(soatGocHook({ id: 'hook', hienTrenMan: 'x', docLen: hay }, 'usecase', ten).length, 0, hay)
+  }
+})
+
+test('⚠️ hook lạc góc thì HỎI LẠI, và lượt hai viết gì cũng NHẬN', async () => {
+  // Lạc góc là lỗi MỀM: câu vẫn đúng sự thật, chỉ không phải hướng vừa chọn.
+  // Vứt cả nhịp HOOK vì nó là lặp lại đúng lỗi đã trả giá 29/08 — mất câu quan
+  // trọng nhất của video để đổi lấy một hàng rào.
+  const dem = { n: 0 }
+  const kho = { groq: nhaLanLuot([BON_NHIP('{price}')], dem) } // cả hai lượt đều lạc
+  const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
+    kho as unknown as Parameters<typeof generateVoiceover>[3], 'problem')
+
+  assert.equal(dem.n, 2, 'phải hỏi lại đúng một lần')
+  assert.equal(ket.nhip.length, 4, 'lượt hai vẫn lạc thì NHẬN, không được mất nhịp HOOK')
+  assert.deepEqual(ket.boQua, [])
+  assert.equal(ket.goc, 'problem', 'góc đã dùng phải trả về cho giao diện in ra')
+})
+
+test('hook bám đúng góc thì KHÔNG hỏi lại — đừng tiêu một lượt gọi cho không', async () => {
+  const dem = { n: 0 }
+  const dung = BON_NHIP('Snacks everywhere')
+  dung.nhip[0].docLen = 'Your tote spills every single school run'
+  const kho = { groq: nhaLanLuot([dung], dem) }
+  const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
+    kho as unknown as Parameters<typeof generateVoiceover>[3], 'problem')
+
+  assert.equal(dem.n, 1)
+  assert.equal(ket.nhip.length, 4)
 })

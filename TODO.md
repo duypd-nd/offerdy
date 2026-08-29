@@ -559,6 +559,43 @@ lệch dần từ đoạn thứ hai.
    với "Google trục trặc lúc đó". Đã phòng: thử lại 2 lần khi gặp 5xx (5xx không tốn hạn
    mức) và có đường lùi về đọc từng nhịp.
 
+### Bổ sung — chín góc mở đầu cho nhịp HOOK
+
+User bấm **Viết lại lời ba lần cho cùng một deal, cả ba lần câu đầu đều là giá**
+("Just $89.95"). Không phải mô hình bướng: brief nhịp HOOK ghi cứng *"Lead with the single
+most surprising concrete fact. **That is usually the price**"* — prompt chỉ cho một hướng
+thì viết lại bao nhiêu lần cũng ra một thứ.
+
+Nay `GOC_HOOK` trong `nhipVideo.ts` có **9 góc**, mở rộng từ `CAPTION_ANGLES` của bộ caption
+(giữ nguyên từ vựng price / problem / whofor / compare / question, thêm usecase / mistake /
+replace / objection). **Code chọn góc, không phải mô hình** — để nó tự chọn là rơi lại vào
+hướng dễ nhất, cùng cái bẫy chỉ khác chỗ đặt. Nút *Viết lại lời* gửi kèm danh sách góc đã
+dùng cho chính deal đó, nên lần sau chắc chắn khác; ngẫu nhiên thuần vẫn trùng ~11%.
+
+📌 **Số đo, deal #1471 thật, chạy đủ 9 góc:**
+
+| | Trước | Sau |
+|---|---|---|
+| Câu mở khác nhau | 1 hướng (giá) | **9/9 khác nhau** |
+| Hook nhắc tới giá | mọi lần | **2/9** — đúng hai góc được giao việc đó |
+| Hook chỉ là tên sản phẩm | — | **0/9** |
+
+⚠️ **Vòng đo đầu tiên bác bỏ chính bản vá.** Câu *"Name the concrete object or the concrete
+situation"* mà tôi thêm vào để chống chung chung bị mô hình đọc thành "đọc tên sản phẩm
+lên": **4 trên 9 góc** trả về đúng chuỗi `EverTote Expandable Mama Tote Bag` làm lời đọc.
+Nói *cụ thể* và nói *tên* là hai việc khác nhau, phải viết ra cả hai vế. Đã sửa câu chữ **và**
+thêm hàng rào bắt hook trùng tên sản phẩm (so kiểu "nằm gọn trong nhau", không đếm chữ trùng
+— hook hay vẫn mượn vài chữ của tên hàng: *"That tiny mama bag"*).
+
+⚠️ **Hàng rào góc là MỀM, cố ý.** Lạc góc thì hỏi lại một lần rồi **nhận**; chỉ bịa số mới
+loại cứng. Vứt nhịp HOOK vì lạc đề là lặp lại đúng lỗi đã trả giá ở mục trên — mất câu quan
+trọng nhất của video để đổi lấy một hàng rào.
+
+| Kiểm | Kết quả |
+|---|---|
+| `npm test` | **709 / 709** |
+| 9 góc chạy thật trên #1471 | 9/9 ra hook, 0 nhịp bị mất |
+
 ### Còn lại cho tính năng này — VIỆC ĐẦU TIÊN NGÀY MAI
 
 Cả hai việc dưới đây chỉ cần **một** lần bấm nút 🔊 là xong cả hai:
