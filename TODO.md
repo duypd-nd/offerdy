@@ -322,6 +322,34 @@ nên để lại sẽ cộng vào số của chiến dịch. `count(click)` về
 
 ### Còn treo — user quyết
 
+- 🔜 **Google Cloud TTS thay Gemini TTS — user đã chốt "thêm sau", ĐỪNG làm khi chưa được bảo.**
+  Đo 29/08, **đã gọi thật**, đừng đo lại:
+
+  | Câu hỏi | Trả lời đo được |
+  |---|---|
+  | Service account có đủ quyền không? | **CÓ** — lấy được token cho scope `cloud-platform` |
+  | Vướng ở đâu? | `403 SERVICE_DISABLED` — **chỉ cần bật API**, không phải thiếu quyền |
+  | Bật ở đâu? | `console.developers.google.com/apis/api/texttospeech.googleapis.com/overview?project=44190989233` |
+  | Hạn mức miễn phí | **1 triệu ký tự/tháng** (Neural2) · 4 triệu (Standard) → lời đọc ~400 ký tự ⇒ **~2.500 video/tháng** |
+  | Điều kiện | ⚠️ **BẮT BUỘC bật thanh toán** (gắn thẻ) dù dùng phần miễn phí; vượt là tự tính tiền |
+
+  **Ba thứ được thêm nếu đổi:** trả **mp3** thẳng (khỏi WAV, khỏi `pcmWav.ts` ở đường này) ·
+  có tham số `speakingRate` **thật** thay vì phải dặn bằng câu chỉ dẫn tiếng Anh · và
+  [`src/lib/googleAuth.ts`](src/lib/googleAuth.ts) **đã nhận `scope` làm tham số** nên chỗ
+  xác thực không phải viết gì mới.
+
+  📌 Script đo sẵn: `.scratch/do-gcloud-tts.mjs` — chạy lại sau khi bật API là biết ngay.
+  ⚠️ Script đó **không tự đọc `.env.local`**: heredoc nuốt dấu `\` trong khoá riêng và
+  OpenSSL báo `DECODER routines::unsupported`, nghe y hệt sai khoá. Nó dùng `loadEnv()`.
+
+  🚫 **Đã đo và LOẠI: Groq không có TTS.** Hỏi `/openai/v1/models` bằng chính khoá của dự
+  án: 14 model, phần tiếng nói chỉ có `whisper-large-v3` và `-turbo` (tiếng → chữ). Đừng
+  đi tìm lại.
+
+  ⚠️ **Và cân nhắc trước khi làm:** sáng 29/08 là ~5 video/ngày, sau bản gộp là **~20**, còn
+  số video đã đăng là **0**. Nâng 20 → 2.500 là giải một vấn đề chưa gặp — đúng cảnh báo
+  lớn nhất của dự án. Chỉ làm khi đã có ngày thật sự chạm trần.
+
 - **`AI_TASK_PROVIDER_article_names`**: để mặc định thì `article-names` rơi xuống Gemini lite
   và mất ~6/8 tên mỗi lần quét (hậu kiểm loại). Đặt `=anthropic` thì giữ chất lượng — việc
   này chạy tay, ít lần, và tên bài quyết định SEO. Bảng đo đầy đủ ở `docs/AI_ROUTER.md`.
