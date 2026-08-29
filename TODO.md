@@ -455,6 +455,36 @@ với "off off") · `offerText` kiểu `$100 Off` đọc lên thành *"dollar on
    `requireAdmin()` gọi `redirect()`. Nay script in **URL** trước mọi kết luận — bị đá ra
    và code hỏng nhìn giống hệt nhau nếu chỉ đếm số nhịp.
 
+### Bổ sung — hỏi lại khi mô hình bịa số (`d51991c`, đã push)
+
+Chạy thật trên production, deal **#1471**: mô hình viết `$2…` vào `hienTrenMan` của nhịp
+HOOK thay cho `{price}`. Hàng rào loại **đúng** — nhưng hậu quả sai: mất luôn câu quan trọng
+nhất của video.
+
+**Không nới hàng rào.** Một con số bịa đọc lên thành tiếng thì người nghe không đối chiếu
+lại được. Thay vào đó: **hỏi lại một lần**, kèm đúng lý do vừa trượt. Nhịp đã đạt được giữ
+nguyên, nhịp vá vào nằm lại đúng chỗ trong phễu. Chỉ **một** lần — hai mô hình cùng bịa ở
+cùng một chỗ là tín hiệu cần nói ra, không phải thứ để lặp cho tới khi may mắn.
+
+Cũng siết chỗ **mời gọi** bịa số: brief của HOOK trước viết *"usually the price"*, tức bảo
+mô hình mở đầu bằng một con số mà nó không được cho biết.
+
+| Kiểm | Kết quả |
+|---|---|
+| `npm test` | **691 / 691** |
+| Chạy lại chính deal #1471 ở 16 giây | 4/4 nhịp · 0 bị loại · tổng ~16,5s cho video 16s |
+
+⚠️ **Quan sát chưa giải thích được — ĐỪNG đọc thành kết luận.**
+`groq/openai/gpt-oss-20b` trả `json_validate_failed` ở **4 trên 6** lượt gọi việc này, mất
+~3 giây rồi router mới rơi xuống Gemini. Nghi `.length(4)` ép `minItems`/`maxItems`; thử nới
+thành `.min(1).max(6)` ra **1 đạt / 1 trượt**. Hai lượt không phân biệt được gì (luật 8c),
+nên **giữ schema chặt** và ghi lại. Không chặn gì — router tự rơi sang nhà khác.
+
+📌 **Không xác nhận được bản này đã lên production từ bên ngoài.** Thay đổi nằm hoàn toàn ở
+phía máy chủ nên chuỗi nhận dạng bị cắt khỏi gói trình duyệt; hai phép dò đầu (`buildId`, và
+chuỗi trong chunk JS) đều **không phân biệt được**. Thứ biết chắc: đã có một bản dựng mới
+hơn `5b84a61` đang chạy (tên chunk CSS đã đổi). Phép kiểm thật là bấm nút.
+
 ### Còn lại cho tính năng này
 
 - **Chưa bấm thử nút 🔊 trên trình duyệt** — hạn mức đọc của cả hai khoá đã cạn vì chính các
