@@ -77,12 +77,25 @@ export function buildCaption(deal: CaptionDeal, opts: {
   style: LinkStyle
   campaign?: string
   hashtags?: string[]
+  /**
+   * Toi da bao nhieu hashtag — tran cua tung nen tang
+   * (`platformById(...).maxHashtags`). Bo trong thi khong cat.
+   *
+   * ⚠️ `suggestHashtags()` tra ve toi 5 (danh muc + 3 tu trong ten + "offerdy"),
+   * trong khi Instagram chot 4 va Threads/X chi 2. Khong cat o day thi caption
+   * mau vuot tran trong khi caption do AI viet thi khong — hai duong ra hai ket
+   * qua khac nhau tren cung mot man hinh.
+   */
+  maxHashtags?: number
 }): string {
   const badge = dealDiscountBadge(deal)
   const discountLine = deal.priceOrig
     ? `${deal.priceSale} (was ${deal.priceOrig}) — ${badge.main}${badge.sub ? ` ${badge.sub}` : ''}`
     : deal.priceSale
-  const tags = (opts.hashtags ?? suggestHashtags(deal)).map(t => `#${t}`).join(' ')
+  const tags = (opts.hashtags ?? suggestHashtags(deal))
+    .slice(0, opts.maxHashtags ?? Infinity)
+    .map(t => `#${t}`)
+    .join(' ')
 
   return [
     deal.title,

@@ -73,3 +73,32 @@ test('mức giảm vô lý bị chặn, caption chỉ còn mã', () => {
   const l = couponLine({ ...DEAL, couponCode: 'OFFERDY', couponOfferText: '150% Off' })
   assert.equal(l, 'Store code: OFFERDY — worth trying at checkout')
 })
+
+// ── Trần hashtag trên caption mẫu (không phải AI) ──────────────────
+// ⚠️ Đếm trên DÒNG CUỐI, không phải cả caption: `#1471` trong câu
+// "Product #1471" cũng khớp `#\w+` và làm mọi phép đếm lệch một.
+const demHashtag = (caption: string) =>
+  (caption.trim().split(/\r?\n/).at(-1)?.match(/#\w+/g) ?? []).length
+
+test('🚨 caption mẫu cũng phải theo trần hashtag của nền tảng', () => {
+  // `suggestHashtags()` trả tối đa 5 (danh mục + 3 từ trong tên + "offerdy"),
+  // trong khi Instagram chốt 4. Không cắt thì caption mẫu vượt trần còn caption
+  // do AI viết thì không — hai đường ra hai kết quả khác nhau trên cùng màn hình.
+  const day = buildCaption({ ...DEAL, categoryName: 'Kids & Baby' }, { style: 'deal' })
+  const soDay = demHashtag(day)
+  assert.ok(soDay > 4, `cần một ca vượt trần để phép đo có nghĩa, đang có ${soDay}`)
+
+  const cat = buildCaption({ ...DEAL, categoryName: 'Kids & Baby' }, { style: 'deal', maxHashtags: 4 })
+  assert.equal(demHashtag(cat), 4)
+
+  // Threads/X chỉ 2.
+  const hai = buildCaption({ ...DEAL, categoryName: 'Kids & Baby' }, { style: 'deal', maxHashtags: 2 })
+  assert.equal(demHashtag(hai), 2)
+})
+
+test('bỏ trống maxHashtags thì không cắt — không đổi hành vi cũ', () => {
+  const a = buildCaption(DEAL, { style: 'deal' })
+  const b = buildCaption(DEAL, { style: 'deal', maxHashtags: undefined })
+  assert.equal(a, b)
+})
+

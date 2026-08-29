@@ -7,7 +7,9 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { findUnsafeText, fillPlaceholders, type CaptionDealInput } from '@/lib/ai/generateCaption'
+import {
+  CAPTION_PLATFORMS, findUnsafeText, fillPlaceholders, platformById, type CaptionDealInput,
+} from '@/lib/ai/generateCaption'
 
 const deal: CaptionDealInput = {
   code: 1020, title: 'Santoku Knife',
@@ -99,4 +101,27 @@ test('don dau $ bi nhan doi va "OFF off" (loi model hay mac)', () => {
   // `$${price}` -> phai ra mot dau $, ke ca chuoi dai hon mot cap
   assert.equal(fillPlaceholders('only $${price}', deal, { style: 'deal' }), 'only $48')
   assert.equal(fillPlaceholders('{discount} off now', deal, { style: 'deal' }), '20% OFF now')
+})
+
+// ── Trần hashtag từng nền tảng ────────────────────────────────────
+test('🚨 mỗi nền tảng có trần hashtag, và con số trong brief phải khớp trần đó', () => {
+  // Trần thật do `maxHashtags` quyết định (cắt bằng code khi dựng biến thể).
+  // `brief` chỉ là lời dặn model. Hai chỗ lệch nhau thì model được dặn một đằng
+  // còn caption bị cắt một nẻo — và người vận hành không hiểu vì sao mất hashtag.
+  for (const p of CAPTION_PLATFORMS) {
+    assert.ok(p.maxHashtags >= 1, `${p.id} không có trần hashtag`)
+    const so = p.brief.match(/(\d+)\s+hashtags?/)
+    assert.ok(so, `brief của ${p.id} không nêu số hashtag`)
+    assert.equal(
+      Number(so[1]), p.maxHashtags,
+      `${p.id}: brief nói ${so[1]} nhưng maxHashtags là ${p.maxHashtags}`
+    )
+  }
+})
+
+test('Instagram tối đa 4 hashtag — con số người vận hành chốt', () => {
+  assert.equal(platformById('instagram').maxHashtags, 4)
+  // Threads/X chỉ 2: schema phải cho phép ít tới mức đó, nếu không model bị ép
+  // vi phạm một trong hai luật.
+  assert.equal(platformById('threads').maxHashtags, 2)
 })

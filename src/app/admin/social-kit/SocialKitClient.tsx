@@ -104,7 +104,9 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
 
   const url = deal ? shortLinkUrl(deal.code, deal.slug, style, campaign) : ''
 
-  const generated = deal ? buildCaption(deal, { style, campaign }) : ''
+  const generated = deal
+    ? buildCaption(deal, { style, campaign, maxHashtags: platformById(platform).maxHashtags })
+    : ''
   const caption = captionOverride ?? generated
   const captionEdited = captionOverride !== null
 
@@ -670,7 +672,17 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                       <div key={i} style={{ background: '#fff', border: '1px solid #E4EAF2', borderRadius: 8, padding: '10px 12px' }}>
                         <div style={{ fontSize: 12.5, color: '#1E293B', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{c.text}</div>
                         <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <button className="oa-btn oa-btn-green" style={{ minHeight: 30, fontSize: 11.5 }} onClick={() => pickVariant(c, false)}>
+                          {/* Copy dat DAU TIEN: viec hay lam nhat la chep di dan sang
+                              Instagram. "Dung ban nay" chi do xuong o soan ben duoi,
+                              tuc them mot buoc nua truoc khi chep. */}
+                          <button
+                            className="oa-btn oa-btn-green"
+                            style={{ minHeight: 30, fontSize: 11.5 }}
+                            onClick={() => copy(c.text, `caption bản ${i + 1}`)}
+                          >
+                            Copy caption
+                          </button>
+                          <button className="oa-btn" style={{ minHeight: 30, fontSize: 11.5 }} onClick={() => pickVariant(c, false)}>
                             Dùng bản này
                           </button>
                           <button
@@ -685,7 +697,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                       </div>
                     ))}
                     <div style={{ fontSize: 11, color: '#9CA3AF', lineHeight: 1.6 }}>
-                      Đăng cả 3 với 3 nhãn khác nhau rồi xem <strong>Báo cáo Click</strong> — sau vài bài là biết góc nào thật sự ra click, không phải đoán.
+                      Đăng nhiều bản với nhãn khác nhau rồi xem <strong>Báo cáo Click</strong> — sau vài bài là biết góc nào thật sự ra click, không phải đoán.
                     </div>
                   </div>
                 )}

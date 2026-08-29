@@ -74,30 +74,35 @@ const PLACEHOLDERS = ['{price}', '{was}', '{discount}', '{link}', '{title}', '{c
 export const CAPTION_PLATFORMS = [
   {
     id: 'instagram',
+    maxHashtags: 4,
     label: 'Instagram',
     linkInCaption: false,
-    brief: 'Instagram caption. The first line is what shows before "more" — it must work alone. Line breaks between short blocks. 4-6 hashtags at the end.',
+    brief: 'Instagram caption. The first line is what shows before "more" — it must work alone. Line breaks between short blocks. At most 4 hashtags at the end.',
   },
   {
     id: 'tiktok',
+    maxHashtags: 4,
     label: 'TikTok',
     linkInCaption: false,
-    brief: 'TikTok caption. Very short — two or three lines at most, the video carries the rest. 3-4 hashtags. Plain, spoken rhythm, no formal marketing sentences.',
+    brief: 'TikTok caption. Very short — two or three lines at most, the video carries the rest. At most 4 hashtags. Plain, spoken rhythm, no formal marketing sentences.',
   },
   {
     id: 'pinterest',
+    maxHashtags: 5,
     label: 'Pinterest',
     linkInCaption: true,
-    brief: 'Pinterest description. Written for search, not for a feed: lead with what the product is in plain descriptive words someone would type into the search box. Calm and factual, no hook-and-tease. 3-5 hashtags.',
+    brief: 'Pinterest description. Written for search, not for a feed: lead with what the product is in plain descriptive words someone would type into the search box. Calm and factual, no hook-and-tease. At most 5 hashtags.',
   },
   {
     id: 'threads',
+    maxHashtags: 2,
     label: 'Threads / X',
     linkInCaption: true,
     brief: 'Short post for Threads or X. Under about 250 characters total. Conversational, one idea. At most 2 hashtags — more looks like spam on these platforms.',
   },
   {
     id: 'facebook',
+    maxHashtags: 3,
     label: 'Facebook',
     linkInCaption: true,
     brief: 'Facebook post. Slightly longer and more explanatory than Instagram; readers there scroll less and read more. 2-3 hashtags at most.',
@@ -115,7 +120,10 @@ const CaptionSchema = z.object({
     hook: z.string().describe('First line. This alone decides whether anyone reads on.'),
     body: z.string().describe('1-3 short lines. May span multiple lines separated by \\n.'),
     cta: z.string().describe('One short line telling the reader what to do. Must contain {link} or {code}, whichever the platform section requires.'),
-    hashtags: z.array(z.string()).min(3).max(6).describe('Lowercase, no # prefix, no spaces. Derived from the product and the channel topic.'),
+    // ⚠️ `min(2)` chu khong phai `min(3)`: Threads/X chi cho 2 hashtag, nen min(3)
+    // ep model vi pham mot trong hai luat. Tran THAT la `maxHashtags` cua tung nen
+    // tang, cat bang code o duoi — prompt la loi khuyen, code moi la thu chac chan.
+    hashtags: z.array(z.string()).min(2).max(8).describe('Lowercase, no # prefix, no spaces. Derived from the product and the channel topic.'),
   })).min(1).max(5),
 })
 
@@ -383,7 +391,10 @@ export async function generateCaptions(input: {
       hasCoupon: Boolean(deal.couponCode),
     })
     if (problem) rejected.push(problem)
-    else variants.push(v)
+    // ⚠️ CAT hashtag bang code, khong tin model dem dung. Prompt da noi so toi da
+    // cho tung nen tang, nhung "at most 4" la loi khuyen — do that: Instagram nhan
+    // ve 6 the trong khi brief ghi 4. Cat o day la thu chac chan duy nhat.
+    else variants.push({ ...v, hashtags: v.hashtags.slice(0, platformById(platform).maxHashtags) })
   }
   return { variants, rejected }
 }
