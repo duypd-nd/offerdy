@@ -33,6 +33,7 @@ export type AITask =
   | 'caption'
   | 'daily-report'
   | 'article-names'
+  | 'voiceover'
 
 /** Nha cung cap. Ten nay cung la khoa dung trong bien moi truong. */
 export type ProviderName = 'gemini' | 'groq' | 'openrouter' | 'anthropic'

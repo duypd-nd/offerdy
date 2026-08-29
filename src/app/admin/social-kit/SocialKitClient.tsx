@@ -7,7 +7,10 @@ import { formatAdminDateTime } from '@/lib/adminDateTime'
 import { buildCaption, shortLinkUrl, type LinkStyle } from '@/lib/socialCaption'
 import { parseCampaign } from '@/lib/shortLinkSource'
 import { CAPTION_ANGLES, CAPTION_PLATFORMS, platformById, type CaptionAngle, type CaptionPlatform } from '@/lib/ai/generateCaption'
-import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, danhDauDaDangMotDeal, logCaptionUsed, layAnhSanPham, type GeneratedCaption, type WeekItem } from './actions'
+import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, danhDauDaDangMotDeal, logCaptionUsed, layAnhSanPham, vietLoiDoc, type GeneratedCaption, type WeekItem } from './actions'
+import { GIONG, GIONG_MAC_DINH } from '@/lib/tts/giongNoi'
+import { ghepPcm, pcmTuWav, rateTuWav, wavTuPcm } from '@/lib/tts/pcmWav'
+import type { KetQuaLoiDoc } from '@/lib/ai/generateVoiceover'
 
 export type KitDeal = {
   code: number
@@ -34,6 +37,18 @@ export type KitDeal = {
 }
 
 const QR_SIZE = 220
+
+/** Tiếng đã đọc của một nhịp, giữ trong bộ nhớ trình duyệt. */
+type TiengNhip = { wav: Uint8Array; giay: number }
+
+/**
+ * Khoảng nghỉ chèn giữa các nhịp khi ghép cả bài thành một tệp.
+ *
+ * ⚠️ Phải bằng `NGHI_GIAY` trong `tieng/route.ts`, để tệp ghép ở trình duyệt
+ * nghe giống hệt tệp ghép ở máy chủ. Hai con số lệch nhau thì hai đường ghép
+ * cho ra hai độ dài khác nhau cho cùng một lời đọc.
+ */
+const NGHI_GIAY_GHEP = 0.35
 
 export default function SocialKitClient({ deals, missingCode, initialCode }: {
   deals: KitDeal[]
@@ -91,6 +106,15 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
   const [anhLoi, setAnhLoi] = useState('')
   const [anhPending, startAnh] = useTransition()
   const [dangGoiZip, setDangGoiZip] = useState(false)
+  // ── Lời đọc video ──
+  // Khoá theo mã deal, cùng lý do như bộ ảnh: đổi deal rồi quay lại thì không
+  // phải viết lại, và không bao giờ đọc nhầm lời của deal trước.
+  const [loiTheoMa, setLoiTheoMa] = useState<Record<number, KetQuaLoiDoc>>({})
+  const [tiengTheoMa, setTiengTheoMa] = useState<Record<number, TiengNhip[]>>({})
+  const [giong, setGiong] = useState<string>(GIONG_MAC_DINH)
+  const [loiDocLoi, setLoiDocLoi] = useState('')
+  const [dangDoc, setDangDoc] = useState('')
+  const [loiPending, startLoi] = useTransition()
 
   const campaign = parseCampaign(campaignRaw)
   const deal = deals.find(d => d.code === selectedCode) ?? null
@@ -281,6 +305,97 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
     } finally {
       setDangGoiZip(false)
     }
+  }
+
+  /**
+   * Viết lời đọc bốn nhịp. Chỉ ra CHỮ — chưa tốn hạn mức đọc thành tiếng nào.
+   *
+   * Tách hai bước là cố ý: chữ thường phải sửa vài lần (đổi từ, cắt cho vừa
+   * khung), mà hạn mức Gemini TTS chỉ có 3 lần/phút. Đọc lại mỗi lần sửa một
+   * chữ là tiêu sạch hạn mức vào những bản nháp không dùng.
+   */
+  const vietLoi = (code: number) => {
+    setLoiDocLoi('')
+    startLoi(async () => {
+      const r = await vietLoiDoc(code)
+      if (!r.ok) { setLoiDocLoi(r.error); return }
+      setLoiTheoMa(cu => ({ ...cu, [code]: r.ket }))
+      // Lời mới thì tiếng cũ không còn đúng nữa — bỏ đi, đừng để người dùng tải
+      // về một tệp đọc bản nháp trước.
+      setTiengTheoMa(cu => { const m = { ...cu }; delete m[code]; return m })
+    })
+  }
+
+  /**
+   * Đọc từng nhịp thành tiếng — MỘT request cho MỘT nhịp.
+   *
+   * ⚠️ Hạn mức Gemini TTS là 3 lần/phút (đo 29/08, lấy từ chính lỗi 429). Bốn
+   * nhịp nên nhịp thứ tư gần như chắc chắn ăn 429; đó là chuyện bình thường,
+   * không phải hỏng. Chờ đúng số giây Google bảo rồi đọc lại — và nói cho người
+   * dùng biết đang chờ, kẻo màn hình đứng im trông như treo.
+   */
+  const docThanhTieng = async (code: number, nhip: KetQuaLoiDoc['nhip']) => {
+    setLoiDocLoi('')
+    const ra: TiengNhip[] = []
+    try {
+      for (let i = 0; i < nhip.length; i++) {
+        for (let lan = 0; lan < 2; lan++) {
+          setDangDoc(`Đang đọc nhịp ${i + 1}/${nhip.length} — ${nhip[i].vai}…`)
+          const r = await fetch('/admin/social-kit/tieng', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ chu: nhip[i].docLen, giong, ten: `loi-${code}-${nhip[i].id}` }),
+          })
+          if (r.ok) {
+            const buf = new Uint8Array(await r.arrayBuffer())
+            ra.push({ wav: buf, giay: Number(r.headers.get('x-giay') ?? 0) })
+            break
+          }
+          const cho = Number(r.headers.get('retry-after') ?? 0)
+          if (r.status === 429 && cho > 0 && lan === 0) {
+            for (let s = cho; s > 0; s--) {
+              setDangDoc(`Hết hạn mức tạm thời (3 lần/phút) — chờ ${s} giây rồi đọc tiếp…`)
+              await new Promise(res => setTimeout(res, 1000))
+            }
+            continue
+          }
+          setLoiDocLoi(`Nhịp ${nhip[i].vai}: ${r.status} ${(await r.text()).slice(0, 160)}`)
+          return
+        }
+      }
+      setTiengTheoMa(cu => ({ ...cu, [code]: ra }))
+    } catch (e) {
+      setLoiDocLoi(String(e).slice(0, 200))
+    } finally {
+      setDangDoc('')
+    }
+  }
+
+  /** Đẩy một khối byte xuống máy thành tệp tải về. */
+  const taiByte = (byte: Uint8Array, ten: string) => {
+    // `slice()` để cắt đúng phần mình dùng: `subarray` dùng chung bộ đệm với
+    // khối gốc, và Blob sẽ ôm cả bộ đệm đó chứ không chỉ phần nhìn thấy.
+    const blob = new Blob([byte.slice().buffer as ArrayBuffer], { type: 'audio/wav' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = ten
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  /**
+   * Ghép cả bốn nhịp thành một tệp.
+   *
+   * ⚠️ Ghép ở đây, bằng CHÍNH `ghepPcm`/`wavTuPcm` mà máy chủ dùng — không viết
+   * bản ghép thứ hai. Và ghép ở trình duyệt vì máy chủ không giữ lại tiếng đã
+   * đọc: gọi lại bốn lần nữa để ghép là tiêu thêm một vòng hạn mức cho đúng thứ
+   * âm thanh đang nằm sẵn trong máy người dùng.
+   */
+  const taiCaBai = (code: number, tieng: TiengNhip[]) => {
+    if (!tieng.length) return
+    const rate = rateTuWav(tieng[0].wav)
+    taiByte(wavTuPcm(ghepPcm(tieng.map(t => pcmTuWav(t.wav)), NGHI_GIAY_GHEP, rate), rate),
+      `loi-doc-${code}.wav`)
   }
 
   const copy = (text: string, label: string) => {
@@ -570,6 +685,104 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                     </div>
                     <p className="vid-anh-chu">
                       Bấm ⤓ để tải một ảnh, hoặc <b>Tải hết</b> để lấy cả bộ. Bấm vào ảnh để mở bản gốc.
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── Lời đọc video ────────────────────────────────────
+                Hai bước tách rời CÓ Ý: viết chữ (rẻ, sửa bao nhiêu lần cũng
+                được) rồi mới đọc thành tiếng (hạn mức 3 lần/phút). Gộp làm một
+                nút thì mỗi lần sửa một chữ là tiêu một vòng hạn mức. */}
+            {deal && (
+              <div className="lda-hop">
+                <div className="vid-anh-dau">
+                  <b>Lời đọc video</b>
+                  <span>
+                    {loiTheoMa[deal.code]
+                      ? `${loiTheoMa[deal.code].nhip.length} nhịp · ${loiTheoMa[deal.code].provider}/${loiTheoMa[deal.code].model}`
+                      : 'chưa có — bấm nút bên dưới'}
+                  </span>
+                </div>
+
+                <div className="lda-nut">
+                  <button className="oa-btn oa-btn-green" disabled={loiPending || !!dangDoc}
+                    onClick={() => vietLoi(deal.code)}>
+                    {loiPending ? 'Đang viết…' : loiTheoMa[deal.code] ? '↻ Viết lại lời' : '✍ Viết lời đọc'}
+                  </button>
+
+                  {loiTheoMa[deal.code] && (
+                    <>
+                      <label className="lda-giong">
+                        Giọng
+                        <select value={giong} onChange={e => setGiong(e.target.value)} disabled={!!dangDoc}>
+                          {GIONG.map(g => <option key={g.id} value={g.id}>{g.nhan}</option>)}
+                        </select>
+                      </label>
+                      <button className="oa-btn" disabled={!!dangDoc || loiPending}
+                        onClick={() => docThanhTieng(deal.code, loiTheoMa[deal.code].nhip)}>
+                        {dangDoc ? 'Đang đọc…' : '🔊 Đọc thành tiếng'}
+                      </button>
+                    </>
+                  )}
+
+                  {tiengTheoMa[deal.code]?.length > 1 && (
+                    <button className="oa-btn vid-anh-taihet"
+                      onClick={() => taiCaBai(deal.code, tiengTheoMa[deal.code])}>
+                      ⤓ Tải cả bài (1 tệp)
+                    </button>
+                  )}
+                </div>
+
+                {dangDoc && <p className="lda-cho">{dangDoc}</p>}
+                {loiDocLoi && <p className="usr-warn lda-loi">{loiDocLoi}</p>}
+
+                {loiTheoMa[deal.code] && (
+                  <>
+                    <ol className="lda-ds">
+                      {loiTheoMa[deal.code].nhip.map((n, i) => {
+                        const t = tiengTheoMa[deal.code]?.[i]
+                        return (
+                          <li key={n.id} className="lda-nhip">
+                            <div className="lda-dau">
+                              <b>{n.vai}</b>
+                              <span className="lda-khung">{n.khung}</span>
+                              {/* Sau khi đọc thì đây là số ĐO THẬT; trước đó là ước
+                                  tính theo mô hình đã khớp. Hai thứ khác nhau nên
+                                  phải nhìn ra được: ước tính có dấu ≈. */}
+                              <span className={`lda-do${(t ? t.giay : n.giayUoc) > n.giayKhung ? ' lda-do--qua' : ''}`}
+                                title={t ? 'độ dài đo thật' : 'ước tính, chưa đọc'}>
+                                {t ? `${t.giay.toFixed(1)}s` : `≈${n.giayUoc.toFixed(1)}s`} / {n.giayKhung}s
+                              </span>
+                              {t && (
+                                <button className="vid-anh-tai" title="Tải nhịp này"
+                                  onClick={() => taiByte(t.wav, `loi-${deal.code}-${i + 1}-${n.id}.wav`)}>⤓</button>
+                              )}
+                            </div>
+                            <p className="lda-man">🖵 {n.hienTrenMan}</p>
+                            <p className="lda-doc" onClick={() => copy(n.docLen, `lời ${n.vai}`)}
+                              title="Bấm để copy">🔊 {n.docLen}</p>
+                          </li>
+                        )
+                      })}
+                    </ol>
+
+                    {loiTheoMa[deal.code].boQua.length > 0 && (
+                      <p className="usr-warn lda-loi">
+                        Bị loại: {loiTheoMa[deal.code].boQua.map(b => `${b.nhip} (${b.ly})`).join(' · ')}
+                      </p>
+                    )}
+
+                    <p className="vid-anh-chu">
+                      Bấm vào dòng 🔊 để copy. Tệp là <b>.wav</b> — CapCut nhập được;
+                      không đóng được .mp3 vì máy chủ không có ffmpeg.
+                      Đặt mỗi nhịp vào đúng cảnh hình của bạn, đừng bám theo con số giây ở đây.
+                      {/* Trần thật của tính năng, để ngay chỗ bấm chứ không giấu trong tài liệu:
+                          đọc một video hết 4 lần gọi, mà mỗi khoá chỉ có ~10 lần mỗi ngày. */}
+                      <br />⚠️ Đọc thành tiếng tốn <b>4 lần gọi</b> mỗi video, hạn mức khoảng
+                      {' '}<b>10 lần/ngày cho mỗi khoá</b> (đang có 2 khoá). Sửa chữ thoải mái —
+                      chỉ nút 🔊 mới tốn.
                     </p>
                   </>
                 )}

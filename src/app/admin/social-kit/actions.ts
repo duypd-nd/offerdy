@@ -6,6 +6,7 @@ import {
   generateCaptions, fillPlaceholders,
   type CaptionAngle, type CaptionPlatform, type CaptionDealInput, type Persona,
 } from '@/lib/ai/generateCaption'
+import { generateVoiceover, type KetQuaLoiDoc } from '@/lib/ai/generateVoiceover'
 import type { LinkStyle } from '@/lib/socialCaption'
 import { getDealCoupon } from '@/sanity/queries'
 import { scrapeProductPage } from '@/lib/ai/scrapeProductPage'
@@ -94,6 +95,46 @@ export async function generateCaptionsForDeal(input: {
   } catch (e) {
     // Tra loi ra UI: loi o day thuong la het credit Anthropic hoac thieu API key,
     // dung nhung thu can nhin thay de sua.
+    return { ok: false, error: describeAiError(e) }
+  }
+}
+
+/**
+ * Viet loi doc bon nhip cho video ngan.
+ *
+ * ⚠️ Duong nap deal + ma coupon o day PHAI giong het `generateCaptionsForDeal`
+ * ben tren — cung truy van, cung `getDealCoupon` khop theo domain cua `dealUrl`.
+ * Viet mot phep khop thu hai la tao mot cho de lech, va cho lech o day nghia la
+ * DOC LEN mot ma cua shop khac, tuc bao nguoi xem go mot ma khong bao gio ap
+ * duoc. Da co tien le dung nhu vay ghi o dau trang nay.
+ */
+export async function vietLoiDoc(code: number): Promise<
+  { ok: true; ket: KetQuaLoiDoc } | { ok: false; error: string }
+> {
+  try {
+    await requireAdmin()
+    const deal = await writeClient.fetch<CaptionDealInput | null>(
+      `*[_type == "deal" && code == $code][0]{
+        code, title, priceSale, priceOrig, discount, discountByAmount, dealUrl,
+        "slug": slug.current, "categoryName": category->name
+      }`,
+      { code }
+    )
+    if (!deal) return { ok: false, error: `Không tìm thấy deal #${code}` }
+
+    const coupon = await getDealCoupon(deal.dealUrl)
+    deal.couponCode = coupon?.code
+    deal.couponOfferText = coupon?.offerText
+
+    const ket = await generateVoiceover(deal)
+    if (ket.nhip.length === 0) {
+      return {
+        ok: false,
+        error: `Cả bốn nhịp đều bị loại: ${ket.boQua.map(b => `${b.nhip} (${b.ly})`).join(' · ')}`,
+      }
+    }
+    return { ok: true, ket }
+  } catch (e) {
     return { ok: false, error: describeAiError(e) }
   }
 }

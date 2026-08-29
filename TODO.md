@@ -341,6 +341,93 @@ nên để lại sẽ cộng vào số của chiến dịch. `count(click)` về
 
 ---
 
+## 🔖 Điểm dừng 2026-08-29 — lời đọc video sinh thẳng trên web, dùng được từ điện thoại
+
+| Phép kiểm | Kết quả |
+|---|---|
+| `npm test` | **677 / 677** (trước 647) |
+| `npx tsc --noEmit` · `npm run build` | sạch |
+| Lái Chrome thật, khung 390px | 4/4 nhịp hiện · 390/390 · **0 xén im lặng** |
+| `ffprobe` đọc tệp sinh ra | `pcm_s16le` · 24000Hz · mono · 16-bit ✔ |
+
+**Việc user đặt ra:** ở `/admin/social-kit`, dưới dòng *Lấy ảnh sản phẩm*, thêm chỗ tải
+video lên rồi hệ thống chèn lồng tiếng + sub và đẩy lên Google Drive — vì *"thường tôi làm
+việc này trên điện thoại"*.
+
+⚠️ **Đã đổi hướng sau khi đo, và user đồng ý.** Dựng video cần ffmpeg mà `/admin/*` chạy
+trên Vercel thì không có ffmpeg (`PROJECT_CONTEXT.md`, *Rendering runs locally*). Tra ra
+**CapCut trên điện thoại đã có sẵn cả text-to-speech lẫn tự tạo phụ đề**. Thứ CapCut không
+làm được là viết *nội dung* — giá thật, mã thật, hàng rào chống bịa số. Nên Offerdy chỉ lo
+phần đó và giao **chữ + tệp tiếng**; CapCut lo phần dựng. Không cần Drive, không cần máy
+nào phải bật.
+
+### Đã dựng
+
+| File | Việc |
+|---|---|
+| `src/lib/tts/pcmWav.ts` (mới) | PCM thô → WAV bằng JS thuần: cắt lặng, ghép, bọc/bóc đầu tệp |
+| `src/lib/tts/geminiVoice.ts` (mới) | gọi Gemini TTS, **xoay 2 khoá**, phân biệt hai loại 429 |
+| `src/lib/tts/giongNoi.ts` (mới) | danh sách giọng — tách riêng để client không kéo registry khoá API vào gói trình duyệt |
+| `src/lib/tts/docSoLen.ts` (mới) | `$14.99` → *"fourteen ninety-nine"*, đi qua `parsePriceAmount` |
+| `src/lib/ai/generateVoiceover.ts` (mới) | 4 nhịp HOOK/PROBLEM/PRODUCT/CTA qua router |
+| `src/app/admin/social-kit/tieng/route.ts` (mới) | một nhịp một request → tệp `.wav` tải về |
+| `tests/ttsPcmWav.test.ts` · `tests/voiceoverGuards.test.ts` | +30 assertion |
+
+### 🚨 SỐ ĐO PHẢI GIỮ — đừng đo lại
+
+**Gemini TTS có HAI hạn mức, cùng trả 429:**
+
+| Hạn mức | Giá trị | Chờ có ích không |
+|---|---|---|
+| `GenerateRequestsPerMinutePerProjectPerModel-FreeTier` | **3 / phút** | có, 15 giây |
+| `generate_content_free_tier_requests` | **10** (chưa thấy reset ⇒ gần như chắc là /ngày) | **không** |
+
+📌 **Hai khoá, hai hạn mức riêng** — đo cùng lúc: `GEMINI_API_KEY` trả 429 trong khi
+`GEMINI_API_KEY_2` trả 200. Nên `docThanhPcm` xoay khoá qua `khoaCuaNha('gemini')`.
+⚠️ `khoaCuaNha` trả **giá trị** khoá, `tenBienKhoa` mới trả tên biến. Tra `env[...]` lên
+giá trị thì ra rỗng và lỗi hiện ra là *"chưa có GEMINI_API_KEY"* — nghe y hệt chưa khai báo.
+
+**Đọc nhanh lên bằng CHỈ DẪN, không có tham số `rate`:** cùng một câu, đọc thô **3,10s**,
+kèm *"Read this as a fast, upbeat social video voiceover…"* còn **2,14s**. Câu chỉ dẫn
+không bị đọc lên.
+
+**⚠️ Tốc độ đọc KHÔNG phải hằng số** — đây là chỗ tôi sai và phải sửa:
+
+| số chữ | giây | chữ/giây |
+|---|---|---|
+| 2 | 1,36 | 1,47 |
+| 5 | 2,04 | 2,45 |
+| 18 | 5,90 | 3,05 |
+
+Mỗi đoạn có phí cố định **~0,79 giây** rồi mới tới phần theo số chữ:
+`giây = 0,79 + 0,284 × số chữ` (khớp ba điểm trên, sai số < 0,2s). Mô hình phẳng
+"2,3 chữ/giây" lấy từ **một** phép đo lệch tới 40% ở đoạn ngắn, và nó ép ngân sách nhịp
+PRODUCT xuống 18 chữ trong khi 8 giây chứa được **25**.
+
+### 🚨 BA BẪY ĐÃ TRẢ GIÁ TRONG PHIÊN NÀY
+
+1. **Loại cả nhịp vì dài quá là sai người sai việc.** Chạy thật vứt mất nhịp **HOOK** vì lố
+   đúng một chữ — tức vứt câu quan trọng nhất của video để đổi 0,1 giây. Bịa số là vấn đề
+   *sự thật* → chặn cứng. Dài quá là vấn đề *tay nghề* mà người dựng nhìn thấy và tự cắt →
+   hiện lên kèm số giây, tô cam, **không loại**.
+2. **`dealDiscountBadge` trả `{main, sub}` chứ không trả chuỗi** → `[object Object]` giữa
+   lời đọc. Và test đầu tiên **không bắt được** vì cả hai vế so sánh đều hỏng giống nhau —
+   đúng luật 8c, một phép đo không phân biệt được hỏng với chạy.
+3. **Chỉ ảnh chụp mới lộ ra lỗi nội dung.** Bảng số báo *"0 vượt khung, 0 xén im lặng"* hai
+   lần liền, trong khi ảnh cho thấy HOOK đọc **"thirty-one percent off off today"** (chữ
+   `off` lặp vì `{discount}` đã mang sẵn OFF) và CTA đọc **"OFFERDY mở ngoặc năm phần trăm"**.
+   📌 Cũng dính lại `MSYS_NO_PATHCONV`: lần đo đầu Git Bash biến `/admin/social-kit` thành
+   `C:/Program Files/Git/admin/social-kit`, và nó vẫn báo **"0 lỗi"**.
+
+### Còn lại cho tính năng này
+
+- **Chưa bấm thử nút 🔊 trên trình duyệt** — hạn mức đọc của cả hai khoá đã cạn vì chính các
+  phép đo hôm nay. Đường đọc đã kiểm bằng script (3 tệp WAV thật, `ffprobe` đọc được);
+  đường *nút bấm → route → tải về* thì chưa. **Việc đầu tiên nên làm ngày mai.**
+- Xác nhận con số **10** có reset theo ngày không — nếu sáng mai đọc được ngay thì đúng.
+
+---
+
 ## 📌 MAI LÀM TIẾP — 29/08/2026
 
 ### 🔴 Ba việc chỉ user làm được
