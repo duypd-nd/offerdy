@@ -35,6 +35,17 @@ await run(async () => {
   const tmp = path.join(root, 'node_modules', '.cache', 'offerdy-vspec')
   fs.mkdirSync(tmp, { recursive: true })
   fs.writeFileSync(path.join(tmp, 'empty.js'), 'export {}\n')
+  // ⚠️ `next/cache` PHAI co ban gia o day. `loadDealSpec` -> `@/sanity/queries`
+  // -> `unstable_cache`, va voi `packages: 'external'` thi Node phai tu giai
+  // `next/cache` luc chay — no khong giai duoc (Next chi lo module do cho bundler
+  // cua no) nen ca lenh chet voi ERR_MODULE_NOT_FOUND, TRUOC khi lam duoc gi.
+  //
+  // Ban gia chi bo lop cache di: trong mot lenh CLI chay mot lan, cache cua Next
+  // khong co y nghia gi. Giu nguyen chu ky de goi y het ban that.
+  fs.writeFileSync(path.join(tmp, 'next-cache.js'),
+    'export const unstable_cache = (fn) => fn\n' +
+    'export const revalidatePath = () => {}\n' +
+    'export const revalidateTag = () => {}\n')
   fs.writeFileSync(path.join(tmp, 'entry.ts'),
     "export { loadDealSpec } from '@/lib/video/loadDealSpec'\n" +
     "export { tongThoiLuong } from '@/lib/video/buildSpec'\n")
@@ -42,7 +53,11 @@ await run(async () => {
     entryPoints: [path.join(tmp, 'entry.ts')], outfile: path.join(tmp, 'entry.mjs'),
     bundle: true, format: 'esm', platform: 'node', target: 'node24',
     packages: 'external',
-    alias: { '@': path.join(root, 'src'), 'server-only': path.join(tmp, 'empty.js') },
+    alias: {
+      '@': path.join(root, 'src'),
+      'server-only': path.join(tmp, 'empty.js'),
+      'next/cache': path.join(tmp, 'next-cache.js'),
+    },
     logLevel: 'warning',
   })
   const { loadDealSpec, tongThoiLuong } = await import(pathToFileURL(path.join(tmp, 'entry.mjs')).href)

@@ -14,6 +14,7 @@
     "video:spec": "node scripts/video-spec.mjs",
     "video:render": "node scripts/video-render.mjs",
     "video:analyze": "node scripts/video-analyze.mjs",
+    "tts:capcut": "node scripts/tts-capcut.mjs",
     "vault:backup": "node scripts/vault-backup.mjs",
     "vault:restore": "node scripts/vault-restore.mjs",
     "check:ga4": "node scripts/check-ga4.mjs",
