@@ -30,7 +30,11 @@ export const NHIP = [
     // ⚠️ Không ghi cứng số chữ vào đây — ngân sách in ra từ `nganSachChu()` ngay
     // bên dưới trong prompt. Hai con số ở hai chỗ là chắc chắn lệch nhau, và bản
     // trước đã lệch đúng như vậy (brief nói 5, ngân sách tính ra 4).
-    brief: 'Lead with the single most surprising concrete fact — usually the price. No greeting, no "check this out", no adjective before the number.',
+    // ⚠️ "usually the price" là câu MỜI GỌI bịa số: mô hình muốn mở đầu bằng
+    // một con số mà nó lại không được cho biết con số đó. Chạy thật 29/08 trên
+    // production, nó viết "$2…" vào `hienTrenMan` và cả nhịp HOOK bị loại.
+    // Nên phải chỉ đúng chỗ trống ngay trong câu mời gọi ấy.
+    brief: 'Lead with the single most surprising concrete fact. That is usually the price — and the price is written {price}, exactly those characters. Never a digit, never a currency symbol. No greeting, no "check this out", no adjective before it.',
   },
   {
     id: 'problem',

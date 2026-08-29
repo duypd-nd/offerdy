@@ -21,7 +21,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   GIAY_MO_DAU, NHIP, canhBaoThoiLuong, demChu, dienCho, giayUocTinh,
-  khungTheoThoiLuong, nganSachChu, soatNhip,
+  generateVoiceover, khungTheoThoiLuong, nganSachChu, soatNhip,
 } from '@/lib/ai/generateVoiceover'
 import { docGiaLen, docMaLen, docPhanTramLen, soNguyenThanhChu } from '@/lib/tts/docSoLen'
 import type { CaptionDealInput } from '@/lib/ai/generateCaption'
@@ -312,4 +312,87 @@ test('không có giá gốc thì {was} biến mất, không để lại khoảng
 test('demChu tính chỗ trống là một chữ — vì đọc lên nó cũng chỉ là vài âm', () => {
   assert.equal(demChu('Blue light glasses. {price}.'), 4)
   assert.equal(demChu('   '), 0)
+})
+
+// ── Hỏi lại khi mô hình bịa số ────────────────────────────────
+//
+// Chạy thật trên production 29/08: mô hình viết "$2…" vào `hienTrenMan` của
+// nhịp HOOK, hàng rào loại đúng, và người dùng mất luôn câu quan trọng nhất của
+// video. Nới hàng rào là sai — số bịa đọc lên thành tiếng thì không ai đối
+// chiếu lại được. Đường ra là hỏi lại, kèm đúng lý do vừa trượt.
+//
+// ⚠️ Dùng nhà cung cấp GIẢ. Gọi API thật thì phép kiểm này xanh hay đỏ tuỳ hôm
+// đó mô hình có ngẫu nhiên bịa số hay không — tức không đo được gì.
+
+/** Nhà giả trả về `lanLuot[i]` cho lần gọi thứ i, lần cuối lặp lại mãi. */
+function nhaLanLuot(lanLuot: unknown[], dem: { n: number }) {
+  return () => ({
+    name: 'groq' as const,
+    isAvailable: () => true,
+    model: () => 'gia',
+    async generate() {
+      const i = Math.min(dem.n, lanLuot.length - 1)
+      dem.n += 1
+      return { data: lanLuot[i], provider: 'groq' as const, model: 'gia', latencyMs: 1 }
+    },
+  })
+}
+
+const BON_NHIP = (hookMan: string) => ({
+  nhip: [
+    { id: 'hook', hienTrenMan: hookMan, docLen: '{price}' },
+    { id: 'problem', hienTrenMan: 'Bags too small', docLen: 'Normal bags are too small' },
+    { id: 'product', hienTrenMan: 'The tote', docLen: 'The seller says it expands. Now {price}' },
+    { id: 'cta', hienTrenMan: 'In bio', docLen: 'Check {code} in bio' },
+  ],
+})
+
+test('⚠️ nhịp bịa số được HỎI LẠI, không bị vứt luôn', async () => {
+  const dem = { n: 0 }
+  // Lần đầu HOOK viết "$29.95" -> loại. Lần hai viết {price} -> qua.
+  const kho = { groq: nhaLanLuot([BON_NHIP('$29.95'), BON_NHIP('{price}')], dem) }
+  const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
+    kho as unknown as Parameters<typeof generateVoiceover>[3])
+
+  assert.equal(dem.n, 2, 'phải gọi đúng hai lần: một lần đầu, một lần hỏi lại')
+  assert.equal(ket.nhip.length, 4, 'đủ bốn nhịp sau khi hỏi lại')
+  assert.deepEqual(ket.boQua, [])
+  // Và nhịp vá vào phải nằm lại ĐÚNG CHỖ của nó trong phễu, không rơi xuống cuối.
+  assert.deepEqual(ket.nhip.map(n => n.id), ['hook', 'problem', 'product', 'cta'])
+  assert.equal(ket.nhip[0].hienTrenMan, '$14.99', 'chỗ trống đã được điền bằng giá THẬT')
+})
+
+test('⚠️ chỉ hỏi lại MỘT lần — hai lần cùng bịa thì phải nói ra, không lặp mãi', async () => {
+  const dem = { n: 0 }
+  const kho = { groq: nhaLanLuot([BON_NHIP('$29.95')], dem) }
+  const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
+    kho as unknown as Parameters<typeof generateVoiceover>[3])
+
+  assert.equal(dem.n, 2, 'không được gọi quá hai lần')
+  assert.equal(ket.nhip.length, 3, 'ba nhịp kia vẫn giữ được')
+  assert.deepEqual(ket.boQua.map(b => b.nhip), ['hook'])
+  assert.ok(ket.boQua[0].ly.includes('tự viết số'), ket.boQua[0].ly)
+})
+
+test('không nhịp nào trượt thì KHÔNG hỏi lại — đừng tiêu một lượt gọi cho không', async () => {
+  const dem = { n: 0 }
+  const kho = { groq: nhaLanLuot([BON_NHIP('{price}')], dem) }
+  const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
+    kho as unknown as Parameters<typeof generateVoiceover>[3])
+
+  assert.equal(dem.n, 1)
+  assert.equal(ket.nhip.length, 4)
+})
+
+test('nhịp đã ĐẠT ở lần đầu được giữ nguyên, lượt hỏi lại không ghi đè', async () => {
+  const dem = { n: 0 }
+  // Lần hai đổi cả chữ của nhịp problem. Nhịp đó đã đạt nên phải giữ bản cũ —
+  // không thì mỗi lần hỏi lại là một bản khác, và người dùng thấy chữ tự đổi.
+  const lanHai = BON_NHIP('{price}')
+  lanHai.nhip[1].docLen = 'DOI HET ROI'
+  const kho = { groq: nhaLanLuot([BON_NHIP('$29.95'), lanHai], dem) }
+  const ket = await generateVoiceover(DEAL, 15, { GROQ_API_KEY: 'x' },
+    kho as unknown as Parameters<typeof generateVoiceover>[3])
+
+  assert.equal(ket.nhip.find(n => n.id === 'problem')!.docLen, 'Normal bags are too small')
 })

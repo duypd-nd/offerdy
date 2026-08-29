@@ -56,14 +56,38 @@ const NhipSchema = z.object({
   hienTrenMan: z.string().min(1).max(80),
   docLen: z.string().min(1).max(300),
 })
+/**
+ * ⚠️ Quan sát 29/08, CHƯA giải thích được — đừng đọc thành kết luận.
+ *
+ * `groq/openai/gpt-oss-20b` trả `json_validate_failed` ở **4 trên 6** lượt gọi
+ * việc này, mất ~3 giây rồi router mới rơi xuống Gemini (chạy được). Nghi
+ * `.length(4)` ép `minItems`/`maxItems` làm mô hình vướng, nên đã thử nới thành
+ * `.min(1).max(6)`: ra **1 đạt / 1 trượt**.
+ *
+ * Hai lượt thì không phân biệt được gì — cả schema chặt lẫn schema nới đều có
+ * lúc đạt lúc trượt. Nên giữ schema CHẶT (nó đúng với thứ ta cần) và ghi lại
+ * quan sát. Muốn kết luận thì phải chạy đủ mẫu ở cả hai bên, chưa ai làm.
+ *
+ * Không chặn gì: router tự rơi sang nhà khác, người dùng chỉ chờ thêm ~3 giây.
+ */
 const Schema = z.object({ nhip: z.array(NhipSchema).length(4) })
 
 export type NhipViet = z.infer<typeof NhipSchema>
 
-function prompt(deal: CaptionDealInput, khung: KhungNhip[], tongGiay: number): string {
+function prompt(
+  deal: CaptionDealInput, khung: KhungNhip[], tongGiay: number, nhac?: LoiTuChoi[],
+): string {
   const dong = khung.map(n =>
     `${n.vai} (${n.nhan}) — at most ${nganSachChu(n.giay)} words spoken.\n  ${n.brief}`
   ).join('\n\n')
+
+  // Lượt hỏi lại: nói thẳng nhịp nào trượt và trượt vì gì. Gửi lại y nguyên
+  // prompt cũ thì mô hình không có lý do gì để trả lời khác đi.
+  const lanHai = nhac?.length
+    ? `\n\nYOUR PREVIOUS ATTEMPT WAS REJECTED. Rewrite ALL four beats, and fix these:
+${nhac.map(b => `- ${b.nhip}: ${b.ly}`).join('\n')}
+The most common cause is writing a figure instead of a placeholder. If a price belongs in a line, the line must contain {price} or {was} — the literal characters, braces included. Writing "$29.95" or "31%" is always wrong, even when the figure looks right.`
+    : ''
 
   return `You are writing the spoken voiceover for a vertical short-form video (TikTok / Reels) about one product. A young American audience is watching with the sound on.
 
@@ -93,7 +117,7 @@ HARD RULES
 - Never write a figure yourself — not a price, not a percentage, not a count. Use the placeholders. Code substitutes the real values from the database.
 - The word budget is the hard part. Count the words in docLen. Over budget means the voice runs past the cut and the video is wrong.
 - Plain spoken English. Contractions are good. No em dashes, no "elevate", no "game-changer", no "let's dive in".
-- Say nothing about shipping, stock, returns, warranty, or how long the price lasts. You do not know any of it.`
+- Say nothing about shipping, stock, returns, warranty, or how long the price lasts. You do not know any of it.${lanHai}`
 }
 
 export type LoiTuChoi = { nhip: NhipId; ly: string }
@@ -232,44 +256,78 @@ export async function generateVoiceover(
   deal: CaptionDealInput,
   tongGiayVao: number = THOI_LUONG_MAC_DINH,
   env: Record<string, string | undefined> = process.env,
+  // Chỉ test mới truyền `kho` — cùng nếp với `generateStructured`. Không có nó
+  // thì phép kiểm "hỏi lại một lần" phải gọi API thật, tức kết quả phụ thuộc
+  // vào việc hôm đó mô hình có ngẫu nhiên bịa số hay không. Một phép kiểm như
+  // vậy xanh hay đỏ đều không nói lên điều gì.
+  kho?: Parameters<typeof generateStructured>[2],
 ): Promise<KetQuaLoiDoc> {
   const tongGiay = Math.round(kepThoiLuong(tongGiayVao))
   const khung = khungTheoThoiLuong(tongGiay)
+  const coCoupon = !!deal.couponCode
 
-  const r = await generateStructured({
+  const goi = (nhac?: LoiTuChoi[]) => generateStructured({
     task: 'voiceover',
     schema: Schema,
     system: 'You write spoken voiceover for short affiliate product videos. You never invent a number, a statistic, or a claim the product title does not support. You count your words against the budget you are given.',
-    prompt: prompt(deal, khung, tongGiay),
+    prompt: prompt(deal, khung, tongGiay, nhac),
     maxTokens: 1200,
-    metadata: { deal: deal.code, giay: tongGiay },
-  }, env)
+    metadata: { deal: deal.code, giay: tongGiay, lan: nhac ? 2 : 1 },
+  }, env, kho)
 
-  const coCoupon = !!deal.couponCode
-  const boQua: LoiTuChoi[] = []
-  const nhip: KetQuaLoiDoc['nhip'] = []
+  // Giữ theo `id` chứ không đẩy vào mảng: lượt hỏi lại chỉ vá đúng nhịp đã
+  // trượt, và nhịp vá vào phải nằm lại đúng chỗ của nó trong phễu.
+  const dat = new Map<NhipId, KetQuaLoiDoc['nhip'][number]>()
+  let boQua: LoiTuChoi[] = []
 
-  for (const dn of khung) {
-    const viet = r.data.nhip.find(n => n.id === dn.id)
-    if (!viet) { boQua.push({ nhip: dn.id, ly: 'mô hình không viết nhịp này' }); continue }
-    const loi = soatNhip(viet, coCoupon)
-    if (loi.length) { boQua.push({ nhip: dn.id, ly: loi.join(' · ') }); continue }
-    // ⚠️ Đếm chữ trên bản ĐÃ ĐIỀN, không phải bản còn chỗ trống. `{price}` là
-    // một chữ trên giấy nhưng đọc lên là "eighty-nine ninety-five" — ba chữ.
-    // Đếm bản chưa điền là ước lượng ngắn hơn thực tế đúng ở nhịp nói giá.
-    const docLen = dienCho(viet.docLen, deal, 'doc')
-    const soChu = demChu(docLen)
-    nhip.push({
-      id: dn.id,
-      vai: dn.vai,
-      khung: dn.nhan,
-      hienTrenMan: dienCho(viet.hienTrenMan, deal, 'man'),
-      docLen,
-      soChu,
-      giayUoc: giayUocTinh(soChu),
-      giayKhung: dn.giay,
-    })
+  const nhan = (data: z.infer<typeof Schema>) => {
+    const truot: LoiTuChoi[] = []
+    for (const dn of khung) {
+      if (dat.has(dn.id)) continue
+      const viet = data.nhip.find(n => n.id === dn.id)
+      if (!viet) { truot.push({ nhip: dn.id, ly: 'mô hình không viết nhịp này' }); continue }
+      const loi = soatNhip(viet, coCoupon)
+      if (loi.length) { truot.push({ nhip: dn.id, ly: loi.join(' · ') }); continue }
+      // ⚠️ Đếm chữ trên bản ĐÃ ĐIỀN, không phải bản còn chỗ trống. `{price}` là
+      // một chữ trên giấy nhưng đọc lên là "eighty-nine ninety-five" — ba chữ.
+      // Đếm bản chưa điền là ước lượng ngắn hơn thực tế đúng ở nhịp nói giá.
+      const docLen = dienCho(viet.docLen, deal, 'doc')
+      const soChu = demChu(docLen)
+      dat.set(dn.id, {
+        id: dn.id,
+        vai: dn.vai,
+        khung: dn.nhan,
+        hienTrenMan: dienCho(viet.hienTrenMan, deal, 'man'),
+        docLen,
+        soChu,
+        giayUoc: giayUocTinh(soChu),
+        giayKhung: dn.giay,
+      })
+    }
+    return truot
   }
 
-  return { nhip, boQua, tongGiay, provider: r.provider, model: r.model }
+  const r = await goi()
+  boQua = nhan(r.data)
+
+  // ── HỎI LẠI MỘT LẦN ──────────────────────────────────────────
+  //
+  // Bịa số là lỗi CỨNG và phải cứng: một con số sai đọc lên thành tiếng thì
+  // người nghe không có cách nào đối chiếu. Nhưng loại xong rồi thôi thì hậu
+  // quả lại sai — chạy thật trên production 29/08 mất nguyên nhịp **HOOK** vì
+  // mô hình viết "$2..." thay cho `{price}`, tức mất câu quan trọng nhất của
+  // video để đổi lấy một hàng rào đã làm đúng việc.
+  //
+  // Đường ra không phải nới hàng rào mà là **hỏi lại**, kèm đúng lý do vừa
+  // trượt. Rẻ: bộ định tuyến đi nhà miễn phí trước, mất ~2 giây. Và chỉ hỏi
+  // lại MỘT lần — hai mô hình cùng bịa ở cùng một chỗ thì đó là tín hiệu cần
+  // nói ra, không phải thứ để lặp cho tới khi may mắn.
+  let r2: Awaited<ReturnType<typeof goi>> | null = null
+  if (boQua.length > 0) {
+    r2 = await goi(boQua)
+    boQua = nhan(r2.data)
+  }
+
+  const nhip = khung.map(k => dat.get(k.id)).filter((n): n is NonNullable<typeof n> => !!n)
+  return { nhip, boQua, tongGiay, provider: (r2 ?? r).provider, model: (r2 ?? r).model }
 }
