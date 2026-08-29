@@ -20,7 +20,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  GIAY_MO_DAU, NHIP, demChu, dienCho, giayUocTinh, nganSachChu, soatNhip,
+  GIAY_MO_DAU, NHIP, canhBaoThoiLuong, demChu, dienCho, giayUocTinh,
+  khungTheoThoiLuong, nganSachChu, soatNhip,
 } from '@/lib/ai/generateVoiceover'
 import { docGiaLen, docMaLen, docPhanTramLen, soNguyenThanhChu } from '@/lib/tts/docSoLen'
 import type { CaptionDealInput } from '@/lib/ai/generateCaption'
@@ -107,6 +108,76 @@ test('{coupon} bị chặn khi shop không có mã, và chặn cả khi đặt s
 
 test('bốn nhịp được khai đúng thứ tự phễu, không thiếu không thừa', () => {
   assert.deepEqual(NHIP.map(n => n.id), ['hook', 'problem', 'product', 'cta'])
+})
+
+// ── Chia khung theo độ dài video ──────────────────────────────
+
+test('⚠️ ở T=19s, công thức tái tạo ĐÚNG khung thiết kế tay ban đầu', () => {
+  // Đây là điều biến công thức này thành cách viết tổng quát của thứ đã có, chứ
+  // không phải một công thức mới nghĩ ra. Bản đầu ghi cứng 2 / 5 / 8 / 4 giây.
+  const k = khungTheoThoiLuong(19)
+  const mong: Record<string, number> = { hook: 2, problem: 5, product: 8, cta: 4 }
+  for (const n of k) {
+    assert.ok(Math.abs(n.giay - mong[n.id]) < 0.3,
+      `${n.id}: ${n.giay.toFixed(1)}s, khung tay là ${mong[n.id]}s`)
+  }
+})
+
+test('bốn khung luôn cộng đúng bằng độ dài video, không dôi không hụt', () => {
+  for (const T of [5, 10, 15, 19, 30, 60, 120]) {
+    const tong = khungTheoThoiLuong(T).reduce((s, n) => s + n.giay, 0)
+    assert.ok(Math.abs(tong - T) < 0.001, `T=${T}: cộng lại ra ${tong}`)
+  }
+})
+
+test('các khung nối liền nhau, không chồng lấn và không có khe hở', () => {
+  const k = khungTheoThoiLuong(30)
+  assert.equal(k[0].batDau, 0)
+  for (let i = 1; i < k.length; i++) {
+    assert.ok(Math.abs(k[i].batDau - (k[i - 1].batDau + k[i - 1].giay)) < 0.001,
+      `nhịp ${k[i].id} bắt đầu ở ${k[i].batDau}, nhịp trước kết thúc ở ${k[i - 1].batDau + k[i - 1].giay}`)
+  }
+})
+
+test('⚠️ HOOK KHÔNG giãn ra theo video dài — hook 9 giây không còn là hook', () => {
+  // Người xem quyết định lướt tiếp trong ~2 giây đầu bất kể video dài bao nhiêu.
+  // Chia đều theo tỉ lệ sẽ cho HOOK 9 giây ở video 60s, tức hỏng hẳn vai trò.
+  for (const T of [15, 30, 60, 120]) {
+    const hook = khungTheoThoiLuong(T).find(n => n.id === 'hook')!
+    assert.ok(hook.giay <= 2.001, `T=${T}: HOOK ${hook.giay}s`)
+  }
+  // Nhưng video RẤT ngắn thì HOOK phải co lại, kẻo nó ăn gần hết thời lượng.
+  assert.ok(khungTheoThoiLuong(6).find(n => n.id === 'hook')!.giay < 2)
+})
+
+test('PRODUCT là nhịp hút phần dôi ra khi video dài thêm', () => {
+  const ngan = khungTheoThoiLuong(15).find(n => n.id === 'product')!.giay
+  const dai = khungTheoThoiLuong(60).find(n => n.id === 'product')!.giay
+  assert.ok(dai > ngan * 4, `15s -> ${ngan.toFixed(1)}s, 60s -> ${dai.toFixed(1)}s`)
+})
+
+test('độ dài vô lý bị kẹp chứ không đẻ ra khung âm hay khổng lồ', () => {
+  for (const T of [0, -30, 1, 99999, NaN]) {
+    const k = khungTheoThoiLuong(T)
+    assert.equal(k.length, 4)
+    for (const n of k) {
+      assert.ok(Number.isFinite(n.giay) && n.giay > 0, `T=${T}, nhịp ${n.id} = ${n.giay}`)
+    }
+  }
+})
+
+test('cảnh báo nói đúng hai đầu, và im lặng ở khoảng dùng bình thường', () => {
+  assert.ok(canhBaoThoiLuong(7), 'video 7s phải được cảnh báo là quá ngắn cho 4 nhịp')
+  assert.ok(canhBaoThoiLuong(180), 'video 3 phút phải được cảnh báo là quá thưa')
+  for (const T of [12, 15, 20, 30, 60]) {
+    assert.equal(canhBaoThoiLuong(T), null, `T=${T} lẽ ra không có gì đáng nói`)
+  }
+})
+
+test('nhãn khung dùng dấu phẩy thập phân, đọc được trên giao diện tiếng Việt', () => {
+  const k = khungTheoThoiLuong(30)
+  assert.equal(k[0].nhan, '0–2s')
+  for (const n of k) assert.ok(!n.nhan.includes('.'), `nhãn "${n.nhan}" còn dấu chấm`)
 })
 
 // ── Đọc số lên ────────────────────────────────────────────────
@@ -205,6 +276,26 @@ test('⚠️ "off off" bị gộp lại — {discount} đã mang sẵn chữ OFF
   assert.equal(dienCho('{discount} off today', DEAL, 'man'), '50% OFF today')
   // Chữ "off" đứng một mình vẫn phải còn nguyên.
   assert.equal(dienCho('Take it off the shelf', DEAL, 'doc'), 'Take it off the shelf')
+})
+
+test('⚠️ "number number" bị gộp lại — {code} đã mang sẵn chữ "number"', () => {
+  // Chạy thật 29/08 ở video 30s: CTA đọc "Check number number one one seven eight".
+  // Cùng họ lỗi với "off off": chỗ trống mang sẵn một chữ mà mô hình viết lại.
+  assert.equal(dienCho('Check number {code} in bio', DEAL, 'doc'),
+    'Check number one one seven eight in bio')
+  // Dạng màn hình là "#1178" nên không có chữ nào để lặp.
+  assert.equal(dienCho('Check {code} in bio', DEAL, 'man'), 'Check #1178 in bio')
+})
+
+test('⚠️ offerText theo SỐ TIỀN cũng phải đổi sang dạng đọc', () => {
+  // `offerText` thật của một shop là "$100 Off". Để mộc thì máy đọc
+  // "dollar one hundred off".
+  const theoTien: CaptionDealInput = { ...DEAL, couponCode: 'VENTURESSALES', couponOfferText: '$100 Off' }
+  const doc = dienCho('code {coupon}', theoTien, 'doc')
+  assert.ok(!doc.includes('$'), `còn ký hiệu tiền: "${doc}"`)
+  assert.equal(doc, 'code VENTURESSALES, one hundred dollars off')
+  // Dạng màn hình giữ nguyên cách viết.
+  assert.equal(dienCho('code {coupon}', theoTien, 'man'), 'code VENTURESSALES ($100 Off)')
 })
 
 test('dấu câu không bị đẩy ra xa sau khi chỗ trống bị xoá', () => {

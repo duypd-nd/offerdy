@@ -108,7 +108,7 @@ export async function generateCaptionsForDeal(input: {
  * DOC LEN mot ma cua shop khac, tuc bao nguoi xem go mot ma khong bao gio ap
  * duoc. Da co tien le dung nhu vay ghi o dau trang nay.
  */
-export async function vietLoiDoc(code: number): Promise<
+export async function vietLoiDoc(code: number, tongGiay?: number): Promise<
   { ok: true; ket: KetQuaLoiDoc } | { ok: false; error: string }
 > {
   try {
@@ -126,7 +126,11 @@ export async function vietLoiDoc(code: number): Promise<
     deal.couponCode = coupon?.code
     deal.couponOfferText = coupon?.offerText
 
-    const ket = await generateVoiceover(deal)
+    // ⚠️ Kẹp giá trị ở ĐÂY chứ không tin ô nhập. Server action là một cổng mở
+    // cho mọi thứ gửi lên được, và `generateVoiceover` tự kẹp lần nữa — hai lớp
+    // vì một `tongGiay` khổng lồ sẽ đẻ ra ngân sách chữ khổng lồ và một prompt
+    // vô nghĩa, tiêu hạn mức AI cho không.
+    const ket = await generateVoiceover(deal, Number.isFinite(tongGiay) ? tongGiay : undefined)
     if (ket.nhip.length === 0) {
       return {
         ok: false,

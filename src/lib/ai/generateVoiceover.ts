@@ -41,64 +41,15 @@ import { generateStructured } from '@/lib/ai/router'
 import { MONEY_RE, type CaptionDealInput } from '@/lib/ai/generateCaption'
 import { docGiaLen, docMaLen, docPhanTramLen } from '@/lib/tts/docSoLen'
 import { dealDiscountBadge } from '@/lib/dealDiscountLabel'
+import {
+  NHIP, THOI_LUONG_MAC_DINH,
+  demChu, giayUocTinh, kepThoiLuong, khungTheoThoiLuong, nganSachChu,
+  type KhungNhip, type NhipId,
+} from '@/lib/tts/nhipVideo'
 
-/**
- * Phí cố định mỗi đoạn, và phần tỉ lệ theo số chữ — khớp từ ba phép đo thật
- * trên Gemini TTS kèm chỉ dẫn đọc nhanh (29/08).
- */
-export const GIAY_MO_DAU = 0.79
-export const GIAY_MOI_CHU = 0.284
-
-/** Ước tính độ dài tiếng của một câu, theo mô hình đã khớp. */
-export function giayUocTinh(soChu: number): number {
-  return soChu <= 0 ? 0 : GIAY_MO_DAU + GIAY_MOI_CHU * soChu
-}
-
-export const NHIP = [
-  {
-    id: 'hook',
-    vai: 'HOOK',
-    khung: '0–2 giây',
-    giay: 2,
-    // ⚠️ Không ghi cứng số chữ vào đây — ngân sách in ra từ `nganSachChu()` ngay
-    // bên dưới trong prompt. Hai con số ở hai chỗ là chắc chắn lệch nhau, và bản
-    // trước đã lệch đúng như vậy (brief nói 5, ngân sách tính ra 4).
-    brief: 'Lead with the single most surprising concrete fact — usually the price. No greeting, no "check this out", no adjective before the number.',
-  },
-  {
-    id: 'problem',
-    vai: 'PROBLEM / CURIOSITY',
-    khung: '2–7 giây',
-    giay: 5,
-    brief: 'Name one specific, physical annoyance with this category of product that the viewer would recognise. Do not name the product yet. Say only what the product title supports — never invent a statistic, a study, or what "most people" do.',
-  },
-  {
-    id: 'product',
-    vai: 'PRODUCT',
-    khung: '7–15 giây',
-    giay: 8,
-    brief: 'Present the product as the answer. State a claim only if the product title states it, and attribute it to the seller ("the seller says…") rather than asserting it as fact. Put the price in here using the placeholders.',
-  },
-  {
-    id: 'cta',
-    vai: 'CTA mềm',
-    khung: 'cuối video',
-    giay: 4,
-    brief: 'Soft close. No "buy now", no urgency you cannot back up — you do not know when this offer ends. Point at the product number and the bio link.',
-  },
-] as const
-
-export type NhipId = typeof NHIP[number]['id']
-
-/** Số chữ nhiều nhất mà một khung `giay` giây chứa được, làm tròn xuống. */
-export function nganSachChu(giay: number): number {
-  return Math.max(3, Math.floor((giay - GIAY_MO_DAU) / GIAY_MOI_CHU))
-}
-
-/** Đếm chữ như người đọc đếm — chỗ trống `{price}` tính là một chữ. */
-export function demChu(s: string): number {
-  return s.trim().split(/\s+/).filter(Boolean).length
-}
+// Cho phép nơi gọi lấy cả phần thuần từ một cửa. Bản thân định nghĩa nằm ở
+// `nhipVideo.ts` — client import thẳng từ đó để không kéo bộ định tuyến AI theo.
+export * from '@/lib/tts/nhipVideo'
 
 const NhipSchema = z.object({
   id: z.enum(['hook', 'problem', 'product', 'cta']),
@@ -109,12 +60,14 @@ const Schema = z.object({ nhip: z.array(NhipSchema).length(4) })
 
 export type NhipViet = z.infer<typeof NhipSchema>
 
-function prompt(deal: CaptionDealInput): string {
-  const dong = NHIP.map(n =>
-    `${n.vai} (${n.khung}) — at most ${nganSachChu(n.giay)} words spoken.\n  ${n.brief}`
+function prompt(deal: CaptionDealInput, khung: KhungNhip[], tongGiay: number): string {
+  const dong = khung.map(n =>
+    `${n.vai} (${n.nhan}) — at most ${nganSachChu(n.giay)} words spoken.\n  ${n.brief}`
   ).join('\n\n')
 
   return `You are writing the spoken voiceover for a vertical short-form video (TikTok / Reels) about one product. A young American audience is watching with the sound on.
+
+The finished video is ${tongGiay} seconds long. The four beats below must fill it — no more, no less.
 
 PRODUCT — this is everything that is known. Do not add to it.
 Title: ${deal.title}
@@ -122,7 +75,7 @@ Category: ${deal.categoryName ?? 'not specified'}
 Sale price: use {price}
 ${deal.priceOrig ? 'Original price: use {was}' : 'No original price is known — never reference one.'}
 Discount: use {discount} — it already carries the word "OFF" ("31% OFF", spoken "thirty-one percent off"), so never write "off" straight after it
-Product number: use {code}
+Product number: use {code} — it already reads as "number 1178", so never write "number" or "item" straight before it
 ${deal.couponCode
   ? 'Shop coupon: a working store-wide code exists. You MAY use {coupon} in the CTA beat only. It is store-wide, so never claim it applies to this product or stacks on the discount.'
   : 'Shop coupon: none. NEVER write {coupon}.'}
@@ -215,9 +168,14 @@ export function dienCho(chu: string, deal: CaptionDealInput, dang: 'man' | 'doc'
     // hình vẫn viết "{discount} off today" — chạy thật 29/08 ra "thirty-one
     // percent off off today". Prompt đã dặn, nhưng prompt thì phớt lờ được, và
     // một chữ lặp trong lời đọc thì đến lúc nghe mới phát hiện ra.
+    // ⚠️ Hai chỗ trống mang sẵn một chữ mà mô hình hay viết lại lần nữa:
+    //   {discount} -> "…percent off"      mô hình viết "{discount} off"
+    //   {code}     -> "number one one…"   mô hình viết "number {code}"
+    // Cả hai đều đã dặn trong prompt, và cả hai đều đã xảy ra khi chạy thật.
     // Giữ nguyên chữ hoa của lần đầu: dạng màn hình là "50% OFF", gộp bằng một
     // chuỗi thường sẽ âm thầm hạ nó xuống "50% off".
     .replace(/\b(off)\s+off\b/gi, '$1')
+    .replace(/\b(number)\s+number\b/gi, '$1')
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+([.,!?])/g, '$1')
     .trim()
@@ -230,7 +188,13 @@ export function dienCho(chu: string, deal: CaptionDealInput, dang: 'man' | 'doc'
  * thứ hai cho riêng ô này.
  */
 function docUuDai(t: string): string {
-  return t.replace(/(\d+)\s*%/g, (_, n) => docPhanTramLen(Number(n))).toLowerCase()
+  return t
+    .replace(/(\d+)\s*%/g, (_, n) => docPhanTramLen(Number(n)))
+    // ⚠️ Mã giảm theo SỐ TIỀN cũng có: `offerText` thật của một shop là "$100 Off".
+    // Không đổi thì máy đọc "dollar one hundred off". Đi qua `docGiaLen` để dùng
+    // đúng bộ đọc giá của dự án, không tự tách số ở đây.
+    .replace(/[$£€]\s?\d[\d.,]*/g, m => docGiaLen(m))
+    .toLowerCase()
 }
 
 /**
@@ -258,28 +222,34 @@ export type KetQuaLoiDoc = {
     giayKhung: number
   }[]
   boQua: LoiTuChoi[]
+  /** Độ dài video người dùng khai, sau khi kẹp vào khoảng cho phép. */
+  tongGiay: number
   provider: string
   model: string
 }
 
 export async function generateVoiceover(
   deal: CaptionDealInput,
+  tongGiayVao: number = THOI_LUONG_MAC_DINH,
   env: Record<string, string | undefined> = process.env,
 ): Promise<KetQuaLoiDoc> {
+  const tongGiay = Math.round(kepThoiLuong(tongGiayVao))
+  const khung = khungTheoThoiLuong(tongGiay)
+
   const r = await generateStructured({
     task: 'voiceover',
     schema: Schema,
     system: 'You write spoken voiceover for short affiliate product videos. You never invent a number, a statistic, or a claim the product title does not support. You count your words against the budget you are given.',
-    prompt: prompt(deal),
+    prompt: prompt(deal, khung, tongGiay),
     maxTokens: 1200,
-    metadata: { deal: deal.code },
+    metadata: { deal: deal.code, giay: tongGiay },
   }, env)
 
   const coCoupon = !!deal.couponCode
   const boQua: LoiTuChoi[] = []
   const nhip: KetQuaLoiDoc['nhip'] = []
 
-  for (const dn of NHIP) {
+  for (const dn of khung) {
     const viet = r.data.nhip.find(n => n.id === dn.id)
     if (!viet) { boQua.push({ nhip: dn.id, ly: 'mô hình không viết nhịp này' }); continue }
     const loi = soatNhip(viet, coCoupon)
@@ -292,7 +262,7 @@ export async function generateVoiceover(
     nhip.push({
       id: dn.id,
       vai: dn.vai,
-      khung: dn.khung,
+      khung: dn.nhan,
       hienTrenMan: dienCho(viet.hienTrenMan, deal, 'man'),
       docLen,
       soChu,
@@ -301,5 +271,5 @@ export async function generateVoiceover(
     })
   }
 
-  return { nhip, boQua, provider: r.provider, model: r.model }
+  return { nhip, boQua, tongGiay, provider: r.provider, model: r.model }
 }

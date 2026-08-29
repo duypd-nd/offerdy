@@ -10,6 +10,12 @@ import { CAPTION_ANGLES, CAPTION_PLATFORMS, platformById, type CaptionAngle, typ
 import { generateCaptionsForDeal, generateWeekPlan, markDealsPosted, danhDauDaDangMotDeal, logCaptionUsed, layAnhSanPham, vietLoiDoc, type GeneratedCaption, type WeekItem } from './actions'
 import { GIONG, GIONG_MAC_DINH } from '@/lib/tts/giongNoi'
 import { ghepPcm, pcmTuWav, rateTuWav, wavTuPcm } from '@/lib/tts/pcmWav'
+// ⚠️ Lấy phần thuần từ `nhipVideo`, KHÔNG từ `generateVoiceover` — file kia
+// import bộ định tuyến AI, và một component 'use client' import nó là kéo cả
+// bộ đó xuống trình duyệt.
+import {
+  THOI_LUONG_MAC_DINH, THOI_LUONG_TOI_DA, THOI_LUONG_TOI_THIEU, canhBaoThoiLuong, fmtGiay,
+} from '@/lib/tts/nhipVideo'
 import type { KetQuaLoiDoc } from '@/lib/ai/generateVoiceover'
 
 export type KitDeal = {
@@ -49,6 +55,18 @@ type TiengNhip = { wav: Uint8Array; giay: number }
  * cho ra hai độ dài khác nhau cho cùng một lời đọc.
  */
 const NGHI_GIAY_GHEP = 0.35
+
+/**
+ * Đọc số từ ô nhập, kẹp vào khoảng cho phép.
+ *
+ * ⚠️ Ô rỗng cho `''` và `Number('')` là **0**, không phải `NaN` — nên không
+ * chặn được bằng `isNaN`. Xoá sạch ô rồi gõ lại là chuyện bình thường, và nếu
+ * lúc đó state thành `NaN` thì cả khối hiện ra `NaNs`.
+ */
+function kepSo(v: string, min: number, max: number): number {
+  const n = Math.floor(Number(v))
+  return !Number.isFinite(n) ? min : Math.min(max, Math.max(min, n))
+}
 
 export default function SocialKitClient({ deals, missingCode, initialCode }: {
   deals: KitDeal[]
@@ -112,9 +130,16 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
   const [loiTheoMa, setLoiTheoMa] = useState<Record<number, KetQuaLoiDoc>>({})
   const [tiengTheoMa, setTiengTheoMa] = useState<Record<number, TiengNhip[]>>({})
   const [giong, setGiong] = useState<string>(GIONG_MAC_DINH)
+  // Độ dài video đã dựng sẵn. Giữ phút/giây tách rời vì đó là cách CapCut hiện
+  // độ dài, nên người dùng chép lại được thay vì phải tự nhân ra giây.
+  const [phut, setPhut] = useState(0)
+  const [giay, setGiay] = useState(THOI_LUONG_MAC_DINH)
   const [loiDocLoi, setLoiDocLoi] = useState('')
   const [dangDoc, setDangDoc] = useState('')
   const [loiPending, startLoi] = useTransition()
+
+  const tongGiay = phut * 60 + giay
+  const canhBaoDoDai = canhBaoThoiLuong(tongGiay)
 
   const campaign = parseCampaign(campaignRaw)
   const deal = deals.find(d => d.code === selectedCode) ?? null
@@ -317,7 +342,7 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
   const vietLoi = (code: number) => {
     setLoiDocLoi('')
     startLoi(async () => {
-      const r = await vietLoiDoc(code)
+      const r = await vietLoiDoc(code, tongGiay)
       if (!r.ok) { setLoiDocLoi(r.error); return }
       setLoiTheoMa(cu => ({ ...cu, [code]: r.ket }))
       // Lời mới thì tiếng cũ không còn đúng nữa — bỏ đi, đừng để người dùng tải
@@ -706,6 +731,25 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                   </span>
                 </div>
 
+                {/* Độ dài video đã dựng sẵn — nó quyết định cả bốn khung thời
+                    gian và ngân sách chữ. Đặt TRƯỚC nút viết, vì đổi nó sau khi
+                    đã viết thì phải viết lại. */}
+                <div className="lda-dodai">
+                  <span>Video dài</span>
+                  <label>
+                    <input type="number" min={0} max={10} value={phut} inputMode="numeric"
+                      onChange={e => setPhut(kepSo(e.target.value, 0, 10))} />
+                    phút
+                  </label>
+                  <label>
+                    <input type="number" min={0} max={59} value={giay} inputMode="numeric"
+                      onChange={e => setGiay(kepSo(e.target.value, 0, 59))} />
+                    giây
+                  </label>
+                  <b>= {tongGiay}s</b>
+                </div>
+                {canhBaoDoDai && <p className="lda-cho">{canhBaoDoDai}</p>}
+
                 <div className="lda-nut">
                   <button className="oa-btn oa-btn-green" disabled={loiPending || !!dangDoc}
                     onClick={() => vietLoi(deal.code)}>
@@ -751,9 +795,12 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                               {/* Sau khi đọc thì đây là số ĐO THẬT; trước đó là ước
                                   tính theo mô hình đã khớp. Hai thứ khác nhau nên
                                   phải nhìn ra được: ước tính có dấu ≈. */}
+                              {/* ⚠️ `giayKhung` là số thực chia ra từ độ dài video —
+                                  in thẳng cho ra "9.120000000000001s". Dùng CHUNG
+                                  `fmtGiay` với thư viện thay vì tự làm tròn ở đây. */}
                               <span className={`lda-do${(t ? t.giay : n.giayUoc) > n.giayKhung ? ' lda-do--qua' : ''}`}
                                 title={t ? 'độ dài đo thật' : 'ước tính, chưa đọc'}>
-                                {t ? `${t.giay.toFixed(1)}s` : `≈${n.giayUoc.toFixed(1)}s`} / {n.giayKhung}s
+                                {t ? fmtGiay(t.giay) : `≈${fmtGiay(n.giayUoc)}`} / {fmtGiay(n.giayKhung)}
                               </span>
                               {t && (
                                 <button className="vid-anh-tai" title="Tải nhịp này"

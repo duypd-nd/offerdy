@@ -1766,6 +1766,10 @@ a.cc-store-nm:hover{color:var(--green-dark)}
    không mang theo media query, và sáu lỗi giao diện điện thoại trong hai ngày
    của dự án này đều sinh ra đúng như vậy. */
 .lda-hop{background:#f8fafc;border:1px solid #e4eaf2;border-radius:10px;padding:12px;margin-bottom:14px}
+.lda-dodai{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 10px;font-size:12px;color:#64748b}
+.lda-dodai label{display:flex;align-items:center;gap:5px}
+.lda-dodai input{width:62px;font-size:13px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b;font-variant-numeric:tabular-nums}
+.lda-dodai b{color:#1e293b;font-variant-numeric:tabular-nums}
 .lda-nut{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}
 .lda-giong{display:flex;align-items:center;gap:6px;font-size:12px;color:#64748b}
 .lda-giong select{font-size:12px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#1e293b;max-width:100%}
