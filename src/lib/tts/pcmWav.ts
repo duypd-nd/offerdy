@@ -100,6 +100,97 @@ export function catKhoangLang(pcm: Uint8Array, rate: number = RATE_MAC_DINH): Ui
   return den > tu ? pcm.subarray(tu, den) : pcm
 }
 
+// ── Cắt một khối tiếng thành nhiều đoạn theo khoảng lặng ───────
+//
+// Vì sao cần: đọc cả bốn nhịp trong MỘT lần gọi rồi cắt lại thì tốn một lần
+// gọi thay vì bốn — với hạn mức ~10 lần/ngày mỗi khoá, đó là khác biệt giữa
+// ~5 video và ~20 video một ngày.
+//
+// 📌 Đo thật 29/08 trên đúng bốn nhịp của deal #1471, gộp làm một lần đọc:
+//
+//   lần 1: 18,21s · ba khe 0,72 / 0,76 / 0,72s
+//   lần 2: 17,25s · ba khe 0,62 / 0,56 / 0,54s · khe DÀI NHẤT trong câu: 0,10s
+//
+// Biên cách nhau hơn năm lần (0,54 so với 0,10), nên ngưỡng 0,30s nằm giữa rất
+// thoáng. Cả hai lần đều ra đúng ba khe.
+//
+// ⚠️ NHƯNG hai lần thì chưa phải một tỉ lệ. Nên hàm dưới **trả `null`** khi
+// không tìm đúng số khe cần, thay vì cắt bừa ở đâu đó. Cắt sai nghĩa là giao
+// một clip đứt giữa từ — tệp vẫn mở được, vẫn phát được, và chỉ lộ ra khi người
+// dùng đã dựng xong video. Đó đúng là họ lỗi đắt nhất của dự án này.
+
+/** Ngưỡng coi một khoảng lặng là RANH GIỚI giữa hai đoạn, không phải nghỉ trong câu. */
+export const KHE_RANH_GIOI_GIAY = 0.3
+/** Đoạn ngắn hơn mức này thì gần như chắc chắn là cắt hỏng, không phải một nhịp. */
+const DOAN_TOI_THIEU_GIAY = 0.25
+
+export type KheIm = { tu: number; den: number; giay: number }
+
+/** Mọi khoảng lặng nằm GIỮA (bỏ hai đầu), tính theo byte. */
+export function timKheIm(pcm: Uint8Array, rate: number = RATE_MAC_DINH): KheIm[] {
+  const khung = Math.floor(rate * KHUNG_GIAY) * 2
+  if (khung <= 0 || pcm.length < khung * 3) return []
+  const nguong = Math.max(NGUONG_TUYET_DOI, Math.round(dinh(pcm, 0, pcm.length) * NGUONG_THEO_DINH))
+
+  const ra: KheIm[] = []
+  let dau: number | null = null
+  let daCoTieng = false
+  for (let i = 0; i + khung <= pcm.length; i += khung) {
+    const co = dinh(pcm, i, i + khung) > nguong
+    if (co) {
+      // Chỉ tính khe nằm giữa hai vùng CÓ TIẾNG. Khoảng lặng ở đầu tệp không
+      // phải ranh giới đoạn — nó là phần đệm, và `catKhoangLang` lo việc đó.
+      if (dau !== null && daCoTieng) ra.push({ tu: dau, den: i, giay: (i - dau) / (rate * 2) })
+      dau = null
+      daCoTieng = true
+    } else if (dau === null) {
+      dau = i
+    }
+  }
+  return ra
+}
+
+/**
+ * Cắt `pcm` thành đúng `soDoan` đoạn tại các khoảng lặng dài.
+ *
+ * Trả **`null`** khi không tìm được đúng `soDoan - 1` khe, hoặc khi có đoạn
+ * ngắn bất thường. Nơi gọi phải xử lý `null` bằng cách giao một tệp liền —
+ * không bao giờ bằng cách cắt đại.
+ */
+export function catThanhDoan(
+  pcm: Uint8Array,
+  soDoan: number,
+  rate: number = RATE_MAC_DINH,
+  nguongGiay: number = KHE_RANH_GIOI_GIAY,
+): Uint8Array[] | null {
+  if (soDoan < 1) return null
+  if (soDoan === 1) return [pcm]
+
+  const ranh = timKheIm(pcm, rate).filter(k => k.giay >= nguongGiay)
+  // Nhiều hơn hoặc ít hơn đều là dấu hiệu mô hình không nghỉ như đã dặn. Lấy
+  // bừa `soDoan-1` khe dài nhất là đoán, và đoán sai ở đây thì im lặng.
+  if (ranh.length !== soDoan - 1) return null
+
+  const ra: Uint8Array[] = []
+  let tu = 0
+  for (const k of ranh) {
+    // Cắt ở GIỮA khe: chừa lại một chút đuôi tiếng cho đoạn trước và một chút
+    // đầu cho đoạn sau, thay vì xén sát ngay chỗ biên độ vừa tụt xuống ngưỡng.
+    // Làm chẵn 2 byte, kẻo lệch nửa mẫu 16-bit và cả đoạn sau thành tiếng rè.
+    const giua = (k.tu + Math.floor((k.den - k.tu) / 2)) & ~1
+    ra.push(pcm.subarray(tu, giua))
+    tu = giua
+  }
+  ra.push(pcm.subarray(tu))
+
+  // ⚠️ Cắt lặng TRƯỚC rồi mới đo. Đo trên đoạn thô là đo cả nửa khoảng nghỉ ở
+  // hai bên (~0,7s cho hai nửa), nên một nhịp cụt 0,1 giây vẫn qua được ngưỡng
+  // 0,25s — tức phép chặn tồn tại mà không chặn gì. Đã mắc đúng vậy khi viết.
+  const goc = ra.map(d => catKhoangLang(d, rate))
+  if (goc.some(d => giayCuaPcm(d, rate) < DOAN_TOI_THIEU_GIAY)) return null
+  return goc
+}
+
 /** Một khối lặng dài `giay` giây. */
 export function khoangLang(giay: number, rate: number = RATE_MAC_DINH): Uint8Array {
   return new Uint8Array(Math.max(0, Math.round(giay * rate)) * 2)

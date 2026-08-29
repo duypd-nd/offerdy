@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { currentAdmin } from '@/lib/adminSession'
 import { tenAnToan } from '@/lib/zipStore'
-import { docThanhPcm } from '@/lib/tts/geminiVoice'
+import { docGopMotLan, docThanhPcm } from '@/lib/tts/geminiVoice'
 import { ghepPcm, giayCuaPcm, wavTuPcm } from '@/lib/tts/pcmWav'
 
 /**
@@ -36,7 +36,11 @@ const TOI_DA_CHU = 400
 /** Khoảng nghỉ chèn giữa các nhịp khi ghép cả bài thành một tệp. */
 const NGHI_GIAY = 0.35
 
-type ThanBai = { chu?: unknown; doan?: unknown; giong?: unknown; ten?: unknown }
+type ThanBai = {
+  chu?: unknown; doan?: unknown; giong?: unknown; ten?: unknown
+  /** Đọc cả bài trong MỘT lần gọi rồi cắt lại — tiết kiệm hạn mức gấp bốn. */
+  gop?: unknown
+}
 
 function docDoan(than: ThanBai): string[] | { loi: string } {
   if (typeof than.chu === 'string') {
@@ -49,7 +53,9 @@ function docDoan(than: ThanBai): string[] | { loi: string } {
     // request nghĩa là request cuối chắc chắn ăn 429 sau khi đã tiêu 3 lần gọi
     // — tốn hạn mức mà không ra tệp nào.
     if (ds.length === 0) return { loi: 'Danh sách đoạn rỗng.' }
-    if (ds.length > 3) return { loi: 'Nhiều nhất 3 đoạn một lần — hạn mức Gemini là 3 lần/phút.' }
+    // 6 là trần an toàn cho ĐƯỜNG GỘP (một lần gọi). Đường từng-nhịp bên dưới
+    // tự chịu hạn mức 3 lần/phút và trình duyệt lo việc chờ.
+    if (ds.length > 6) return { loi: 'Nhiều nhất 6 đoạn một lần.' }
     return ds
   }
   return { loi: 'Thiếu `chu` hoặc `doan`.' }
@@ -68,6 +74,36 @@ export async function POST(request: NextRequest) {
   }
 
   const giong = typeof than.giong === 'string' ? than.giong : undefined
+  const ten = tenAnToan(typeof than.ten === 'string' ? than.ten : 'loi-doc', 'loi-doc')
+
+  // ── Đường GỘP: một lần gọi cho cả bài ────────────────────────
+  //
+  // Hạn mức là ~10 lần đọc mỗi khoá mỗi ngày, nên bốn lần gọi cho một video là
+  // ~5 video/ngày, còn một lần gọi là ~20. Khác biệt đó lớn hơn mọi thứ khác ở
+  // đường này.
+  if (than.gop === true && doan.length >= 2) {
+    const r = await docGopMotLan(doan, giong)
+    // ⚠️ Gộp hỏng thì trả lỗi và DỪNG, không lặng lẽ rơi xuống đọc từng nhịp
+    // bên dưới. Đường lùi nằm ở phía trình duyệt — nó đã có sẵn vòng đọc từng
+    // nhịp, biết chờ hạn mức, và quan trọng hơn: người dùng nhìn thấy nó đang
+    // làm gì. Một hàm serverless lặng lẽ tiêu bốn lần gọi thay vì một thì
+    // người vận hành không có cách nào biết hạn mức đi đâu mất.
+    if (!r.ok) {
+      return new NextResponse(r.loi, {
+        status: r.choGiay ? 429 : 502,
+        headers: r.choGiay ? { 'Retry-After': String(r.choGiay) } : undefined,
+      })
+    }
+    // ⚠️ `r.doan === null` nghĩa là ĐỌC ĐƯỢC nhưng không tìm đủ khoảng lặng để
+    // cắt chắc. Khi đó giao một tệp LIỀN và nói rõ qua `x-cat: khong` — không
+    // bao giờ cắt bừa, vì clip đứt giữa từ vẫn mở được và chỉ lộ ra sau khi
+    // người dùng đã dựng xong video.
+    return traWav(wavTuPcm(r.pcm, r.rate), ten, giayCuaPcm(r.pcm, r.rate), {
+      'x-cat': r.doan ? r.doan.map(d => d.length).join(',') : 'khong',
+      'x-rate': String(r.rate),
+    })
+  }
+
   const khoi: Uint8Array[] = []
   let rate = 0
 
@@ -88,17 +124,22 @@ export async function POST(request: NextRequest) {
   }
 
   const pcm = khoi.length === 1 ? khoi[0] : ghepPcm(khoi, NGHI_GIAY, rate)
-  const wav = wavTuPcm(pcm, rate)
-  const ten = tenAnToan(typeof than.ten === 'string' ? than.ten : 'loi-doc', 'loi-doc')
+  // ⚠️ KHÔNG gửi `x-cat` ở đây. Đường này ghép các nhịp KÈM khoảng nghỉ
+  // NGHI_GIAY, nên độ dài từng khối không phải mốc cắt — trình duyệt cắt theo
+  // đó sẽ lệch dần từ đoạn thứ hai trở đi. Mốc cắt chỉ có nghĩa ở đường gộp.
+  return traWav(wavTuPcm(pcm, rate), ten, giayCuaPcm(pcm, rate), { 'x-rate': String(rate) })
+}
 
+function traWav(wav: Uint8Array, ten: string, giay: number, them: Record<string, string>) {
   return new NextResponse(wav as unknown as BodyInit, {
     headers: {
       'Content-Type': 'audio/wav',
       'Content-Disposition': `attachment; filename="${ten}.wav"`,
       'Content-Length': String(wav.length),
       // Để giao diện in ra độ dài thật thay vì ước lượng theo số chữ.
-      'x-giay': giayCuaPcm(pcm, rate).toFixed(2),
+      'x-giay': giay.toFixed(2),
       'Cache-Control': 'no-store',
+      ...them,
     },
   })
 }

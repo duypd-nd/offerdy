@@ -49,7 +49,7 @@
  */
 import { khoaCuaNha } from '@/lib/ai/router/registry'
 import { GIONG_MAC_DINH, laGiongHopLe } from './giongNoi'
-import { catKhoangLang, docRate, giayCuaPcm } from './pcmWav'
+import { catKhoangLang, catThanhDoan, docRate, giayCuaPcm } from './pcmWav'
 
 const URL_TTS = 'https://generativelanguage.googleapis.com/v1beta/models'
 const MODEL = 'gemini-2.5-flash-preview-tts'
@@ -66,7 +66,7 @@ const CHI_DAN = 'Read this as a fast, upbeat social video voiceover for a young 
 
 export type KetQuaDoc =
   | { ok: true; pcm: Uint8Array; rate: number; giay: number }
-  | { ok: false; loi: string; choGiay?: number }
+  | { ok: false; loi: string; choGiay?: number; la5xx?: boolean }
 
 /** Số giây phải chờ, đọc từ `retryDelay` kiểu `"15s"` mà Google trả về. */
 export function docChoGiay(j: unknown): number | undefined {
@@ -115,7 +115,74 @@ export async function docThanhPcm(
   return cuoi
 }
 
-async function goiMotKhoa(loi: string, giong: string, key: string): Promise<KetQuaDoc> {
+/**
+ * Đọc CẢ BỐN NHỊP trong **một** lần gọi, rồi cắt lại theo khoảng lặng.
+ *
+ * ── VÌ SAO ─────────────────────────────────────────────────────────
+ *
+ * Hạn mức là ~10 lần đọc mỗi khoá mỗi ngày. Bốn nhịp một video tức ~5 video
+ * mỗi ngày với hai khoá; gộp lại còn một lần gọi thì thành ~20.
+ *
+ * ── CÁCH BẮT MÔ HÌNH NGHỈ GIỮA CÁC ĐOẠN ────────────────────────────
+ *
+ * Đo 29/08, hai cách soạn, cùng bốn nhịp thật:
+ *
+ *   đánh số "1." "2." …  -> ĐÚNG ba khe (0,72/0,76/0,72s và 0,62/0,56/0,54s)
+ *   chỉ xuống dòng đôi   -> chỉ HAI khe — hai nhịp bị dính làm một
+ *
+ * Nên phải đánh số, và phải dặn **đừng đọc số lên**.
+ *
+ * ⚠️ Chưa đo được tỉ lệ lỗi 500. Bốn lần gặp 500 trên cả hai khoá trong lúc
+ * thử, nhưng phép so có đối chứng (văn bản dài vs ngắn) bị hạn mức 429 nuốt
+ * mất nên **không tách được** "văn bản dài gây 500" với "Google trục trặc lúc
+ * đó". Vì vậy: thử lại vài lần khi gặp 5xx (lỗi 5xx KHÔNG tốn hạn mức), và nơi
+ * gọi phải có đường lùi về đọc từng nhịp.
+ */
+const CHI_DAN_GOP = 'Read this as a fast, upbeat social video voiceover for a young '
+  + 'American audience. Energetic but natural, no announcer voice, no pause before '
+  + 'the first word. There are four separate segments below; leave a clear one '
+  + 'second silence between segments, and do not read the numbers:'
+
+/** Bao nhiêu lần thử lại khi gặp 5xx. Lỗi 5xx không tốn hạn mức nên thử lại rẻ. */
+const THU_LAI_5XX = 2
+
+export type KetQuaGop =
+  | { ok: true; pcm: Uint8Array; rate: number; giay: number; doan: Uint8Array[] | null }
+  | { ok: false; loi: string; choGiay?: number }
+
+export async function docGopMotLan(
+  doan: string[],
+  giong: string = GIONG_MAC_DINH,
+  env: Record<string, string | undefined> = process.env,
+): Promise<KetQuaGop> {
+  const sach = doan.map(d => d.trim()).filter(Boolean)
+  if (sach.length < 2) return { ok: false, loi: 'Cần ít nhất hai đoạn mới đáng gộp.' }
+
+  const chu = sach.map((d, i) => `${i + 1}. ${d}`).join('\n\n')
+  const keys = khoaCuaNha('gemini', env)
+  if (keys.length === 0) return { ok: false, loi: 'Chưa có GEMINI_API_KEY trên môi trường này.' }
+  if (!laGiongHopLe(giong)) return { ok: false, loi: `Giọng không hợp lệ: ${giong}` }
+
+  let cuoi: KetQuaDoc = { ok: false, loi: 'Không khoá nào đọc được.' }
+  for (const key of keys) {
+    for (let lan = 0; lan <= THU_LAI_5XX; lan++) {
+      const r = await goiMotKhoa(chu, giong, key, CHI_DAN_GOP)
+      if (r.ok) {
+        // `null` ở đây là câu trả lời **thật**: đọc được nhưng không cắt chắc
+        // được. Nơi gọi giao một tệp liền và nói rõ, chứ không cắt bừa.
+        return { ...r, doan: catThanhDoan(r.pcm, sach.length, r.rate) }
+      }
+      cuoi = r
+      if (!r.la5xx) break
+    }
+    if (cuoi.ok === false && cuoi.choGiay === undefined && !cuoi.la5xx) return cuoi
+  }
+  return cuoi
+}
+
+async function goiMotKhoa(
+  loi: string, giong: string, key: string, chiDan: string = CHI_DAN,
+): Promise<KetQuaDoc> {
   let res: Response
   try {
     res = await fetch(`${URL_TTS}/${MODEL}:generateContent?key=${encodeURIComponent(key)}`, {
@@ -137,6 +204,10 @@ async function goiMotKhoa(loi: string, giong: string, key: string): Promise<KetQ
   const j = await res.json().catch(() => null)
   if (!res.ok) {
     const mo = (j as { error?: { message?: string } })?.error?.message ?? `HTTP ${res.status}`
+    // ⚠️ Tách 5xx ra: nó KHÔNG tốn hạn mức, nên thử lại là rẻ. Gộp nó với 400
+    // (sai tên giọng, chữ rỗng) thì hoặc bỏ cuộc quá sớm ở một lỗi tạm thời,
+    // hoặc thử lại vô ích ở một lỗi không bao giờ tự hết.
+    if (res.status >= 500) return { ok: false, la5xx: true, loi: `Gemini lỗi tạm thời (${res.status}). ${mo.slice(0, 120)}` }
     if (res.status !== 429) return { ok: false, loi: mo.slice(0, 200) }
 
     // ⚠️ HAI hạn mức khác hẳn nhau cùng trả về 429. Gộp chúng làm một là bảo

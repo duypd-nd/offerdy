@@ -9,7 +9,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  DAU_WAV, catKhoangLang, docRate, ghepPcm, giayCuaPcm, khoangLang,
+  DAU_WAV, catKhoangLang, catThanhDoan, docRate, ghepPcm, giayCuaPcm, khoangLang, timKheIm,
   pcmTuWav, rateTuWav, wavTuPcm,
 } from '@/lib/tts/pcmWav'
 
@@ -122,3 +122,90 @@ test('ghép rồi bọc rồi bóc ra lại đúng bằng cái đã ghép — ha
   assert.deepEqual(Array.from(vong.subarray(0, 64)), Array.from(ghep.subarray(0, 64)))
 })
 
+
+// ── Cắt một lần đọc thành nhiều nhịp ──────────────────────────
+//
+// Gộp bốn nhịp vào MỘT lần gọi rồi cắt lại là khác biệt giữa ~5 video/ngày và
+// ~20 (hạn mức ~10 lần đọc mỗi khoá mỗi ngày). Nhưng cắt sai thì giao một clip
+// đứt giữa từ — tệp vẫn mở được, vẫn phát được, và chỉ lộ ra khi người dùng đã
+// dựng xong video. Nên `catThanhDoan` phải trả `null` chứ không đoán.
+//
+// 📌 Số dùng ở đây lấy từ đo thật 29/08 trên bốn nhịp của deal #1471:
+//    ranh giới giữa các nhịp: 0,54 – 0,76s
+//    khe dài nhất TRONG câu:  0,10s
+// Ngưỡng 0,30s nằm giữa, cách mỗi bên hơn ba lần.
+
+/** Dựng một khối tiếng gồm `doan` đoạn, cách nhau `khe` giây im. */
+function dungBai(doan: number[], khe: number[], rate = 24000): Uint8Array {
+  const phan: Uint8Array[] = []
+  for (let i = 0; i < doan.length; i++) {
+    if (i > 0) phan.push(khoangLang(khe[i - 1], rate))
+    phan.push(tieng(doan[i], 8000, rate))
+  }
+  const tong = phan.reduce((s, p) => s + p.length, 0)
+  const ra = new Uint8Array(tong)
+  let vt = 0
+  for (const p of phan) { ra.set(p, vt); vt += p.length }
+  return ra
+}
+
+test('cắt đúng bốn nhịp khi có đúng ba khoảng lặng dài — theo số đo thật', () => {
+  const pcm = dungBai([1.6, 2.6, 8.7, 3.1], [0.72, 0.76, 0.72])
+  const ra = catThanhDoan(pcm, 4, 24000)
+  assert.ok(ra, 'phải cắt được')
+  assert.equal(ra!.length, 4)
+  // Mỗi đoạn phải gần đúng độ dài đã dựng (đã trừ phần cắt khoảng lặng hai đầu).
+  const mong = [1.6, 2.6, 8.7, 3.1]
+  ra!.forEach((d, i) => {
+    const g = giayCuaPcm(d, 24000)
+    assert.ok(Math.abs(g - mong[i]) < 0.3, `đoạn ${i + 1}: ${g.toFixed(2)}s, mong ${mong[i]}s`)
+  })
+})
+
+test('khe ngắn cỡ nghỉ trong câu KHÔNG bị coi là ranh giới', () => {
+  // 0,10s là khe dài nhất trong câu đo được. Nếu nó bị tính là ranh giới thì
+  // một câu có dấu phẩy sẽ bị cắt làm đôi.
+  const pcm = dungBai([2, 3], [0.1])
+  // ⚠️ `assert.equal(..., null)` in ra CA mang byte khi trượt — một lần chạy mất
+  // 27 giây chỉ để dựng thông báo lỗi. `assert.ok` với thông điệp tự viết thì
+  // hỏng hay đạt đều xong trong tích tắc.
+  assert.ok(catThanhDoan(pcm, 2, 24000) === null, 'khe 0,10s không được coi là ranh giới')
+})
+
+test('⚠️ thiếu hoặc thừa khe thì trả null, KHÔNG đoán chỗ cắt', () => {
+  // Mô hình nghỉ thiếu một chỗ -> ba đoạn thay vì bốn.
+  assert.ok(catThanhDoan(dungBai([2, 3, 4], [0.7, 0.7]), 4, 24000) === null, 'thiếu khe')
+  // Mô hình nghỉ thừa -> bốn khe cho bốn đoạn.
+  assert.ok(catThanhDoan(dungBai([2, 2, 2, 2, 2], [0.7, 0.7, 0.7, 0.7]), 4, 24000) === null, 'thừa khe')
+})
+
+test('⚠️ đoạn ngắn bất thường làm cả phép cắt bị từ chối', () => {
+  // Một đoạn 0,1 giây gần như chắc chắn là cắt hỏng chứ không phải một nhịp.
+  // Thà trả null để nơi gọi giao tệp liền, còn hơn giao một clip câm.
+  assert.ok(catThanhDoan(dungBai([2, 0.1, 3, 2], [0.7, 0.7, 0.7]), 4, 24000) === null,
+    'nhịp 0,1 giây phải làm cả phép cắt bị từ chối')
+})
+
+test('cắt xong ghép lại vẫn ra tệp WAV hợp lệ — vòng khép kín', () => {
+  const ra = catThanhDoan(dungBai([1.6, 2.6, 3.1], [0.7, 0.7]), 3, 24000)!
+  for (const d of ra) {
+    const wav = wavTuPcm(d, 24000)
+    assert.equal(rateTuWav(wav), 24000)
+    assert.equal(pcmTuWav(wav).length, d.length)
+  }
+})
+
+test('timKheIm bỏ qua khoảng lặng ở ĐẦU tệp — nó là phần đệm, không phải ranh giới', () => {
+  const rate = 24000
+  const pcm = new Uint8Array([...khoangLang(0.8, rate), ...tieng(2, 8000, rate),
+    ...khoangLang(0.7, rate), ...tieng(2, 8000, rate)])
+  const khe = timKheIm(pcm, rate).filter(k => k.giay >= 0.3)
+  assert.equal(khe.length, 1, 'chỉ khe GIỮA mới tính')
+  assert.equal(catThanhDoan(pcm, 2, rate)?.length, 2)
+})
+
+test('một đoạn thì trả nguyên khối, không cần tìm khe nào', () => {
+  const pcm = tieng(2)
+  assert.equal(catThanhDoan(pcm, 1, 24000)?.length, 1)
+  assert.ok(catThanhDoan(pcm, 0, 24000) === null)
+})

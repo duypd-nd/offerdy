@@ -359,10 +359,68 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
    * không phải hỏng. Chờ đúng số giây Google bảo rồi đọc lại — và nói cho người
    * dùng biết đang chờ, kẻo màn hình đứng im trông như treo.
    */
+  /**
+   * Thử đọc CẢ BÀI trong một lần gọi. Trả `null` khi không được — nơi gọi lùi
+   * về đọc từng nhịp.
+   *
+   * ⚠️ Đây là khác biệt giữa ~5 video/ngày và ~20: hạn mức là ~10 lần đọc mỗi
+   * khoá mỗi ngày, và bốn nhịp một video ăn bốn lần.
+   */
+  const thuGop = async (
+    code: number, nhip: KetQuaLoiDoc['nhip'],
+  ): Promise<{ tieng: TiengNhip[] } | { luiLai: true } | { loi: string }> => {
+    setDangDoc(`Đang đọc cả bài trong một lần gọi (${nhip.length} nhịp)…`)
+    const r = await fetch('/admin/social-kit/tieng', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        doan: nhip.map(n => n.docLen), gop: true, giong, ten: `loi-${code}`,
+      }),
+    })
+    // ⚠️ 429 thì ĐỪNG lùi về đọc từng nhịp. Hết hạn mức nghĩa là bốn lần gọi kia
+    // cũng hỏng nốt — lùi về chỉ bắt người dùng ngồi chờ hai vòng thử lại rồi
+    // nhận đúng thông báo đó. Còn 5xx là lỗi tạm thời của Gemini, lùi về có cửa.
+    if (r.status === 429) return { loi: (await r.text()).slice(0, 200) }
+    if (!r.ok) return { luiLai: true }
+
+    const wav = new Uint8Array(await r.arrayBuffer())
+    const rate = rateTuWav(wav)
+    const moc = r.headers.get('x-cat') ?? 'khong'
+
+    // Máy chủ đọc được nhưng không tìm đủ khoảng lặng để cắt chắc. Giao một tệp
+    // liền và NÓI RA, thay vì cắt bừa ra bốn clip đứt giữa từ.
+    if (moc === 'khong' || moc === '') {
+      setLoiDocLoi('Đọc được cả bài nhưng không tách được thành từng nhịp — bạn nhận một tệp liền, tự cắt trong CapCut.')
+      return { tieng: [{ wav, giay: Number(r.headers.get('x-giay') ?? 0) }] }
+    }
+
+    const dai = moc.split(',').map(Number)
+    if (dai.length !== nhip.length || dai.some(n => !Number.isFinite(n) || n <= 0)) return { luiLai: true }
+
+    // ⚠️ Cắt bằng CHÍNH `pcmTuWav`/`wavTuPcm` mà máy chủ dùng. Đọc mốc rồi tự
+    // cộng byte ở đây là bản ghép thứ hai, và hai bản ghép là hai chỗ để lệch.
+    const pcm = pcmTuWav(wav)
+    const ra: TiengNhip[] = []
+    let vt = 0
+    for (const n of dai) {
+      const phan = pcm.subarray(vt, vt + n)
+      vt += n
+      ra.push({ wav: wavTuPcm(phan, rate), giay: phan.length / (rate * 2) })
+    }
+    return { tieng: ra }
+  }
+
   const docThanhTieng = async (code: number, nhip: KetQuaLoiDoc['nhip']) => {
     setLoiDocLoi('')
     const ra: TiengNhip[] = []
     try {
+      // Đường rẻ trước. Hỏng thì mới tiêu bốn lần gọi.
+      if (nhip.length >= 2) {
+        const gop = await thuGop(code, nhip)
+        if ('tieng' in gop) { setTiengTheoMa(cu => ({ ...cu, [code]: gop.tieng })); return }
+        if ('loi' in gop) { setLoiDocLoi(gop.loi); return }
+        setDangDoc('Gộp không được — đọc lại từng nhịp (tốn hạn mức hơn)…')
+      }
       for (let i = 0; i < nhip.length; i++) {
         for (let lan = 0; lan < 2; lan++) {
           setDangDoc(`Đang đọc nhịp ${i + 1}/${nhip.length} — ${nhip[i].vai}…`)
@@ -825,11 +883,11 @@ export default function SocialKitClient({ deals, missingCode, initialCode }: {
                       Bấm vào dòng 🔊 để copy. Tệp là <b>.wav</b> — CapCut nhập được;
                       không đóng được .mp3 vì máy chủ không có ffmpeg.
                       Đặt mỗi nhịp vào đúng cảnh hình của bạn, đừng bám theo con số giây ở đây.
-                      {/* Trần thật của tính năng, để ngay chỗ bấm chứ không giấu trong tài liệu:
-                          đọc một video hết 4 lần gọi, mà mỗi khoá chỉ có ~10 lần mỗi ngày. */}
-                      <br />⚠️ Đọc thành tiếng tốn <b>4 lần gọi</b> mỗi video, hạn mức khoảng
-                      {' '}<b>10 lần/ngày cho mỗi khoá</b> (đang có 2 khoá). Sửa chữ thoải mái —
-                      chỉ nút 🔊 mới tốn.
+                      {/* Trần thật của tính năng, để ngay chỗ bấm chứ không giấu trong tài liệu. */}
+                      <br />⚠️ Đọc thành tiếng tốn <b>1 lần gọi</b> mỗi video (đọc cả bài rồi tự
+                      cắt), hạn mức khoảng <b>10 lần/ngày cho mỗi khoá</b> — đang có 2 khoá,
+                      tức ~<b>20 video/ngày</b>. Nếu gộp không được thì tự lùi về đọc từng nhịp,
+                      lúc đó tốn 4 lần. Sửa chữ thoải mái — chỉ nút 🔊 mới tốn.
                     </p>
                   </>
                 )}
