@@ -485,12 +485,61 @@ phía máy chủ nên chuỗi nhận dạng bị cắt khỏi gói trình duyệ
 chuỗi trong chunk JS) đều **không phân biệt được**. Thứ biết chắc: đã có một bản dựng mới
 hơn `5b84a61` đang chạy (tên chunk CSS đã đổi). Phép kiểm thật là bấm nút.
 
-### Còn lại cho tính năng này
+### Bổ sung — đọc cả bài trong MỘT lần gọi (`e365e3f`, đã push)
 
-- **Chưa bấm thử nút 🔊 trên trình duyệt** — hạn mức đọc của cả hai khoá đã cạn vì chính các
-  phép đo hôm nay. Đường đọc đã kiểm bằng script (3 tệp WAV thật, `ffprobe` đọc được);
-  đường *nút bấm → route → tải về* thì chưa. **Việc đầu tiên nên làm ngày mai.**
-- Xác nhận con số **10** có reset theo ngày không — nếu sáng mai đọc được ngay thì đúng.
+User hỏi: gộp 4 nhịp thành 1 lần gọi được không. **Được** — và đó là khác biệt giữa
+**~5 video/ngày và ~20**.
+
+📌 **Số đo quyết định**, trên đúng bốn nhịp deal #1471, hai lượt gọi thành công:
+
+| Lượt | Tổng | Ba khe ranh giới | Khe dài nhất *trong câu* |
+|---|---|---|---|
+| 1 | 18,21s | 0,72 / 0,76 / 0,72s | — |
+| 2 | 17,25s | 0,62 / 0,56 / 0,54s | **0,10s** |
+
+Biên cách nhau hơn **năm lần**, nên ngưỡng 0,30s nằm giữa rất thoáng.
+
+⚠️ **Cách soạn quyết định kết quả.** Cùng bốn nhịp: đánh số `1.` `2.` → **đúng 3 khe**;
+chỉ xuống dòng đôi → **chỉ 2 khe**, hai nhịp dính làm một. Phải đánh số và phải dặn đừng
+đọc số lên.
+
+**An toàn quan trọng hơn phần tiết kiệm:** `catThanhDoan` trả `null` chứ **không đoán** chỗ
+cắt khi không tìm đúng số khe. Khi đó người dùng nhận **một tệp liền** và được nói rõ — thay
+vì bốn clip đứt giữa từ, thứ vẫn mở được và chỉ lộ ra sau khi đã dựng xong video.
+
+**Ba bẫy đã mắc khi viết:** kiểm độ dài tối thiểu trên đoạn *chưa cắt lặng* → nửa khoảng
+nghỉ hai bên che mất nhịp cụt 0,1s, phép chặn tồn tại mà không chặn gì · `assert.equal(x,
+null)` in cả mảng byte khi trượt → một lần chạy test mất **27 giây** chỉ để dựng thông báo ·
+suýt gửi mốc cắt trên đường lùi, nơi các nhịp được ghép **kèm** khoảng nghỉ 0,35s nên mốc
+lệch dần từ đoạn thứ hai.
+
+| Kiểm | Kết quả |
+|---|---|
+| `npm test` | **698 / 698** |
+| `tsc` · `build` | sạch |
+
+🚨 **HAI THỨ CHƯA ĐO ĐƯỢC — đừng đọc thành "đã xong":**
+
+1. **Chưa chạy đầu-cuối đường gộp.** Hạn mức đọc cả hai khoá đã cạn vì chính các phép đo
+   hôm nay. Phép cắt là hàm thuần đã có test trên đúng số đo thật, và lượt gọi gộp đã chạy
+   thật hai lần qua HTTP thô — nhưng chuỗi *nút → route → cắt → tải về* thì chưa lần nào.
+2. **Chưa đo được tỉ lệ lỗi 500.** Bốn lần gặp 500 trên cả hai khoá, nhưng phép so có đối
+   chứng (văn bản dài vs ngắn) bị 429 nuốt mất nên **không tách được** "văn bản dài gây 500"
+   với "Google trục trặc lúc đó". Đã phòng: thử lại 2 lần khi gặp 5xx (5xx không tốn hạn
+   mức) và có đường lùi về đọc từng nhịp.
+
+### Còn lại cho tính năng này — VIỆC ĐẦU TIÊN NGÀY MAI
+
+Cả hai việc dưới đây chỉ cần **một** lần bấm nút 🔊 là xong cả hai:
+
+1. **Bấm 🔊 trên `/admin/social-kit`, deal bất kỳ.** Nó kiểm luôn: đường gộp có chạy thật
+   không · cắt ra đúng 4 nhịp không · và hạn mức ngày có hồi không.
+   - Ra **4 tệp** → gộp chạy, xong.
+   - Ra **1 tệp** kèm câu *"không tách được thành từng nhịp"* → gộp chạy nhưng mô hình
+     không nghỉ đủ. Không phải hỏng; báo lại để nới cách soạn.
+   - Chữ đỏ *"hết hạn mức hôm nay"* → con số 10 chưa reset, cần đo lại.
+2. Nếu ra tệp: nghe thử một đoạn xem có bị đứt giữa từ không. `catThanhDoan` được viết để
+   không bao giờ giao clip đứt, nhưng điều đó chưa được nghe bằng tai lần nào.
 
 ---
 
