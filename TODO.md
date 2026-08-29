@@ -419,6 +419,42 @@ PRODUCT xuống 18 chữ trong khi 8 giây chứa được **25**.
    📌 Cũng dính lại `MSYS_NO_PATHCONV`: lần đo đầu Git Bash biến `/admin/social-kit` thành
    `C:/Program Files/Git/admin/social-kit`, và nó vẫn báo **"0 lỗi"**.
 
+### Bổ sung cùng ngày — ô nhập độ dài video (`5b84a61`, đã push + deploy)
+
+Khung 0–2 / 2–7 / 7–15 giây trước đây **ghi cứng**, nên video 30 giây thì cả bốn khung sai
+và lời đọc hết trước khi video hết. Nay có ô **phút / giây** ngay trên nút *Viết lời đọc*.
+
+```
+hook = min(2s, T×0,15)   ·   cta = min(4s, T×0,2)   ·   còn lại: PROBLEM 38% / PRODUCT 62%
+```
+
+📌 **Đặt T = 19s thì công thức trả về 2,0 / 5,0 / 8,2 / 3,8** — gần đúng bằng khung
+2 / 5 / 8 / 4 thiết kế bằng tay. Nên nó là cách viết tổng quát của thứ đã có, không phải
+công thức mới nghĩ ra. Có test chốt điều đó.
+
+⚠️ **HOOK có TRẦN, không giãn theo video.** Người xem quyết định lướt tiếp trong ~2 giây
+đầu bất kể video dài bao nhiêu; chia đều theo tỉ lệ sẽ cho HOOK 9 giây ở video 60s.
+
+| Kiểm | Kết quả |
+|---|---|
+| `npm test` | **687 / 687** |
+| Chrome thật, 390px, video **30 giây** | khung ra 0–2s / 2–11,1s / 11,1–26s / 26–30s · 4/4 nhịp · 0 xén im lặng |
+
+**Bốn bẫy nữa đã trả giá:** `Math.max(5, NaN)` vẫn là `NaN` nên phép kẹp không chặn được →
+giao diện hiện `NaNs` · in thẳng số thực ra màn hình cho `9.120000000000001s` · `{code}` đã
+mang sẵn chữ "number" mà mô hình viết thêm → *"number number one one seven eight"* (cùng họ
+với "off off") · `offerText` kiểu `$100 Off` đọc lên thành *"dollar one hundred off"*.
+
+🚨 **Và hai bẫy về PHÉP ĐO, không phải về code:**
+
+1. **Giả lập sự kiện `input` để đặt giá trị ô nhập KHÔNG ăn.** React gắn `_valueTracker` và
+   bỏ qua sự kiện khi tracker nói giá trị không đổi. Script vẫn báo *"đã đặt"* rồi lặng lẽ
+   sinh khung của video **15 giây** trong khi tôi tưởng đang đo video 30 giây — một phép đo
+   sai mà trông như chạy tốt. Phải **gõ thật** qua `Input.insertText`.
+2. **Một lượt chạy báo "0 nhịp, không lỗi" thật ra là phiên đăng nhập bị đá ra.**
+   `requireAdmin()` gọi `redirect()`. Nay script in **URL** trước mọi kết luận — bị đá ra
+   và code hỏng nhìn giống hệt nhau nếu chỉ đếm số nhịp.
+
 ### Còn lại cho tính năng này
 
 - **Chưa bấm thử nút 🔊 trên trình duyệt** — hạn mức đọc của cả hai khoá đã cạn vì chính các
