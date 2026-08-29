@@ -50,7 +50,7 @@ const THU_TU_MAC_DINH: ProviderName[] = ['groq', 'gemini', 'openrouter', 'anthro
 
 const KHOA_ENV: Record<ProviderName, string[]> = {
   groq: ['GROQ_API_KEY', 'GROQ_API_KEY_2'],
-  gemini: ['GEMINI_API_KEY', 'GEMINI_API_KEY_2'],
+  gemini: ['GEMINI_API_KEY', 'GEMINI_API_KEY_2', 'GEMINI_API_KEY_3', 'GEMINI_API_KEY_4', 'GEMINI_API_KEY_5'],
   openrouter: ['OPENROUTER_API_KEY', 'OPENROUTER_API_KEY_2'],
   anthropic: ['ANTHROPIC_API_KEY'],
 }

@@ -27,9 +27,13 @@
  * đọc được ngay từ sáng thì đúng là mỗi ngày; đừng ghi nó thành sự thật cho tới
  * lúc đó.
  *
- * **Hai khoá, hai hạn mức riêng.** Đo cùng lúc: `GEMINI_API_KEY` đã cạn trả 429
+ * **Mỗi khoá một hạn mức riêng.** Đo cùng lúc: `GEMINI_API_KEY` đã cạn trả 429
  * trong khi `GEMINI_API_KEY_2` vẫn trả 200. Nên xoay khoá không phải tối ưu vụn
- * vặt — nó là thứ nhân đôi số video làm được trong ngày.
+ * vặt — nó là thứ nhân số video làm được trong ngày lên đúng bằng số khoá.
+ * Đo 29/08: **năm** khoá (`GEMINI_API_KEY`, `_2`…`_5`), cả năm gọi thật đều trả
+ * 200 cho cả sinh chữ lẫn TTS. Danh sách nằm ở `KHOA_ENV` trong `registry.ts` —
+ * thêm khoá vào `.env.local` mà quên thêm tên vào đó thì khoá mới **không được
+ * dùng**, và không có dấu hiệu gì báo cho biết.
  *
  * Hạn mức mỗi phút cũng cấm hẳn một kiểu thiết kế: gói cả bốn đoạn vào MỘT hàm
  * serverless thì hàm đó phải tự ngủ ~15 giây giữa chừng, và ngân sách thời gian
@@ -92,7 +96,7 @@ export async function docThanhPcm(
   env: Record<string, string | undefined> = process.env,
 ): Promise<KetQuaDoc> {
   // Dùng lại đúng danh sách khoá của bộ định tuyến AI. Đọc thẳng `GEMINI_API_KEY`
-  // ở đây là bỏ quên khoá thứ hai — tức vứt đi một nửa hạn mức mỗi ngày.
+  // ở đây là bỏ quên bốn khoá còn lại — tức vứt đi 4/5 hạn mức mỗi ngày.
   //
   // ⚠️ `khoaCuaNha` trả về **giá trị** khoá, không phải tên biến (tên biến là
   // `tenBienKhoa`). Tra `env[...]` một lần nữa lên giá trị đó thì ra rỗng, và

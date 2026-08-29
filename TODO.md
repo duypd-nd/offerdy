@@ -410,8 +410,11 @@ nào phải bật.
 | `GenerateRequestsPerMinutePerProjectPerModel-FreeTier` | **3 / phút** | có, 15 giây |
 | `generate_content_free_tier_requests` | **10** (chưa thấy reset ⇒ gần như chắc là /ngày) | **không** |
 
-📌 **Hai khoá, hai hạn mức riêng** — đo cùng lúc: `GEMINI_API_KEY` trả 429 trong khi
-`GEMINI_API_KEY_2` trả 200. Nên `docThanhPcm` xoay khoá qua `khoaCuaNha('gemini')`.
+📌 **Mỗi khoá một hạn mức riêng** — đo cùng lúc: `GEMINI_API_KEY` trả 429 trong khi
+`GEMINI_API_KEY_2` trả 200. Nay có **năm** khoá (`GEMINI_API_KEY`, `_2`…`_5`), đo 29/08
+cả năm trả 200 cho cả sinh chữ lẫn TTS ⇒ ~50 lần đọc/ngày.
+⚠️ Khoá mới chỉ có tác dụng khi tên biến được thêm vào `KHOA_ENV` trong
+`src/lib/ai/router/registry.ts` — dán vào `.env.local` thôi thì nó nằm im, không báo gì. Nên `docThanhPcm` xoay khoá qua `khoaCuaNha('gemini')`.
 ⚠️ `khoaCuaNha` trả **giá trị** khoá, `tenBienKhoa` mới trả tên biến. Tra `env[...]` lên
 giá trị thì ra rỗng và lỗi hiện ra là *"chưa có GEMINI_API_KEY"* — nghe y hệt chưa khai báo.
 

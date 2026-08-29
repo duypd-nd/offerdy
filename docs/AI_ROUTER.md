@@ -117,7 +117,7 @@ rồi so hai lần chạy.
 | Biến | Bắt buộc | Ý nghĩa |
 |---|---|---|
 | `GROQ_API_KEY`, `GROQ_API_KEY_2` | không | thiếu = Groq coi như không tồn tại |
-| `GEMINI_API_KEY`, `GEMINI_API_KEY_2` | không | |
+| `GEMINI_API_KEY` … `GEMINI_API_KEY_5` | không | **năm** khoá, năm hạn mức riêng — xoay vòng theo thứ tự |
 | `OPENROUTER_API_KEY`, `OPENROUTER_API_KEY_2` | không | |
 | `ANTHROPIC_API_KEY` | **có** | nhà cuối, và là nhà duy nhất tính tiền |
 | `AI_PROVIDER_ORDER` | không | vd `gemini,groq,anthropic`. Tên rác bị bỏ qua, không làm sập |
