@@ -226,6 +226,74 @@ ngày sẽ **ghi đè**, không cộng dồn.
 
 ---
 
+## 🚨 Bước 6b — "Đủ điều kiện" mà 0 hiển thị: đọc mục này TRƯỚC khi sửa gì
+
+Đã trả giá 4 ngày, 28→31/08/2026. Chiến dịch đầu tiên cho **0 hiển thị · 0 nhấp · 0đ** trong
+khi **cả bốn tầng đều báo "Đủ điều kiện"**: chiến dịch · nhóm quảng cáo · 8/8 từ khoá ·
+quảng cáo. Google **không** cảnh báo ở bất kỳ tầng nào.
+
+📌 **"Đủ điều kiện" chỉ nói *được phép chạy*, không nói *mua nổi chỗ*.** Đây là họ lỗi đắt
+nhất của dự án: thứ báo sẵn sàng mà im lặng không chạy.
+
+### Loại nghi phạm theo thứ tự này — mỗi bước là một phép đo phân biệt được
+
+| # | Nghi phạm | Xem ở đâu | Loại được khi |
+|---|---|---|---|
+| 1 | Từ khoá không có lượng tìm kiếm | Từ khoá → cột **Trạng thái** ở cấp *từ khoá* | không cái nào ghi *Lượng tìm kiếm thấp* |
+| 2 | Quảng cáo bị từ chối / chờ duyệt | **Quảng cáo** → cột Trạng thái | ghi *Đủ điều kiện* |
+| 3 | Thanh toán chưa xác lập | **Thanh toán → Tóm tắt** | có số dư khả dụng |
+| 4 | Chiến lược đấu thầu cần dữ liệu chuyển đổi | **Cài đặt → Đặt giá thầu** | là *Tối đa hoá số lượt nhấp* hoặc CPC thủ công |
+| 5 | **Trần CPC dưới sàn đấu giá** | Keyword Planner, xem dưới | ← thủ phạm lần này |
+
+### Cách lấy sàn đấu giá thật (miễn phí, 5 phút)
+
+**Công cụ 🔧 → Công cụ lập kế hoạch từ khoá → Xem lượng tìm kiếm và số liệu dự báo** → dán
+đúng danh sách từ khoá đang chạy → bật cột **Giá thầu đầu trang (phạm vi mức giá thấp)**.
+
+⚠️ **Hai bẫy, cả hai đều làm kết luận lật ngược:**
+
+1. **Mặc định vị trí là Việt Nam.** Phải đổi sang **Hoa Kỳ**. CPC Việt Nam rẻ hơn nhiều
+   lần — quên đổi thì thấy số đẹp và kết luận ngược hẳn.
+2. **Đơn vị là ĐỒNG, không phải đô** (tài khoản VNĐ). `26.000` là ~$1, không phải $26.000
+   cũng không phải $26.
+
+**Số đo 31/08/2026, Hoa Kỳ, 8 từ khoá tủ lạnh ô tô** — giữ lại làm mốc:
+
+| | Giá trị |
+|---|---|
+| Sàn đầu trang thấp nhất | **6.083đ** |
+| Sàn đầu trang cao nhất | **8.008đ** |
+| Vùng giá cao | 23.733 – 39.988đ |
+| Trần đang đặt lúc đó | **4.000đ** ⇒ thiếu 34% so với từ khoá rẻ nhất |
+| Lượng tìm kiếm | 1.000–10.000/tháng (6/8 từ khoá), cạnh tranh **Cao** cả 8 |
+
+### Chốt: đừng đặt trần CPC khi chưa biết giá thị trường
+
+Trần đặt mò là chiến dịch câm mà không ai báo. Hai đường đi, đường 1 tốt hơn cho lần đầu:
+
+1. **Bỏ trần hẳn**, để *Tối đa hoá số lượt nhấp* tự tìm mức mua được — nó vốn ưu tiên nhấp
+   **rẻ**. Sau 24–48h đọc cột **CPC Tr.bình** để biết **giá thật của mình**, thay vì ước
+   lượng của Keyword Planner. Đây là phép đo tốt hơn; trần che mất giá thật nếu nó cao hơn.
+2. Đặt trần ở **khe giữa sàn đấu giá và ngưỡng hoà vốn** (lần này: trên 8.008đ, dưới
+   ~14.900đ ⇒ **15.000đ**). Chỉ làm được **sau khi** đã có cả hai con số đó.
+
+⚠️ Bỏ trần **không** mất kiểm soát chi tiêu: hàng rào là ngân sách ngày + script Bước 2.
+Trần CPC không phải thứ giữ tiền. Nhưng nó cũng **không còn phanh ở cấp nhấp** — nên việc
+đọc `CPC Tr.bình` sau 24–48h là **bắt buộc**, đừng để chạy quên.
+
+### ⚠️ Và một bẫy đọc số ở trang Thanh toán
+
+**Chi phí ròng khác 0 không có nghĩa là quảng cáo đã tiêu tiền.** Đo 31/08: trang Thanh toán
+báo *Chi phí ròng tháng 8: **14.815đ*** trong khi trang Chiến dịch báo **0đ**. Sổ cái
+(**Thanh toán → Hoạt động thanh toán**) chỉ có 2 dòng: nạp 200.000đ, và **Thuế VAT −14.815đ**
+(đúng 8%). Không có dòng chi phí quảng cáo nào.
+
+📌 **Luôn mở *Hoạt động thanh toán* xem sổ cái từng dòng** trước khi đọc một con số khác 0
+thành "quảng cáo đã chạy". Hệ quả kèm theo: chừng nào chi tiêu quảng cáo còn là 0 thì
+**không kiểm được đơn vị tiền của script Bước 2** — `0 >= TRAN` sai ở cả hai cách hiểu.
+
+---
+
 ## Bước 7 — Chiến dịch thứ hai trở đi (KHÔNG phải làm lại từ đầu)
 
 Luồng dài ở Bước 1 là **thủ tục tạo tài khoản, chỉ một lần**. Những thứ sau đã xong vĩnh viễn:

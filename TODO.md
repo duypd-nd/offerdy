@@ -611,16 +611,74 @@ Cả hai việc dưới đây chỉ cần **một** lần bấm nút 🔊 là xo
 
 ---
 
-## 📌 MAI LÀM TIẾP — 29/08/2026
+## 🔖 Điểm dừng 2026-08-31 — Google Ads câm 4 ngày vì trần CPC nằm DƯỚI sàn đấu giá
+
+Không viết một dòng code nào. Toàn bộ phiên là **đo**, và nó gỡ được việc chặn lớn nhất của
+đường quảng cáo trả tiền.
+
+**Triệu chứng:** 28→31/08, chiến dịch *Blog — 12V Car Fridge 58L vs 15L* cho **0 hiển thị ·
+0 nhấp · 0đ**, trong khi **cả bốn tầng đều báo "Đủ điều kiện"** (chiến dịch · nhóm quảng
+cáo · 8/8 từ khoá · quảng cáo).
+
+**Nguyên nhân — đã đo, không phải đoán.** Keyword Planner (Hoa Kỳ, thg 8/2025–thg 7/2026):
+
+| Sàn đầu trang (phạm vi thấp) | 8 từ khoá đang chạy |
+|---|---|
+| thấp nhất | **6.083đ** (portable freezer for car) |
+| cao nhất | **8.008đ** (12v cooler fridge) |
+| vùng giá cao | 23.733 – 39.988đ |
+
+Trần CPC đang đặt là **4.000đ** — thiếu **34%** so với từ khoá rẻ nhất. Không một từ khoá
+nào vào nổi phiên đấu giá. Lượng tìm kiếm **1.000–10.000/tháng** cho 6/8 từ khoá, cạnh
+tranh **Cao** cả 8 ⇒ từ khoá không hề chết, giá đắt là thật.
+
+**Đã xử lý:** user **bỏ tick** *Giới hạn giá thầu CPC tối đa*, để *Tối đa hoá số lượt nhấp*
+chạy tự do. Đây là lựa chọn đo tốt hơn đặt trần 15.000đ: trần che mất giá thị trường thật
+nếu nó cao hơn. Hàng rào còn lại là ngân sách 61.561đ/ngày + script chặn 150.000đ/ngày.
+
+### 🚨 BA BẪY ĐÃ TRẢ GIÁ — sẽ cắn lại
+
+1. **"Đủ điều kiện" ở bốn tầng KHÔNG có nghĩa là quảng cáo chạy được.** Nó chỉ nói *được
+   phép*, không nói *mua nổi chỗ*. Đây đúng họ lỗi đắt nhất của dự án: thứ báo "sẵn sàng"
+   mà im lặng không chạy. Google **không** cảnh báo ở bất kỳ tầng nào.
+2. **Chi phí ròng 14.815đ trông y hệt chi phí quảng cáo — nó là VAT.** Trang Thanh toán
+   báo *Chi phí ròng tháng 8: 14.815đ* trong khi trang Chiến dịch báo 0đ. Sổ cái
+   (*Thanh toán → Hoạt động thanh toán*) chỉ có **2 dòng**: nạp 200.000đ qua MoMo, và
+   **Thuế VAT −14.815đ** (đúng 8% của 185.185đ). **Không có dòng chi phí quảng cáo nào.**
+   📌 Tôi đã đọc số này thành "quảng cáo có chạy" và tuyên bố món nợ đơn vị tiền đã mở
+   khoá — **sai**. Số khác 0 chưa chắc là số mình đang tìm.
+3. **Trần CPC đặt lúc chưa biết giá thị trường là đặt mò.** Con số 4.000đ (~$0,15) không
+   dựa trên phép đo nào. Đúng luật 8a: đừng ước lượng trước khi tra.
+
+### 📌 Việc bắt buộc, đừng để chạy quên
+
+**Sau 24–48h (tức 01–02/09), đọc cột `CPC Tr.bình` ở trang Chiến dịch:**
+
+| CPC Tr.bình thật | Làm gì |
+|---|---|
+| ≤ ~15.000đ | giữ nguyên, không đặt trần |
+| 15.000 – 30.000đ | đặt lại trần **15.000đ** (khe giữa sàn 8.008đ và ngưỡng hoà vốn 1% ~14.900đ) |
+| > 30.000đ | lỗ cấu trúc ở giả định 2% — đặt trần ngay |
+
+⚠️ **Nhấp quảng cáo ≠ lượt bấm sang merchant.** Ngân sách 61.561đ/ngày mua được ~8,8
+nhấp/ngày ở vùng thấp, ~1,9 ở vùng cao. Ngưỡng phán quyết là **25 lượt bấm sang merchant**;
+nếu tỉ lệ bấm tiếp ~10% thì cần ~250 nhấp ⇒ **một tháng** ở kịch bản tốt, **bốn tháng** ở
+kịch bản xấu. Tỉ lệ bấm tiếp đó **chưa ai đo** — và 3–5 bài Instagram trả lời nó miễn phí.
+
+---
+
+## 📌 MAI LÀM TIẾP — 01/09/2026
 
 ### 🔴 Ba việc chỉ user làm được
 
-1. **Mở Nhật ký Google Ads Script, so số với chi tiêu Google báo cùng ngày.** Đây là lần
-   ĐẦU TIÊN kiểm được đơn vị tiền — hôm qua chi tiêu là 0 nên `0 >= 150000` sai ở cả hai
-   cách hiểu, phép đo không phân biệt được (luật 8c).
-   Ra `~61000d` → đơn vị đúng, xong. Ra `~2.35` → `getCost()` trả USD, phải đổi
-   `TRAN_MOI_NGAY_VND` thành `6`.
+1. ⏳ **VẪN CHƯA ĐO ĐƯỢC — đơn vị tiền của Google Ads Script.** Chi tiêu quảng cáo vẫn
+   tròn **0** sau 4 ngày (xem điểm dừng 31/08), nên `0 >= 150000` vẫn sai ở cả hai cách
+   hiểu — luật 8c, phép đo không phân biệt được gì. **Đừng mở Nhật ký Script cho tới khi
+   có chi tiêu quảng cáo thật.** Khi có rồi: so số Nhật ký in ra với chi phí Google báo
+   cùng ngày — ra **~14815** kiểu số nguyên đồng → `getCost()` trả **đồng**, trần
+   `150000` đúng; ra **~0.57** → trả **USD**, đổi `TRAN_MOI_NGAY_VND` thành `6`.
 2. **Nhập chi phí hôm qua vào `/admin/ads`** — chọn đơn vị `đ`, tỉ giá 26.200 đã lưu sẵn.
+   *(31/08: chưa có gì để nhập — chi phí quảng cáo là 0.)*
 3. **Xác nhận hay sửa giả định `% khách bấm sang merchant sẽ mua`.** Tôi đặt tạm **2** để
    kiểm chuỗi tính; đó là con số TÔI khuyến nghị, không phải user chọn. Nó nhân thẳng vào
    ngưỡng: 1% → $0,57 · **2% → $1,14** · 3% → $1,72.
